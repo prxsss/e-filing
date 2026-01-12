@@ -23,6 +23,8 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^6.7.3",
+    "eslint-plugin-format": "^1.2.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7"
   },
