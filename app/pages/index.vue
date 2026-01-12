@@ -1,3 +1,3 @@
 <template>
-  <UButton>Button</UButton>
+	<UButton>Button</UButton>
 </template>
