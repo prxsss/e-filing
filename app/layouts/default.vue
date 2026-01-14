@@ -131,17 +131,21 @@ const navbarTitle = computed(() => {
           </template>
 
           <template #right>
-            <UTooltip text="Notifications" :shortcuts="['N']">
-              <UButton
-                color="neutral"
-                variant="ghost"
-                square
-              >
-                <UChip color="error" inset>
-                  <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
-                </UChip>
-              </UButton>
-            </UTooltip>
+            <!-- Color Mode Button -->
+            <UColorModeButton class="cursor-pointer" />
+
+            <!-- Notifications Button -->
+            <UButton
+              color="neutral"
+              variant="ghost"
+              square
+            >
+              <UChip color="error" inset>
+                <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
+              </UChip>
+            </UButton>
+
+            <!-- User Info -->
             <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
               <div class="text-right hidden md:block">
                 <p class="font-semibold text-sm">
