@@ -17,24 +17,28 @@ const sidebarItems = computed(() => [{
 }, {
   label: t('newRequest'),
   icon: 'i-lucide-plus',
+  to: localePath('/new-request'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('myRequests'),
   icon: 'i-lucide-file-pen-line',
+  to: localePath('/my-requests'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('toSign'),
   icon: 'i-lucide-pen-tool',
+  to: localePath('/to-sign'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('completed'),
   icon: 'i-lucide-circle-check',
+  to: localePath('/completed'),
   onSelect: () => {
     open.value = false;
   },
