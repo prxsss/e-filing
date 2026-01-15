@@ -124,7 +124,7 @@ const selectedLanguageIcon = computed(() =>
           :label="collapsed ? undefined : t('logout')"
           color="neutral"
           variant="ghost"
-          class="w-full py-3 cursor-pointer"
+          class="w-full py-3"
           :block="collapsed"
         />
       </template>
@@ -142,7 +142,7 @@ const selectedLanguageIcon = computed(() =>
             <USelect :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
 
             <!-- Color Mode Button -->
-            <UColorModeButton class="cursor-pointer" />
+            <UColorModeButton />
 
             <!-- Notifications Button -->
             <UButton
