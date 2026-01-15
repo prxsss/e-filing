@@ -2,75 +2,85 @@
 import type { NavigationMenuItem } from '@nuxt/ui';
 
 const route = useRoute();
+const { locale, locales, t, setLocale } = useI18n();
+const localePath = useLocalePath();
 
 const open = ref(false);
 
-const sidebarItems = [{
-  label: 'Dashboard',
+const sidebarItems = computed(() => [{
+  label: t('dashboard'),
   icon: 'i-lucide-layout-dashboard',
-  to: '/',
+  to: localePath('/'),
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'New Request',
+  label: t('newRequest'),
   icon: 'i-lucide-plus',
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'My Requests',
+  label: t('myRequests'),
   icon: 'i-lucide-file-pen-line',
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'To Sign',
+  label: t('toSign'),
   icon: 'i-lucide-pen-tool',
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'Completed',
+  label: t('completed'),
   icon: 'i-lucide-circle-check',
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'Templates',
+  label: t('templates'),
   icon: 'i-lucide-file',
-  to: '/admin/templates',
+  to: localePath('/admin/templates'),
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'Requests',
+  label: t('requests'),
   icon: 'i-lucide-files',
-  to: '/admin/requests',
+  to: localePath('/admin/requests'),
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'Users',
+  label: t('users'),
   icon: 'i-lucide-users',
-  to: '/admin/users',
+  to: localePath('/admin/users'),
   onSelect: () => {
     open.value = false;
   },
 }, {
-  label: 'Permission Groups',
+  label: t('permissionGroups'),
   icon: 'i-lucide-shield-check',
-  to: '/admin/permission-groups',
+  to: localePath('/admin/permission-groups'),
   onSelect: () => {
     open.value = false;
   },
-}] satisfies NavigationMenuItem[];
+}] satisfies NavigationMenuItem[]);
 
-const flatItems = computed(() =>
-  sidebarItems.flat().filter(item => item.to));
+const languageItems = computed(() =>
+  locales.value.map(l => ({
+    name: l.name,
+    code: l.code,
+    icon: l.icon as string,
+  })),
+);
+
+// const flatItems = computed(() =>
+//   sidebarItems.value.flat().filter(item => item.to));
 
 const navbarTitle = computed(() => {
-  const current = flatItems.value.find(item =>
+  const current = sidebarItems.value.find(item =>
     item.to === route.path);
 
   // For development purposes
@@ -81,6 +91,10 @@ const navbarTitle = computed(() => {
 
   return current.label;
 });
+
+const selectedLanguageIcon = computed(() =>
+  languageItems.value.find(l => l.code === locale.value)?.icon,
+);
 </script>
 
 <template>
@@ -114,7 +128,7 @@ const navbarTitle = computed(() => {
       <template #footer="{ collapsed }">
         <UButton
           icon="i-lucide-log-out"
-          :label="collapsed ? undefined : 'Logout'"
+          :label="collapsed ? undefined : t('logout')"
           color="neutral"
           variant="ghost"
           class="w-full py-3 cursor-pointer"
@@ -131,6 +145,9 @@ const navbarTitle = computed(() => {
           </template>
 
           <template #right>
+            <!-- Language Selector -->
+            <USelect :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
+
             <!-- Color Mode Button -->
             <UColorModeButton class="cursor-pointer" />
 

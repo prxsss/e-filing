@@ -1,0 +1,12 @@
+{
+  "dashboard": "Dashboard",
+  "newRequest": "New Request",
+  "myRequests": "My Requests",
+  "toSign": "To Sign",
+  "completed": "Completed",
+  "templates": "Templates",
+  "requests": "Requests",
+  "users": "Users",
+  "permissionGroups": "Permission Groups",
+  "logout": "Logout"
+}
