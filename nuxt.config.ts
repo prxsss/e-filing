@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 
-import './lib/env';
+import env from './lib/env';
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -9,6 +9,11 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css'],
+  runtimeConfig: {
+    public: {
+      nodeEnv: env.NODE_ENV,
+    },
+  },
   compatibilityDate: '2025-07-15',
   i18n: {
     defaultLocale: 'th',
