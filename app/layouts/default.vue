@@ -76,20 +76,9 @@ const languageItems = computed(() =>
   })),
 );
 
-// const flatItems = computed(() =>
-//   sidebarItems.value.flat().filter(item => item.to));
-
 const navbarTitle = computed(() => {
-  const current = sidebarItems.value.find(item =>
-    item.to === route.path);
-
-  // For development purposes
-  if (!current) {
-    console.warn('[Navbar] title not found', route.path);
-    return 'Home';
-  }
-
-  return current.label;
+  const titleKey = route.meta.title as string;
+  return titleKey ? t(titleKey) : t('untitled');
 });
 
 const selectedLanguageIcon = computed(() =>

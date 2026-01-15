@@ -8,5 +8,6 @@
   "requests": "Requests",
   "users": "Users",
   "permissionGroups": "Permission Groups",
-  "logout": "Logout"
+  "logout": "Logout",
+  "untitled": "Untitled"
 }
