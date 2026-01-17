@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
+    "@iconify-json/lucide": "^1.2.85",
     "@types/node": "^25.0.8",
     "eslint-plugin-format": "^1.2.0",
     "husky": "^9.1.7",

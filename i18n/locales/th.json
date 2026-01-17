@@ -9,5 +9,20 @@
   "users": "ผู้ใช้",
   "permissionGroups": "กลุ่มสิทธิ์การใช้งาน",
   "logout": "ออกจากระบบ",
-  "untitled": "ไม่มีชื่อ"
+  "untitled": "ไม่มีชื่อ",
+  "totalRequests": "จำนวนคำร้องทั้งหมด",
+  "inProgress": "กำลังดำเนินการ",
+  "approved": "อนุมัติ",
+  "rejected": "ปฏิเสธ",
+  "recentRequests": "คำร้องล่าสุด",
+  "viewAll": "ดูทั้งหมด",
+  "requestTitle": "ชื่อคำร้อง",
+  "submittedDate": "วันที่ยื่น",
+  "status": "สถานะ",
+  "currentSigner": "ผู้เซ็นปัจจุบัน",
+  "progress": "ความคืบหน้า",
+  "action": "การกระทำ",
+  "view": "ดู",
+  "draft": "ร่าง",
+  "waiting": "รอดำเนินการ"
 }
