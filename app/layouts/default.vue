@@ -10,35 +10,35 @@ const open = ref(false);
 const sidebarItems = computed(() => [{
   label: t('dashboard'),
   icon: 'i-lucide-layout-dashboard',
-  to: localePath('/'),
+  to: localePath('/student/dashboard'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('newRequest'),
   icon: 'i-lucide-plus',
-  to: localePath('/new-request'),
+  to: localePath('/student/new-request'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('myRequests'),
   icon: 'i-lucide-file-pen-line',
-  to: localePath('/my-requests'),
+  to: localePath('/student/my-requests'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('toSign'),
   icon: 'i-lucide-pen-tool',
-  to: localePath('/to-sign'),
+  to: localePath('/student/to-sign'),
   onSelect: () => {
     open.value = false;
   },
 }, {
   label: t('completed'),
   icon: 'i-lucide-circle-check',
-  to: localePath('/completed'),
+  to: localePath('/student/completed'),
   onSelect: () => {
     open.value = false;
   },
