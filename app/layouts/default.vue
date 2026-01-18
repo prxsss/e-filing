@@ -6,6 +6,7 @@ const { locale, locales, t, setLocale } = useI18n();
 const localePath = useLocalePath();
 
 const open = ref(false);
+const isLoggedIn = ref(false); // Replace with actual auth state
 
 const sidebarItems = computed(() => [{
   label: t('dashboard'),
@@ -117,8 +118,7 @@ const selectedLanguageIcon = computed(() =>
           }"
         />
       </template>
-
-      <template #footer="{ collapsed }">
+      <template v-if="isLoggedIn" #footer="{ collapsed }">
         <UButton
           icon="i-lucide-log-out"
           :label="collapsed ? undefined : t('logout')"
@@ -146,6 +146,7 @@ const selectedLanguageIcon = computed(() =>
 
             <!-- Notifications Button -->
             <UButton
+              v-if="isLoggedIn"
               color="neutral"
               variant="ghost"
               square
@@ -156,7 +157,7 @@ const selectedLanguageIcon = computed(() =>
             </UButton>
 
             <!-- User Info -->
-            <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+            <div v-if="isLoggedIn" class="flex items-center gap-3 pl-4 border-l border-slate-200">
               <div class="text-right hidden md:block">
                 <p class="font-semibold text-sm">
                   Admin System
@@ -170,6 +171,9 @@ const selectedLanguageIcon = computed(() =>
                 size="lg"
               />
             </div>
+            <UButton v-else :to="localePath('/login')" icon="i-lucide-log-in">
+              Staff Login
+            </UButton>
           </template>
         </UDashboardNavbar>
       </template>
