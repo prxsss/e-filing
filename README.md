@@ -68,6 +68,8 @@ pnpm preview
 # yarn
 yarn preview
 
+# test
+
 # bun
 bun run preview
 ```
