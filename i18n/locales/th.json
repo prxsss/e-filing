@@ -24,5 +24,12 @@
   "action": "การกระทำ",
   "view": "ดู",
   "draft": "ร่าง",
-  "waiting": "รอดำเนินการ"
+  "waiting": "รอดำเนินการ",
+  "search": "ค้นหา",
+  "searchByTitle": "ค้นหาด้วยชื่อคำร้อง...",
+  "requestType": "ประเภทคำร้อง",
+  "clearFilters": "ล้างตัวกรอง",
+  "result": "ผลลัพธ์",
+  "noRequests": "ไม่พบคำร้อง",
+  "tryAdjustingFilters": "ลองปรับตัวกรองหรือการค้นหา"
 }
