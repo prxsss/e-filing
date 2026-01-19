@@ -156,24 +156,28 @@ const selectedLanguageIcon = computed(() =>
               </UChip>
             </UButton>
 
-            <!-- User Info -->
-            <div v-if="isLoggedIn" class="flex items-center gap-3 pl-4 border-l border-slate-200">
-              <div class="text-right hidden md:block">
-                <p class="font-semibold text-sm">
-                  Admin System
-                </p>
-                <p class="text-xs">
-                  IT Services
-                </p>
+            <div class="pl-4 border-l-2 border-slate-200">
+              <!-- User Info -->
+              <div v-if="isLoggedIn" class="flex items-center gap-3">
+                <div class="text-right hidden md:block">
+                  <p class="font-semibold text-sm">
+                    Admin System
+                  </p>
+                  <p class="text-xs">
+                    IT Services
+                  </p>
+                </div>
+                <UAvatar
+                  icon="i-lucide-user"
+                  size="lg"
+                />
               </div>
-              <UAvatar
-                icon="i-lucide-user"
-                size="lg"
-              />
+
+              <!-- Staff Login Button -->
+              <UButton v-else :to="localePath('/login')" icon="i-lucide-log-in">
+                Staff Login
+              </UButton>
             </div>
-            <UButton v-else :to="localePath('/login')" icon="i-lucide-log-in">
-              Staff Login
-            </UButton>
           </template>
         </UDashboardNavbar>
       </template>
