@@ -17,8 +17,10 @@
     "@nuxt/ui": "^4.3.0",
     "@nuxtjs/i18n": "^10.2.1",
     "@tailwindcss/vite": "^4.1.18",
+    "drizzle-orm": "^0.45.1",
     "eslint": "^9.39.2",
     "nuxt": "^4.2.2",
+    "postgres": "^3.4.8",
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4",
@@ -27,9 +29,11 @@
   "devDependencies": {
     "@antfu/eslint-config": "^6.7.3",
     "@types/node": "^25.0.8",
+    "drizzle-kit": "^0.31.8",
     "eslint-plugin-format": "^1.2.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7"
+    "lint-staged": "^16.2.7",
+    "tsx": "^4.21.0"
   },
   "lint-staged": {
     "*": "npm run lint"
