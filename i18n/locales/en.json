@@ -24,5 +24,12 @@
   "action": "Action",
   "view": "View",
   "draft": "Draft",
-  "waiting": "Waiting"
+  "waiting": "Waiting",
+  "search": "Search",
+  "searchByTitle": "Search by title...",
+  "requestType": "Request Type",
+  "clearFilters": "Clear Filters",
+  "result": "result(s)",
+  "noRequests": "No requests found",
+  "tryAdjustingFilters": "Try adjusting your filters or search"
 }

@@ -72,7 +72,7 @@ function handleViewRequest(requestId: string) {
         <h3 class="font-semibold text-slate-800">
           {{ t('recentRequests') }}
         </h3>
-        <UButton variant="ghost" class="text-xs" :to="localePath('/my-requests')">
+        <UButton variant="ghost" class="text-xs" :to="localePath('/student/my-requests')">
           {{ t('viewAll') }}
         </UButton>
       </div>
