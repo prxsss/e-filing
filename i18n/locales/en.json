@@ -31,5 +31,6 @@
   "clearFilters": "Clear Filters",
   "result": "result(s)",
   "noRequests": "No requests found",
-  "tryAdjustingFilters": "Try adjusting your filters or search"
+  "tryAdjustingFilters": "Try adjusting your filters or search",
+  "noRecentRequests": "No recent requests yet"
 }

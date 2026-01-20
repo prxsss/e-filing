@@ -72,21 +72,9 @@ const filteredRequests = computed(() => {
   });
 });
 
-// === Helper Function: Status Color Mapping ===
-function getStatusColor(status: Request['status']) {
-  const statusMap: Record<Request['status'], string> = {
-    'Approved': 'bg-green-100 text-green-700',
-    'In Progress': 'bg-blue-100 text-blue-700',
-    'Rejected': 'bg-red-100 text-red-700',
-    'Draft': 'bg-slate-100 text-slate-700',
-  };
-  return statusMap[status];
-}
-
-// === Navigation Helper ===
-function handleViewRequest(requestId: string) {
-  router.push(localePath(`/student/my-requests/${requestId}`));
-}
+// function handleViewRequest(requestId: string) {
+//   router.push(localePath(`/student/my-requests/${requestId}`));
+// }
 
 function handleNewRequest() {
   router.push(localePath('/student/new-request'));
@@ -164,75 +152,17 @@ function clearFilters() {
 
     <!-- Requests Table -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
-            <tr>
-              <th class="px-5 py-3">
-                {{ t('requestTitle') }}
-              </th>
-              <th class="px-5 py-3">
-                {{ t('submittedDate') }}
-              </th>
-              <th class="px-5 py-3">
-                {{ t('status') }}
-              </th>
-              <th class="px-5 py-3">
-                {{ t('currentSigner') }}
-              </th>
-              <th class="px-5 py-3">
-                {{ t('progress') }}
-              </th>
-              <th class="px-5 py-3">
-                {{ t('action') }}
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-if="filteredRequests.length === 0" class="text-center">
-              <td colspan="7" class="px-5 py-8 text-slate-500">
-                <UIcon name="i-lucide-inbox" class="size-8 mx-auto mb-2 text-slate-400" />
-                <p class="font-medium">
-                  {{ t('noRequests') || 'No requests found' }}
-                </p>
-                <p class="text-xs mt-1">
-                  {{ t('tryAdjustingFilters') || 'Try adjusting your filters or search' }}
-                </p>
-              </td>
-            </tr>
-            <tr v-for="request in filteredRequests" :key="request.id" class="hover:bg-slate-50/50 transition-colors">
-              <td class="px-5 py-4 font-medium text-slate-800">
-                {{ request.title }}
-              </td>
-              <td class="px-5 py-4 text-slate-600">
-                {{ request.date }}
-              </td>
-              <td class="px-5 py-4">
-                <UBadge :class="getStatusColor(request.status)" variant="subtle">
-                  {{ request.status }}
-                </UBadge>
-              </td>
-              <td class="px-5 py-4 text-slate-600">
-                {{ request.signer }}
-              </td>
-              <td class="px-5 py-4">
-                <div class="flex items-center gap-2">
-                  <UProgress v-model="request.progress" size="sm" />
-                  <span class="text-xs font-semibold text-slate-600 min-w-fit">{{ request.progress }}%</span>
-                </div>
-              </td>
-              <td class="px-5 py-4">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-eye"
-                  :aria-label="t('view')"
-                  @click="handleViewRequest(request.id)"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <UTable :data="filteredRequests" class="w-full" />
+
+      <!-- Empty State -->
+      <div v-if="filteredRequests.length === 0" class="p-8 text-center text-slate-500">
+        <UIcon name="i-lucide-inbox" class="size-8 mx-auto mb-2 text-slate-400" />
+        <p class="font-medium">
+          {{ t('noRequests') || 'No requests found' }}
+        </p>
+        <p class="text-xs mt-1">
+          {{ t('tryAdjustingFilters') || 'Try adjusting your filters or search' }}
+        </p>
       </div>
     </div>
   </div>
