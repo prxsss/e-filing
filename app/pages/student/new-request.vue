@@ -2,6 +2,10 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+definePageMeta({
+  title: 'newRequest',
+});
+
 // ===== STEP 1: Define data structure =====
 // Simple request type interface - easy to extend with API later
 type RequestType = {
@@ -53,10 +57,6 @@ const requestTypes: RequestType[] = [
 ];
 
 // ===== STEP 3: Setup Vue composables and state =====
-definePageMeta({
-  title: 'newRequest',
-});
-
 const router = useRouter();
 const searchQuery = ref('');
 
