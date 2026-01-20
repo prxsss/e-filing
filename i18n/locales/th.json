@@ -32,5 +32,6 @@
   "result": "ผลลัพธ์",
   "noRequests": "ไม่พบคำร้อง",
   "tryAdjustingFilters": "ลองปรับตัวกรองหรือการค้นหา",
-  "noRecentRequests": "ยังไม่มีรายการคำร้องเร็วๆ นี้"
+  "noRecentRequests": "ยังไม่มีรายการคำร้องเร็วๆ นี้",
+  "createTemplate": "สร้างแม่แบบคำร้อง"
 }
