@@ -33,5 +33,6 @@
   "noRequests": "ไม่พบคำร้อง",
   "tryAdjustingFilters": "ลองปรับตัวกรองหรือการค้นหา",
   "noRecentRequests": "ยังไม่มีรายการคำร้องเร็วๆ นี้",
-  "createTemplate": "สร้างแม่แบบคำร้อง"
+  "createTemplate": "สร้างแม่แบบคำร้อง",
+  "documentReview": "ตรวจสอบเอกสาร"
 }
