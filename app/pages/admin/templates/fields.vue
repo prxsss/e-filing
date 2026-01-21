@@ -344,7 +344,7 @@ watch(
         </div>
 
         <!-- Pagination Component -->
-        <TablePagination
+        <table-pagination
           :current-page="currentPage"
           :total-items="totalItems"
           :items-per-page="itemsPerPage"

@@ -1,51 +1,18 @@
-<template>
-  <div class="card shadow-sm">
-    <div class="card-header">
-      <i class="fas fa-list-alt mr-2"></i>Available Fields
-    </div>
-    <div class="card-body p-2">
-      <input
-        type="text"
-        class="form-control form-control-sm mb-2 search-input"
-        v-model="searchQuery"
-        placeholder="Search fields..."
-      />
-
-      <div class="fields-list">
-        <div v-for="field in filteredFields" :key="field.id" class="field-item">
-          <div class="field-info">
-            <i :class="field.icon || 'fas fa-edit'" class="field-icon"></i>
-            <span class="field-name">{{ field.label || field.name }}</span>
-          </div>
-          <button class="btn-add" @click="addField(field)" title="Add field">
-            <i class="fas fa-plus"></i>
-          </button>
-        </div>
-
-        <div v-if="filteredFields.length === 0" class="no-results">
-          <i class="fas fa-search"></i>
-          <span>No fields found</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
-const emit = defineEmits(["field-added"]);
+const emit = defineEmits(['fieldAdded']);
 // const supabase = useSupabaseClient(); // Temporarily disabled
 
 // Mock fields data
 const availableFields = ref([
-  { id: 1, name: "Student Name", label: "Student Name", type: "Text", icon: "fas fa-user", is_fillable: true, default_width: 200, default_height: 40 },
-  { id: 2, name: "Student ID", label: "Student ID", type: "Text", icon: "fas fa-id-card", is_fillable: true, default_width: 150, default_height: 40 },
-  { id: 3, name: "Email", label: "Email Address", type: "Text", icon: "fas fa-envelope", is_fillable: true, default_width: 250, default_height: 40 },
-  { id: 4, name: "Phone", label: "Phone Number", type: "Text", icon: "fas fa-phone", is_fillable: true, default_width: 150, default_height: 40 },
-  { id: 5, name: "Date", label: "Date", type: "Date", icon: "fas fa-calendar", is_fillable: true, default_width: 150, default_height: 40 },
-  { id: "default-signature", name: "Signature Box", label: "Signature", type: "Signature", icon: "fas fa-signature", is_fillable: false, default_width: 200, default_height: 80 },
-  { id: "default-checkmark", name: "Check Mark", label: "Check Mark", type: "Icon", icon: "fas fa-check", is_fillable: false, default_width: 30, default_height: 30 },
+  { id: 1, name: 'Student Name', label: 'Student Name', type: 'Text', icon: 'fas fa-user', is_fillable: true, default_width: 200, default_height: 40 },
+  { id: 2, name: 'Student ID', label: 'Student ID', type: 'Text', icon: 'fas fa-id-card', is_fillable: true, default_width: 150, default_height: 40 },
+  { id: 3, name: 'Email', label: 'Email Address', type: 'Text', icon: 'fas fa-envelope', is_fillable: true, default_width: 250, default_height: 40 },
+  { id: 4, name: 'Phone', label: 'Phone Number', type: 'Text', icon: 'fas fa-phone', is_fillable: true, default_width: 150, default_height: 40 },
+  { id: 5, name: 'Date', label: 'Date', type: 'Date', icon: 'fas fa-calendar', is_fillable: true, default_width: 150, default_height: 40 },
+  { id: 'default-signature', name: 'Signature Box', label: 'Signature', type: 'Signature', icon: 'fas fa-signature', is_fillable: false, default_width: 200, default_height: 80 },
+  { id: 'default-checkmark', name: 'Check Mark', label: 'Check Mark', type: 'Icon', icon: 'fas fa-check', is_fillable: false, default_width: 30, default_height: 30 },
 ]);
-const searchQuery = ref("");
+const searchQuery = ref('');
 
 const filteredFields = computed(() => {
   if (!searchQuery.value.trim()) {
@@ -54,17 +21,16 @@ const filteredFields = computed(() => {
 
   const query = searchQuery.value.toLowerCase();
   return availableFields.value.filter((field) => {
-    const name = (field.name || "").toLowerCase();
-    const label = (field.label || "").toLowerCase();
+    const name = (field.name || '').toLowerCase();
+    const label = (field.label || '').toLowerCase();
     return name.includes(query) || label.includes(query);
   });
 });
 
 async function fetchFields() {
   // Temporarily disabled - using mock data instead
-  console.log("Using mock fields data - database fetch disabled");
-  return;
-  
+  console.warn('Using mock fields data - database fetch disabled');
+
   /*
   try {
     const { data, error } = await supabase
@@ -82,13 +48,46 @@ async function fetchFields() {
 }
 
 function addField(field) {
-  emit("field-added", field);
+  emit('fieldAdded', field);
 }
 
 onMounted(async () => {
   await fetchFields();
 });
 </script>
+
+<template>
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <i class="fas fa-list-alt mr-2" />Available Fields
+    </div>
+    <div class="card-body p-2">
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="form-control form-control-sm mb-2 search-input"
+        placeholder="Search fields..."
+      >
+
+      <div class="fields-list">
+        <div v-for="field in filteredFields" :key="field.id" class="field-item">
+          <div class="field-info">
+            <i :class="field.icon || 'fas fa-edit'" class="field-icon" />
+            <span class="field-name">{{ field.label || field.name }}</span>
+          </div>
+          <button class="btn-add" title="Add field" @click="addField(field)">
+            <i class="fas fa-plus" />
+          </button>
+        </div>
+
+        <div v-if="filteredFields.length === 0" class="no-results">
+          <i class="fas fa-search" />
+          <span>No fields found</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 /* Card Styling */
