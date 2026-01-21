@@ -1,5 +1,5 @@
-export const usePdfFormBuilder = () => {
-  const formName = ref("");
+export function usePdfFormBuilder() {
+  const formName = ref('');
   const pdfFile = ref(null);
   const pdfDoc = shallowRef(null); // Use shallowRef to avoid Vue's deep reactivity
   const pdfLoaded = ref(false);
@@ -19,35 +19,37 @@ export const usePdfFormBuilder = () => {
   const pdfCanvas = ref(null);
 
   const availableFields = [
-    { id: "text", name: "Text Field", icon: "📝", type: "text" },
-    { id: "signature", name: "Signature", icon: "✍️", type: "signature" },
-    { id: "date", name: "Date", icon: "📅", type: "date" },
-    { id: "checkbox", name: "Checkbox", icon: "☑️", type: "checkbox" },
-    { id: "number", name: "Number", icon: "🔢", type: "number" },
+    { id: 'text', name: 'Text Field', icon: '📝', type: 'text' },
+    { id: 'signature', name: 'Signature', icon: '✍️', type: 'signature' },
+    { id: 'date', name: 'Date', icon: '📅', type: 'date' },
+    { id: 'checkbox', name: 'Checkbox', icon: '☑️', type: 'checkbox' },
+    { id: 'number', name: 'Number', icon: '🔢', type: 'number' },
   ];
 
   const currentPageFields = computed(() => {
-    return placedFields.value.filter((f) => f.page === currentPage.value);
+    return placedFields.value.filter(f => f.page === currentPage.value);
   });
 
   // Initialize PDF.js
   const initPdfJs = async () => {
-    if (pdfjsLib.value) return pdfjsLib.value;
+    if (pdfjsLib.value)
+      return pdfjsLib.value;
 
     try {
       // Import PDF.js dynamically
-      const pdfjs = await import("pdfjs-dist");
+      const pdfjs = await import('pdfjs-dist');
 
       // Set worker source
-      if (process.client) {
+      if (import.meta.client) {
         pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
       }
 
       pdfjsLib.value = pdfjs;
       return pdfjs;
-    } catch (error) {
-      console.error("Error loading PDF.js:", error);
-      throw new Error("Failed to load PDF library");
+    }
+    catch (error) {
+      console.error('Error loading PDF.js:', error);
+      throw new Error('Failed to load PDF library');
     }
   };
 
@@ -59,24 +61,26 @@ export const usePdfFormBuilder = () => {
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    if (file && file.type === "application/pdf") {
+    if (file && file.type === 'application/pdf') {
       loadPDF(file);
-    } else {
-      alert("Please select a valid PDF file");
+    }
+    else {
+      console.error('Please select a valid PDF file');
     }
   };
 
   const handleFileDrop = (event) => {
     isDragging.value = false;
     const file = event.dataTransfer.files[0];
-    if (file && file.type === "application/pdf") {
+    if (file && file.type === 'application/pdf') {
       loadPDF(file);
-    } else {
-      alert("Please select a valid PDF file");
+    }
+    else {
+      console.error('Please select a valid PDF file');
     }
   };
 
-  const loadPDF = async (file) => {
+  async function loadPDF(file) {
     try {
       pdfFile.value = file;
 
@@ -92,7 +96,7 @@ export const usePdfFormBuilder = () => {
           // Load the PDF document
           const loadingTask = pdfjs.getDocument({
             data: typedarray,
-            cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
             cMapPacked: true,
           });
 
@@ -114,35 +118,37 @@ export const usePdfFormBuilder = () => {
           setTimeout(async () => {
             await renderPage(1);
           }, 100);
-        } catch (error) {
-          console.error("Error loading PDF:", error);
-          alert("Error loading PDF file: " + error.message);
+        }
+        catch (error) {
+          console.error('Error loading PDF:', error);
+          console.error(`Error loading PDF file: ${error.message}`);
           pdfLoaded.value = false;
         }
       };
 
       fileReader.onerror = (error) => {
-        console.error("FileReader error:", error);
-        alert("Error reading file");
+        console.error('FileReader error:', error);
+        console.error('Error reading file');
       };
 
       fileReader.readAsArrayBuffer(file);
-    } catch (error) {
-      console.error("Error in loadPDF:", error);
-      alert("Error loading PDF: " + error.message);
+    }
+    catch (error) {
+      console.error('Error in loadPDF:', error);
+      console.error(`Error loading PDF: ${error.message}`);
     }
   };
 
-  const renderPage = async (pageNum) => {
+  async function renderPage(pageNum) {
     if (!pdfDoc.value || !pdfCanvas.value) {
-      console.warn("PDF document or canvas not ready");
+      console.warn('PDF document or canvas not ready');
       return;
     }
 
     try {
       const page = await pdfDoc.value.getPage(pageNum);
       const canvas = pdfCanvas.value;
-      const context = canvas.getContext("2d");
+      const context = canvas.getContext('2d');
 
       const viewport = page.getViewport({ scale: scale.value });
 
@@ -155,14 +161,15 @@ export const usePdfFormBuilder = () => {
 
       const renderContext = {
         canvasContext: context,
-        viewport: viewport,
+        viewport,
       };
 
       // Render the page
       await page.render(renderContext).promise;
-    } catch (error) {
-      console.error("Error rendering page:", error);
-      alert("Error rendering PDF page: " + error.message);
+    }
+    catch (error) {
+      console.error('Error rendering page:', error);
+      console.error(`Error rendering PDF page: ${error.message}`);
     }
   };
 
@@ -171,7 +178,8 @@ export const usePdfFormBuilder = () => {
   };
 
   const addField = (fieldTemplate) => {
-    if (!pdfLoaded.value) return;
+    if (!pdfLoaded.value)
+      return;
 
     fieldCounter.value++;
     const newField = {
@@ -194,52 +202,54 @@ export const usePdfFormBuilder = () => {
   };
 
   const deleteField = (fieldId) => {
-    placedFields.value = placedFields.value.filter((f) => f.id !== fieldId);
+    placedFields.value = placedFields.value.filter(f => f.id !== fieldId);
     if (selectedField.value === fieldId) {
       selectedField.value = null;
     }
   };
 
   const startDrag = (event, field) => {
-    if (event.target.classList.contains("resize-handle")) return;
+    if (event.target.classList.contains('resize-handle'))
+      return;
 
     selectedField.value = field.id;
     dragState.value = {
-      field: field,
+      field,
       startX: event.clientX,
       startY: event.clientY,
       initialX: field.x,
       initialY: field.y,
     };
 
-    if (process.client) {
-      document.addEventListener("mousemove", handleDrag);
-      document.addEventListener("mouseup", stopDrag);
+    if (import.meta.client) {
+      document.addEventListener('mousemove', handleDrag);
+      document.addEventListener('mouseup', stopDrag);
     }
   };
 
-  const handleDrag = (event) => {
-    if (!dragState.value) return;
+  function handleDrag(event) {
+    if (!dragState.value)
+      return;
 
     const deltaX = event.clientX - dragState.value.startX;
     const deltaY = event.clientY - dragState.value.startY;
 
     dragState.value.field.x = Math.max(0, dragState.value.initialX + deltaX);
     dragState.value.field.y = Math.max(0, dragState.value.initialY + deltaY);
-  };
+  }
 
-  const stopDrag = () => {
+  function stopDrag() {
     dragState.value = null;
-    if (process.client) {
-      document.removeEventListener("mousemove", handleDrag);
-      document.removeEventListener("mouseup", stopDrag);
+    if (import.meta.client) {
+      document.removeEventListener('mousemove', handleDrag);
+      document.removeEventListener('mouseup', stopDrag);
     }
-  };
+  }
 
   const startResize = (event, field, handle) => {
     resizeState.value = {
-      field: field,
-      handle: handle,
+      field,
+      handle,
       startX: event.clientX,
       startY: event.clientY,
       initialX: field.x,
@@ -248,61 +258,62 @@ export const usePdfFormBuilder = () => {
       initialHeight: field.height,
     };
 
-    if (process.client) {
-      document.addEventListener("mousemove", handleResize);
-      document.addEventListener("mouseup", stopResize);
+    if (import.meta.client) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', stopResize);
     }
   };
 
-  const handleResize = (event) => {
-    if (!resizeState.value) return;
+  function handleResize(event) {
+    if (!resizeState.value)
+      return;
 
     const deltaX = event.clientX - resizeState.value.startX;
     const deltaY = event.clientY - resizeState.value.startY;
-    const { field, handle, initialX, initialY, initialWidth, initialHeight } =
-      resizeState.value;
+    const { field, handle, initialX, initialY, initialWidth, initialHeight }
+      = resizeState.value;
 
     switch (handle) {
-      case "se":
+      case 'se':
         field.width = Math.max(50, initialWidth + deltaX);
         field.height = Math.max(30, initialHeight + deltaY);
         break;
-      case "sw":
+      case 'sw':
         field.width = Math.max(50, initialWidth - deltaX);
         field.height = Math.max(30, initialHeight + deltaY);
         field.x = initialX + (initialWidth - field.width);
         break;
-      case "ne":
+      case 'ne':
         field.width = Math.max(50, initialWidth + deltaX);
         field.height = Math.max(30, initialHeight - deltaY);
         field.y = initialY + (initialHeight - field.height);
         break;
-      case "nw":
+      case 'nw':
         field.width = Math.max(50, initialWidth - deltaX);
         field.height = Math.max(30, initialHeight - deltaY);
         field.x = initialX + (initialWidth - field.width);
         field.y = initialY + (initialHeight - field.height);
         break;
     }
-  };
+  }
 
-  const stopResize = () => {
+  function stopResize() {
     resizeState.value = null;
-    if (process.client) {
-      document.removeEventListener("mousemove", handleResize);
-      document.removeEventListener("mouseup", stopResize);
+    if (import.meta.client) {
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
     }
-  };
+  }
 
   const saveForm = () => {
     const canvas = pdfCanvas.value;
     if (!canvas) {
-      alert("Canvas not ready");
+      console.error('Canvas not ready');
       return;
     }
 
     if (placedFields.value.length === 0) {
-      alert("Please add at least one field before saving");
+      console.error('Please add at least one field before saving');
       return;
     }
 
@@ -311,10 +322,10 @@ export const usePdfFormBuilder = () => {
 
     // Prepare data to save to database
     const formData = {
-      formName: formName.value || "Untitled Form",
+      formName: formName.value || 'Untitled Form',
       pdfFileName: pdfFile.value.name,
       totalPages: totalPages.value,
-      fields: placedFields.value.map((field) => ({
+      fields: placedFields.value.map(field => ({
         id: field.id,
         name: field.name,
         type: field.type,
@@ -339,18 +350,18 @@ export const usePdfFormBuilder = () => {
 
     savedData.value = JSON.stringify(formData, null, 2);
 
-    alert(
-      "Form saved! Check the output below to see the data that would be saved to the database."
+    console.warn(
+      'Form saved! Check the output below to see the data that would be saved to the database.',
     );
   };
 
   // Cleanup on unmount
   onBeforeUnmount(() => {
-    if (process.client) {
-      document.removeEventListener("mousemove", handleDrag);
-      document.removeEventListener("mouseup", stopDrag);
-      document.removeEventListener("mousemove", handleResize);
-      document.removeEventListener("mouseup", stopResize);
+    if (import.meta.client) {
+      document.removeEventListener('mousemove', handleDrag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
     }
   });
 
@@ -379,4 +390,4 @@ export const usePdfFormBuilder = () => {
     startResize,
     saveForm,
   };
-};
+}

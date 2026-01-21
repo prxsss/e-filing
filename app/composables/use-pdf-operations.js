@@ -1,31 +1,33 @@
-export const usePdfOperations = () => {
+export function usePdfOperations() {
   // Load PDF.js
   async function loadPdfJs() {
-    if (typeof window === "undefined") return null;
+    if (typeof window === 'undefined')
+      return null;
 
     try {
       // Import PDF.js dynamically
-      const pdfjs = await import("pdfjs-dist");
+      const pdfjs = await import('pdfjs-dist');
 
       // Set worker source after importing
-      if (process.client) {
+      if (import.meta.client) {
         pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
       }
 
       return pdfjs;
-    } catch (error) {
-      console.error("[PDF Operations] Error initializing PDF.js:", error);
+    }
+    catch (error) {
+      console.error('[PDF Operations] Error initializing PDF.js:', error);
       throw error;
     }
   }
 
   // Load pdf-lib dynamically
   async function loadPdfLib() {
-    if (typeof window !== "undefined" && !window.PDFLib) {
+    if (typeof window !== 'undefined' && !window.PDFLib) {
       await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+        const script = document.createElement('script');
+        script.src
+          = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
@@ -39,16 +41,17 @@ export const usePdfOperations = () => {
     const pdfjsLib = await loadPdfJs();
 
     try {
-      if (typeof pdfUrl === "string") {
+      if (typeof pdfUrl === 'string') {
         // URL-based loading
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         return await loadingTask.promise;
-      } else {
+      }
+      else {
         // ArrayBuffer/Uint8Array-based loading
         const loadingTask = pdfjsLib.getDocument({
           data: pdfUrl,
           cMapUrl:
-            "https://cdnjs.cloudflare.com/ajax/libs/pdfjs-dist/3.11.174/cmaps/",
+            'https://cdnjs.cloudflare.com/ajax/libs/pdfjs-dist/3.11.174/cmaps/',
           cMapPacked: true,
         });
 
@@ -56,8 +59,9 @@ export const usePdfOperations = () => {
 
         return pdf;
       }
-    } catch (error) {
-      console.error("[PDF Operations] Error loading PDF document:", error);
+    }
+    catch (error) {
+      console.error('[PDF Operations] Error loading PDF document:', error);
       throw error;
     }
   }
@@ -68,8 +72,8 @@ export const usePdfOperations = () => {
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale });
 
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d", { alpha: false });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d', { alpha: false });
 
       // Set display size
       const pixelRatio = window.devicePixelRatio || 1;
@@ -84,12 +88,12 @@ export const usePdfOperations = () => {
       context.scale(pixelRatio, pixelRatio);
 
       // Set white background
-      context.fillStyle = "white";
+      context.fillStyle = 'white';
       context.fillRect(0, 0, viewport.width, viewport.height);
 
       const renderContext = {
         canvasContext: context,
-        viewport: viewport,
+        viewport,
         enableWebGL: true,
       };
 
@@ -100,8 +104,9 @@ export const usePdfOperations = () => {
         viewport,
         page,
       };
-    } catch (error) {
-      console.error("Error rendering PDF page:", error);
+    }
+    catch (error) {
+      console.error('Error rendering PDF page:', error);
       throw error;
     }
   }
@@ -109,7 +114,7 @@ export const usePdfOperations = () => {
   // Convert canvas to blob
   function canvasToBlob(canvas, quality = 0.95) {
     return new Promise((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), "image/png", quality);
+      canvas.toBlob(blob => resolve(blob), 'image/png', quality);
     });
   }
 
@@ -120,9 +125,11 @@ export const usePdfOperations = () => {
 
     if (aspectRatio > 3) {
       fontSize = baseFontSize * 0.7;
-    } else if (aspectRatio > 2) {
+    }
+    else if (aspectRatio > 2) {
       fontSize = baseFontSize * 0.8;
-    } else if (aspectRatio < 0.5) {
+    }
+    else if (aspectRatio < 0.5) {
       fontSize = baseFontSize * 1.2;
     }
 
@@ -138,28 +145,29 @@ export const usePdfOperations = () => {
     width,
     height,
     fontSize,
-    fontFamily
+    fontFamily,
   ) {
     ctx.save();
     ctx.font = `${fontSize}px ${fontFamily}`;
-    ctx.fillStyle = "#000000";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
 
-    const words = text.split(" ");
+    const words = text.split(' ');
     const lines = [];
     let currentLine = words[0];
 
     for (let i = 1; i < words.length; i++) {
       const word = words[i];
-      const testLine = currentLine + " " + word;
+      const testLine = `${currentLine} ${word}`;
       const metrics = ctx.measureText(testLine);
       const testWidth = metrics.width;
 
-      if (testWidth > width && currentLine !== "") {
+      if (testWidth > width && currentLine !== '') {
         lines.push(currentLine);
         currentLine = word;
-      } else {
+      }
+      else {
         currentLine = testLine;
       }
     }
@@ -181,10 +189,10 @@ export const usePdfOperations = () => {
   // Render check mark on canvas
   function renderCheckMark(ctx, x, y, width, height, fontSize) {
     ctx.save();
-    ctx.strokeStyle = "#000000ff";
+    ctx.strokeStyle = '#000000ff';
     ctx.lineWidth = fontSize * 0.12;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
     const centerX = x + width / 2;
     const centerY = y + height / 2;
@@ -206,7 +214,7 @@ export const usePdfOperations = () => {
     y,
     width,
     height,
-    signatureDataUrl
+    signatureDataUrl,
   ) {
     try {
       // Load signature image from data URL
@@ -221,8 +229,9 @@ export const usePdfOperations = () => {
       ctx.save();
       ctx.drawImage(img, x, y, width, height);
       ctx.restore();
-    } catch (error) {
-      console.error("[usePdfOperations] Error rendering signature:", error);
+    }
+    catch (error) {
+      console.error('[usePdfOperations] Error rendering signature:', error);
     }
   }
 
@@ -233,13 +242,13 @@ export const usePdfOperations = () => {
     width,
     height,
     containerWidth,
-    containerHeight
+    containerHeight,
   ) {
     return (
-      x >= 0 &&
-      y >= 0 &&
-      x + width <= containerWidth &&
-      y + height <= containerHeight
+      x >= 0
+      && y >= 0
+      && x + width <= containerWidth
+      && y + height <= containerHeight
     );
   }
 
@@ -250,17 +259,17 @@ export const usePdfOperations = () => {
     const pages = pdfDoc.getPages();
     const targetPage = pages[pageNumber - 1];
 
-    const { width: pageWidth, height: pageHeight } = targetPage.getSize();
+    const { height: pageHeight } = targetPage.getSize();
 
     // Process each field
     for (const field of placedFields) {
       try {
         // Handle signature field
         if (field.signatureDataUrl) {
-          const canvas = document.createElement("canvas");
+          const canvas = document.createElement('canvas');
           canvas.width = Math.max(field.width, 50);
           canvas.height = Math.max(field.height, 50);
-          const ctx = canvas.getContext("2d");
+          const ctx = canvas.getContext('2d');
 
           // Clear canvas (transparent background)
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -272,10 +281,10 @@ export const usePdfOperations = () => {
             0,
             canvas.width,
             canvas.height,
-            field.signatureDataUrl
+            field.signatureDataUrl,
           );
 
-          const imageData = canvas.toDataURL("image/png");
+          const imageData = canvas.toDataURL('image/png');
           const pngImage = await pdfDoc.embedPng(imageData);
 
           targetPage.drawImage(pngImage, {
@@ -284,12 +293,13 @@ export const usePdfOperations = () => {
             width: field.width,
             height: field.height,
           });
-        } else if (field.name === "Check Mark") {
+        }
+        else if (field.name === 'Check Mark') {
           // For check marks, create a transparent canvas
-          const canvas = document.createElement("canvas");
+          const canvas = document.createElement('canvas');
           canvas.width = Math.max(field.width, 50);
           canvas.height = Math.max(field.height, 50);
-          const ctx = canvas.getContext("2d");
+          const ctx = canvas.getContext('2d');
 
           // Make canvas transparent
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -298,7 +308,7 @@ export const usePdfOperations = () => {
           const fontSize = Math.min(canvas.width, canvas.height) * 0.6;
           renderCheckMark(ctx, 0, 0, canvas.width, canvas.height, fontSize);
 
-          const imageData = canvas.toDataURL("image/png");
+          const imageData = canvas.toDataURL('image/png');
           const pngImage = await pdfDoc.embedPng(imageData);
 
           targetPage.drawImage(pngImage, {
@@ -307,13 +317,14 @@ export const usePdfOperations = () => {
             width: field.width,
             height: field.height,
           });
-        } else {
+        }
+        else {
           // For text fields - render text only (transparent background, no border)
-          const text = field.label ? field.label.trim() : "";
+          const text = field.label ? field.label.trim() : '';
 
           if (text) {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
 
             // Calculate proper font size based on field dimensions
             const fontSize = calculateFontSize(field.width, field.height, 12);
@@ -330,9 +341,9 @@ export const usePdfOperations = () => {
 
             // Draw text - centered both horizontally and vertically
             ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif`;
-            ctx.fillStyle = "#000000";
-            ctx.textAlign = "center"; // Center horizontally
-            ctx.textBaseline = "middle"; // Center vertically
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center'; // Center horizontally
+            ctx.textBaseline = 'middle'; // Center vertically
 
             const maxWidth = field.width - 16; // Small padding
             const textX = field.width / 2; // Center X position
@@ -346,9 +357,9 @@ export const usePdfOperations = () => {
               // Truncate text with ellipsis
               while (displayText.length > 0 && textMetrics.width > maxWidth) {
                 displayText = displayText.slice(0, -1);
-                textMetrics = ctx.measureText(displayText + "...");
+                textMetrics = ctx.measureText(`${displayText}...`);
               }
-              displayText = displayText + "...";
+              displayText = `${displayText}...`;
             }
 
             // Draw main text centered
@@ -359,9 +370,9 @@ export const usePdfOperations = () => {
               const instanceText = `#${field.instanceNumber}`;
               const instFontSize = fontSize * 0.5;
               ctx.font = `${instFontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif`;
-              ctx.fillStyle = "#666";
-              ctx.textAlign = "right";
-              ctx.textBaseline = "top";
+              ctx.fillStyle = '#666';
+              ctx.textAlign = 'right';
+              ctx.textBaseline = 'top';
 
               // Position in top-right with small padding
               const instX = field.width - 5;
@@ -370,7 +381,7 @@ export const usePdfOperations = () => {
               ctx.fillText(instanceText, instX, instY);
             }
 
-            const imageData = canvas.toDataURL("image/png");
+            const imageData = canvas.toDataURL('image/png');
             const pngImage = await pdfDoc.embedPng(imageData);
 
             targetPage.drawImage(pngImage, {
@@ -381,11 +392,12 @@ export const usePdfOperations = () => {
             });
           }
         }
-      } catch (error) {
+      }
+      catch (error) {
         console.error(
-          "[generateCompositePdf] Error processing field:",
+          '[generateCompositePdf] Error processing field:',
           field,
-          error
+          error,
         );
       }
     }
@@ -401,7 +413,7 @@ export const usePdfOperations = () => {
       const reader = new FileReader();
       reader.readAsDataURL(new Blob([bytes]));
       reader.onload = () => {
-        resolve(reader.result.split(",")[1]);
+        resolve(reader.result.split(',')[1]);
       };
       reader.onerror = (error) => {
         reject(error);
@@ -434,4 +446,4 @@ export const usePdfOperations = () => {
     uint8ArrayToBase64,
     base64ToUint8Array,
   };
-};
+}

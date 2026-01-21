@@ -1,17 +1,18 @@
-export const useDocument = () => {
+export function useDocument() {
   // Utility Functions
   const generateSecureToken = (length = 32) => {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let token = "";
+    const chars
+      = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
 
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
       const array = new Uint8Array(length);
       crypto.getRandomValues(array);
       for (let i = 0; i < length; i++) {
         token += chars[array[i] % chars.length];
       }
-    } else {
+    }
+    else {
       for (let i = 0; i < length; i++) {
         token += chars.charAt(Math.floor(Math.random() * chars.length));
       }
@@ -20,10 +21,11 @@ export const useDocument = () => {
     return token;
   };
 
-  const getCustomerDisplayNameFromProfile = (profile, customers = []) => {
-    if (!profile) return "";
+  const getCustomerDisplayNameFromProfile = (profile, _customers = []) => {
+    if (!profile)
+      return '';
 
-    let displayParts = [];
+    const displayParts = [];
 
     // Add full name if available
     if (profile.full_name) {
@@ -41,46 +43,50 @@ export const useDocument = () => {
     }
 
     // If no parts are available, return empty string or a fallback
-    return displayParts.length > 0 ? displayParts.join(" | ") : "";
+    return displayParts.length > 0 ? displayParts.join(' | ') : '';
   };
 
   // API Functions
   const fetchTemplates = async () => {
     try {
-      const response = await $fetch("/api/templates");
+      const response = await $fetch('/api/templates');
       return response.data || [];
-    } catch (error) {
-      console.error("Error fetching templates:", error);
+    }
+    catch (error) {
+      console.error('Error fetching templates:', error);
       return [];
     }
   };
 
   const fetchDocuments = async () => {
     try {
-      const response = await $fetch("/api/documents");
+      const response = await $fetch('/api/documents');
       return response.data || [];
-    } catch (error) {
-      console.error("Error fetching documents:", error);
+    }
+    catch (error) {
+      console.error('Error fetching documents:', error);
       return [];
     }
   };
 
   const fetchCustomers = async () => {
     try {
-      const response = await $fetch("/api/customers");
+      const response = await $fetch('/api/customers');
       return response.data || [];
-    } catch (error) {
-      console.error("Error fetching customers:", error);
+    }
+    catch (error) {
+      console.error('Error fetching customers:', error);
       return [];
     }
   };
 
   const fetchCustomerProfiles = async () => {
     try {
-      const response = await $fetch("/api/customer-profiles");
+      const response = await $fetch('/api/customer-profiles');
       return response.data || [];
-    } catch (error) {
-      console.error("Error fetching customer profiles:", error);
+    }
+    catch (error) {
+      console.error('Error fetching customer profiles:', error);
       return [];
     }
   };
@@ -88,14 +94,15 @@ export const useDocument = () => {
   const savePhoneNumber = async (profileId, phoneNumber) => {
     try {
       const response = await $fetch(`/api/customer-profiles/${profileId}`, {
-        method: "PATCH",
+        method: 'PATCH',
         body: {
           phone_number: phoneNumber,
         },
       });
       return response.data;
-    } catch (error) {
-      console.error("Error saving phone number:", error);
+    }
+    catch (error) {
+      console.error('Error saving phone number:', error);
       return null;
     }
   };
@@ -104,22 +111,23 @@ export const useDocument = () => {
     templateId,
     customerProfileId,
     provider,
-    token
+    token,
   ) => {
     try {
-      const response = await $fetch("/api/documents", {
-        method: "POST",
+      const response = await $fetch('/api/documents', {
+        method: 'POST',
         body: {
           template_id: templateId,
           customer_profile_id: customerProfileId,
-          provider: provider,
-          status: "sent",
-          token: token,
+          provider,
+          status: 'sent',
+          token,
         },
       });
       return response.data;
-    } catch (error) {
-      console.error("Error saving document:", error);
+    }
+    catch (error) {
+      console.error('Error saving document:', error);
       return null;
     }
   };
@@ -127,11 +135,12 @@ export const useDocument = () => {
   const deleteDocument = async (documentId) => {
     try {
       await $fetch(`/api/documents/${documentId}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       return true;
-    } catch (error) {
-      console.error("Error deleting document:", error);
+    }
+    catch (error) {
+      console.error('Error deleting document:', error);
       return false;
     }
   };
@@ -140,14 +149,15 @@ export const useDocument = () => {
   const downloadDocument = async (documentUrl) => {
     try {
       const response = await fetch(documentUrl);
-      if (!response.ok) throw new Error("Network response was not ok");
+      if (!response.ok)
+        throw new Error('Network response was not ok');
       const blob = await response.blob();
 
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const link = document.createElement('a');
       link.href = url;
 
-      const fileName = documentUrl.split("/").pop().split("?")[0];
+      const fileName = documentUrl.split('/').pop().split('?')[0];
       link.download = fileName;
 
       document.body.appendChild(link);
@@ -156,8 +166,9 @@ export const useDocument = () => {
 
       window.URL.revokeObjectURL(url);
       return true;
-    } catch (error) {
-      console.error("Error downloading document:", error);
+    }
+    catch (error) {
+      console.error('Error downloading document:', error);
       return false;
     }
   };
@@ -179,4 +190,4 @@ export const useDocument = () => {
     // Document Operations
     downloadDocument,
   };
-};
+}

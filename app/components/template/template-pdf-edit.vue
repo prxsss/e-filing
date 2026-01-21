@@ -1,112 +1,4 @@
-<template>
-  <div class="card card-primary">
-    <div class="card-header">
-      <h3 class="card-title">Preview</h3>
-      <div class="card-tools">
-        <button
-          type="submit"
-          class="btn btn-success btn-sm"
-          @click="saveTemplate"
-        >
-          <i class="fas fa-save"></i> Save Template
-        </button>
-      </div>
-    </div>
-    <div class="card-body p-3">
-      <div
-        id="pdf-preview-container"
-        ref="previewContainer"
-        class="template-preview-area"
-        @mouseup="stopDrag"
-        @mousemove="drag"
-        @mouseleave="stopDrag"
-      >
-        <!-- PDF Page Container -->
-        <div
-          id="pdf-page-container"
-          ref="pdfPageContainer"
-          class="pdf-page-container"
-        >
-          <!-- Loading State -->
-          <div
-            v-if="!pdfLoaded"
-            class="d-flex align-items-center justify-content-center"
-            style="min-height: 400px"
-          >
-            <div class="text-center text-muted">
-              <i class="fas fa-file-pdf fa-3x mb-3"></i>
-              <p>Loading PDF...</p>
-            </div>
-          </div>
-
-          <!-- PDF Canvas -->
-          <canvas
-            v-show="pdfLoaded"
-            ref="pdfCanvas"
-            class="pdf-page-canvas"
-          ></canvas>
-        </div>
-
-        <!-- Placed Fields Overlay (only for current page) -->
-        <div
-          v-for="field in placedFieldsOnCurrentPage"
-          :key="field.instanceId"
-          class="placed-field"
-          :class="{
-            'field-selected': selectedField?.instanceId === field.instanceId,
-          }"
-          :style="{
-            left: field.x + 'px',
-            top: field.y + 'px',
-            width: field.width + 'px',
-            height: field.height + 'px',
-            transform:
-              activeDrag.isDragging &&
-              activeDrag.field?.instanceId === field.instanceId
-                ? 'scale(1.05)'
-                : 'scale(1)',
-            zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
-          }"
-          @mousedown="startDrag($event, field)"
-          @touchstart="startDrag($event, field)"
-          @click="selectField(field)"
-        >
-          <div class="field-content">
-            <i
-              v-if="field.name === 'Check Mark'"
-              :class="field.icon"
-              style="font-size: 1.2em"
-            ></i>
-            <span v-if="field.label" class="field-label">{{
-              field.label
-            }}</span>
-            <span v-if="field.isGrouped" class="instance-number">
-              #{{ field.instanceNumber }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Page Selector -->
-        <div v-if="pdfLoaded && totalPages > 1" class="page-selector mb-2">
-          <label class="form-label small">Page:</label>
-          <select
-            class="form-select form-select-sm d-inline-block w-auto"
-            v-model="currentPage"
-            @change="renderCurrentPage"
-          >
-            <option v-for="i in totalPages" :key="i" :value="i">
-              Page {{ i }}
-            </option>
-          </select>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
-const supabase = useSupabaseClient();
-
 const props = defineProps({
   pdfBytes: {
     type: Uint8Array,
@@ -126,7 +18,7 @@ const props = defineProps({
   },
   templateName: {
     type: String,
-    default: "",
+    default: '',
   },
   selectedContractId: {
     type: [String, Number],
@@ -151,11 +43,13 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  "field-selected",
-  "pdf-loaded",
-  "template-saved",
-  "current-page-changed",
+  'fieldSelected',
+  'pdfLoaded',
+  'templateSaved',
+  'currentPageChanged',
 ]);
+
+const supabase = useSupabaseClient();
 
 // Refs
 const previewContainer = ref(null);
@@ -184,28 +78,30 @@ const activeDrag = ref({
 // Computed: Filter fields for current page only
 const placedFieldsOnCurrentPage = computed(() => {
   return props.placedFields.filter(
-    (field) => !field.pageNumber || field.pageNumber === currentPage.value
+    field => !field.pageNumber || field.pageNumber === currentPage.value,
   );
 });
 
 // Initialize PDF.js
-const initPdfJs = async () => {
-  if (pdfjsLib.value) return pdfjsLib.value;
+async function initPdfJs() {
+  if (pdfjsLib.value)
+    return pdfjsLib.value;
 
   try {
-    const pdfjs = await import("pdfjs-dist");
+    const pdfjs = await import('pdfjs-dist');
 
-    if (process.client) {
+    if (import.meta.client) {
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
     }
 
     pdfjsLib.value = pdfjs;
     return pdfjs;
-  } catch (error) {
-    console.error("Error loading PDF.js:", error);
-    throw new Error("Failed to load PDF library");
   }
-};
+  catch (error) {
+    console.error('Error loading PDF.js:', error);
+    throw new Error('Failed to load PDF library');
+  }
+}
 
 // Get PDF bounds for coordinate transformation
 function getPdfBounds() {
@@ -257,9 +153,8 @@ async function loadPdf() {
     pdfLoaded.value = false;
 
     if (!pdfPageContainer.value) {
-      throw new Error("PDF container not found in DOM");
+      throw new Error('PDF container not found in DOM');
     }
-
 
     // Initialize PDF.js
     const pdfjs = await initPdfJs();
@@ -267,7 +162,7 @@ async function loadPdf() {
     // Load PDF document
     const loadingTask = pdfjs.getDocument({
       data: props.pdfBytes,
-      cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
     });
 
@@ -285,7 +180,6 @@ async function loadPdf() {
       height: viewport.height,
     };
 
-
     // Wait for DOM update
     await nextTick();
 
@@ -293,11 +187,12 @@ async function loadPdf() {
     setTimeout(async () => {
       await renderCurrentPage();
       pdfLoaded.value = true;
-      emit("pdf-loaded");
+      emit('pdfLoaded');
     }, 100);
-  } catch (error) {
-    console.error("[TemplatePdfPreviewEdit] Error loading PDF:", error);
-    alert("Error loading PDF: " + error.message);
+  }
+  catch (error) {
+    console.error('[TemplatePdfPreviewEdit] Error loading PDF:', error);
+    console.error(`Error loading PDF: ${error.message}`);
     pdfLoaded.value = false;
   }
 }
@@ -312,7 +207,7 @@ async function renderCurrentPage() {
     const pageNumber = currentPage.value;
     const page = await pdfDoc.value.getPage(pageNumber);
     const canvas = pdfCanvas.value;
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext('2d');
 
     const viewport = page.getViewport({ scale: scale.value });
 
@@ -325,23 +220,24 @@ async function renderCurrentPage() {
 
     const renderContext = {
       canvasContext: context,
-      viewport: viewport,
+      viewport,
     };
 
     // Render the page
     await page.render(renderContext).promise;
 
     // Emit page change
-    emit("current-page-changed", pageNumber);
-  } catch (error) {
-    console.error("[TemplatePdfPreviewEdit] Error rendering PDF page:", error);
-    alert("Error rendering PDF page: " + error.message);
+    emit('currentPageChanged', pageNumber);
+  }
+  catch (error) {
+    console.error('[TemplatePdfPreviewEdit] Error rendering PDF page:', error);
+    console.error(`Error rendering PDF page: ${error.message}`);
   }
 }
 
 // Field selection
 function selectField(field) {
-  emit("field-selected", field);
+  emit('fieldSelected', field);
 }
 
 // Get event coordinates
@@ -357,37 +253,38 @@ function getEventCoordinates(event) {
 
 // Start dragging field
 function startDrag(event, field) {
-  if (!previewContainer.value || !field) return;
+  if (!previewContainer.value || !field)
+    return;
 
   const coords = getEventCoordinates(event);
   const containerRect = previewContainer.value.getBoundingClientRect();
 
   activeDrag.value = {
     isDragging: true,
-    field: field,
+    field,
     offsetX: coords.clientX - containerRect.left - field.x,
     offsetY: coords.clientY - containerRect.top - field.y,
     startX: coords.clientX,
     startY: coords.clientY,
   };
 
-  emit("field-selected", field);
+  emit('fieldSelected', field);
 
   event.preventDefault();
   event.stopPropagation();
 
-  document.addEventListener("mousemove", drag, { passive: false });
-  document.addEventListener("mouseup", stopDrag);
-  document.addEventListener("touchmove", drag, { passive: false });
-  document.addEventListener("touchend", stopDrag);
+  document.addEventListener('mousemove', drag, { passive: false });
+  document.addEventListener('mouseup', stopDrag);
+  document.addEventListener('touchmove', drag, { passive: false });
+  document.addEventListener('touchend', stopDrag);
 }
 
 // Drag field
 function drag(event) {
   if (
-    !activeDrag.value.isDragging ||
-    !activeDrag.value.field ||
-    !previewContainer.value
+    !activeDrag.value.isDragging
+    || !activeDrag.value.field
+    || !previewContainer.value
   ) {
     return;
   }
@@ -414,48 +311,51 @@ function drag(event) {
 }
 
 // Stop dragging
-function stopDrag(event) {
+function stopDrag(_event) {
   if (activeDrag.value.isDragging) {
     activeDrag.value.isDragging = false;
     activeDrag.value.field = null;
 
-    document.removeEventListener("mousemove", drag);
-    document.removeEventListener("mouseup", stopDrag);
-    document.removeEventListener("touchmove", drag);
-    document.removeEventListener("touchend", stopDrag);
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('touchmove', drag);
+    document.removeEventListener('touchend', stopDrag);
   }
 }
 
 function extractFilePathFromUrl(url) {
-  if (!url) return null;
+  if (!url)
+    return null;
 
   try {
     const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split("/");
-    const relevantParts = pathParts.filter((part) => part);
+    const pathParts = urlObj.pathname.split('/');
+    const relevantParts = pathParts.filter(part => part);
     if (relevantParts.length >= 3) {
-      return relevantParts.slice(5).join("/");
+      return relevantParts.slice(5).join('/');
     }
-  } catch (error) {
-    console.error("Error extracting file path from URL:", error);
+  }
+  catch (error) {
+    console.error('Error extracting file path from URL:', error);
   }
   return null;
 }
 
 async function deleteOldComposite() {
-  if (!props.originalCompositeUrl) return;
+  if (!props.originalCompositeUrl)
+    return;
 
   const filePath = extractFilePathFromUrl(props.originalCompositeUrl);
-  if (!filePath) return;
+  if (!filePath)
+    return;
 
   try {
-    const { error } = await supabase.storage
-      .from("contract")
+    const { error: _error } = await supabase.storage
+      .from('contract')
       .remove([filePath]);
-
- 
-  } catch (error) {
-    console.error("Error in deleteOldComposite:", error);
+  }
+  catch (error) {
+    console.error('Error in deleteOldComposite:', error);
   }
 }
 
@@ -465,22 +365,22 @@ async function saveCompositeToStorage(templateName, compositePdfBytes) {
   const compositeFilePath = `composites/${compositeFileName}`;
 
   const compositeBlob = new Blob([compositePdfBytes], {
-    type: "application/pdf",
+    type: 'application/pdf',
   });
 
   const { error: uploadError } = await supabase.storage
-    .from("contract")
+    .from('contract')
     .upload(compositeFilePath, compositeBlob, {
-      cacheControl: "3600",
+      cacheControl: '3600',
       upsert: false,
     });
 
   if (uploadError) {
-    throw new Error("Error uploading composite PDF: " + uploadError.message);
+    throw new Error(`Error uploading composite PDF: ${uploadError.message}`);
   }
 
   const { data: publicUrlData } = supabase.storage
-    .from("contract")
+    .from('contract')
     .getPublicUrl(compositeFilePath);
 
   return publicUrlData.publicUrl;
@@ -489,33 +389,32 @@ async function saveCompositeToStorage(templateName, compositePdfBytes) {
 // Save template
 async function saveTemplate() {
   try {
-
     // Use originalPdfBytes for saving (not detached)
     const bytesToUse = props.originalPdfBytes || props.pdfBytes;
 
     if (!bytesToUse || bytesToUse.length === 0) {
-      alert("PDF not loaded");
+      console.error('PDF not loaded');
       return;
     }
 
     if (props.placedFields.length === 0) {
-      alert("Please add at least one field to the template");
+      console.error('Please add at least one field to the template');
       return;
     }
 
     const templateName = props.templateName;
     if (!templateName?.trim()) {
-      alert("Please enter a template name");
+      console.error('Please enter a template name');
       return;
     }
 
     if (!props.selectedContractId) {
-      alert("Contract not selected");
+      console.error('Contract not selected');
       return;
     }
 
     if (!props.templateId) {
-      alert("Template ID not found");
+      console.error('Template ID not found');
       return;
     }
 
@@ -524,20 +423,21 @@ async function saveTemplate() {
     try {
       header = String.fromCharCode.apply(
         null,
-        Array.from(bytesToUse.slice(0, 5))
+        Array.from(bytesToUse.slice(0, 5)),
       );
-    } catch (error) {
+    }
+    catch (error) {
       console.error(
-        "[TemplatePdfPreviewEdit] Error reading PDF header:",
-        error
+        '[TemplatePdfPreviewEdit] Error reading PDF header:',
+        error,
       );
-      alert("Error accessing PDF data. Please try reloading the page.");
+      console.error('Error accessing PDF data. Please try reloading the page.');
       return;
     }
 
-    if (header !== "%PDF-") {
-      console.error("[TemplatePdfPreviewEdit] Invalid PDF header:", header);
-      alert("Invalid PDF file. The file may be corrupted.");
+    if (header !== '%PDF-') {
+      console.error('[TemplatePdfPreviewEdit] Invalid PDF header:', header);
+      console.error('Invalid PDF file. The file may be corrupted.');
       return;
     }
 
@@ -579,15 +479,14 @@ async function saveTemplate() {
       compositePdfBytes = await generateCompositePdf(
         compositePdfBytes,
         pageFields,
-        parseInt(pageNum)
+        Number.parseInt(pageNum),
       );
     }
 
     if (!compositePdfBytes) {
-      alert("Failed to generate composite PDF");
+      console.error('Failed to generate composite PDF');
       return;
     }
-
 
     // Delete old composite
     await deleteOldComposite();
@@ -595,16 +494,15 @@ async function saveTemplate() {
     // Upload new composite
     const compositeImageUrl = await saveCompositeToStorage(
       templateName,
-      compositePdfBytes
+      compositePdfBytes,
     );
 
     // Use stored natural dimensions for database
-    const imageWidth = props.imageWidth || pdfNaturalDimensions.value.width;
-    const imageHeight = props.imageHeight || pdfNaturalDimensions.value.height;
-
+    const _imageWidth = props.imageWidth || pdfNaturalDimensions.value.width;
+    const _imageHeight = props.imageHeight || pdfNaturalDimensions.value.height;
 
     // Normalize fields (keep original display coordinates for editing later)
-    const normalizedFields = props.placedFields.map((field) => ({
+    const normalizedFields = props.placedFields.map(field => ({
       id: field.id,
       instanceId: field.instanceId,
       instanceNumber: field.instanceNumber,
@@ -629,24 +527,25 @@ async function saveTemplate() {
 
     // Update template in database
     const { data, error } = await supabase
-      .from("contract_templates")
+      .from('contract_templates')
       .update(templateData)
-      .eq("id", props.templateId)
+      .eq('id', props.templateId)
       .select()
       .single();
 
     if (error) {
-      console.error("[TemplatePdfPreviewEdit] Database error:", error);
-      alert("Error saving template: " + error.message);
+      console.error('[TemplatePdfPreviewEdit] Database error:', error);
+      console.error(`Error saving template: ${error.message}`);
       return;
     }
 
-    alert("Template updated successfully!");
+    console.warn('Template updated successfully!');
 
-    emit("template-saved", data);
-  } catch (error) {
-    console.error("[TemplatePdfPreviewEdit] Error in saveTemplate:", error);
-    alert("Error saving template: " + error.message);
+    emit('templateSaved', data);
+  }
+  catch (error) {
+    console.error('[TemplatePdfPreviewEdit] Error in saveTemplate:', error);
+    console.error(`Error saving template: ${error.message}`);
   }
 }
 
@@ -659,7 +558,7 @@ watch(
       await loadPdf();
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // Watch for page changes
@@ -671,12 +570,120 @@ watch(currentPage, () => {
 
 // Cleanup on unmount
 onUnmounted(() => {
-  document.removeEventListener("mousemove", drag);
-  document.removeEventListener("mouseup", stopDrag);
-  document.removeEventListener("touchmove", drag);
-  document.removeEventListener("touchend", stopDrag);
+  document.removeEventListener('mousemove', drag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('touchmove', drag);
+  document.removeEventListener('touchend', stopDrag);
 });
 </script>
+
+<template>
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">
+        Preview
+      </h3>
+      <div class="card-tools">
+        <button
+          type="submit"
+          class="btn btn-success btn-sm"
+          @click="saveTemplate"
+        >
+          <i class="fas fa-save" /> Save Template
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-3">
+      <div
+        id="pdf-preview-container"
+        ref="previewContainer"
+        class="template-preview-area"
+        @mouseup="stopDrag"
+        @mousemove="drag"
+        @mouseleave="stopDrag"
+      >
+        <!-- PDF Page Container -->
+        <div
+          id="pdf-page-container"
+          ref="pdfPageContainer"
+          class="pdf-page-container"
+        >
+          <!-- Loading State -->
+          <div
+            v-if="!pdfLoaded"
+            class="d-flex align-items-center justify-content-center"
+            style="min-height: 400px"
+          >
+            <div class="text-center text-muted">
+              <i class="fas fa-file-pdf fa-3x mb-3" />
+              <p>Loading PDF...</p>
+            </div>
+          </div>
+
+          <!-- PDF Canvas -->
+          <canvas
+            v-show="pdfLoaded"
+            ref="pdfCanvas"
+            class="pdf-page-canvas"
+          />
+        </div>
+
+        <!-- Placed Fields Overlay (only for current page) -->
+        <div
+          v-for="field in placedFieldsOnCurrentPage"
+          :key="field.instanceId"
+          class="placed-field"
+          :class="{
+            'field-selected': selectedField?.instanceId === field.instanceId,
+          }"
+          :style="{
+            left: `${field.x}px`,
+            top: `${field.y}px`,
+            width: `${field.width}px`,
+            height: `${field.height}px`,
+            transform:
+              activeDrag.isDragging
+              && activeDrag.field?.instanceId === field.instanceId
+                ? 'scale(1.05)'
+                : 'scale(1)',
+            zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
+          }"
+          @mousedown="startDrag($event, field)"
+          @touchstart="startDrag($event, field)"
+          @click="selectField(field)"
+        >
+          <div class="field-content">
+            <i
+              v-if="field.name === 'Check Mark'"
+              :class="field.icon"
+              style="font-size: 1.2em"
+            />
+            <span v-if="field.label" class="field-label">{{
+              field.label
+            }}</span>
+            <span v-if="field.isGrouped" class="instance-number">
+              #{{ field.instanceNumber }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Page Selector -->
+        <div v-if="pdfLoaded && totalPages > 1" class="page-selector mb-2">
+          <label class="form-label small">Page:</label>
+          <select
+            v-model="currentPage"
+            class="form-select form-select-sm d-inline-block w-auto"
+            @change="renderCurrentPage"
+          >
+            <option v-for="i in totalPages" :key="i" :value="i">
+              Page {{ i }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 @media (max-width: 820px) {
@@ -694,10 +701,8 @@ onUnmounted(() => {
 
 #pdf-preview-container {
   background-image:
-    linear-gradient(45deg, #eee 25%, transparent 25%),
-    linear-gradient(-45deg, #eee 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #eee 75%),
-    linear-gradient(-45deg, transparent 75%, #eee 75%);
+    linear-gradient(45deg, #eee 25%, transparent 25%), linear-gradient(-45deg, #eee 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eee 75%), linear-gradient(-45deg, transparent 75%, #eee 75%);
   background-size: 20px 20px;
   min-height: 400px;
   position: relative;

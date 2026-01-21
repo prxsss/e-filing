@@ -1,11 +1,12 @@
-export const usePdfSigning = () => {
+export function usePdfSigning() {
   // Sanitize input to prevent XSS
   const sanitizeInput = (input) => {
-    if (typeof input !== "string") return "";
+    if (typeof input !== 'string')
+      return '';
     return input
-      .replace(/[<>]/g, "")
-      .replace(/javascript:/gi, "")
-      .replace(/on\w+=/gi, "")
+      .replace(/[<>]/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+=/gi, '')
       .trim();
   };
 
@@ -15,7 +16,7 @@ export const usePdfSigning = () => {
     formFields,
     groupedFillableFields,
     signatureField,
-    signaturePreview
+    signaturePreview,
   ) => {
     try {
       // Load PDF bytes from background URL
@@ -34,15 +35,16 @@ export const usePdfSigning = () => {
       // Collect all fillable fields with values
       const allFields = [
         ...groupedFillableFields.singleFields,
-        ...groupedFillableFields.groups.flatMap((g) => g.fields || []),
+        ...groupedFillableFields.groups.flatMap(g => g.fields || []),
       ];
 
       // Group fields by page number
       const fieldsByPage = {};
 
       allFields.forEach((field) => {
-        const value = sanitizeInput(formFields[field.instanceId] || "");
-        if (!value.trim()) return; // Skip empty fields
+        const value = sanitizeInput(formFields[field.instanceId] || '');
+        if (!value.trim())
+          return; // Skip empty fields
 
         const pageNum = field.pageNumber || 1;
         if (!fieldsByPage[pageNum]) {
@@ -87,19 +89,20 @@ export const usePdfSigning = () => {
         compositePdfBytes = await generatePdf(
           compositePdfBytes,
           pageFields,
-          parseInt(pageNum)
+          Number.parseInt(pageNum),
         );
       }
 
       if (!compositePdfBytes) {
-        throw new Error("Failed to generate composite PDF");
+        throw new Error('Failed to generate composite PDF');
       }
 
       // Convert to Blob
-      return new Blob([compositePdfBytes], { type: "application/pdf" });
-    } catch (error) {
-      console.error("[usePdfSigning] Error generating composite PDF:", error);
-      throw new Error("Failed to generate PDF document: " + error.message);
+      return new Blob([compositePdfBytes], { type: 'application/pdf' });
+    }
+    catch (error) {
+      console.error('[usePdfSigning] Error generating composite PDF:', error);
+      throw new Error(`Failed to generate PDF document: ${error.message}`);
     }
   };
 
@@ -107,4 +110,4 @@ export const usePdfSigning = () => {
     generateCompositePdf,
     sanitizeInput,
   };
-};
+}

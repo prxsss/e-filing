@@ -1,3 +1,84 @@
+<script setup>
+const props = defineProps({
+  currentPage: {
+    type: Number,
+    required: true,
+  },
+  totalItems: {
+    type: Number,
+    required: true,
+  },
+  itemsPerPage: {
+    type: Number,
+    default: 10,
+  },
+  maxVisiblePages: {
+    type: Number,
+    default: 5,
+  },
+});
+
+const emit = defineEmits(['pageChanged']);
+
+// Computed: Total number of pages
+const totalPages = computed(() => {
+  return Math.ceil(props.totalItems / props.itemsPerPage);
+});
+
+// Computed: Visible page numbers
+const visiblePages = computed(() => {
+  const pages = [];
+  const maxVisible = props.maxVisiblePages;
+  const current = props.currentPage;
+  const total = totalPages.value;
+
+  let start = Math.max(2, current - Math.floor(maxVisible / 2));
+  const end = Math.min(total - 1, start + maxVisible - 1);
+
+  // Adjust start if we're near the end
+  if (end - start < maxVisible - 1) {
+    start = Math.max(2, end - maxVisible + 1);
+  }
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  return pages;
+});
+
+// Computed: Show first page separately
+const showFirstPage = computed(() => {
+  return totalPages.value > 1;
+});
+
+// Computed: Show last page separately
+const showLastPage = computed(() => {
+  return totalPages.value > 1;
+});
+
+// Computed: Show first ellipsis
+const showFirstEllipsis = computed(() => {
+  return visiblePages.value.length > 0 && visiblePages.value[0] > 2;
+});
+
+// Computed: Show last ellipsis
+const showLastEllipsis = computed(() => {
+  return (
+    visiblePages.value.length > 0
+    && visiblePages.value[visiblePages.value.length - 1] < totalPages.value - 1
+  );
+});
+
+// Method: Change page
+function changePage(page) {
+  if (page < 1 || page > totalPages.value || page === props.currentPage) {
+    return;
+  }
+  emit('pageChanged', page);
+}
+</script>
+
 <template>
   <div v-if="totalPages > 1" class="pagination-wrapper">
     <nav aria-label="Page navigation">
@@ -7,10 +88,10 @@
           <a
             class="page-link"
             href="#"
-            @click.prevent="changePage(currentPage - 1)"
             aria-label="Previous"
+            @click.prevent="changePage(currentPage - 1)"
           >
-            <i class="fas fa-chevron-left"></i>
+            <i class="fas fa-chevron-left" />
           </a>
         </li>
 
@@ -61,10 +142,10 @@
           <a
             class="page-link"
             href="#"
-            @click.prevent="changePage(currentPage + 1)"
             aria-label="Next"
+            @click.prevent="changePage(currentPage + 1)"
           >
-            <i class="fas fa-chevron-right"></i>
+            <i class="fas fa-chevron-right" />
           </a>
         </li>
       </ul>
@@ -79,89 +160,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-const props = defineProps({
-  currentPage: {
-    type: Number,
-    required: true,
-    default: 1,
-  },
-  totalItems: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  itemsPerPage: {
-    type: Number,
-    default: 10,
-  },
-  maxVisiblePages: {
-    type: Number,
-    default: 5,
-  },
-});
-
-const emit = defineEmits(["page-changed"]);
-
-// Computed: Total number of pages
-const totalPages = computed(() => {
-  return Math.ceil(props.totalItems / props.itemsPerPage);
-});
-
-// Computed: Visible page numbers
-const visiblePages = computed(() => {
-  const pages = [];
-  const maxVisible = props.maxVisiblePages;
-  const current = props.currentPage;
-  const total = totalPages.value;
-
-  let start = Math.max(2, current - Math.floor(maxVisible / 2));
-  let end = Math.min(total - 1, start + maxVisible - 1);
-
-  // Adjust start if we're near the end
-  if (end - start < maxVisible - 1) {
-    start = Math.max(2, end - maxVisible + 1);
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i);
-  }
-
-  return pages;
-});
-
-// Computed: Show first page separately
-const showFirstPage = computed(() => {
-  return totalPages.value > 1;
-});
-
-// Computed: Show last page separately
-const showLastPage = computed(() => {
-  return totalPages.value > 1;
-});
-
-// Computed: Show first ellipsis
-const showFirstEllipsis = computed(() => {
-  return visiblePages.value.length > 0 && visiblePages.value[0] > 2;
-});
-
-// Computed: Show last ellipsis
-const showLastEllipsis = computed(() => {
-  return (
-    visiblePages.value.length > 0 &&
-    visiblePages.value[visiblePages.value.length - 1] < totalPages.value - 1
-  );
-});
-
-// Method: Change page
-function changePage(page) {
-  if (page < 1 || page > totalPages.value || page === props.currentPage) {
-    return;
-  }
-  emit("page-changed", page);
-}
-</script>
 
 <style scoped>
 .pagination-wrapper {
