@@ -56,5 +56,6 @@
   "cancel": "ยกเลิก",
   "fullName": "ชื่อเต็ม",
   "confirm": "ยืนยัน",
-  "createTemplate": "สร้างแม่แบบคำร้อง"
+  "createTemplate": "สร้างแม่แบบคำร้อง",
+  "documentReview": "ตรวจสอบเอกสาร"
 }
