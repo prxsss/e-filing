@@ -66,22 +66,6 @@ function navigateToNewRequest() {
   <div class="min-h-screen bg-gray-50/50">
     <!-- Main Content -->
     <UContainer class="space-y-8 pb-8">
-      <!-- 1. Header & Greeting -->
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">
-            สวัสดี, คุณสมชาย
-          </h1>
-          <p class="text-gray-500 mt-1 text-sm">
-            รหัสนิสิต 63010xxx • คณะวิศวกรรมศาสตร์
-          </p>
-        </div>
-        <UBadge color="neutral" variant="solid" size="md" class="px-3 py-1.5">
-          <UIcon name="i-heroicons-calendar" class="mr-1.5 w-4 h-4" />
-          ภาคเรียนที่ 1/2567
-        </UBadge>
-      </div>
-
       <!-- 2. Primary Action (Banner) -->
       <!-- ใช้ Div ผสมกับ UButton เพื่อความยืดหยุ่นในการทำ Background Gradient -->
       <div
