@@ -659,18 +659,21 @@ onUnmounted(() => {
   background-size: 20px 20px;
   min-height: 400px;
   margin: 0 auto;
-  width: 55vw;
-  max-width: 800px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .pdf-container {
   position: relative;
   width: 100%;
   margin: 0 auto;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .pdf-canvas {
-  width: 100%;
+  max-width: 100%;
   height: auto;
   display: block;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
