@@ -87,7 +87,8 @@ const filteredTemplates = computed(() => {
     // 2. Filter Search Text
     const query = searchQuery.value.toLowerCase();
     return item.name.toLowerCase().includes(query)
-      || item.description.toLowerCase().includes(query);
+      || item.description.toLowerCase().includes(query)
+      || item.tag.toLowerCase().includes(query);
   });
 });
 
