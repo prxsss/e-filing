@@ -1,116 +1,3 @@
-<template>
-  <div class="card shadow-sm">
-    <div class="card-header">
-      <i class="fas fa-sliders-h mr-2"></i>Properties
-    </div>
-    <div class="card-body p-3">
-      <div class="field-title">
-        <span class="field-title-text">{{ selectedField.name }}</span>
-        <span v-if="selectedField.instanceNumber > 1" class="instance-badge">
-          #{{ selectedField.instanceNumber }}
-        </span>
-      </div>
-
-      <div class="prop-section">
-        <label class="prop-label">
-          <i class="fas fa-arrows-alt mr-1"></i>Position
-        </label>
-        <div class="prop-row">
-          <div class="prop-input-group">
-            <small class="input-label">X</small>
-            <input
-              type="number"
-              class="prop-input"
-              v-model.number="localField.x"
-              @input="onPropertyChange"
-              min="0"
-            />
-          </div>
-          <div class="prop-input-group">
-            <small class="input-label">Y</small>
-            <input
-              type="number"
-              class="prop-input"
-              v-model.number="localField.y"
-              @input="onPropertyChange"
-              min="0"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="prop-section">
-        <label class="prop-label">
-          <i class="fas fa-expand-arrows-alt mr-1"></i>Size
-        </label>
-        <div class="prop-row">
-          <div class="prop-input-group">
-            <small class="input-label">Width</small>
-            <input
-              type="number"
-              class="prop-input"
-              v-model.number="localField.width"
-              @input="onPropertyChange"
-              min="10"
-            />
-          </div>
-          <div class="prop-input-group">
-            <small class="input-label">Height</small>
-            <input
-              type="number"
-              class="prop-input"
-              v-model.number="localField.height"
-              @input="onPropertyChange"
-              min="10"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="prop-section" v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'">
-        <label class="prop-label">
-          <i class="fas fa-font mr-1"></i>Font
-        </label>
-        <div class="prop-input-group mb-2">
-          <small class="input-label">Font Size</small>
-          <input
-            type="number"
-            class="prop-input"
-            v-model.number="localField.fontSize"
-            @input="onPropertyChange"
-            min="8"
-            max="72"
-            placeholder="14"
-          />
-        </div>
-        <div class="prop-input-group">
-          <small class="input-label">Font Family</small>
-          <select
-            class="prop-input"
-            v-model="localField.fontFamily"
-            @change="onPropertyChange"
-          >
-            <option value="Arial">Arial</option>
-            <option value="Helvetica">Helvetica</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Courier New">Courier New</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Verdana">Verdana</option>
-            <option value="Tahoma">Tahoma</option>
-            <option value="Sarabun">Sarabun (Thai)</option>
-            <option value="Prompt">Prompt (Thai)</option>
-            <option value="Mitr">Mitr (Thai)</option>
-          </select>
-        </div>
-      </div>
-
-      <button class="btn-remove" @click="removeField">
-        <i class="fas fa-trash mr-2"></i>Remove Field
-      </button>
-    </div>
-  </div>
-</template>
-
 <script setup>
 const props = defineProps({
   selectedField: {
@@ -119,7 +6,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["field-updated", "field-removed"]);
+const emit = defineEmits(['fieldUpdated', 'fieldRemoved']);
 const localField = ref({});
 
 watch(
@@ -127,17 +14,19 @@ watch(
   (newField) => {
     if (newField) {
       localField.value = { ...newField };
-    } else {
+    }
+    else {
       localField.value = {};
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true, deep: true },
 );
 
 function onPropertyChange() {
-  if (!localField.value || !props.selectedField) return;
+  if (!localField.value || !props.selectedField)
+    return;
 
-  emit("field-updated", {
+  emit('fieldUpdated', {
     instanceId: props.selectedField.instanceId,
     updates: {
       x: localField.value.x,
@@ -151,10 +40,144 @@ function onPropertyChange() {
 }
 
 function removeField() {
-  if (!props.selectedField) return;
-  emit("field-removed", props.selectedField.instanceId);
+  if (!props.selectedField)
+    return;
+  emit('fieldRemoved', props.selectedField.instanceId);
 }
 </script>
+
+<template>
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <i class="fas fa-sliders-h mr-2" />Properties
+    </div>
+    <div class="card-body p-3">
+      <div class="field-title">
+        <span class="field-title-text">{{ selectedField.name }}</span>
+        <span v-if="selectedField.instanceNumber > 1" class="instance-badge">
+          #{{ selectedField.instanceNumber }}
+        </span>
+      </div>
+
+      <div class="prop-section">
+        <label class="prop-label">
+          <i class="fas fa-arrows-alt mr-1" />Position
+        </label>
+        <div class="prop-row">
+          <div class="prop-input-group">
+            <small class="input-label">X</small>
+            <input
+              v-model.number="localField.x"
+              type="number"
+              class="prop-input"
+              min="0"
+              @input="onPropertyChange"
+            >
+          </div>
+          <div class="prop-input-group">
+            <small class="input-label">Y</small>
+            <input
+              v-model.number="localField.y"
+              type="number"
+              class="prop-input"
+              min="0"
+              @input="onPropertyChange"
+            >
+          </div>
+        </div>
+      </div>
+
+      <div class="prop-section">
+        <label class="prop-label">
+          <i class="fas fa-expand-arrows-alt mr-1" />Size
+        </label>
+        <div class="prop-row">
+          <div class="prop-input-group">
+            <small class="input-label">Width</small>
+            <input
+              v-model.number="localField.width"
+              type="number"
+              class="prop-input"
+              min="10"
+              @input="onPropertyChange"
+            >
+          </div>
+          <div class="prop-input-group">
+            <small class="input-label">Height</small>
+            <input
+              v-model.number="localField.height"
+              type="number"
+              class="prop-input"
+              min="10"
+              @input="onPropertyChange"
+            >
+          </div>
+        </div>
+      </div>
+
+      <div v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'" class="prop-section">
+        <label class="prop-label">
+          <i class="fas fa-font mr-1" />Font
+        </label>
+        <div class="prop-input-group mb-2">
+          <small class="input-label">Font Size</small>
+          <input
+            v-model.number="localField.fontSize"
+            type="number"
+            class="prop-input"
+            min="8"
+            max="72"
+            placeholder="14"
+            @input="onPropertyChange"
+          >
+        </div>
+        <div class="prop-input-group">
+          <small class="input-label">Font Family</small>
+          <select
+            v-model="localField.fontFamily"
+            class="prop-input"
+            @change="onPropertyChange"
+          >
+            <option value="Arial">
+              Arial
+            </option>
+            <option value="Helvetica">
+              Helvetica
+            </option>
+            <option value="Times New Roman">
+              Times New Roman
+            </option>
+            <option value="Courier New">
+              Courier New
+            </option>
+            <option value="Georgia">
+              Georgia
+            </option>
+            <option value="Verdana">
+              Verdana
+            </option>
+            <option value="Tahoma">
+              Tahoma
+            </option>
+            <option value="Sarabun">
+              Sarabun (Thai)
+            </option>
+            <option value="Prompt">
+              Prompt (Thai)
+            </option>
+            <option value="Mitr">
+              Mitr (Thai)
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-remove" @click="removeField">
+        <i class="fas fa-trash mr-2" />Remove Field
+      </button>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 /* Card Styling */

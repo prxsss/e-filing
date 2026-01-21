@@ -1,4 +1,4 @@
-export const usePagination = (itemsPerPage = 10) => {
+export function usePagination(itemsPerPage = 10) {
   const currentPage = ref(1);
   const totalItems = ref(0);
 
@@ -13,8 +13,8 @@ export const usePagination = (itemsPerPage = 10) => {
   const changePage = (page) => {
     currentPage.value = page;
     // Scroll to top of page when changing pages
-    if (process.client) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (import.meta.client) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -37,4 +37,4 @@ export const usePagination = (itemsPerPage = 10) => {
     resetPagination,
     setTotalItems,
   };
-};
+}

@@ -326,12 +326,12 @@ watch(
         </div>
 
         <!-- Fields -->
-        <FieldList @field-added="addFieldToPreview" />
+        <field-list @field-added="addFieldToPreview" />
       </div>
 
       <!-- Center - Preview -->
       <div class="col-span-12 lg:col-span-8">
-        <TemplateImageCreate
+        <template-image-create
           v-if="fileType === 'image' && previewImageUrl"
           :preview-image-url="previewImageUrl"
           :placed-fields="placedFields"
@@ -344,7 +344,7 @@ watch(
           @template-saved="handleTemplateSaved"
         />
 
-        <TemplatePdfCreate
+        <template-pdf-create
           v-else-if="fileType === 'pdf' && uploadedFile"
           :pdf-file="uploadedFile"
           :placed-fields="placedFields"
@@ -369,7 +369,7 @@ watch(
 
       <!-- Right Sidebar -->
       <div class="col-span-12 lg:col-span-2">
-        <FieldProperties
+        <field-properties
           v-if="selectedField"
           :selected-field="selectedField"
           @field-updated="handleFieldUpdate"
