@@ -86,9 +86,9 @@ function handleSelectRequest(requestId: number, requestName: string) {
 }
 
 // ===== STEP 6: Go back handler =====
-function goBack() {
-  router.back();
-}
+// function goBack() {
+//   router.back();
+// }
 </script>
 
 <template>
@@ -96,12 +96,6 @@ function goBack() {
   <div class="space-y-6">
     <!-- ===== STEP 2: Header with back button and title ===== -->
     <div class="flex items-center gap-3">
-      <UButton
-        color="neutral"
-        variant="ghost"
-        icon="i-lucide-arrow-left"
-        @click="goBack"
-      />
       <div>
         <h1 class="text-2xl font-bold text-slate-800">
           New Request
