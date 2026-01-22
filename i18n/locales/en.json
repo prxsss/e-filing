@@ -33,5 +33,6 @@
   "noRequests": "No requests found",
   "tryAdjustingFilters": "Try adjusting your filters or search",
   "noRecentRequests": "No recent requests yet",
-  "createTemplate": "Create Template"
+  "createTemplate": "Create Template",
+  "documentReview": "Document Review"
 }
