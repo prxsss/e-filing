@@ -741,11 +741,11 @@ function handleTemplateSaved(templateData: any): void {
     return;
   }
 
-    toast.add({
-      title: 'บันทึกสำเร็จ',
-      description: 'เทมเพลตถูกบันทึกแล้ว',
-      color: 'success',
-    });
+  toast.add({
+    title: 'บันทึกสำเร็จ',
+    description: 'เทมเพลตถูกบันทึกแล้ว',
+    color: 'success',
+  });
 
   setTimeout(() => {
     router.push('/admin/templates');
