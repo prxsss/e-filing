@@ -5,6 +5,7 @@ definePageMeta({
 
 // const supabase = useSupabaseClient(); // Temporarily disabled
 const router = useRouter();
+const toast = useToast();
 const hasChanges = ref(false);
 const isSaving = ref(false);
 const isDragging = ref(false);
@@ -15,17 +16,38 @@ const templateNameError = ref('');
 const previewImageUrl = ref(null);
 const placedFields = ref([]);
 const selectedField = ref(null);
+const scale = ref(1); // Zoom level
 // Mock contracts data
-const contracts = ref([
-  { id: 1, name: 'Student Agreement', is_active: true },
-  { id: 2, name: 'Course Registration', is_active: true },
-  { id: 3, name: 'Internship Contract', is_active: true },
-]);
+// const contracts = ref([
+//   { id: 1, name: 'Student Agreement', is_active: true },
+//   { id: 2, name: 'Course Registration', is_active: true },
+//   { id: 3, name: 'Internship Contract', is_active: true },
+// ]);
 const selectedContractId = ref(null);
 const imageLoaded = ref(false);
 const uploadedFile = ref(null);
 const fileType = ref(null);
 const currentPdfPage = ref(1);
+const searchQuery = ref('');
+
+// Available fields for the template
+const availableFields = [
+  { id: 1, name: 'Student Name', label: 'Student Name', type: 'Text', icon: 'i-heroicons-user', default_width: 200, default_height: 40 },
+  { id: 2, name: 'Student ID', label: 'Student ID', type: 'Text', icon: 'i-heroicons-identification', default_width: 150, default_height: 40 },
+  { id: 3, name: 'Email', label: 'Email Address', type: 'Text', icon: 'i-heroicons-envelope', default_width: 250, default_height: 40 },
+  { id: 4, name: 'Phone', label: 'Phone Number', type: 'Text', icon: 'i-heroicons-phone', default_width: 150, default_height: 40 },
+  { id: 5, name: 'Date', label: 'Date', type: 'Date', icon: 'i-heroicons-calendar', default_width: 150, default_height: 40 },
+  { id: 'sig', name: 'Signature', label: 'Signature', type: 'Signature', icon: 'i-heroicons-pencil-square', default_width: 200, default_height: 60 },
+];
+
+// Computed property for filtered fields based on search
+const filteredFields = computed(() => {
+  if (!searchQuery.value)
+    return availableFields;
+  return availableFields.filter(f =>
+    f.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
+  );
+});
 
 async function _fetchContracts() {
   // Temporarily disabled - using mock data instead
@@ -109,6 +131,11 @@ function processFile(file) {
 function addFieldToPreview(fieldToAdd) {
   if (!fieldToAdd)
     return;
+
+  if (!uploadedFile.value) {
+    toast.add({ title: 'กรุณาอัปโหลดไฟล์เอกสารก่อนเริ่มวาง Field', color: 'error' });
+    return;
+  }
 
   const amount = fieldToAdd.amount || 1;
   const groupId = amount > 1 ? `group_${fieldToAdd.id}_${Date.now()}` : null;
@@ -268,68 +295,118 @@ watch(
 </script>
 
 <template>
-  <div class="w-full">
-    <!-- Template Info Section -->
-    <div class="bg-white rounded-lg shadow-sm mb-4">
-      <div class="p-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Template Name</label>
-            <input
-              v-model="newTemplateName"
-              type="text"
-              class="w-full px-3 py-2 border rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              :class="templateNameError ? 'border-red-500' : 'border-gray-300'"
-              placeholder="Enter template name"
-              @input="validateTemplateName"
-            >
-            <div v-if="templateNameError" class="text-red-500 text-xs mt-1">
-              {{ templateNameError }}
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-2">Contract</label>
-            <select
-              v-model="selectedContractId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option hidden :value="null">
-                -- Choose Contract --
-              </option>
-              <option
-                v-for="contract in contracts"
-                :key="contract.id"
-                :value="contract.id"
-              >
-                {{ contract.name }}
-              </option>
-            </select>
+  <div class="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <!-- === TOP HEADER (Toolbar) === -->
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20 shadow-sm shrink-0">
+      <div class="flex items-center gap-4">
+        <UButton
+          icon="i-heroicons-arrow-left"
+          color="neutral"
+          variant="ghost"
+          @click="router.back()"
+        />
+        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
+
+        <!-- Template Name Input -->
+        <div class="flex flex-col">
+          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Template Name</label>
+          <input
+            v-model="newTemplateName"
+            type="text"
+            class="bg-transparent border-none p-0 text-gray-800 font-semibold focus:ring-0 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-1 transition-colors"
+            placeholder="Enter template name..."
+            @input="validateTemplateName"
+          >
+          <div v-if="templateNameError" class="text-red-500 text-[10px] mt-0.5">
+            {{ templateNameError }}
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="grid grid-cols-12 gap-4">
-      <!-- Left Sidebar -->
-      <div class="col-span-12 lg:col-span-2">
-        <!-- Upload -->
-        <div class="bg-white rounded-lg shadow-sm mb-4 overflow-hidden">
-          <div class="bg-blue-500 px-4 py-3 text-white font-semibold text-sm flex items-center">
-            <i class="fas fa-cloud-upload-alt mr-2" />
-            <span>Upload Background</span>
-          </div>
-          <div class="p-3">
+        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
+
+        <!-- Contract Selector -->
+        <!-- <div class="flex flex-col">
+          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Contract</label>
+          <USelectMenu
+            v-model="selectedContractId"
+            :options="contracts"
+            value-attribute="id"
+            option-attribute="name"
+            placeholder="Choose Contract"
+            size="sm"
+            class="w-48"
+          />
+        </div> -->
+      </div>
+
+      <div class="flex items-center gap-3">
+        <UButton
+          :loading="isSaving"
+          icon="i-heroicons-check"
+          color="neutral"
+          label="Save Template"
+          size="sm"
+          class="px-6 font-bold"
+          @click="handleTemplateSaved"
+        />
+      </div>
+    </header>
+
+    <!-- === WORKSPACE === -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- [LEFT SIDEBAR] Tools & Assets -->
+      <aside class="w-72 bg-white border-r border-gray-200 flex flex-col shrink-0 z-10">
+        <!-- Tabs / Sections -->
+        <div class="p-4 border-b border-gray-100">
+          <h3 class="font-bold text-gray-800 flex items-center gap-2">
+            <UIcon name="i-heroicons-swatch" class="text-primary-500" />
+            เครื่องมือ (Tools)
+          </h3>
+        </div>
+
+        <div class="overflow-y-auto flex-1 p-4 space-y-6">
+          <!-- Upload Section -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-xs font-semibold text-gray-500 uppercase">เอกสารตั้นต้นฉบับ</label>
+              <UBadge v-if="uploadedFile" color="success" variant="subtle" size="xs">
+                Uploaded
+              </UBadge>
+            </div>
+
             <div
-              class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer bg-gray-50 transition-all hover:border-blue-500 hover:bg-blue-50"
-              :class="{ 'border-blue-500 bg-blue-100 scale-105': isDragging, 'border-gray-300': !isDragging }"
+              v-if="!uploadedFile"
+              class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 hover:border-primary-400 transition-all cursor-pointer group"
+              :class="{ 'border-primary-500 bg-primary-50': isDragging }"
               @click="triggerFileInput"
               @drop.prevent="handleFileDrop"
               @dragover.prevent="isDragging = true"
               @dragleave.prevent="isDragging = false"
             >
-              <i class="fas fa-cloud-upload-alt text-4xl text-gray-500 mb-3 block" />
-              <span class="block font-medium text-gray-700 mb-1 text-sm">Click or drop file</span>
-              <small class="block text-gray-500 text-xs">Image or PDF</small>
+              <div class="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
+                <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6" />
+              </div>
+              <p class="text-sm font-medium text-gray-600">
+                คลิกเพื่ออัปโหลด
+              </p>
+              <p class="text-xs text-gray-400 mt-1">
+                PDF หรือ รูปภาพ (JPG, PNG)
+              </p>
+            </div>
+
+            <!-- Uploaded State -->
+            <div v-else class="bg-gray-50 rounded-lg p-3 border border-gray-200 flex items-center gap-3">
+              <div class="w-10 h-10 bg-white border border-gray-200 rounded flex items-center justify-center text-gray-400 shrink-0">
+                <UIcon :name="fileType === 'pdf' ? 'i-heroicons-document-text' : 'i-heroicons-photo'" class="w-6 h-6" />
+              </div>
+              <div class="overflow-hidden">
+                <p class="text-sm font-medium text-gray-900 truncate">
+                  {{ uploadedFile.name }}
+                </p>
+                <button class="text-xs text-primary-600 hover:underline" @click="triggerFileInput">
+                  เปลี่ยนไฟล์
+                </button>
+              </div>
             </div>
             <input
               ref="fileInput"
@@ -339,63 +416,144 @@ watch(
               @change="handleImageUpload"
             >
           </div>
+
+          <!-- Fields Section -->
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <label class="text-xs font-semibold text-gray-500 uppercase">ข้อมูลที่เติมได้</label>
+            </div>
+
+            <!-- Search -->
+            <UInput
+              v-model="searchQuery"
+              icon="i-heroicons-magnifying-glass"
+              placeholder="ค้นหา..."
+              size="sm"
+              class="mb-3 w-full"
+            />
+
+            <!-- Field List -->
+            <div class="space-y-2">
+              <button
+                v-for="field in filteredFields"
+                :key="field.id"
+                class="w-full flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 bg-white hover:border-primary-400 hover:shadow-sm transition-all text-left group"
+                @click="addFieldToPreview(field)"
+              >
+                <div class="w-8 h-8 rounded-md bg-gray-50 text-gray-500 flex items-center justify-center group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
+                  <UIcon :name="field.icon" class="w-5 h-5" />
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                    {{ field.name }}
+                  </p>
+                  <p class="text-[10px] text-gray-400">
+                    {{ field.type }}
+                  </p>
+                </div>
+                <UIcon name="i-heroicons-plus" class="ml-auto text-gray-300 group-hover:text-primary-500" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- [CENTER] Canvas Area -->
+      <section class="flex-1 bg-gray-100/50 relative overflow-hidden flex flex-col">
+        <!-- Toolbar (Zoom etc.) -->
+        <div class="h-10 border-b border-gray-200 bg-white px-4 flex items-center justify-between shrink-0">
+          <div class="text-xs text-gray-400">
+            <span v-if="!uploadedFile">ยังไม่มีไฟล์</span>
+            <span v-else-if="fileType === 'pdf'">เอกสาร PDF - หน้า {{ currentPdfPage }}</span>
+            <span v-else>เอกสารรูปภาพ</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" @click="scale = Math.max(0.5, scale - 0.1)" />
+            <span class="text-xs font-mono w-12 text-center text-gray-600">{{ Math.round(scale * 100) }}%</span>
+            <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" @click="scale = Math.min(2, scale + 0.1)" />
+          </div>
         </div>
 
-        <!-- Fields -->
-        <field-list @field-added="addFieldToPreview" />
-      </div>
+        <!-- Scrollable Canvas Container -->
+        <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
+          <!-- Canvas Wrapper with Scale -->
+          <div
+            class="transition-transform duration-200 ease-out origin-top"
+            :style="{ transform: `scale(${scale})` }"
+          >
+            <template-image-create
+              v-if="fileType === 'image' && previewImageUrl"
+              :preview-image-url="previewImageUrl"
+              :placed-fields="placedFields"
+              :selected-field="selectedField"
+              :new-template-name="newTemplateName"
+              :selected-contract-id="selectedContractId"
+              :original-file="uploadedFile"
+              @field-selected="selectField"
+              @image-loaded="onImageLoad"
+              @template-saved="handleTemplateSaved"
+            />
 
-      <!-- Center - Preview -->
-      <div class="col-span-12 lg:col-span-8">
-        <template-image-create
-          v-if="fileType === 'image' && previewImageUrl"
-          :preview-image-url="previewImageUrl"
-          :placed-fields="placedFields"
-          :selected-field="selectedField"
-          :new-template-name="newTemplateName"
-          :selected-contract-id="selectedContractId"
-          :original-file="uploadedFile"
-          @field-selected="selectField"
-          @image-loaded="onImageLoad"
-          @template-saved="handleTemplateSaved"
-        />
+            <template-pdf-create
+              v-else-if="fileType === 'pdf' && uploadedFile"
+              :pdf-file="uploadedFile"
+              :placed-fields="placedFields"
+              :selected-field="selectedField"
+              :new-template-name="newTemplateName"
+              :selected-contract-id="selectedContractId"
+              @field-selected="selectField"
+              @pdf-loaded="onImageLoad"
+              @template-saved="handleTemplateSaved"
+              @current-page-changed="handlePdfPageChange"
+            />
 
-        <template-pdf-create
-          v-else-if="fileType === 'pdf' && uploadedFile"
-          :pdf-file="uploadedFile"
-          :placed-fields="placedFields"
-          :selected-field="selectedField"
-          :new-template-name="newTemplateName"
-          :selected-contract-id="selectedContractId"
-          @field-selected="selectField"
-          @pdf-loaded="onImageLoad"
-          @template-saved="handleTemplateSaved"
-          @current-page-changed="handlePdfPageChange"
-        />
+            <div v-else class="bg-white shadow-lg border border-gray-200 rounded-lg" style="width: 595px; min-height: 842px;">
+              <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
+                <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
+                <p class="text-sm">
+                  พื้นที่แสดงเอกสาร
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div v-else class="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div class="p-20 text-center">
-            <i class="fas fa-image text-6xl text-gray-400 mb-4 block" />
-            <p class="text-gray-500">
-              Upload a file to start
+      <!-- [RIGHT SIDEBAR] Properties -->
+      <aside class="w-72 bg-white border-l border-gray-200 flex flex-col shrink-0 z-10">
+        <div class="p-4 border-b border-gray-100">
+          <h3 class="font-bold text-gray-800 flex items-center gap-2">
+            <UIcon name="i-heroicons-adjustments-horizontal" class="text-gray-500" />
+            คุณสมบัติ (Properties)
+          </h3>
+        </div>
+
+        <div class="p-5 overflow-y-auto flex-1">
+          <field-properties
+            v-if="selectedField"
+            :selected-field="selectedField"
+            @field-updated="handleFieldUpdate"
+            @field-removed="handleFieldRemoval"
+          />
+
+          <!-- Empty State -->
+          <div v-else class="text-center py-10 opacity-60">
+            <UIcon name="i-heroicons-cursor-arrow-rays" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p class="text-sm text-gray-500 font-medium">
+              คลิกเลือก Field บนเอกสาร<br>เพื่อแก้ไขคุณสมบัติ
             </p>
           </div>
         </div>
-      </div>
-
-      <!-- Right Sidebar -->
-      <div class="col-span-12 lg:col-span-2">
-        <field-properties
-          v-if="selectedField"
-          :selected-field="selectedField"
-          @field-updated="handleFieldUpdate"
-          @field-removed="handleFieldRemoval"
-        />
-      </div>
+      </aside>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Remove all Bootstrap styles - using Tailwind only */
+/* Custom styling for canvas if needed */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 </style>
