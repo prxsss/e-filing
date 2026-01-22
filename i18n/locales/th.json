@@ -57,5 +57,6 @@
   "fullName": "ชื่อเต็ม",
   "confirm": "ยืนยัน",
   "createTemplate": "สร้างแม่แบบคำร้อง",
-  "documentReview": "ตรวจสอบเอกสาร"
+  "documentReview": "ตรวจสอบเอกสาร",
+  "allTemplates": "แม่แบบคำร้องทั้งหมด"
 }
