@@ -826,6 +826,34 @@ watch(
             {{ templateNameError }}
           </div>
         </div>
+
+        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
+
+        <!-- Contract Selector -->
+        <!-- <div class="flex flex-col">
+          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Contract</label>
+          <USelectMenu
+            v-model="selectedContractId"
+            :options="contracts"
+            value-attribute="id"
+            option-attribute="name"
+            placeholder="Choose Contract"
+            size="sm"
+            class="w-48"
+          />
+        </div> -->
+      </div>
+
+      <div class="flex items-center gap-3">
+        <UButton
+          :loading="isSaving"
+          icon="i-heroicons-check"
+          color="neutral"
+          label="Save Template"
+          size="sm"
+          class="px-6 font-bold"
+          @click="handleTemplateSaved"
+        />
       </div>
 
       <!-- Step Indicator (center) -->
