@@ -87,8 +87,7 @@ const filteredTemplates = computed(() => {
     // 2. Filter Search Text
     const query = searchQuery.value.toLowerCase();
     return item.name.toLowerCase().includes(query)
-      || item.description.toLowerCase().includes(query)
-      || item.tag.toLowerCase().includes(query);
+      || item.description.toLowerCase().includes(query);
   });
 });
 
@@ -111,7 +110,7 @@ function navigateToDetails(id: number) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50/50 pb-12">
+  <div class="min-h-screen pb-12">
     <!-- Main Content -->
     <UContainer class="space-y-6">
       <!-- 1. Header & Actions -->
