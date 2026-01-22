@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  title: 'allTemplates',
+});
+
 // --- 1. Type Definitions ---
 type Template = {
   id: number;
