@@ -6,11 +6,12 @@ export function usePdfOperations() {
 
     try {
       // Import PDF.js dynamically
-      const pdfjs = await import('pdfjs-dist');
+      const pdfjsModule = await import('pdfjs-dist');
+      const pdfjs = pdfjsModule.default || pdfjsModule;
 
       // Set worker source after importing
       if (import.meta.client) {
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       }
 
       return pdfjs;
