@@ -34,5 +34,6 @@
   "tryAdjustingFilters": "ลองปรับตัวกรองหรือการค้นหา",
   "noRecentRequests": "ยังไม่มีรายการคำร้องเร็วๆ นี้",
   "createTemplate": "สร้างแม่แบบคำร้อง",
-  "documentReview": "ตรวจสอบเอกสาร"
+  "documentReview": "ตรวจสอบเอกสาร",
+  "allTemplates": "แม่แบบคำร้องทั้งหมด"
 }

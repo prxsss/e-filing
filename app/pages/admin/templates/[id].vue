@@ -1,4 +1,8 @@
 <script lang="ts" setup>
+definePageMeta({
+  title: 'documentReview',
+});
+
 // --- Types ---
 type WorkflowStep = {
   id: number;

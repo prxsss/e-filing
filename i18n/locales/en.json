@@ -34,5 +34,6 @@
   "tryAdjustingFilters": "Try adjusting your filters or search",
   "noRecentRequests": "No recent requests yet",
   "createTemplate": "Create Template",
-  "documentReview": "Document Review"
+  "documentReview": "Document Review",
+  "allTemplates": "All Templates"
 }
