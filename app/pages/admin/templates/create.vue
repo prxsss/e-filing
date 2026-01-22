@@ -1,7 +1,6 @@
 <script setup>
 definePageMeta({
-  layout: 'template',
-  pageTitle: 'Create Template',
+  pageTitle: 'createTemplate',
 });
 
 // const supabase = useSupabaseClient(); // Temporarily disabled

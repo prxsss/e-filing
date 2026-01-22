@@ -1,3 +1,5 @@
+import { usePdfOperations } from './use-pdf-operations';
+
 export function usePdfSigning() {
   // Sanitize input to prevent XSS
   const sanitizeInput = (input) => {
