@@ -48,6 +48,8 @@ export type FieldInstance = Field & {
   // Font properties
   fontSize: number;
   fontFamily: string;
+  // Signing step assignment
+  signerStepId?: string;
 };
 
 /**
@@ -118,6 +120,46 @@ export type TemplateData = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+/**
+ * Signing step definition for template signing flow
+ */
+export type SigningStep = {
+  id: string;
+  order: number;
+  roleId?: number;
+  roleName: string;
+  description?: string;
+  isRequired: boolean;
+  assignedFieldInstanceIds: string[];
+  color: string;
+};
+
+/**
+ * Signing flow data stored as JSONB on request_template
+ */
+export type SigningFlowData = SigningStep[];
+
+/**
+ * Wizard step for multi-step template creation
+ */
+export type WizardStep = 1 | 2 | 3;
+
+/**
+ * Predefined colors for signing steps
+ */
+export const SIGNER_COLORS: string[] = [
+  '#3B82F6', // blue
+  '#EF4444', // red
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#F97316', // orange
+  '#14B8A6', // teal
+  '#6366F1', // indigo
+];
 
 /**
  * Active drag state

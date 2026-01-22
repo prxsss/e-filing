@@ -90,7 +90,7 @@ async function fetchRequestData() {
 
       // Fetch template details
       if (requestData.value?.templateId) {
-        const templateResult: any = await $fetch(`/api/templates/${requestData.value.templateId}`);
+        const templateResult: any = await $fetch(`/api/pdf-templates/${requestData.value.templateId}`);
 
         if (templateResult.success && templateResult.data) {
           templateData.value = templateResult.data as TemplateData;
