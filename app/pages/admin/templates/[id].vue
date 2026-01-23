@@ -92,14 +92,6 @@ function downloadPdf() {
   window.open(pdfUrl.value, '_blank');
 }
 
-function zoomIn() {
-  console.warn('Zoom in');
-}
-
-function zoomOut() {
-  console.warn('Zoom out');
-}
-
 onMounted(() => {
   loadPdfFile();
 });
@@ -127,23 +119,19 @@ onMounted(() => {
           </div>
           <div class="flex gap-2">
             <UButton
-              icon="i-heroicons-magnifying-glass-plus"
-              variant="ghost"
-              color="neutral"
-              @click="zoomIn"
-            />
-            <UButton
-              icon="i-heroicons-magnifying-glass-minus"
-              variant="ghost"
-              color="neutral"
-              @click="zoomOut"
-            />
-            <UButton
               icon="i-heroicons-arrow-down-tray"
               variant="ghost"
               color="neutral"
               @click="downloadPdf"
             />
+            <UButton
+              to="`/admin/templates/edit?id=${templateId}`"
+              icon="i-heroicons-pencil-square"
+              variant="solid"
+              color="info"
+            >
+              Edit
+            </UButton>
           </div>
         </div>
       </div>
