@@ -3,7 +3,6 @@ definePageMeta({
   title: 'createTemplate',
 });
 
-// const supabase = useSupabaseClient(); // Temporarily disabled
 const router = useRouter();
 const toast = useToast();
 const hasChanges = ref(false);
