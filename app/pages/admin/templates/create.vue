@@ -29,21 +29,18 @@ const fileType = ref(null);
 const currentPdfPage = ref(1);
 const searchQuery = ref('');
 
-// Available fields for the template
-const availableFields = [
-  { id: 1, name: 'Student Name', label: 'Student Name', type: 'Text', icon: 'i-heroicons-user', default_width: 200, default_height: 40 },
-  { id: 2, name: 'Student ID', label: 'Student ID', type: 'Text', icon: 'i-heroicons-identification', default_width: 150, default_height: 40 },
-  { id: 3, name: 'Email', label: 'Email Address', type: 'Text', icon: 'i-heroicons-envelope', default_width: 250, default_height: 40 },
-  { id: 4, name: 'Phone', label: 'Phone Number', type: 'Text', icon: 'i-heroicons-phone', default_width: 150, default_height: 40 },
-  { id: 5, name: 'Date', label: 'Date', type: 'Date', icon: 'i-heroicons-calendar', default_width: 150, default_height: 40 },
-  { id: 'sig', name: 'Signature', label: 'Signature', type: 'Signature', icon: 'i-heroicons-pencil-square', default_width: 200, default_height: 60 },
-];
+// Available fields for the template - load from database
+const availableFields = ref([]);
+const isLoadingFields = ref(false);
+const isCreateFieldModalOpen = ref(false);
+const isEditFieldModalOpen = ref(false);
+const editingField = ref(null);
 
 // Computed property for filtered fields based on search
 const filteredFields = computed(() => {
   if (!searchQuery.value)
-    return availableFields;
-  return availableFields.filter(f =>
+    return availableFields.value;
+  return availableFields.value.filter(f =>
     f.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
   );
 });
@@ -65,6 +62,77 @@ async function _fetchContracts() {
     console.error(err);
   }
   */
+}
+
+async function fetchTemplateFields() {
+  isLoadingFields.value = true;
+  try {
+    const response = await $fetch('/api/template-fields');
+
+    if (response.success && response.data) {
+      // ข้อมูลจาก API พร้อมใช้งานแล้ว ไม่ต้อง map
+      availableFields.value = response.data;
+    }
+    else {
+      console.warn('API returned no data or error:', response);
+      toast.add({
+        title: 'ไม่พบข้อมูล Fields',
+        description: response.error || 'กรุณาเพิ่มข้อมูลในตาราง request_template_fields',
+        color: 'warning',
+      });
+    }
+  }
+  catch (error) {
+    console.error('Error fetching template fields:', error);
+    toast.add({
+      title: 'ไม่สามารถโหลดข้อมูล Fields ได้',
+      description: error.message || 'กรุณาลองใหม่อีกครั้ง',
+      color: 'error',
+    });
+  }
+  finally {
+    isLoadingFields.value = false;
+  }
+}
+
+function handleFieldCreated(newField) {
+  // เพิ่ม field ใหม่เข้า list
+  availableFields.value.push(newField);
+  toast.add({
+    title: 'เพิ่ม Field สำเร็จ',
+    description: `Field "${newField.name}" ถูกเพิ่มแล้ว`,
+    color: 'success',
+  });
+}
+
+function openEditField(field) {
+  editingField.value = field;
+  isEditFieldModalOpen.value = true;
+}
+
+function handleFieldUpdated(updatedField) {
+  // อัพเดท field ใน list
+  const index = availableFields.value.findIndex(f => f.id === updatedField.id);
+  if (index !== -1) {
+    availableFields.value[index] = updatedField;
+  }
+  toast.add({
+    title: 'อัพเดท Field สำเร็จ',
+    description: `Field "${updatedField.name}" ถูกอัพเดทแล้ว`,
+    color: 'success',
+  });
+}
+
+function handleFieldDeleted(fieldId) {
+  // ลบ field จาก list
+  const index = availableFields.value.findIndex(f => f.id === fieldId);
+  if (index !== -1) {
+    availableFields.value.splice(index, 1);
+  }
+  toast.add({
+    title: 'ลบ Field สำเร็จ',
+    color: 'success',
+  });
 }
 
 function triggerFileInput() {
@@ -154,6 +222,8 @@ function addFieldToPreview(fieldToAdd) {
       height: fieldToAdd.default_height || 40,
       label: fieldToAdd.name === 'Check Mark' ? '' : fieldToAdd.label,
       pageNumber: currentPdfPage.value,
+      fontSize: fieldToAdd.fontSize || 14,
+      fontFamily: fieldToAdd.font || 'Arial',
     };
 
     placedFields.value.push(newFieldInstance);
@@ -255,6 +325,7 @@ function handleBeforeUnload(e) {
 
 onMounted(async () => {
   // await fetchContracts(); // Temporarily disabled - using mock data
+  await fetchTemplateFields();
   document.addEventListener('keydown', handleKeyDown);
   window.addEventListener('beforeunload', handleBeforeUnload);
 });
@@ -420,6 +491,19 @@ watch(
           <div>
             <div class="flex justify-between items-center mb-3">
               <label class="text-xs font-semibold text-gray-500 uppercase">ข้อมูลที่เติมได้</label>
+              <div class="flex items-center gap-2">
+                <UBadge v-if="!isLoadingFields && availableFields.length > 0" color="primary" variant="subtle" size="xs">
+                  {{ availableFields.length }} fields
+                </UBadge>
+                <UButton
+                  icon="i-heroicons-plus"
+                  size="xs"
+                  color="primary"
+                  variant="soft"
+                  title="เพิ่ม Field ใหม่"
+                  @click="isCreateFieldModalOpen = true"
+                />
+              </div>
             </div>
 
             <!-- Search -->
@@ -429,29 +513,58 @@ watch(
               placeholder="ค้นหา..."
               size="sm"
               class="mb-3 w-full"
+              :disabled="isLoadingFields"
             />
 
+            <!-- Loading State -->
+            <div v-if="isLoadingFields" class="space-y-2">
+              <div v-for="i in 3" :key="i" class="w-full h-16 rounded-lg bg-gray-100 animate-pulse" />
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="!isLoadingFields && availableFields.length === 0" class="text-center py-8">
+              <UIcon name="i-heroicons-inbox" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p class="text-sm text-gray-500">
+                ไม่พบ Fields
+              </p>
+              <p class="text-xs text-gray-400 mt-1">
+                กรุณาเพิ่ม Fields ในฐานข้อมูล
+              </p>
+            </div>
+
             <!-- Field List -->
-            <div class="space-y-2">
-              <button
+            <div v-else class="space-y-2">
+              <div
                 v-for="field in filteredFields"
                 :key="field.id"
-                class="w-full flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 bg-white hover:border-primary-400 hover:shadow-sm transition-all text-left group"
-                @click="addFieldToPreview(field)"
+                class="w-full flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 bg-white hover:border-primary-400 hover:shadow-sm transition-all group"
               >
-                <div class="w-8 h-8 rounded-md bg-gray-50 text-gray-500 flex items-center justify-center group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
-                  <UIcon :name="field.icon" class="w-5 h-5" />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                    {{ field.name }}
-                  </p>
-                  <p class="text-[10px] text-gray-400">
-                    {{ field.type }}
-                  </p>
-                </div>
-                <UIcon name="i-heroicons-plus" class="ml-auto text-gray-300 group-hover:text-primary-500" />
-              </button>
+                <button
+                  class="flex-1 flex items-center gap-3 text-left"
+                  @click="addFieldToPreview(field)"
+                >
+                  <div class="w-8 h-8 rounded-md bg-gray-50 text-gray-500 flex items-center justify-center group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
+                    <UIcon :name="field.icon" class="w-5 h-5" />
+                  </div>
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                      {{ field.name }}
+                    </p>
+                    <p class="text-[10px] text-gray-400">
+                      {{ field.type }}
+                    </p>
+                  </div>
+                </button>
+                <UButton
+                  icon="i-heroicons-pencil-square"
+                  size="xs"
+                  color="gray"
+                  variant="ghost"
+                  square
+                  title="แก้ไข"
+                  @click.stop="openEditField(field)"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -545,6 +658,21 @@ watch(
         </div>
       </aside>
     </div>
+
+    <!-- Field Create Modal -->
+    <template-field-create-modal
+      v-model="isCreateFieldModalOpen"
+      @field-created="handleFieldCreated"
+    />
+
+    <!-- Field Edit Modal -->
+    <template-field-create-modal
+      v-model="isEditFieldModalOpen"
+      mode="edit"
+      :edit-field="editingField"
+      @field-updated="handleFieldUpdated"
+      @field-deleted="handleFieldDeleted"
+    />
   </div>
 </template>
 
