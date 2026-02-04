@@ -8,166 +8,175 @@ const { t } = useI18n();
 const router = useRouter();
 const localePath = useLocalePath();
 
-// === Reactive State (Filters & Search) ===
-const selectedStatus = ref<string | null>(null);
-const searchQuery = ref('');
+// === Type Definitions ===
+type RequestStatus = 'Approved' | 'In Progress' | 'Rejected' | 'Draft';
 
-// === Request Type Definition ===
 type Request = {
   id: string;
   title: string;
   date: string;
-  status: 'Approved' | 'In Progress' | 'Rejected' | 'Draft';
+  status: RequestStatus;
   signer: string;
-  progress: number;
 };
 
-// === Mock Data: All Requests ===
-const allRequests: Request[] = [
-  { id: 'REQ-2024-001', title: 'Late Registration (Course 01204)', date: '2024-01-10', status: 'Approved', signer: 'Dean of Engineering', progress: 100 },
-  { id: 'REQ-2024-002', title: 'Tuition Fee Installment', date: '2024-01-12', status: 'In Progress', signer: 'Dr. Suthep Panya', progress: 60 },
-  { id: 'REQ-2024-003', title: 'Activity Room Booking', date: '2024-01-15', status: 'Rejected', signer: 'Building Manager', progress: 100 },
-  { id: 'REQ-2024-004', title: 'Add/Drop Course Request', date: '2024-01-18', status: 'Draft', signer: '-', progress: 0 },
-  { id: 'REQ-2024-005', title: 'Scholarship Application', date: '2024-01-20', status: 'In Progress', signer: 'Financial Aid Office', progress: 45 },
-  { id: 'REQ-2024-006', title: 'Transcript Request', date: '2024-01-22', status: 'Approved', signer: 'Registrar', progress: 100 },
-  { id: 'REQ-2024-007', title: 'Dormitory Change Request', date: '2024-01-25', status: 'In Progress', signer: 'Housing Manager', progress: 75 },
-  { id: 'REQ-2024-008', title: 'Medical Certificate Submission', date: '2024-01-28', status: 'Approved', signer: 'Health Center', progress: 100 },
-  { id: 'REQ-2024-009', title: 'Course Prerequisite Waiver', date: '2024-02-01', status: 'In Progress', signer: 'Department Head', progress: 30 },
-  { id: 'REQ-2024-010', title: 'Payment Plan Setup', date: '2024-02-03', status: 'Draft', signer: '-', progress: 0 },
-  { id: 'REQ-2024-011', title: 'Student ID Card Replacement', date: '2024-02-05', status: 'Approved', signer: 'Student Affairs', progress: 100 },
-  { id: 'REQ-2024-012', title: 'Grade Appeal Submission', date: '2024-02-08', status: 'In Progress', signer: 'Academic Dean', progress: 50 },
-  { id: 'REQ-2024-013', title: 'Semester Extension Request', date: '2024-02-10', status: 'Rejected', signer: 'Academic Advisor', progress: 100 },
-  { id: 'REQ-2024-014', title: 'Financial Aid Appeal', date: '2024-02-12', status: 'Draft', signer: '-', progress: 0 },
-  { id: 'REQ-2024-015', title: 'Campus Parking Permit', date: '2024-02-15', status: 'Approved', signer: 'Parking Services', progress: 100 },
+// === Table Configuration ===
+const columns: any[] = [
+  { accessorKey: 'id', header: 'Request ID' },
+  { accessorKey: 'title', header: 'Topic' },
+  { accessorKey: 'date', header: 'Date' },
+  { accessorKey: 'signer', header: 'Approver' },
+  { accessorKey: 'status', header: 'Status' },
 ];
 
 // === Filter Options ===
 const statusOptions = [
-  { label: 'All Statuses', value: null },
+  { label: 'All Statuses', value: undefined },
   { label: 'Draft', value: 'Draft' },
   { label: 'In Progress', value: 'In Progress' },
   { label: 'Approved', value: 'Approved' },
   { label: 'Rejected', value: 'Rejected' },
 ];
 
-// === Filtered Requests (Computed) ===
-const filteredRequests = computed(() => {
+// === Reactive State ===
+const searchQuery = ref('');
+const selectedStatus = ref<RequestStatus | undefined>(undefined);
+const page = ref(1);
+const pageCount = ref(10); // จำนวนรายการต่อหน้า
+
+// === Mock Data ===
+const allRequests: Request[] = [
+  { id: 'REQ-2024-001', title: 'Late Registration (Course 01204)', date: '2024-01-10', status: 'Approved', signer: 'Dean of Engineering' },
+  { id: 'REQ-2024-002', title: 'Tuition Fee Installment', date: '2024-01-12', status: 'In Progress', signer: 'Dr. Suthep Panya' },
+  { id: 'REQ-2024-003', title: 'Activity Room Booking', date: '2024-01-15', status: 'Rejected', signer: 'Building Manager' },
+  { id: 'REQ-2024-004', title: 'Add/Drop Course Request', date: '2024-01-18', status: 'Draft', signer: '-' },
+  { id: 'REQ-2024-005', title: 'Scholarship Application', date: '2024-01-20', status: 'In Progress', signer: 'Financial Aid Office' },
+  { id: 'REQ-2024-006', title: 'Transcript Request', date: '2024-01-22', status: 'Approved', signer: 'Registrar' },
+  { id: 'REQ-2024-007', title: 'Dormitory Change Request', date: '2024-01-25', status: 'In Progress', signer: 'Housing Manager' },
+  { id: 'REQ-2024-008', title: 'Medical Certificate Submission', date: '2024-01-28', status: 'Approved', signer: 'Health Center' },
+  { id: 'REQ-2024-009', title: 'Course Prerequisite Waiver', date: '2024-02-01', status: 'In Progress', signer: 'Department Head' },
+  { id: 'REQ-2024-010', title: 'Payment Plan Setup', date: '2024-02-03', status: 'Draft', signer: '-' },
+  { id: 'REQ-2024-011', title: 'Student ID Card Replacement', date: '2024-02-05', status: 'Approved', signer: 'Student Affairs' },
+  { id: 'REQ-2024-012', title: 'Grade Appeal Submission', date: '2024-02-08', status: 'In Progress', signer: 'Academic Dean' },
+  { id: 'REQ-2024-013', title: 'Semester Extension Request', date: '2024-02-10', status: 'Rejected', signer: 'Academic Advisor' },
+  { id: 'REQ-2024-014', title: 'Financial Aid Appeal', date: '2024-02-12', status: 'Draft', signer: '-' },
+  { id: 'REQ-2024-015', title: 'Campus Parking Permit', date: '2024-02-15', status: 'Approved', signer: 'Parking Services' },
+];
+
+// === Computed Logic ===
+// 1. Filter Data
+const filteredRows = computed(() => {
   return allRequests.filter((request) => {
-    // Filter by status
-    if (selectedStatus.value && request.status !== selectedStatus.value) {
-      return false;
-    }
+    // Filter by Status
+    const statusMatch = !selectedStatus.value || request.status === selectedStatus.value;
 
-    // Filter by search query (title or ID)
-    if (searchQuery.value) {
-      const query = searchQuery.value.toLowerCase();
-      const matchesTitle = request.title.toLowerCase().includes(query);
-      const matchesId = request.id.toLowerCase().includes(query);
-      if (!matchesTitle && !matchesId) {
-        return false;
-      }
-    }
+    // Filter by Search
+    const query = searchQuery.value.toLowerCase();
+    const searchMatch = !query
+      || request.title.toLowerCase().includes(query)
+      || request.id.toLowerCase().includes(query);
 
-    return true;
+    return statusMatch && searchMatch;
   });
 });
 
-// function handleViewRequest(requestId: string) {
-//   router.push(localePath(`/student/my-requests/${requestId}`));
-// }
+// 2. Pagination Logic
+const paginatedRows = computed(() => {
+  const start = (page.value - 1) * pageCount.value;
+  const end = page.value * pageCount.value;
+  return filteredRows.value.slice(start, end);
+});
 
+// === Methods ===
 function handleNewRequest() {
   router.push(localePath('/student/new-request'));
 }
 
-function clearFilters() {
-  selectedStatus.value = null;
-  searchQuery.value = '';
+// Helper: เลือกสี Badge ตามสถานะ (for future use)
+function _getStatusColor(status: RequestStatus): 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral' {
+  switch (status) {
+    case 'Approved': return 'success';
+    case 'In Progress': return 'info';
+    case 'Rejected': return 'error';
+    case 'Draft': return 'neutral';
+    default: return 'neutral';
+  }
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Header with New Request Button -->
-    <div class="flex items-center justify-between">
-      <h2 class="text-2xl font-bold text-slate-800">
-        {{ t('myRequests') }}
-      </h2>
+  <div class="space-y-6 min-h-screen pb-10">
+    <!-- 1. Page Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-bold  flex items-center gap-2">
+          <UIcon name="i-heroicons-folder-open" class="text-primary-500" />
+          {{ t('myRequests') || 'รายการคำร้องของฉัน' }}
+        </h2>
+        <p class="text-sm  mt-1">
+          ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด
+        </p>
+      </div>
       <UButton
-        icon="i-lucide-plus"
+        icon="i-heroicons-plus"
         color="primary"
+        size="md"
+        class="shadow-sm"
         @click="handleNewRequest"
       >
-        {{ t('newRequest') }}
+        {{ t('newRequest') || 'สร้างคำร้องใหม่' }}
       </UButton>
     </div>
 
-    <!-- Filter Controls Section -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-      <!-- Search Bar Row -->
-      <div class="flex flex-col md:flex-row gap-3 items-start md:items-end">
-        <!-- Search Input -->
-        <div class="w-full min-w-0">
-          <label class="block text-sm font-medium text-slate-700 mb-2">
-            {{ t('search') }}
-          </label>
-          <UInput
-            v-model="searchQuery"
-            type="text"
-            :placeholder="t('searchByTitle') || 'Search by title...'"
-            icon="i-lucide-search"
-            class="w-full"
-          />
-        </div>
+    <!-- 2. Main Table Card -->
+    <UCard>
+      <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+        <!-- Left: Search -->
+        <UInput
+          v-model="searchQuery"
+          icon="i-heroicons-magnifying-glass"
+          placeholder="ค้นหาตามรหัส หรือชื่อเรื่อง..."
+          class="w-full sm:w-72"
+        />
 
-        <!-- Status Filter Dropdown -->
-        <div class="w-full md:w-48">
-          <label class="block text-sm font-medium text-slate-700 mb-2">
-            {{ t('status') }}
-          </label>
-          <USelect
-            v-model="selectedStatus"
-            :items="statusOptions"
-            class="w-full"
-          />
-        </div>
+        <!-- Right: Filter -->
+        <USelect
+          v-model="selectedStatus"
+          :items="statusOptions"
+          option-attribute="label"
+          placeholder="สถานะ"
+          class="w-full sm:w-48"
+        />
       </div>
 
-      <!-- Clear Filters Button Row -->
-      <div class="flex gap-2 pt-2">
-        <UButton
-          variant="ghost"
-          color="neutral"
-          size="sm"
-          :disabled="!selectedStatus && !searchQuery"
-          @click="clearFilters"
-        >
-          {{ t('clearFilters') || 'Clear Filters' }}
-        </UButton>
-        <span v-if="selectedStatus || searchQuery" class="text-xs text-slate-500 flex items-center">
-          {{ filteredRequests.length }} {{ t('result') }}
-        </span>
-      </div>
-    </div>
-
-    <!-- Requests Table -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <UTable :data="filteredRequests" class="w-full" />
+      <!-- Table Content -->
+      <UTable
+        :data="paginatedRows"
+        :columns="columns"
+        :loading="false"
+        empty=" "
+      />
 
       <!-- Empty State -->
-      <div v-if="filteredRequests.length === 0" class="p-8 text-center text-slate-500">
-        <UIcon name="i-lucide-inbox" class="size-8 mx-auto mb-2 text-slate-400" />
-        <p class="font-medium">
-          {{ t('noRequests') || 'No requests found' }}
-        </p>
-        <p class="text-xs mt-1">
-          {{ t('tryAdjustingFilters') || 'Try adjusting your filters or search' }}
-        </p>
+      <div v-if="filteredRows.length === 0" class="py-12 text-center">
+        <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+          <UIcon name="i-heroicons-inbox" class="w-8 h-8 " />
+        </div>
+        <h3 class="font-medium mb-1">
+          ไม่พบข้อมูลคำร้อง
+        </h3>
       </div>
-    </div>
+
+      <!-- Pagination Footer -->
+      <template v-if="filteredRows.length > 0" #footer>
+        <div class="justify-items-center py-2">
+          <UPagination
+            v-model:page="page"
+            :items-per-page="10"
+            :total="filteredRows.length"
+            size="md"
+          />
+        </div>
+      </template>
+    </UCard>
   </div>
 </template>
-
-<style>
-
-</style>
