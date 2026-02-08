@@ -1,16 +1,18 @@
+import type { H3Event } from 'h3';
+
 import db from '../../../lib/db/index';
 import { requestTemplateFields } from '../../../lib/db/schema';
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: H3Event) => {
   try {
     const body = await readBody(event);
 
     // Validate required fields
     if (!body.name || !body.type || !body.label || !body.icon) {
-      return {
-        success: false,
-        error: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-      };
+      throw createError({
+        statusCode: 400,
+        message: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+      });
     }
 
     // Insert new field
@@ -48,11 +50,11 @@ export default defineEventHandler(async (event) => {
       message: 'สร้าง Field สำเร็จ',
     };
   }
-  catch (error) {
+  catch (error: any) {
     console.error('Error creating template field:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการสร้าง Field',
-    };
+    throw createError({
+      statusCode: 500,
+      message: error.message || 'เกิดข้อผิดพลาดในการสร้าง Field',
+    });
   }
 });

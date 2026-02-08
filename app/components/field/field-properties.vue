@@ -4,11 +4,71 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  pdfRef: {
+    type: Object,
+    default: null,
+  },
+  scale: {
+    type: Number,
+    default: 1,
+  },
 });
 
 const emit = defineEmits(['fieldUpdated', 'fieldRemoved']);
 const localField = ref({});
 
+// Use computed for display coordinates to ensure they recalculate when scale changes
+const displayCoords = computed(() => {
+  const field = props.selectedField;
+  const _scale = props.scale; // Force dependency tracking on scale
+  const pdfRef = props.pdfRef; // Force dependency tracking on pdfRef
+
+  if (!field) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+
+  // For PDF with normalized coordinates, calculate display coords using scale
+  if (pdfRef && field.normalizedX !== undefined && field.normalizedY !== undefined) {
+    if (typeof pdfRef.normalizedToDisplay === 'function') {
+      const display = pdfRef.normalizedToDisplay(
+        field.normalizedX,
+        field.normalizedY,
+        field.normalizedWidth,
+        field.normalizedHeight,
+      );
+      return {
+        x: Math.round(display.x),
+        y: Math.round(display.y),
+        width: Math.round(display.width),
+        height: Math.round(display.height),
+      };
+    }
+  }
+
+  // For images or fields without normalized coords, use pixel coordinates
+  return {
+    x: field.displayX !== undefined ? Math.round(field.displayX) : (field.x || 50),
+    y: field.displayY !== undefined ? Math.round(field.displayY) : (field.y || 50),
+    width: field.displayWidth !== undefined ? Math.round(field.displayWidth) : (field.width || 150),
+    height: field.displayHeight !== undefined ? Math.round(field.displayHeight) : (field.height || 40),
+  };
+});
+
+// Editable values that user can modify
+const editableX = ref(0);
+const editableY = ref(0);
+const editableWidth = ref(0);
+const editableHeight = ref(0);
+
+// Watch displayCoords and update editable values
+watch(displayCoords, (newCoords) => {
+  editableX.value = newCoords.x;
+  editableY.value = newCoords.y;
+  editableWidth.value = newCoords.width;
+  editableHeight.value = newCoords.height;
+}, { immediate: true });
+
+// Watch selectedField for font properties
 watch(
   () => props.selectedField,
   (newField) => {
@@ -19,20 +79,47 @@ watch(
       localField.value = {};
     }
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 );
 
 function onPropertyChange() {
   if (!localField.value || !props.selectedField)
     return;
 
+  // For PDF with normalized coordinates, convert display back to normalized
+  if (props.pdfRef && props.selectedField.normalizedX !== undefined) {
+    if (typeof props.pdfRef.displayToNormalized === 'function') {
+      const normalized = props.pdfRef.displayToNormalized(
+        editableX.value,
+        editableY.value,
+        editableWidth.value,
+        editableHeight.value,
+      );
+
+      // Emit normalized coordinates directly
+      emit('fieldUpdated', {
+        instanceId: props.selectedField.instanceId,
+        updates: {
+          normalizedX: normalized.x,
+          normalizedY: normalized.y,
+          normalizedWidth: normalized.width,
+          normalizedHeight: normalized.height,
+          fontSize: localField.value.fontSize || 14,
+          fontFamily: localField.value.fontFamily || 'Arial',
+        },
+      });
+      return;
+    }
+  }
+
+  // For images, emit pixel coordinates
   emit('fieldUpdated', {
     instanceId: props.selectedField.instanceId,
     updates: {
-      x: localField.value.x,
-      y: localField.value.y,
-      width: localField.value.width,
-      height: localField.value.height,
+      x: editableX.value,
+      y: editableY.value,
+      width: editableWidth.value,
+      height: editableHeight.value,
       fontSize: localField.value.fontSize || 14,
       fontFamily: localField.value.fontFamily || 'Arial',
     },
@@ -67,7 +154,7 @@ function removeField() {
           <div class="prop-input-group">
             <small class="input-label">X</small>
             <input
-              v-model.number="localField.x"
+              v-model.number="editableX"
               type="number"
               class="prop-input"
               min="0"
@@ -77,7 +164,7 @@ function removeField() {
           <div class="prop-input-group">
             <small class="input-label">Y</small>
             <input
-              v-model.number="localField.y"
+              v-model.number="editableY"
               type="number"
               class="prop-input"
               min="0"
@@ -95,7 +182,7 @@ function removeField() {
           <div class="prop-input-group">
             <small class="input-label">Width</small>
             <input
-              v-model.number="localField.width"
+              v-model.number="editableWidth"
               type="number"
               class="prop-input"
               min="10"
@@ -105,7 +192,7 @@ function removeField() {
           <div class="prop-input-group">
             <small class="input-label">Height</small>
             <input
-              v-model.number="localField.height"
+              v-model.number="editableHeight"
               type="number"
               class="prop-input"
               min="10"
