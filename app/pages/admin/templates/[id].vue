@@ -26,9 +26,12 @@ type RequestData = {
 // --- State ---
 const route = useRoute();
 const templateId = route.params.id;
+const template = ref(null);
+const isLoading = ref(true);
+const error = ref(null);
 
 // Mock Data
-const requestData = ref<RequestData>({
+const _requestData = ref<RequestData>({
   id: 'KU-2023-0892',
   submittedAt: 'Oct 24, 2023',
   studentName: 'Somchai Saetang',
@@ -62,21 +65,58 @@ const workflowSteps = ref<WorkflowStep[]>([
 ]);
 
 // const staffComment = ref('');
-const pdfUrl = ref('/General-Request.pdf');
 const pdfFile = ref<File | null>(null);
 const placedFields = ref([]);
-const selectedField = ref(null);
+const _selectedField = ref(null);
 const _useSavedSignature = ref(false);
+const scale = ref(1); // Zoom level
 
 // --- Methods ---
-async function loadPdfFile() {
+// Convert URL to File object
+async function urlToFile(url: string, filename: string) {
   try {
-    const response = await fetch(pdfUrl.value);
+    const response = await fetch(url);
     const blob = await response.blob();
-    pdfFile.value = new File([blob], 'Request-for-Registration.pdf', { type: 'application/pdf' });
+    return new File([blob], filename, { type: blob.type });
   }
-  catch (error) {
-    console.error('Error loading PDF:', error);
+  catch (err) {
+    console.error('Error converting URL to File:', err);
+    throw err;
+  }
+}
+
+// Fetch template data from API
+async function fetchTemplate() {
+  isLoading.value = true;
+  error.value = null;
+
+  try {
+    const result = await $fetch(`/api/templates/${templateId}`);
+
+    if (result.success && result.data) {
+      template.value = result.data;
+
+      // Load PDF file from URL
+      if (template.value.documentUrl) {
+        const filename = template.value.documentUrl.split('/').pop();
+        pdfFile.value = await urlToFile(template.value.documentUrl, filename);
+      }
+
+      // Set placed fields
+      if (template.value.placedFieldsData) {
+        placedFields.value = template.value.placedFieldsData;
+      }
+    }
+    else {
+      error.value = 'Template not found';
+    }
+  }
+  catch (err) {
+    console.error('Error fetching template:', err);
+    error.value = err.message || 'Failed to load template';
+  }
+  finally {
+    isLoading.value = false;
   }
 }
 
@@ -89,11 +129,13 @@ async function loadPdfFile() {
 // }
 
 function downloadPdf() {
-  window.open(pdfUrl.value, '_blank');
+  if (template.value?.documentUrl) {
+    window.open(template.value.documentUrl, '_blank');
+  }
 }
 
 onMounted(() => {
-  loadPdfFile();
+  fetchTemplate();
 });
 </script>
 
@@ -104,17 +146,17 @@ onMounted(() => {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <UBreadcrumb
           :links="[
-            { label: 'Documents', to: '/admin/templates' },
-            { label: 'Grade Correction Request', to: `/admin/templates/${templateId}` },
+            { label: 'Templates', to: '/admin/templates' },
+            { label: template?.name || 'Loading...', to: `/admin/templates/${templateId}` },
           ]"
         />
         <div class="mt-4 flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">
-              Document Preview
+              {{ template?.name || 'Document Preview' }}
             </h1>
             <p class="mt-1 text-sm text-gray-500">
-              Request ID: {{ requestData.id }} • Submitted on {{ requestData.submittedAt }}
+              {{ template?.description || 'Loading...' }}
             </p>
           </div>
           <div class="flex gap-2">
@@ -139,27 +181,70 @@ onMounted(() => {
 
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex items-center justify-center h-96">
+        <div class="text-center">
+          <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
+          <p class="text-gray-500">
+            กำลังโหลด Template...
+          </p>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <UCard v-else-if="error">
+        <div class="text-center py-8">
+          <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4" />
+          <p class="text-red-600 mb-4">
+            {{ error }}
+          </p>
+          <UButton @click="$router.push('/admin/templates')">
+            กลับไปหน้ารายการ Templates
+          </UButton>
+        </div>
+      </UCard>
+
+      <!-- Template Content -->
+      <div v-else-if="template && pdfFile" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left: PDF Preview -->
         <div class="lg:col-span-2">
-          <template-pdf-create
-            v-if="pdfFile"
-            :pdf-file="pdfFile"
-            :placed-fields="placedFields"
-            :selected-field="selectedField || undefined"
-            new-template-name=""
-            :selected-contract-id="undefined"
-          />
-          <UCard v-else>
-            <div class="flex items-center justify-center h-96">
-              <div class="text-center">
-                <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
-                <p class="text-gray-500">
-                  กำลังโหลดเอกสาร...
-                </p>
-              </div>
-            </div>
-          </UCard>
+          <!-- Zoom Controls -->
+          <div class="mb-4 flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2">
+            <span class="text-sm text-gray-600">Zoom:</span>
+            <UButton
+              icon="i-heroicons-minus"
+              size="xs"
+              variant="ghost"
+              :disabled="scale <= 0.5"
+              @click="scale = Math.max(0.5, scale - 0.25)"
+            />
+            <span class="text-sm font-medium w-12 text-center">{{ Math.round(scale * 100) }}%</span>
+            <UButton
+              icon="i-heroicons-plus"
+              size="xs"
+              variant="ghost"
+              :disabled="scale >= 3"
+              @click="scale = Math.min(3, scale + 0.25)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              @click="scale = 1"
+            >
+              Reset
+            </UButton>
+          </div>
+
+          <!-- PDF Viewer -->
+          <div class="bg-gray-100/50 overflow-auto p-8 rounded-lg border border-gray-200" style="min-height: 600px;">
+            <template-pdf-create
+              :pdf-file="pdfFile"
+              :placed-fields="placedFields"
+              :selected-field="null"
+              :ui-scale="scale"
+              :read-only="true"
+            />
+          </div>
         </div>
 
         <!-- Right: Sidebar -->
@@ -293,6 +378,28 @@ onMounted(() => {
             </div>
           </UCard>
 
+          <!-- Fields List -->
+          <UCard v-if="placedFields.length > 0">
+            <template #header>
+              <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                Fields ({{ placedFields.length }})
+              </h3>
+            </template>
+            <div class="space-y-2">
+              <div
+                v-for="(field, index) in placedFields"
+                :key="field.instanceId"
+                class="p-2 bg-gray-50 rounded text-xs border border-gray-200"
+              >
+                <div class="font-medium text-gray-900">
+                  {{ index + 1 }}. {{ field.label || field.name }}
+                </div>
+                <div class="text-gray-500 mt-1">
+                  Type: {{ field.type }}
+                </div>
+              </div>
+            </div>
+          </UCard>
           <!-- Staff Comments -->
           <!-- <UCard>
             <template #header>

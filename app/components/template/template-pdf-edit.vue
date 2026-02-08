@@ -64,6 +64,7 @@ const totalPages = ref(1);
 const currentPage = ref(1);
 const scale = ref(1.5);
 const pdfNaturalDimensions = ref({ width: 0, height: 0 });
+const canvasDisplaySize = ref({ width: 0, height: 0 }); // Track canvas display size for reactivity
 
 // Drag State
 const activeDrag = ref({
@@ -75,11 +76,102 @@ const activeDrag = ref({
   startY: 0,
 });
 
+// Helper functions for coordinate conversion
+function displayToNormalized(x, y, width, height) {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+
+  const bounds = getPdfBounds();
+  const naturalWidth = pdfNaturalDimensions.value.width;
+  const naturalHeight = pdfNaturalDimensions.value.height;
+
+  // Convert display coordinates to natural coordinates first
+  const naturalX = x * bounds.scaleX;
+  const naturalY = y * bounds.scaleY;
+  const naturalW = width * bounds.scaleX;
+  const naturalH = height * bounds.scaleY;
+
+  // Normalize (0-1) based on natural PDF dimensions
+  return {
+    x: naturalX / naturalWidth,
+    y: naturalY / naturalHeight,
+    width: naturalW / naturalWidth,
+    height: naturalH / naturalHeight,
+  };
+}
+
+function normalizedToDisplay(normX, normY, normWidth, normHeight) {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
+
+  const bounds = getPdfBounds();
+  const naturalWidth = pdfNaturalDimensions.value.width;
+  const naturalHeight = pdfNaturalDimensions.value.height;
+
+  // Convert normalized to natural coordinates
+  const naturalX = normX * naturalWidth;
+  const naturalY = normY * naturalHeight;
+  const naturalW = normWidth * naturalWidth;
+  const naturalH = normHeight * naturalHeight;
+
+  // Convert natural to display coordinates
+  return {
+    x: naturalX / bounds.scaleX,
+    y: naturalY / bounds.scaleY,
+    width: naturalW / bounds.scaleX,
+    height: naturalH / bounds.scaleY,
+  };
+}
+
 // Computed: Filter fields for current page only
 const placedFieldsOnCurrentPage = computed(() => {
   return props.placedFields.filter(
     field => !field.pageNumber || field.pageNumber === currentPage.value,
   );
+});
+
+// Computed: Get display coordinates for each field
+// MUST depend on scale, canvas, and natural dimensions for reactivity
+const fieldsWithDisplayCoords = computed(() => {
+  // Force dependency on these values to trigger recalculation when they change
+  const _scale = scale.value;
+  const _canvas = pdfCanvas.value;
+  const _dims = pdfNaturalDimensions.value;
+  const _canvasSize = canvasDisplaySize.value; // Also depend on canvas display size
+
+  // If PDF not loaded yet, return empty array
+  if (!_canvas || !_dims.width) {
+    return [];
+  }
+
+  return placedFieldsOnCurrentPage.value.map((field) => {
+    // If field has normalized coordinates, use them
+    if (field.normalizedX !== undefined && field.normalizedY !== undefined) {
+      const display = normalizedToDisplay(
+        field.normalizedX,
+        field.normalizedY,
+        field.normalizedWidth,
+        field.normalizedHeight,
+      );
+      return {
+        ...field,
+        displayX: display.x,
+        displayY: display.y,
+        displayWidth: display.width,
+        displayHeight: display.height,
+      };
+    }
+    // Fallback to pixel coordinates (for old data or new fields)
+    return {
+      ...field,
+      displayX: field.x || 50,
+      displayY: field.y || 50,
+      displayWidth: field.width || 150,
+      displayHeight: field.height || 40,
+    };
+  });
 });
 
 // Initialize PDF.js
@@ -226,6 +318,9 @@ async function renderCurrentPage() {
     // Render the page
     await page.render(renderContext).promise;
 
+    // Update canvas display size after render
+    updateCanvasSize();
+
     // Emit page change
     emit('currentPageChanged', pageNumber);
   }
@@ -259,11 +354,18 @@ function startDrag(event, field) {
   const coords = getEventCoordinates(event);
   const containerRect = previewContainer.value.getBoundingClientRect();
 
+  // Get current display position from normalized coordinates
+  const display = field.normalizedX !== undefined
+    ? normalizedToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
+    : { x: 50, y: 50, width: 150, height: 40 };
+  const displayX = display.x;
+  const displayY = display.y;
+
   activeDrag.value = {
     isDragging: true,
     field,
-    offsetX: coords.clientX - containerRect.left - field.x,
-    offsetY: coords.clientY - containerRect.top - field.y,
+    offsetX: coords.clientX - containerRect.left - displayX,
+    offsetY: coords.clientY - containerRect.top - displayY,
     startX: coords.clientX,
     startY: coords.clientY,
   };
@@ -300,14 +402,23 @@ function drag(event) {
 
   const containerWidth = containerRect.width;
   const containerHeight = containerRect.height;
-  const fieldWidth = activeDrag.value.field.width || 150;
-  const fieldHeight = activeDrag.value.field.height || 40;
+
+  // Get current display dimensions from normalized coordinates
+  const currentDisplay = activeDrag.value.field.normalizedWidth !== undefined
+    ? normalizedToDisplay(0, 0, activeDrag.value.field.normalizedWidth, activeDrag.value.field.normalizedHeight)
+    : { width: 150, height: 40 };
+  const fieldWidth = currentDisplay.width;
+  const fieldHeight = currentDisplay.height;
 
   newX = Math.max(0, Math.min(newX, containerWidth - fieldWidth));
   newY = Math.max(0, Math.min(newY, containerHeight - fieldHeight));
 
-  activeDrag.value.field.x = Math.round(newX);
-  activeDrag.value.field.y = Math.round(newY);
+  // Convert to normalized coordinates and update
+  const normalized = displayToNormalized(newX, newY, fieldWidth, fieldHeight);
+  activeDrag.value.field.normalizedX = normalized.x;
+  activeDrag.value.field.normalizedY = normalized.y;
+  activeDrag.value.field.normalizedWidth = normalized.width;
+  activeDrag.value.field.normalizedHeight = normalized.height;
 }
 
 // Stop dragging
@@ -441,8 +552,8 @@ async function saveTemplate() {
       return;
     }
 
-    // Get PDF bounds for coordinate transformation
-    const bounds = getPdfBounds();
+    const naturalWidth = pdfNaturalDimensions.value.width;
+    const naturalHeight = pdfNaturalDimensions.value.height;
 
     // Group fields by page and transform coordinates for each page
     const fieldsByPage = {};
@@ -453,18 +564,18 @@ async function saveTemplate() {
         fieldsByPage[pageNum] = [];
       }
 
-      // Transform from display coordinates to natural PDF coordinates
-      const naturalX = field.x * bounds.scaleX;
-      const naturalY = field.y * bounds.scaleY;
-      const naturalWidth = field.width * bounds.scaleX;
-      const naturalHeight = field.height * bounds.scaleY;
+      // Transform from normalized coordinates to natural PDF coordinates
+      const naturalX = field.normalizedX * naturalWidth;
+      const naturalY = field.normalizedY * naturalHeight;
+      const naturalW = field.normalizedWidth * naturalWidth;
+      const naturalH = field.normalizedHeight * naturalHeight;
 
       fieldsByPage[pageNum].push({
         ...field,
         x: naturalX,
         y: naturalY,
-        width: naturalWidth,
-        height: naturalHeight,
+        width: naturalW,
+        height: naturalH,
       });
     });
 
@@ -501,22 +612,40 @@ async function saveTemplate() {
     const _imageWidth = props.imageWidth || pdfNaturalDimensions.value.width;
     const _imageHeight = props.imageHeight || pdfNaturalDimensions.value.height;
 
-    // Normalize fields (keep original display coordinates for editing later)
-    const normalizedFields = props.placedFields.map(field => ({
-      id: field.id,
-      instanceId: field.instanceId,
-      instanceNumber: field.instanceNumber,
-      x: Math.round(field.x),
-      y: Math.round(field.y),
-      width: Math.round(field.width),
-      height: Math.round(field.height),
-      type: field.type,
-      groupId: field.groupId,
-      isGrouped: field.isGrouped,
-      groupSize: field.groupSize,
-      groupPosition: field.groupPosition,
-      pageNumber: field.pageNumber || 1,
-    }));
+    // Save only normalized coordinates (vector-based positioning)
+    // Security: Validate all fields before saving
+    const normalizedFields = [];
+    for (const field of props.placedFields) {
+      const validation = validateNormalizedField(field);
+      if (!validation.valid) {
+        console.error('Field validation failed:', validation.error, field);
+        continue; // Skip invalid fields
+      }
+
+      normalizedFields.push({
+        id: field.id,
+        instanceId: field.instanceId,
+        instanceNumber: field.instanceNumber,
+        normalizedX: Math.max(0, Math.min(1, field.normalizedX)), // Clamp to 0-1
+        normalizedY: Math.max(0, Math.min(1, field.normalizedY)),
+        normalizedWidth: Math.max(0, Math.min(1, field.normalizedWidth)),
+        normalizedHeight: Math.max(0, Math.min(1, field.normalizedHeight)),
+        type: field.type,
+        groupId: field.groupId,
+        isGrouped: field.isGrouped,
+        groupSize: field.groupSize,
+        groupPosition: field.groupPosition,
+        pageNumber: field.pageNumber || 1,
+        label: field.label?.substring(0, 255) || '', // Limit label length
+        fontSize: Math.max(8, Math.min(72, field.fontSize || 14)), // Clamp font size 8-72
+        fontFamily: field.fontFamily || 'Arial',
+      });
+    }
+
+    if (normalizedFields.length === 0) {
+      console.error('No valid fields to save');
+      return;
+    }
 
     // Prepare update data
     const templateData = {
@@ -568,12 +697,65 @@ watch(currentPage, () => {
   }
 });
 
+// Auto-calculate normalized coordinates for fields that don't have them yet
+watch(
+  () => [props.placedFields, pdfLoaded.value, pdfNaturalDimensions.value],
+  () => {
+    if (!pdfLoaded.value || !pdfNaturalDimensions.value.width)
+      return;
+
+    // Process fields that don't have normalized coordinates
+    props.placedFields.forEach((field) => {
+      if (field.normalizedX === undefined || field.normalizedY === undefined) {
+        // Calculate normalized coordinates from pixel values
+        const normalized = displayToNormalized(
+          field.x || 50,
+          field.y || 50,
+          field.width || 150,
+          field.height || 40,
+        );
+
+        // Update the field with normalized coordinates
+        field.normalizedX = normalized.x;
+        field.normalizedY = normalized.y;
+        field.normalizedWidth = normalized.width;
+        field.normalizedHeight = normalized.height;
+      }
+    });
+  },
+  { deep: true },
+);
+
+// Update canvas display size for reactivity
+function updateCanvasSize() {
+  if (pdfCanvas.value) {
+    const rect = pdfCanvas.value.getBoundingClientRect();
+    canvasDisplaySize.value = { width: rect.width, height: rect.height };
+  }
+}
+
+// Lifecycle
+onMounted(() => {
+  // Add window resize listener to update canvas size
+  window.addEventListener('resize', updateCanvasSize);
+});
+
 // Cleanup on unmount
 onUnmounted(() => {
+  window.removeEventListener('resize', updateCanvasSize);
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
   document.removeEventListener('touchend', stopDrag);
+});
+
+// Expose functions and refs for parent component
+defineExpose({
+  displayToNormalized,
+  normalizedToDisplay,
+  getPdfBounds,
+  pdfNaturalDimensions,
+  pdfCanvas,
 });
 </script>
 
@@ -598,9 +780,6 @@ onUnmounted(() => {
         id="pdf-preview-container"
         ref="previewContainer"
         class="template-preview-area"
-        @mouseup="stopDrag"
-        @mousemove="drag"
-        @mouseleave="stopDrag"
       >
         <!-- PDF Page Container -->
         <div
@@ -630,17 +809,17 @@ onUnmounted(() => {
 
         <!-- Placed Fields Overlay (only for current page) -->
         <div
-          v-for="field in placedFieldsOnCurrentPage"
+          v-for="field in fieldsWithDisplayCoords"
           :key="field.instanceId"
           class="placed-field"
           :class="{
             'field-selected': selectedField?.instanceId === field.instanceId,
           }"
           :style="{
-            left: `${field.x}px`,
-            top: `${field.y}px`,
-            width: `${field.width}px`,
-            height: `${field.height}px`,
+            left: `${field.displayX}px`,
+            top: `${field.displayY}px`,
+            width: `${field.displayWidth}px`,
+            height: `${field.displayHeight}px`,
             transform:
               activeDrag.isDragging
               && activeDrag.field?.instanceId === field.instanceId

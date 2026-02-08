@@ -10,7 +10,7 @@ const props = defineProps({
   originalFile: { type: File, default: null },
 });
 
-const emit = defineEmits(['fieldSelected', 'imageLoaded', 'templateSaved']);
+const emit = defineEmits(['fieldSelected', 'fieldUpdated', 'imageLoaded', 'templateSaved']);
 
 const previewContainer = ref(null);
 const activeDrag = ref({
@@ -97,8 +97,14 @@ function drag(event) {
   newX = Math.max(0, Math.min(newX, containerWidth - fieldWidth));
   newY = Math.max(0, Math.min(newY, containerHeight - fieldHeight));
 
-  activeDrag.value.field.x = Math.round(newX);
-  activeDrag.value.field.y = Math.round(newY);
+  // Emit event instead of direct mutation
+  emit('fieldUpdated', {
+    instanceId: activeDrag.value.field.instanceId,
+    updates: {
+      x: Math.round(newX),
+      y: Math.round(newY),
+    },
+  });
 }
 
 function stopDrag() {
@@ -148,13 +154,25 @@ function handleResize(event) {
   const field = activeResize.value.field;
   const direction = activeResize.value.direction;
 
+  let newWidth = activeResize.value.startWidth;
+  let newHeight = activeResize.value.startHeight;
+
   if (direction === 'right' || direction === 'corner') {
-    field.width = Math.max(20, activeResize.value.startWidth + deltaX);
+    newWidth = Math.max(20, activeResize.value.startWidth + deltaX);
   }
 
   if (direction === 'bottom' || direction === 'corner') {
-    field.height = Math.max(20, activeResize.value.startHeight + deltaY);
+    newHeight = Math.max(20, activeResize.value.startHeight + deltaY);
   }
+
+  // Emit event instead of direct mutation
+  emit('fieldUpdated', {
+    instanceId: field.instanceId,
+    updates: {
+      width: newWidth,
+      height: newHeight,
+    },
+  });
 }
 
 function stopResize() {
@@ -535,13 +553,13 @@ onUnmounted(() => {
             top: `${field.y}px`,
             width: `${field.width}px`,
             height: `${field.height}px`,
-            zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
+            zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 100,
             fontSize: `${field.fontSize || 14}px`,
             fontFamily: field.fontFamily || 'Arial',
           }"
           @click.stop="selectField(field)"
-          @mousedown.prevent="startDrag($event, field)"
-          @touchstart.prevent="startDrag($event, field)"
+          @mousedown.stop.prevent="startDrag($event, field)"
+          @touchstart.stop.prevent="startDrag($event, field)"
         >
           <div class="field-content">
             <i v-if="field.name === 'Check Mark'" :class="field.icon" />
@@ -626,6 +644,8 @@ onUnmounted(() => {
   border: 1px solid #ddd;
   border-radius: 4px;
   padding: 0.25rem;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .placed-field:hover {
@@ -670,7 +690,7 @@ onUnmounted(() => {
 .resize-handle {
   position: absolute;
   background: #0056b3;
-  z-index: 10;
+  z-index: 1001;
   opacity: 0.8;
 }
 
