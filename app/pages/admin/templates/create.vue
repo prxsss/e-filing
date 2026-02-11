@@ -24,9 +24,12 @@ const fileType = ref(null);
 const currentPdfPage = ref(1);
 const searchQuery = ref('');
 
-// Template component refs
-const pdfTemplateRef = ref(null);
-const imageTemplateRef = ref(null);
+// Security constants
+const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const _ALLOWED_FILE_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+  pdf: ['application/pdf'],
+};
 
 // Available fields for the template - load from database
 const availableFields = ref([]);
@@ -195,34 +198,34 @@ function handleFileDrop(event) {
 }
 
 // Security: Validate template name format
-function validateTemplateNameFormat(name) {
-  if (!name || typeof name !== 'string') {
-    return { isValid: false, message: 'กรุณากรอกชื่อ template' };
-  }
+// function validateTemplateNameFormat(name) {
+//   if (!name || typeof name !== 'string') {
+//     return { isValid: false, message: 'กรุณากรอกชื่อ template' };
+//   }
 
-  const trimmedName = name.trim();
+//   const trimmedName = name.trim();
 
-  if (trimmedName.length < 3) {
-    return { isValid: false, message: 'ชื่อ template ต้องมีอย่างน้อย 3 ตัวอักษร' };
-  }
+//   if (trimmedName.length < 3) {
+//     return { isValid: false, message: 'ชื่อ template ต้องมีอย่างน้อย 3 ตัวอักษร' };
+//   }
 
-  if (trimmedName.length > 100) {
-    return { isValid: false, message: 'ชื่อ template ต้องไม่เกิน 100 ตัวอักษร' };
-  }
+//   if (trimmedName.length > 100) {
+//     return { isValid: false, message: 'ชื่อ template ต้องไม่เกิน 100 ตัวอักษร' };
+//   }
 
-  // Allow Thai, English, numbers, spaces, hyphens, underscores
-  const validPattern = /^[\u0E00-\u0E7F\w\s\-]+$/;
-  if (!validPattern.test(trimmedName)) {
-    return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
-  }
+//   // Allow Thai, English, numbers, spaces, hyphens, underscores
+//   const validPattern = /^[\u0E00-\u0E7F\w\s\-]+$/;
+//   if (!validPattern.test(trimmedName)) {
+//     return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
+//   }
 
-  // Prevent path traversal
-  if (trimmedName.includes('..') || trimmedName.includes('/') || trimmedName.includes('\\')) {
-    return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
-  }
+//   // Prevent path traversal
+//   if (trimmedName.includes('..') || trimmedName.includes('/') || trimmedName.includes('\\')) {
+//     return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
+//   }
 
-  return { isValid: true, message: '' };
-}
+//   return { isValid: true, message: '' };
+// }
 
 // Security: Verify PDF magic bytes
 async function verifyPdfMagicBytes(file) {
@@ -490,7 +493,7 @@ function validateTemplateName() {
   return true;
 }
 
-async function handleTemplateSaved() {
+function handleTemplateSaved() {
   if (!validateTemplateName())
     return;
 
@@ -505,52 +508,42 @@ async function handleTemplateSaved() {
 
   if (placedFields.value.length === 0) {
     toast.add({
-      title: 'กรุณาเพิ่ม Field',
-      description: 'เพิ่มอย่างน้อย 1 Field ก่อนบันทึก',
+      title: 'ข้อผิดพลาด',
+      description: 'กรุณาเพิ่ม field อย่างน้อย 1 field',
       color: 'error',
     });
     return;
   }
 
-  isSaving.value = true;
-  try {
-    if (fileType.value === 'pdf' && pdfTemplateRef.value) {
-      await pdfTemplateRef.value.saveTemplate();
-    }
-    else if (fileType.value === 'image' && imageTemplateRef.value) {
-      await imageTemplateRef.value.saveTemplate();
-    }
-    else {
-      toast.add({
-        title: 'เกิดข้อผิดพลาด',
-        description: 'ไม่สามารถบันทึกเทมเพลตได้',
-        color: 'error',
-      });
-      isSaving.value = false;
-      return;
-    }
-
-    toast.add({
-      title: 'บันทึกสำเร็จ',
-      description: 'เทมเพลตถูกบันทึกแล้ว',
-      color: 'success',
-    });
-
-    // Navigate back after a short delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    router.back();
+  // Call saveTemplate from child component
+  if (templatePdfRef.value && templatePdfRef.value.saveTemplate) {
+    isSaving.value = true;
+    templatePdfRef.value.saveTemplate();
   }
-  catch (error) {
-    console.error('Error saving template:', error);
+}
+
+function handleTemplateSaved(templateData) {
+  isSaving.value = false;
+
+  if (!templateData || templateData.error) {
     toast.add({
       title: 'เกิดข้อผิดพลาด',
-      description: error.message || 'ไม่สามารถบันทึกเทมเพลตได้',
+      description: templateData?.message || 'ไม่สามารถบันทึก Template ได้',
       color: 'error',
     });
+    return;
   }
-  finally {
-    isSaving.value = false;
-  }
+
+  // Navigate to templates list
+  toast.add({
+    title: 'บันทึกสำเร็จ',
+    description: `Template "${templateData?.name || 'ใหม่'}" ถูกบันทึกแล้ว`,
+    color: 'success',
+  });
+
+  setTimeout(() => {
+    router.push('/admin/templates');
+  }, 500);
 }
 
 function handleBeforeUnload(e) {
@@ -803,46 +796,42 @@ watch(
 
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
-          <!-- Canvas Wrapper with Scale -->
-          <div
-            class="transition-transform duration-200 ease-out origin-top"
-            :style="{ transform: `scale(${scale})` }"
-          >
-            <template-image-create
-              v-if="fileType === 'image' && previewImageUrl"
-              ref="imageTemplateRef"
-              :preview-image-url="previewImageUrl"
-              :placed-fields="placedFields"
-              :selected-field="selectedField"
-              :new-template-name="newTemplateName"
-              :selected-contract-id="selectedContractId"
-              :original-file="uploadedFile"
-              @field-selected="selectField"
-              @image-loaded="onImageLoad"
-              @template-saved="handleTemplateSaved"
-            />
+          <template-image-create
+            v-if="fileType === 'image' && previewImageUrl"
+            :preview-image-url="previewImageUrl"
+            :placed-fields="placedFields"
+            :selected-field="selectedField"
+            :new-template-name="newTemplateName"
+            :selected-contract-id="selectedContractId"
+            :original-file="uploadedFile"
+            @field-selected="selectField"
+            @field-updated="handleFieldUpdate"
+            @image-loaded="onImageLoad"
+            @template-saved="handleTemplateSaved"
+          />
 
-            <template-pdf-create
-              v-else-if="fileType === 'pdf' && uploadedFile"
-              ref="pdfTemplateRef"
-              :pdf-file="uploadedFile"
-              :placed-fields="placedFields"
-              :selected-field="selectedField"
-              :new-template-name="newTemplateName"
-              :selected-contract-id="selectedContractId"
-              @field-selected="selectField"
-              @pdf-loaded="onImageLoad"
-              @template-saved="handleTemplateSaved"
-              @current-page-changed="handlePdfPageChange"
-            />
+          <template-pdf-create
+            v-else-if="fileType === 'pdf' && uploadedFile"
+            ref="templatePdfRef"
+            :pdf-file="uploadedFile"
+            :placed-fields="placedFields"
+            :selected-field="selectedField"
+            :new-template-name="newTemplateName"
+            :selected-contract-id="selectedContractId"
+            :ui-scale="scale"
+            @field-selected="selectField"
+            @field-updated="handleFieldUpdate"
+            @pdf-loaded="onImageLoad"
+            @template-saved="handleTemplateSaved"
+            @current-page-changed="handlePdfPageChange"
+          />
 
-            <div v-else class=" shadow-lg border rounded-lg" style="width: 595px; min-height: 842px;">
-              <div class="flex flex-col items-center justify-center h-full py-20">
-                <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
-                <p class="text-sm">
-                  พื้นที่แสดงเอกสาร
-                </p>
-              </div>
+          <div v-else class="bg-white shadow-lg border border-gray-200 rounded-lg" style="width: 595px; min-height: 842px;">
+            <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
+              <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
+              <p class="text-sm">
+                พื้นที่แสดงเอกสาร
+              </p>
             </div>
           </div>
         </div>
