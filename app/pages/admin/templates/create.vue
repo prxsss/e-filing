@@ -102,12 +102,9 @@ function handlePlacedFieldsUpdate(fields: FieldInstance[]): void {
   placedFields.value = fields;
 }
 
-// Security constants
-const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const _ALLOWED_FILE_TYPES = {
-  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
-  pdf: ['application/pdf'],
-};
+// Template component refs
+const pdfTemplateRef = ref(null);
+const imageTemplateRef = ref(null);
 
 // Available fields for the template - load from database
 const availableFields = ref<Field[]>([]);
@@ -600,8 +597,8 @@ function handleSaveTemplate(): void {
 
   if (placedFields.value.length === 0) {
     toast.add({
-      title: 'ข้อผิดพลาด',
-      description: 'กรุณาเพิ่ม field อย่างน้อย 1 field',
+      title: 'กรุณาเพิ่ม Field',
+      description: 'เพิ่มอย่างน้อย 1 Field ก่อนบันทึก',
       color: 'error',
     });
     return;
@@ -744,12 +741,11 @@ function handleTemplateSaved(templateData: any): void {
     return;
   }
 
-  // Navigate to templates list
-  toast.add({
-    title: 'บันทึกสำเร็จ',
-    description: `Template "${templateData?.name || 'ใหม่'}" ถูกบันทึกแล้ว`,
-    color: 'success',
-  });
+    toast.add({
+      title: 'บันทึกสำเร็จ',
+      description: 'เทมเพลตถูกบันทึกแล้ว',
+      color: 'success',
+    });
 
   setTimeout(() => {
     router.push('/admin/templates');
@@ -844,13 +840,66 @@ watch(
         </div> -->
       </div>
 
+      <!-- Step Indicator (center) -->
+      <div class="flex items-center gap-1">
+        <template v-for="(ws, idx) in wizardSteps" :key="ws.step">
+          <!-- Step circle + label -->
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+            :class="{
+              'bg-primary-500 text-white': currentWizardStep === ws.step,
+              'bg-primary-100 text-primary-700': currentWizardStep > ws.step,
+              'bg-gray-100 text-gray-400': currentWizardStep < ws.step,
+            }"
+            @click="ws.step <= currentWizardStep ? goToStep(ws.step) : undefined"
+          >
+            <UIcon :name="ws.icon" class="w-4 h-4" />
+            <span class="hidden sm:inline">{{ ws.label }}</span>
+          </button>
+          <!-- Connector -->
+          <div v-if="idx < wizardSteps.length - 1" class="w-6 h-px" :class="currentWizardStep > ws.step ? 'bg-primary-400' : 'bg-gray-200'" />
+        </template>
+      </div>
+
+      <!-- Right actions -->
+      <div class="flex items-center gap-3">
+        <UButton
+          v-if="currentWizardStep > 1"
+          icon="i-heroicons-arrow-left"
+          color="neutral"
+          variant="ghost"
+          :label="t('previous')"
+          @click="goPrevious"
+        />
+        <UButton
+          v-if="currentWizardStep < 3"
+          icon="i-heroicons-arrow-right"
+          trailing
+          color="primary"
+          :label="t('next')"
+          size="xl"
+          class="px-6 font-bold"
+          @click="goNext"
+        />
+        <UButton
+          v-if="currentWizardStep === 3"
+          :loading="isSaving"
+          icon="i-heroicons-check"
+          color="primary"
+          :label="t('saveTemplate')"
+          size="xl"
+          class="px-6 font-bold"
+          @click="handleTemplateSaved"
+        />
+      </div>
+
       <div class="flex items-center gap-3">
         <UButton
           :loading="isSaving"
           icon="i-heroicons-check"
           color="neutral"
           label="Save Template"
-          size="sm"
+          size="xl"
           class="px-6 font-bold"
           @click="handleSaveTemplate"
         />
@@ -1195,12 +1244,13 @@ watch(
             @current-page-changed="handlePdfPageChange"
           />
 
-          <div v-else class="bg-white shadow-lg border border-gray-200 rounded-lg" style="width: 595px; min-height: 842px;">
-            <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
-              <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
-              <p class="text-sm">
-                พื้นที่แสดงเอกสาร
-              </p>
+            <div v-else class=" shadow-lg border rounded-lg" style="width: 595px; min-height: 842px;">
+              <div class="flex flex-col items-center justify-center h-full py-20">
+                <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
+                <p class="text-sm">
+                  พื้นที่แสดงเอกสาร
+                </p>
+              </div>
             </div>
           </div>
         </div>
