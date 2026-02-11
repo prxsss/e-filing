@@ -102,9 +102,12 @@ function handlePlacedFieldsUpdate(fields: FieldInstance[]): void {
   placedFields.value = fields;
 }
 
-// Template component refs
-const pdfTemplateRef = ref(null);
-const imageTemplateRef = ref(null);
+// Security constants
+const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const _ALLOWED_FILE_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+  pdf: ['application/pdf'],
+};
 
 // Available fields for the template - load from database
 const availableFields = ref<Field[]>([]);
