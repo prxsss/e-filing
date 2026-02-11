@@ -1,6 +1,4 @@
 <script setup>
-// const supabase = useSupabaseClient(); // Temporarily disabled
-
 const props = defineProps({
   pdfFile: { type: File, default: null },
   placedFields: { type: Array, default: () => [] },
@@ -234,36 +232,36 @@ async function initPdfJs() {
   }
 }
 
-function getPdfBounds() {
-  if (!pdfCanvas.value) {
-    return {
-      displayWidth: 0,
-      displayHeight: 0,
-      naturalWidth: 0,
-      naturalHeight: 0,
-      scaleX: 1,
-      scaleY: 1,
-    };
-  }
+// function getPdfBounds() {
+//   if (!pdfCanvas.value) {
+//     return {
+//       displayWidth: 0,
+//       displayHeight: 0,
+//       naturalWidth: 0,
+//       naturalHeight: 0,
+//       scaleX: 1,
+//       scaleY: 1,
+//     };
+//   }
 
-  const canvas = pdfCanvas.value;
-  const canvasRect = canvas.getBoundingClientRect();
-  const displayWidth = canvasRect.width;
-  const displayHeight = canvasRect.height;
-  const naturalWidth = pdfNaturalDimensions.value.width;
-  const naturalHeight = pdfNaturalDimensions.value.height;
-  const scaleX = naturalWidth / displayWidth;
-  const scaleY = naturalHeight / displayHeight;
+//   const canvas = pdfCanvas.value;
+//   const canvasRect = canvas.getBoundingClientRect();
+//   const displayWidth = canvasRect.width;
+//   const displayHeight = canvasRect.height;
+//   const naturalWidth = pdfNaturalDimensions.value.width;
+//   const naturalHeight = pdfNaturalDimensions.value.height;
+//   const scaleX = naturalWidth / displayWidth;
+//   const scaleY = naturalHeight / displayHeight;
 
-  return {
-    displayWidth,
-    displayHeight,
-    naturalWidth,
-    naturalHeight,
-    scaleX,
-    scaleY,
-  };
-}
+//   return {
+//     displayWidth,
+//     displayHeight,
+//     naturalWidth,
+//     naturalHeight,
+//     scaleX,
+//     scaleY,
+//   };
+// }
 
 async function loadPdf() {
   if (!props.pdfFile)
@@ -570,160 +568,179 @@ function stopResize() {
   }
 }
 
-async function _saveImagesToStorage(templateName, _compositePdfBytes) {
-  // Temporarily disabled - return mock URLs
-  console.warn('Storage upload disabled - using mock URLs');
+// async function saveImagesToStorage(templateName, _compositePdfBytes) {
+//   // Temporarily disabled - return mock URLs
+//   console.warn('Storage upload disabled - using mock URLs');
 
-  const timestamp = Date.now();
-  const fileExtension = props.pdfFile.name.split('.').pop();
-  const originalFileName = `${templateName}_${timestamp}.${fileExtension}`;
-  const compositeFileName = `${templateName}_${timestamp}_composite.pdf`;
+//   const timestamp = Date.now();
+//   const fileExtension = props.pdfFile.name.split('.').pop();
+//   const originalFileName = `${templateName}_${timestamp}.${fileExtension}`;
+//   const compositeFileName = `${templateName}_${timestamp}_composite.pdf`;
 
-  return {
-    originalImageUrl: `https://example.com/templates/${originalFileName}`,
-    compositeImageUrl: `https://example.com/composites/${compositeFileName}`,
-  };
+//   return {
+//     originalImageUrl: `https://example.com/templates/${originalFileName}`,
+//     compositeImageUrl: `https://example.com/composites/${compositeFileName}`,
+//   };
 
-  /*
-  const originalFilePath = `templates/${originalFileName}`;
+//   /*
+//   const originalFilePath = `templates/${originalFileName}`;
 
-  const { error: uploadError1 } = await supabase.storage
-    .from("contract")
-    .upload(originalFilePath, props.pdfFile, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (uploadError1)
-    throw new Error("Error uploading original PDF: " + uploadError1.message);
+// //   const { error: uploadError1 } = await supabase.storage
+// //     .from("contract")
+// //     .upload(originalFilePath, props.pdfFile, {
+// //       cacheControl: "3600",
+// //       upsert: false,
+// //     });
+// //   if (uploadError1)
+// //     throw new Error("Error uploading original PDF: " + uploadError1.message);
 
-  const { data: publicUrlData1 } = supabase.storage
-    .from("contract")
-    .getPublicUrl(originalFilePath);
+// //   const { data: publicUrlData1 } = supabase.storage
+// //     .from("contract")
+// //     .getPublicUrl(originalFilePath);
 
-  const compositeFilePath = `composites/${compositeFileName}`;
-  const compositeBlob = new Blob([compositePdfBytes], {
-    type: "application/pdf",
-  });
+// //   const compositeFilePath = `composites/${compositeFileName}`;
+// //   const compositeBlob = new Blob([compositePdfBytes], {
+// //     type: "application/pdf",
+// //   });
 
-  const { error: uploadError2 } = await supabase.storage
-    .from("contract")
-    .upload(compositeFilePath, compositeBlob, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (uploadError2)
-    throw new Error("Error uploading composite PDF: " + uploadError2.message);
+// //   const { error: uploadError2 } = await supabase.storage
+// //     .from("contract")
+// //     .upload(compositeFilePath, compositeBlob, {
+// //       cacheControl: "3600",
+// //       upsert: false,
+// //     });
+// //   if (uploadError2)
+// //     throw new Error("Error uploading composite PDF: " + uploadError2.message);
 
-  const { data: publicUrlData2 } = supabase.storage
-    .from("contract")
-    .getPublicUrl(compositeFilePath);
+// //   const { data: publicUrlData2 } = supabase.storage
+// //     .from("contract")
+// //     .getPublicUrl(compositeFilePath);
 
-  return {
-    originalImageUrl: publicUrlData1.publicUrl,
-    compositeImageUrl: publicUrlData2.publicUrl,
-  };
-  */
-}
+// //   return {
+// //     originalImageUrl: publicUrlData1.publicUrl,
+// //     compositeImageUrl: publicUrlData2.publicUrl,
+// //   };
+// //   */
+// }
 
 async function saveTemplate() {
-  try {
-    if (!props.pdfFile) {
-      console.error('กรุณาอัพโหลดไฟล์ PDF ก่อน');
-      return;
-    }
+  console.warn('Save template function is currently disabled');
+  // try {
+  //   if (!props.pdfFile) {
+  //     console.error('Please upload a PDF file first');
+  //     return;
+  //   }
 
-    if (props.placedFields.length === 0) {
-      console.error('กรุณาเพิ่ม field อย่างน้อย 1 field');
-      return;
-    }
+  //   if (props.placedFields.length === 0) {
+  //     console.error('Please add at least one field');
+  //     return;
+  //   }
 
-    const templateName = props.newTemplateName;
-    if (!templateName?.trim()) {
-      console.error('กรุณากรอกชื่อ template');
-      return;
-    }
+  //   const templateName = props.newTemplateName;
+  //   if (!templateName?.trim()) {
+  //     console.error('Please enter a template name');
+  //     return;
+  //   }
 
-    // Upload PDF file
-    const formData = new FormData();
-    formData.append('file', props.pdfFile);
+  //   if (!props.selectedContractId) {
+  //     console.error('Please select a contract');
+  //     return;
+  //   }
 
-    const uploadResult = await $fetch('/api/upload-template-file', {
-      method: 'POST',
-      body: formData,
-    });
+  //   if (!pdfBytes.value || pdfBytes.value.length === 0) {
+  //     const arrayBuffer = await props.pdfFile.arrayBuffer();
+  //     pdfBytes.value = new Uint8Array(arrayBuffer);
+  //   }
 
-    if (!uploadResult.success) {
-      console.error('เกิดข้อผิดพลาดในการอัพโหลดไฟล์');
-      return;
-    }
+  //   const header = String.fromCharCode.apply(null, pdfBytes.value.slice(0, 5));
+  //   if (header !== '%PDF-') {
+  //     console.error('Invalid PDF file');
+  //     return;
+  //   }
 
-    // Save only normalized coordinates (vector-based positioning)
-    // Security: Validate all fields before saving
-    const normalizedFields = [];
-    for (const field of props.placedFields) {
-      const validation = validateNormalizedField(field);
-      if (!validation.valid) {
-        console.error('Field validation failed:', validation.error, field);
-        continue; // Skip invalid fields
-      }
+  //   const bounds = getPdfBounds();
+  //   const transformedFields = props.placedFields
+  //     .filter(
+  //       field => !field.pageNumber || field.pageNumber === currentPage.value,
+  //     )
+  //     .map(field => ({
+  //       ...field,
+  //       x: field.x * bounds.scaleX,
+  //       y: field.y * bounds.scaleY,
+  //       width: field.width * bounds.scaleX,
+  //       height: field.height * bounds.scaleY,
+  //     }));
 
-      normalizedFields.push({
-        id: field.id,
-        instanceId: field.instanceId,
-        instanceNumber: field.instanceNumber,
-        normalizedX: Math.max(0, Math.min(1, field.normalizedX)), // Clamp to 0-1
-        normalizedY: Math.max(0, Math.min(1, field.normalizedY)),
-        normalizedWidth: Math.max(0, Math.min(1, field.normalizedWidth)),
-        normalizedHeight: Math.max(0, Math.min(1, field.normalizedHeight)),
-        type: field.type,
-        name: field.name,
-        label: field.label?.substring(0, 255) || '', // Limit label length
-        fontSize: Math.max(8, Math.min(72, field.fontSize || 14)), // Clamp font size 8-72
-        fontFamily: field.fontFamily || 'Arial',
-        icon: field.icon || null,
-        groupId: field.groupId,
-        isGrouped: field.isGrouped,
-        groupSize: field.groupSize,
-        groupPosition: field.groupPosition,
-        pageNumber: field.pageNumber || currentPage.value,
-      });
-    }
+  //   const { generateCompositePdf } = usePdfOperations();
+  //   const compositePdfBytes = await generateCompositePdf(
+  //     pdfBytes.value,
+  //     transformedFields,
+  //     currentPage.value,
+  //   );
 
-    if (normalizedFields.length === 0) {
-      console.error('ไม่มี field ที่ถูกต้องให้บันทึก');
-      return;
-    }
+  //   if (!compositePdfBytes) {
+  //     console.error('Failed to generate composite PDF');
+  //     return;
+  //   }
 
-    // Save template to database
-    const templateData = {
-      name: templateName.trim(),
-      description: `Template with ${normalizedFields.length} fields`,
-      category: 'general',
-      version: '1.0.0',
-      isActive: true,
-      createdBy: null,
-      documentUrl: uploadResult.url,
-      documentWidth: Math.round(pdfNaturalDimensions.value.width),
-      documentHeight: Math.round(pdfNaturalDimensions.value.height),
-      placedFieldsData: normalizedFields,
-    };
+  //   const { originalImageUrl, compositeImageUrl } = await saveImagesToStorage(
+  //     templateName,
+  //     compositePdfBytes,
+  //   );
 
-    const result = await $fetch('/api/templates', {
-      method: 'POST',
-      body: templateData,
-    });
+  //   const normalizedFields = props.placedFields.map(field => ({
+  //     id: field.id,
+  //     instanceId: field.instanceId,
+  //     instanceNumber: field.instanceNumber,
+  //     x: Math.round(field.x),
+  //     y: Math.round(field.y),
+  //     width: Math.round(field.width),
+  //     height: Math.round(field.height),
+  //     type: field.type,
+  //     groupId: field.groupId,
+  //     isGrouped: field.isGrouped,
+  //     groupSize: field.groupSize,
+  //     groupPosition: field.groupPosition,
+  //     pageNumber: field.pageNumber || currentPage.value,
+  //   }));
 
-    if (result.success) {
-      emit('templateSaved', result.data);
-    }
-    else {
-      console.error('เกิดข้อผิดพลาดในการบันทึก Template');
-    }
-  }
-  catch (error) {
-    console.error('Save error:', error);
-    emit('templateSaved', { error: true, message: error.message || 'Unknown error' });
-  }
+  //   const templateData = {
+  //     name: templateName.trim(),
+  //     contract_id: props.selectedContractId,
+  //     background_image_url: originalImageUrl,
+  //     composite_image_url: compositeImageUrl,
+  //     image_width: Math.round(pdfNaturalDimensions.value.width),
+  //     image_height: Math.round(pdfNaturalDimensions.value.height),
+  //     placed_fields_data: normalizedFields,
+  //     created_at: new Date().toISOString(),
+  //   };
+
+  //   // Temporarily disabled - skip database insert
+  //   console.warn('Database insert disabled - template data:', templateData);
+  //   console.warn('Template saved successfully! (Mock mode - no database)');
+  //   emit('templateSaved', { id: Date.now(), ...templateData });
+
+  //   /*
+  //   const { data, error } = await supabase
+  //     .from("contract_templates")
+  //     .insert(templateData)
+  //     .select()
+  //     .single();
+
+  //   if (error) {
+  //     console.error("Database error:", error);
+  //     alert("Error saving template: " + error.message);
+  //     return;
+  //   }
+
+  //   alert("Template saved successfully!");
+  //   emit("template-saved", data);
+  //   */
+  // }
+  // catch (error) {
+  //   console.error('Save error:', error);
+  //   console.error(`Error saving template: ${error.message}`);
+  // }
 }
 
 watch(
@@ -878,17 +895,15 @@ defineExpose({
   pdfCanvas,
   saveTemplate,
 });
+
+defineExpose({
+  saveTemplate,
+});
 </script>
 
 <template>
   <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>Preview</span>
-      <button class="btn btn-success btn-sm" @click="saveTemplate">
-        <i class="fas fa-save" /> Save Template
-      </button>
-    </div>
-    <div class="card-body">
+    <div class="card-body p-3">
       <div
         id="pdf-preview-container"
         ref="previewContainer"
