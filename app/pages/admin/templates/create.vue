@@ -16,18 +16,16 @@ const previewImageUrl = ref(null);
 const placedFields = ref([]);
 const selectedField = ref(null);
 const scale = ref(1); // Zoom level
-// Mock contracts data
-// const contracts = ref([
-//   { id: 1, name: 'Student Agreement', is_active: true },
-//   { id: 2, name: 'Course Registration', is_active: true },
-//   { id: 3, name: 'Internship Contract', is_active: true },
-// ]);
 const selectedContractId = ref(null);
 const imageLoaded = ref(false);
 const uploadedFile = ref(null);
 const fileType = ref(null);
 const currentPdfPage = ref(1);
 const searchQuery = ref('');
+
+// Template component refs
+const pdfTemplateRef = ref(null);
+const imageTemplateRef = ref(null);
 
 // Available fields for the template - load from database
 const availableFields = ref([]);
@@ -304,16 +302,88 @@ function handleFieldRemoval(instanceId) {
 }
 
 function validateTemplateName() {
-  const result = validateTemplateNameFormat(newTemplateName.value);
-  templateNameError.value = result.isValid ? '' : result.message;
-  return result.isValid;
+  const name = newTemplateName.value.trim();
+
+  if (!name) {
+    templateNameError.value = 'กรุณาป้อนชื่อเทมเพลต';
+    return false;
+  }
+
+  if (name.length < 3) {
+    templateNameError.value = 'ชื่อเทมเพลตต้องมีอย่างน้อย 3 ตัวอักษร';
+    return false;
+  }
+
+  if (name.length > 100) {
+    templateNameError.value = 'ชื่อเทมเพลตต้องไม่เกิน 100 ตัวอักษร';
+    return false;
+  }
+
+  templateNameError.value = '';
+  return true;
 }
 
-function handleTemplateSaved() {
+async function handleTemplateSaved() {
   if (!validateTemplateName())
     return;
+
+  if (!uploadedFile.value) {
+    toast.add({
+      title: 'กรุณาอัปโหลดไฟล์',
+      description: 'อัปโหลด PDF หรือรูปภาพก่อนบันทึกเทมเพลต',
+      color: 'error',
+    });
+    return;
+  }
+
+  if (placedFields.value.length === 0) {
+    toast.add({
+      title: 'กรุณาเพิ่ม Field',
+      description: 'เพิ่มอย่างน้อย 1 Field ก่อนบันทึก',
+      color: 'error',
+    });
+    return;
+  }
+
   isSaving.value = true;
-  router.back();
+  try {
+    if (fileType.value === 'pdf' && pdfTemplateRef.value) {
+      await pdfTemplateRef.value.saveTemplate();
+    }
+    else if (fileType.value === 'image' && imageTemplateRef.value) {
+      await imageTemplateRef.value.saveTemplate();
+    }
+    else {
+      toast.add({
+        title: 'เกิดข้อผิดพลาด',
+        description: 'ไม่สามารถบันทึกเทมเพลตได้',
+        color: 'error',
+      });
+      isSaving.value = false;
+      return;
+    }
+
+    toast.add({
+      title: 'บันทึกสำเร็จ',
+      description: 'เทมเพลตถูกบันทึกแล้ว',
+      color: 'success',
+    });
+
+    // Navigate back after a short delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    router.back();
+  }
+  catch (error) {
+    console.error('Error saving template:', error);
+    toast.add({
+      title: 'เกิดข้อผิดพลาด',
+      description: error.message || 'ไม่สามารถบันทึกเทมเพลตได้',
+      color: 'error',
+    });
+  }
+  finally {
+    isSaving.value = false;
+  }
 }
 
 function handleBeforeUnload(e) {
@@ -365,9 +435,9 @@ watch(
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-gray-50 overflow-hidden">
+  <div class="h-screen flex flex-col overflow-hidden">
     <!-- === TOP HEADER (Toolbar) === -->
-    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20 shadow-sm shrink-0">
+    <header class="h-16 flex items-center justify-between px-4 z-20 shadow-sm shrink-0">
       <div class="flex items-center gap-4">
         <UButton
           icon="i-heroicons-arrow-left"
@@ -375,38 +445,23 @@ watch(
           variant="ghost"
           @click="router.back()"
         />
-        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
 
         <!-- Template Name Input -->
         <div class="flex flex-col">
-          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Template Name</label>
+          <label class="text-[10px] uppercase font-bold tracking-wider">Template Name</label>
           <input
             v-model="newTemplateName"
             type="text"
-            class="bg-transparent border-none p-0 text-gray-800 font-semibold focus:ring-0 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-1 transition-colors"
+            :class="templateNameError ? 'border border-red-500 bg-red-50' : 'border bg-transparent'"
+            class="p-2 font-semibold focus:ring-1 focus:ring-red-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors "
             placeholder="Enter template name..."
             @input="validateTemplateName"
           >
-          <div v-if="templateNameError" class="text-red-500 text-[10px] mt-0.5">
+          <div v-if="templateNameError" class="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs font-semibold">
+            <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 shrink-0" />
             {{ templateNameError }}
           </div>
         </div>
-
-        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
-
-        <!-- Contract Selector -->
-        <!-- <div class="flex flex-col">
-          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Contract</label>
-          <USelectMenu
-            v-model="selectedContractId"
-            :options="contracts"
-            value-attribute="id"
-            option-attribute="name"
-            placeholder="Choose Contract"
-            size="sm"
-            class="w-48"
-          />
-        </div> -->
       </div>
 
       <div class="flex items-center gap-3">
@@ -415,7 +470,7 @@ watch(
           icon="i-heroicons-check"
           color="neutral"
           label="Save Template"
-          size="sm"
+          size="xl"
           class="px-6 font-bold"
           @click="handleTemplateSaved"
         />
@@ -425,10 +480,10 @@ watch(
     <!-- === WORKSPACE === -->
     <div class="flex-1 flex overflow-hidden">
       <!-- [LEFT SIDEBAR] Tools & Assets -->
-      <aside class="w-72 bg-white border-r border-gray-200 flex flex-col shrink-0 z-10">
+      <aside class="w-72  flex flex-col shrink-0 z-10">
         <!-- Tabs / Sections -->
-        <div class="p-4 border-b border-gray-100">
-          <h3 class="font-bold text-gray-800 flex items-center gap-2">
+        <div class="p-4 border-b">
+          <h3 class="font-bold flex items-center gap-2">
             <UIcon name="i-heroicons-swatch" class="text-primary-500" />
             เครื่องมือ (Tools)
           </h3>
@@ -438,7 +493,7 @@ watch(
           <!-- Upload Section -->
           <div>
             <div class="flex justify-between items-center mb-2">
-              <label class="text-xs font-semibold text-gray-500 uppercase">เอกสารตั้นต้นฉบับ</label>
+              <label class="text-xs font-semibold uppercase">เอกสารตั้นต้นฉบับ</label>
               <UBadge v-if="uploadedFile" color="success" variant="subtle" size="xs">
                 Uploaded
               </UBadge>
@@ -446,26 +501,26 @@ watch(
 
             <div
               v-if="!uploadedFile"
-              class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 hover:border-primary-400 transition-all cursor-pointer group"
+              class="border-2 border-dashed rounded-xl p-6 text-center hover:bg-gray-50 hover:border-primary-400 transition-all cursor-pointer group"
               :class="{ 'border-primary-500 bg-primary-50': isDragging }"
               @click="triggerFileInput"
               @drop.prevent="handleFileDrop"
               @dragover.prevent="isDragging = true"
               @dragleave.prevent="isDragging = false"
             >
-              <div class="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
+              <div class=" w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
                 <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6" />
               </div>
-              <p class="text-sm font-medium text-gray-600">
+              <p class="text-sm font-medium">
                 คลิกเพื่ออัปโหลด
               </p>
-              <p class="text-xs text-gray-400 mt-1">
+              <p class="text-xs mt-1">
                 PDF หรือ รูปภาพ (JPG, PNG)
               </p>
             </div>
 
             <!-- Uploaded State -->
-            <div v-else class="bg-gray-50 rounded-lg p-3 border border-gray-200 flex items-center gap-3">
+            <div v-else class="rounded-lg p-3 flex items-center gap-3">
               <div class="w-10 h-10 bg-white border border-gray-200 rounded flex items-center justify-center text-gray-400 shrink-0">
                 <UIcon :name="fileType === 'pdf' ? 'i-heroicons-document-text' : 'i-heroicons-photo'" class="w-6 h-6" />
               </div>
@@ -571,17 +626,17 @@ watch(
       </aside>
 
       <!-- [CENTER] Canvas Area -->
-      <section class="flex-1 bg-gray-100/50 relative overflow-hidden flex flex-col">
+      <section class="flex-1 relative overflow-hidden flex flex-col">
         <!-- Toolbar (Zoom etc.) -->
-        <div class="h-10 border-b border-gray-200 bg-white px-4 flex items-center justify-between shrink-0">
-          <div class="text-xs text-gray-400">
+        <div class="h-10 border-b px-4 flex items-center justify-between shrink-0">
+          <div class="text-xs">
             <span v-if="!uploadedFile">ยังไม่มีไฟล์</span>
             <span v-else-if="fileType === 'pdf'">เอกสาร PDF - หน้า {{ currentPdfPage }}</span>
             <span v-else>เอกสารรูปภาพ</span>
           </div>
           <div class="flex items-center gap-2">
             <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" @click="scale = Math.max(0.5, scale - 0.1)" />
-            <span class="text-xs font-mono w-12 text-center text-gray-600">{{ Math.round(scale * 100) }}%</span>
+            <span class="text-xs font-mono w-12 text-center">{{ Math.round(scale * 100) }}%</span>
             <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" @click="scale = Math.min(2, scale + 0.1)" />
           </div>
         </div>
@@ -595,6 +650,7 @@ watch(
           >
             <template-image-create
               v-if="fileType === 'image' && previewImageUrl"
+              ref="imageTemplateRef"
               :preview-image-url="previewImageUrl"
               :placed-fields="placedFields"
               :selected-field="selectedField"
@@ -608,6 +664,7 @@ watch(
 
             <template-pdf-create
               v-else-if="fileType === 'pdf' && uploadedFile"
+              ref="pdfTemplateRef"
               :pdf-file="uploadedFile"
               :placed-fields="placedFields"
               :selected-field="selectedField"
@@ -619,8 +676,8 @@ watch(
               @current-page-changed="handlePdfPageChange"
             />
 
-            <div v-else class="bg-white shadow-lg border border-gray-200 rounded-lg" style="width: 595px; min-height: 842px;">
-              <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
+            <div v-else class=" shadow-lg border rounded-lg" style="width: 595px; min-height: 842px;">
+              <div class="flex flex-col items-center justify-center h-full py-20">
                 <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
                 <p class="text-sm">
                   พื้นที่แสดงเอกสาร
@@ -632,10 +689,10 @@ watch(
       </section>
 
       <!-- [RIGHT SIDEBAR] Properties -->
-      <aside class="w-72 bg-white border-l border-gray-200 flex flex-col shrink-0 z-10">
-        <div class="p-4 border-b border-gray-100">
-          <h3 class="font-bold text-gray-800 flex items-center gap-2">
-            <UIcon name="i-heroicons-adjustments-horizontal" class="text-gray-500" />
+      <aside class="w-72 flex flex-col shrink-0 z-10">
+        <div class="p-4 border-b ">
+          <h3 class="font-bold flex items-center gap-2">
+            <UIcon name="i-heroicons-adjustments-horizontal" />
             คุณสมบัติ (Properties)
           </h3>
         </div>
@@ -650,8 +707,8 @@ watch(
 
           <!-- Empty State -->
           <div v-else class="text-center py-10 opacity-60">
-            <UIcon name="i-heroicons-cursor-arrow-rays" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p class="text-sm text-gray-500 font-medium">
+            <UIcon name="i-heroicons-cursor-arrow-rays" class="w-12 h-12 mx-auto mb-2 " />
+            <p class="text-sm font-medium">
               คลิกเลือก Field บนเอกสาร<br>เพื่อแก้ไขคุณสมบัติ
             </p>
           </div>
