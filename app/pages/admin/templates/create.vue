@@ -9,12 +9,13 @@ const hasChanges = ref(false);
 const isSaving = ref(false);
 const isDragging = ref(false);
 const fileInput = ref(null);
+const templatePdfRef = ref(null);
 
 const newTemplateName = ref('');
 const templateNameError = ref('');
 const previewImageUrl = ref(null);
 const placedFields = ref([]);
-const selectedField = ref(null);
+const selectedFieldInstanceId = ref(null); // Store instanceId instead of field object
 const scale = ref(1); // Zoom level
 const selectedContractId = ref(null);
 const imageLoaded = ref(false);
@@ -23,9 +24,12 @@ const fileType = ref(null);
 const currentPdfPage = ref(1);
 const searchQuery = ref('');
 
-// Template component refs
-const pdfTemplateRef = ref(null);
-const imageTemplateRef = ref(null);
+// Security constants
+const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const _ALLOWED_FILE_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+  pdf: ['application/pdf'],
+};
 
 // Available fields for the template - load from database
 const availableFields = ref([]);
@@ -41,6 +45,49 @@ const filteredFields = computed(() => {
   return availableFields.value.filter(f =>
     f.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
   );
+});
+
+// Computed property for selected field
+// Returns null if no field selected, otherwise returns the field object with display coordinates
+// Display coordinates are calculated from normalized coordinates using current scale
+const selectedField = computed(() => {
+  if (!selectedFieldInstanceId.value) {
+    return null;
+  }
+
+  // Find the field from placedFields
+  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
+  if (!field) {
+    return null;
+  }
+
+  // For PDF files with normalized coordinates, calculate display coords
+  if (fileType.value === 'pdf' && templatePdfRef.value && field.normalizedX !== undefined) {
+    if (typeof templatePdfRef.value.normalizedToDisplay === 'function') {
+      const display = templatePdfRef.value.normalizedToDisplay(
+        field.normalizedX,
+        field.normalizedY,
+        field.normalizedWidth,
+        field.normalizedHeight,
+      );
+      return {
+        ...field,
+        displayX: display.x,
+        displayY: display.y,
+        displayWidth: display.width,
+        displayHeight: display.height,
+      };
+    }
+  }
+
+  // For images or fields without normalized coordinates
+  return {
+    ...field,
+    displayX: field.x,
+    displayY: field.y,
+    displayWidth: field.width,
+    displayHeight: field.height,
+  };
 });
 
 async function _fetchContracts() {
@@ -150,10 +197,60 @@ function handleFileDrop(event) {
     processFile(file);
 }
 
-function processFile(file) {
+// Security: Validate template name format
+// function validateTemplateNameFormat(name) {
+//   if (!name || typeof name !== 'string') {
+//     return { isValid: false, message: 'กรุณากรอกชื่อ template' };
+//   }
+
+//   const trimmedName = name.trim();
+
+//   if (trimmedName.length < 3) {
+//     return { isValid: false, message: 'ชื่อ template ต้องมีอย่างน้อย 3 ตัวอักษร' };
+//   }
+
+//   if (trimmedName.length > 100) {
+//     return { isValid: false, message: 'ชื่อ template ต้องไม่เกิน 100 ตัวอักษร' };
+//   }
+
+//   // Allow Thai, English, numbers, spaces, hyphens, underscores
+//   const validPattern = /^[\u0E00-\u0E7F\w\s\-]+$/;
+//   if (!validPattern.test(trimmedName)) {
+//     return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
+//   }
+
+//   // Prevent path traversal
+//   if (trimmedName.includes('..') || trimmedName.includes('/') || trimmedName.includes('\\')) {
+//     return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
+//   }
+
+//   return { isValid: true, message: '' };
+// }
+
+// Security: Verify PDF magic bytes
+async function verifyPdfMagicBytes(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const arr = new Uint8Array(e.target.result);
+      // PDF files should start with %PDF-
+      const header = String.fromCharCode.apply(null, arr.slice(0, 5));
+      resolve(header === '%PDF-');
+    };
+    reader.onerror = () => resolve(false);
+    reader.readAsArrayBuffer(file.slice(0, 5));
+  });
+}
+
+async function processFile(file) {
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
-    console.error('File size too large. Max 50MB.');
+    toast.add({ title: 'ไฟล์มีขนาดใหญ่เกินไป', description: 'ขนาดสูงสุด 50MB', color: 'error' });
+    return;
+  }
+
+  if (file.size === 0) {
+    toast.add({ title: 'ไฟล์เสียหาย', color: 'error' });
     return;
   }
 
@@ -164,8 +261,17 @@ function processFile(file) {
   const validExtensions = [...validImageExtensions, 'pdf'];
 
   if (!validExtensions.includes(fileExtension)) {
-    console.error('Invalid file type. Upload image or PDF.');
+    toast.add({ title: 'ไฟล์ไม่ถูกต้อง', description: 'รองรับเฉพาะ PDF, JPG, PNG, GIF, WebP, BMP', color: 'error' });
     return;
+  }
+
+  // Security: Verify PDF magic bytes for PDF files
+  if (fileTypeFromMime === 'application/pdf' || fileExtension === 'pdf') {
+    const isValidPdf = await verifyPdfMagicBytes(file);
+    if (!isValidPdf) {
+      toast.add({ title: 'ไฟล์ PDF ไม่ถูกต้อง', description: 'ไฟล์อาจเสียหายหรือไม่ใช่ PDF จริง', color: 'error' });
+      return;
+    }
   }
 
   if (previewImageUrl.value) {
@@ -214,10 +320,8 @@ function addFieldToPreview(fieldToAdd) {
       isGrouped: amount > 1,
       groupSize: amount,
       groupPosition: i,
-      x: 50 + i * 40,
-      y: 50,
-      width: fieldToAdd.default_width || 150,
-      height: fieldToAdd.default_height || 40,
+      // Normalized coordinates will be auto-calculated by component when PDF loads
+      // Initial display position: 50 + i*40, 50 with default size 150x40 will be converted to normalized
       label: fieldToAdd.name === 'Check Mark' ? '' : fieldToAdd.label,
       pageNumber: currentPdfPage.value,
       fontSize: fieldToAdd.fontSize || 14,
@@ -226,13 +330,13 @@ function addFieldToPreview(fieldToAdd) {
 
     placedFields.value.push(newFieldInstance);
     if (i === amount - 1) {
-      selectedField.value = newFieldInstance;
+      selectedFieldInstanceId.value = newFieldInstance.instanceId;
     }
   }
 }
 
 function selectField(field) {
-  selectedField.value = field;
+  selectedFieldInstanceId.value = field?.instanceId || null;
 }
 
 function onImageLoad() {
@@ -244,38 +348,102 @@ function handlePdfPageChange(pageNumber) {
 }
 
 function removeSelectedField() {
-  if (!selectedField.value)
+  if (!selectedFieldInstanceId.value)
     return;
   const idx = placedFields.value.findIndex(
-    f => f.instanceId === selectedField.value.instanceId,
+    f => f.instanceId === selectedFieldInstanceId.value,
   );
   if (idx > -1) {
     placedFields.value.splice(idx, 1);
-    selectedField.value = null;
+    selectedFieldInstanceId.value = null;
   }
 }
 
 function handleKeyDown(event) {
-  if (!selectedField.value)
+  if (!selectedFieldInstanceId.value || !templatePdfRef.value)
     return;
+
   const step = event.shiftKey ? 10 : 1;
 
   switch (event.key) {
     case 'ArrowUp':
       event.preventDefault();
-      selectedField.value.y = Math.max(0, (selectedField.value.y || 0) - step);
+      if (selectedField.value.normalizedY !== undefined) {
+        // Get current display position
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
+        );
+        // Update display position
+        const newY = Math.max(0, display.y - step);
+        // Convert back to normalized
+        const normalized = templatePdfRef.value.displayToNormalized(
+          display.x,
+          newY,
+          display.width,
+          display.height,
+        );
+        selectedField.value.normalizedY = normalized.y;
+      }
       break;
     case 'ArrowDown':
       event.preventDefault();
-      selectedField.value.y = (selectedField.value.y || 0) + step;
+      if (selectedField.value.normalizedY !== undefined) {
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
+        );
+        const newY = display.y + step;
+        const normalized = templatePdfRef.value.displayToNormalized(
+          display.x,
+          newY,
+          display.width,
+          display.height,
+        );
+        selectedField.value.normalizedY = normalized.y;
+      }
       break;
     case 'ArrowLeft':
       event.preventDefault();
-      selectedField.value.x = Math.max(0, (selectedField.value.x || 0) - step);
+      if (selectedField.value.normalizedX !== undefined) {
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
+        );
+        const newX = Math.max(0, display.x - step);
+        const normalized = templatePdfRef.value.displayToNormalized(
+          newX,
+          display.y,
+          display.width,
+          display.height,
+        );
+        selectedField.value.normalizedX = normalized.x;
+      }
       break;
     case 'ArrowRight':
       event.preventDefault();
-      selectedField.value.x = (selectedField.value.x || 0) + step;
+      if (selectedField.value.normalizedX !== undefined) {
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
+        );
+        const newX = display.x + step;
+        const normalized = templatePdfRef.value.displayToNormalized(
+          newX,
+          display.y,
+          display.width,
+          display.height,
+        );
+        selectedField.value.normalizedX = normalized.x;
+      }
       break;
     case 'Delete':
       event.preventDefault();
@@ -289,6 +457,8 @@ function handleFieldUpdate(data) {
     field => field.instanceId === data.instanceId,
   );
   if (idx > -1) {
+    // Updates already contain normalized or pixel coordinates from Properties component
+    // No need to convert here
     Object.assign(placedFields.value[idx], data.updates);
   }
 }
@@ -297,7 +467,7 @@ function handleFieldRemoval(instanceId) {
   const idx = placedFields.value.findIndex(f => f.instanceId === instanceId);
   if (idx > -1) {
     placedFields.value.splice(idx, 1);
-    selectedField.value = null;
+    selectedFieldInstanceId.value = null;
   }
 }
 
@@ -323,14 +493,14 @@ function validateTemplateName() {
   return true;
 }
 
-async function handleTemplateSaved() {
+function handleTemplateSaved() {
   if (!validateTemplateName())
     return;
 
   if (!uploadedFile.value) {
     toast.add({
-      title: 'กรุณาอัปโหลดไฟล์',
-      description: 'อัปโหลด PDF หรือรูปภาพก่อนบันทึกเทมเพลต',
+      title: 'ข้อผิดพลาด',
+      description: 'กรุณาอัพโหลดไฟล์ PDF ก่อน',
       color: 'error',
     });
     return;
@@ -338,52 +508,42 @@ async function handleTemplateSaved() {
 
   if (placedFields.value.length === 0) {
     toast.add({
-      title: 'กรุณาเพิ่ม Field',
-      description: 'เพิ่มอย่างน้อย 1 Field ก่อนบันทึก',
+      title: 'ข้อผิดพลาด',
+      description: 'กรุณาเพิ่ม field อย่างน้อย 1 field',
       color: 'error',
     });
     return;
   }
 
-  isSaving.value = true;
-  try {
-    if (fileType.value === 'pdf' && pdfTemplateRef.value) {
-      await pdfTemplateRef.value.saveTemplate();
-    }
-    else if (fileType.value === 'image' && imageTemplateRef.value) {
-      await imageTemplateRef.value.saveTemplate();
-    }
-    else {
-      toast.add({
-        title: 'เกิดข้อผิดพลาด',
-        description: 'ไม่สามารถบันทึกเทมเพลตได้',
-        color: 'error',
-      });
-      isSaving.value = false;
-      return;
-    }
-
-    toast.add({
-      title: 'บันทึกสำเร็จ',
-      description: 'เทมเพลตถูกบันทึกแล้ว',
-      color: 'success',
-    });
-
-    // Navigate back after a short delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    router.back();
+  // Call saveTemplate from child component
+  if (templatePdfRef.value && templatePdfRef.value.saveTemplate) {
+    isSaving.value = true;
+    templatePdfRef.value.saveTemplate();
   }
-  catch (error) {
-    console.error('Error saving template:', error);
+}
+
+function handleTemplateSaved(templateData) {
+  isSaving.value = false;
+
+  if (!templateData || templateData.error) {
     toast.add({
       title: 'เกิดข้อผิดพลาด',
-      description: error.message || 'ไม่สามารถบันทึกเทมเพลตได้',
+      description: templateData?.message || 'ไม่สามารถบันทึก Template ได้',
       color: 'error',
     });
+    return;
   }
-  finally {
-    isSaving.value = false;
-  }
+
+  // Navigate to templates list
+  toast.add({
+    title: 'บันทึกสำเร็จ',
+    description: `Template "${templateData?.name || 'ใหม่'}" ถูกบันทึกแล้ว`,
+    color: 'success',
+  });
+
+  setTimeout(() => {
+    router.push('/admin/templates');
+  }, 500);
 }
 
 function handleBeforeUnload(e) {
@@ -416,14 +576,7 @@ watch(
   selectedField,
   (newField) => {
     if (newField && typeof newField === 'object') {
-      if (typeof newField.x !== 'number')
-        newField.x = 50;
-      if (typeof newField.y !== 'number')
-        newField.y = 50;
-      if (typeof newField.width !== 'number')
-        newField.width = 150;
-      if (typeof newField.height !== 'number')
-        newField.height = 40;
+      // Ensure required properties exist
       if (typeof newField.label !== 'string')
         newField.label = '';
       if (!newField.instanceId)
@@ -472,7 +625,7 @@ watch(
           label="Save Template"
           size="xl"
           class="px-6 font-bold"
-          @click="handleTemplateSaved"
+          @click="handleSaveTemplate"
         />
       </div>
     </header>
@@ -643,46 +796,42 @@ watch(
 
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
-          <!-- Canvas Wrapper with Scale -->
-          <div
-            class="transition-transform duration-200 ease-out origin-top"
-            :style="{ transform: `scale(${scale})` }"
-          >
-            <template-image-create
-              v-if="fileType === 'image' && previewImageUrl"
-              ref="imageTemplateRef"
-              :preview-image-url="previewImageUrl"
-              :placed-fields="placedFields"
-              :selected-field="selectedField"
-              :new-template-name="newTemplateName"
-              :selected-contract-id="selectedContractId"
-              :original-file="uploadedFile"
-              @field-selected="selectField"
-              @image-loaded="onImageLoad"
-              @template-saved="handleTemplateSaved"
-            />
+          <template-image-create
+            v-if="fileType === 'image' && previewImageUrl"
+            :preview-image-url="previewImageUrl"
+            :placed-fields="placedFields"
+            :selected-field="selectedField"
+            :new-template-name="newTemplateName"
+            :selected-contract-id="selectedContractId"
+            :original-file="uploadedFile"
+            @field-selected="selectField"
+            @field-updated="handleFieldUpdate"
+            @image-loaded="onImageLoad"
+            @template-saved="handleTemplateSaved"
+          />
 
-            <template-pdf-create
-              v-else-if="fileType === 'pdf' && uploadedFile"
-              ref="pdfTemplateRef"
-              :pdf-file="uploadedFile"
-              :placed-fields="placedFields"
-              :selected-field="selectedField"
-              :new-template-name="newTemplateName"
-              :selected-contract-id="selectedContractId"
-              @field-selected="selectField"
-              @pdf-loaded="onImageLoad"
-              @template-saved="handleTemplateSaved"
-              @current-page-changed="handlePdfPageChange"
-            />
+          <template-pdf-create
+            v-else-if="fileType === 'pdf' && uploadedFile"
+            ref="templatePdfRef"
+            :pdf-file="uploadedFile"
+            :placed-fields="placedFields"
+            :selected-field="selectedField"
+            :new-template-name="newTemplateName"
+            :selected-contract-id="selectedContractId"
+            :ui-scale="scale"
+            @field-selected="selectField"
+            @field-updated="handleFieldUpdate"
+            @pdf-loaded="onImageLoad"
+            @template-saved="handleTemplateSaved"
+            @current-page-changed="handlePdfPageChange"
+          />
 
-            <div v-else class=" shadow-lg border rounded-lg" style="width: 595px; min-height: 842px;">
-              <div class="flex flex-col items-center justify-center h-full py-20">
-                <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
-                <p class="text-sm">
-                  พื้นที่แสดงเอกสาร
-                </p>
-              </div>
+          <div v-else class="bg-white shadow-lg border border-gray-200 rounded-lg" style="width: 595px; min-height: 842px;">
+            <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
+              <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
+              <p class="text-sm">
+                พื้นที่แสดงเอกสาร
+              </p>
             </div>
           </div>
         </div>
@@ -701,6 +850,8 @@ watch(
           <field-properties
             v-if="selectedField"
             :selected-field="selectedField"
+            :pdf-ref="templatePdfRef"
+            :scale="scale"
             @field-updated="handleFieldUpdate"
             @field-removed="handleFieldRemoval"
           />
