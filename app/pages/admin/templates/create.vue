@@ -597,8 +597,8 @@ function handleSaveTemplate(): void {
 
   if (placedFields.value.length === 0) {
     toast.add({
-      title: 'กรุณาเพิ่ม Field',
-      description: 'เพิ่มอย่างน้อย 1 Field ก่อนบันทึก',
+      title: 'ข้อผิดพลาด',
+      description: 'กรุณาเพิ่ม field อย่างน้อย 1 field',
       color: 'error',
     });
     return;
@@ -1244,13 +1244,12 @@ watch(
             @current-page-changed="handlePdfPageChange"
           />
 
-            <div v-else class=" shadow-lg border rounded-lg" style="width: 595px; min-height: 842px;">
-              <div class="flex flex-col items-center justify-center h-full py-20">
-                <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
-                <p class="text-sm">
-                  พื้นที่แสดงเอกสาร
-                </p>
-              </div>
+          <div v-else class="bg-white shadow-lg border border-gray-200 rounded-lg" style="width: 595px; min-height: 842px;">
+            <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
+              <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
+              <p class="text-sm">
+                พื้นที่แสดงเอกสาร
+              </p>
             </div>
           </div>
         </div>
