@@ -1,16 +1,18 @@
+import type { H3Event } from 'h3';
+
 import { eq } from 'drizzle-orm';
 
 import db from '../../../lib/db/index';
 import { requestTemplateFields } from '../../../lib/db/schema';
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: H3Event) => {
   try {
     const id = getRouterParam(event, 'id');
     if (!id) {
-      return {
-        success: false,
-        error: 'ไม่พบ ID ของ Field',
-      };
+      throw createError({
+        statusCode: 400,
+        message: 'ไม่พบ ID ของ Field',
+      });
     }
 
     // Delete field
@@ -20,10 +22,10 @@ export default defineEventHandler(async (event) => {
       .returning();
 
     if (!deletedField) {
-      return {
-        success: false,
-        error: 'ไม่พบ Field ที่ต้องการลบ',
-      };
+      throw createError({
+        statusCode: 404,
+        message: 'ไม่พบ Field ที่ต้องการลบ',
+      });
     }
 
     return {
@@ -31,11 +33,11 @@ export default defineEventHandler(async (event) => {
       message: 'ลบ Field สำเร็จ',
     };
   }
-  catch (error) {
+  catch (error: any) {
     console.error('Error deleting template field:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการลบ Field',
-    };
+    throw createError({
+      statusCode: error.statusCode || 500,
+      message: error.message || 'เกิดข้อผิดพลาดในการลบ Field',
+    });
   }
 });

@@ -1,7 +1,9 @@
+import type { H3Event } from 'h3';
+
 import db from '../../../lib/db/index';
 import { requestTemplateFields } from '../../../lib/db/schema';
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (_event: H3Event) => {
   try {
     const fields = await db.select().from(requestTemplateFields);
 
@@ -25,12 +27,11 @@ export default defineEventHandler(async () => {
       data: mappedFields,
     };
   }
-  catch (error) {
+  catch (error: any) {
     console.error('Error fetching template fields:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      data: [],
-    };
+    throw createError({
+      statusCode: 500,
+      message: error.message || 'Failed to fetch template fields',
+    });
   }
 });
