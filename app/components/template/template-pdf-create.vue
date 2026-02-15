@@ -1,19 +1,14 @@
 <script setup>
-// const supabase = useSupabaseClient(); // Temporarily disabled
-
 const props = defineProps({
   pdfFile: { type: File, default: null },
   placedFields: { type: Array, default: () => [] },
   selectedField: { type: Object, default: null },
   newTemplateName: { type: String, default: '' },
   selectedContractId: { type: [String, Number], default: null },
-  uiScale: { type: Number, default: 1 }, // UI zoom scale from parent
-  readOnly: { type: Boolean, default: false }, // Read-only mode (no editing)
 });
 
 const emit = defineEmits([
   'fieldSelected',
-  'fieldUpdated',
   'pdfLoaded',
   'templateSaved',
   'currentPageChanged',
@@ -31,7 +26,6 @@ const currentPage = ref(1);
 const pdfBytes = ref(null);
 const scale = ref(1.5);
 const pdfNaturalDimensions = ref({ width: 0, height: 0 });
-const canvasDisplaySize = ref({ width: 0, height: 0 }); // Track canvas display size for reactivity
 const renderTask = shallowRef(null);
 const isRendering = ref(false);
 
@@ -51,167 +45,10 @@ const activeResize = ref({
   startHeight: 0,
 });
 
-// Pan scrolling state
-const isPanning = ref(false);
-const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
-
-// Computed: Calculate wrapper dimensions after scale for proper scrolling
-const scaledDimensions = computed(() => {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
-    return { width: 0, height: 0 };
-  }
-
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
-  const currentScale = props.uiScale || 1;
-
-  return {
-    width: canvasWidth * currentScale,
-    height: canvasHeight * currentScale,
-  };
-});
-
-// ========================================
-// Coordinate Conversion Functions (Simplified)
-// ใช้ normalized coordinates (0-1) เป็นหลัก
-// ========================================
-
-// แปลง canvas pixel coordinates → normalized (0-1)
-function canvasToNormalized(x, y, width, height) {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
-
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
-  const naturalWidth = pdfNaturalDimensions.value.width;
-  const naturalHeight = pdfNaturalDimensions.value.height;
-
-  // Canvas pixel → Natural PDF coordinates
-  const naturalX = (x / canvasWidth) * naturalWidth;
-  const naturalY = (y / canvasHeight) * naturalHeight;
-  const naturalW = (width / canvasWidth) * naturalWidth;
-  const naturalH = (height / canvasHeight) * naturalHeight;
-
-  // Natural → Normalized (0-1)
-  return {
-    x: naturalX / naturalWidth,
-    y: naturalY / naturalHeight,
-    width: naturalW / naturalWidth,
-    height: naturalH / naturalHeight,
-  };
-}
-
-// แปลง normalized (0-1) → canvas pixel coordinates
-function normalizedToCanvas(normX, normY, normWidth, normHeight) {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
-    return { x: 50, y: 50, width: 150, height: 40 };
-  }
-
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
-  const naturalWidth = pdfNaturalDimensions.value.width;
-  const naturalHeight = pdfNaturalDimensions.value.height;
-
-  // Normalized → Natural PDF coordinates
-  const naturalX = normX * naturalWidth;
-  const naturalY = normY * naturalHeight;
-  const naturalW = normWidth * naturalWidth;
-  const naturalH = normHeight * naturalHeight;
-
-  // Natural → Canvas pixels
-  return {
-    x: (naturalX / naturalWidth) * canvasWidth,
-    y: (naturalY / naturalHeight) * canvasHeight,
-    width: (naturalW / naturalWidth) * canvasWidth,
-    height: (naturalH / naturalHeight) * canvasHeight,
-  };
-}
-
-// Legacy aliases for backward compatibility
-const displayToNormalized = canvasToNormalized;
-const normalizedToDisplay = normalizedToCanvas;
-
-// Security: Validate normalized coordinates
-function isValidNormalizedCoord(value) {
-  return typeof value === 'number'
-    && !Number.isNaN(value)
-    && Number.isFinite(value)
-    && value >= 0
-    && value <= 1;
-}
-
-function validateNormalizedField(field) {
-  if (!field) {
-    return { valid: false, error: 'Field is null or undefined' };
-  }
-
-  if (!isValidNormalizedCoord(field.normalizedX)) {
-    return { valid: false, error: `Invalid normalizedX: ${field.normalizedX}` };
-  }
-
-  if (!isValidNormalizedCoord(field.normalizedY)) {
-    return { valid: false, error: `Invalid normalizedY: ${field.normalizedY}` };
-  }
-
-  if (!isValidNormalizedCoord(field.normalizedWidth) || field.normalizedWidth === 0) {
-    return { valid: false, error: `Invalid normalizedWidth: ${field.normalizedWidth}` };
-  }
-
-  if (!isValidNormalizedCoord(field.normalizedHeight) || field.normalizedHeight === 0) {
-    return { valid: false, error: `Invalid normalizedHeight: ${field.normalizedHeight}` };
-  }
-
-  return { valid: true };
-}
-
 const placedFieldsOnCurrentPage = computed(() => {
   return props.placedFields.filter(
     field => !field.pageNumber || field.pageNumber === currentPage.value,
   );
-});
-
-// Computed: Get display coordinates for each field
-// MUST depend on scale, canvas, and natural dimensions for reactivity
-const fieldsWithDisplayCoords = computed(() => {
-  // Force dependency on these values to trigger recalculation when they change
-  const _scale = scale.value;
-  const _uiScale = props.uiScale; // Track UI scale for debugging
-  const _canvas = pdfCanvas.value;
-  const _dims = pdfNaturalDimensions.value;
-  const _canvasSize = canvasDisplaySize.value; // Also depend on canvas display size
-
-  // If PDF not loaded yet, return empty array
-  if (!_canvas || !_dims.width) {
-    return [];
-  }
-
-  return placedFieldsOnCurrentPage.value.map((field) => {
-    // If field has normalized coordinates, use them
-    if (field.normalizedX !== undefined && field.normalizedY !== undefined) {
-      const canvas = normalizedToCanvas(
-        field.normalizedX,
-        field.normalizedY,
-        field.normalizedWidth,
-        field.normalizedHeight,
-      );
-      return {
-        ...field,
-        displayX: canvas.x,
-        displayY: canvas.y,
-        displayWidth: canvas.width,
-        displayHeight: canvas.height,
-      };
-    }
-    // Fallback to pixel coordinates (for old data or new fields)
-    return {
-      ...field,
-      displayX: field.x || 50,
-      displayY: field.y || 50,
-      displayWidth: field.width || 150,
-      displayHeight: field.height || 40,
-    };
-  });
 });
 
 async function initPdfJs() {
@@ -234,36 +71,36 @@ async function initPdfJs() {
   }
 }
 
-function getPdfBounds() {
-  if (!pdfCanvas.value) {
-    return {
-      displayWidth: 0,
-      displayHeight: 0,
-      naturalWidth: 0,
-      naturalHeight: 0,
-      scaleX: 1,
-      scaleY: 1,
-    };
-  }
+// function getPdfBounds() {
+//   if (!pdfCanvas.value) {
+//     return {
+//       displayWidth: 0,
+//       displayHeight: 0,
+//       naturalWidth: 0,
+//       naturalHeight: 0,
+//       scaleX: 1,
+//       scaleY: 1,
+//     };
+//   }
 
-  const canvas = pdfCanvas.value;
-  const canvasRect = canvas.getBoundingClientRect();
-  const displayWidth = canvasRect.width;
-  const displayHeight = canvasRect.height;
-  const naturalWidth = pdfNaturalDimensions.value.width;
-  const naturalHeight = pdfNaturalDimensions.value.height;
-  const scaleX = naturalWidth / displayWidth;
-  const scaleY = naturalHeight / displayHeight;
+//   const canvas = pdfCanvas.value;
+//   const canvasRect = canvas.getBoundingClientRect();
+//   const displayWidth = canvasRect.width;
+//   const displayHeight = canvasRect.height;
+//   const naturalWidth = pdfNaturalDimensions.value.width;
+//   const naturalHeight = pdfNaturalDimensions.value.height;
+//   const scaleX = naturalWidth / displayWidth;
+//   const scaleY = naturalHeight / displayHeight;
 
-  return {
-    displayWidth,
-    displayHeight,
-    naturalWidth,
-    naturalHeight,
-    scaleX,
-    scaleY,
-  };
-}
+//   return {
+//     displayWidth,
+//     displayHeight,
+//     naturalWidth,
+//     naturalHeight,
+//     scaleX,
+//     scaleY,
+//   };
+// }
 
 async function loadPdf() {
   if (!props.pdfFile)
@@ -275,12 +112,11 @@ async function loadPdf() {
       throw new Error('PDF container not found');
 
     const arrayBuffer = await props.pdfFile.arrayBuffer();
-    // Clone the ArrayBuffer to prevent detachment when transferred to worker
-    pdfBytes.value = new Uint8Array(arrayBuffer.slice(0));
+    pdfBytes.value = new Uint8Array(arrayBuffer);
 
     const pdfjs = await initPdfJs();
     const loadingTask = pdfjs.getDocument({
-      data: pdfBytes.value.slice(0), // Use a copy for the worker
+      data: pdfBytes.value,
       cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
     });
@@ -348,9 +184,6 @@ async function renderCurrentPage() {
     await renderTask.value.promise;
     renderTask.value = null;
 
-    // Update canvas display size after render
-    updateCanvasSize();
-
     emit('currentPageChanged', pageNumber);
   }
   catch (error) {
@@ -368,8 +201,6 @@ async function renderCurrentPage() {
 }
 
 function selectField(field) {
-  if (props.readOnly)
-    return; // Disable selection in read-only mode
   emit('fieldSelected', field);
 }
 
@@ -384,30 +215,17 @@ function getEventCoordinates(event) {
 }
 
 function startDrag(event, field) {
-  if (props.readOnly)
-    return; // Disable drag in read-only mode
   if (!previewContainer.value || !field)
     return;
 
   const coords = getEventCoordinates(event);
   const containerRect = previewContainer.value.getBoundingClientRect();
-  const uiScale = props.uiScale || 1;
-
-  // Get current canvas position
-  const canvasPos = field.normalizedX !== undefined
-    ? normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
-    : { x: field.x || 50, y: field.y || 50 };
-
-  // Mouse coords (screen space) → Canvas coords
-  // หาก uiScale เพื่อแปลง screen space → canvas space
-  const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
-  const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
 
   activeDrag.value = {
     isDragging: true,
     field,
-    offsetX: mouseCanvasX - canvasPos.x,
-    offsetY: mouseCanvasY - canvasPos.y,
+    offsetX: coords.clientX - containerRect.left - field.x,
+    offsetY: coords.clientY - containerRect.top - field.y,
   };
 
   emit('fieldSelected', field);
@@ -425,7 +243,6 @@ function drag(event) {
     !activeDrag.value.isDragging
     || !activeDrag.value.field
     || !previewContainer.value
-    || !pdfCanvas.value
   ) {
     return;
   }
@@ -435,42 +252,20 @@ function drag(event) {
 
   const coords = getEventCoordinates(event);
   const containerRect = previewContainer.value.getBoundingClientRect();
-  const uiScale = props.uiScale || 1;
 
-  // Mouse coords (screen space) → Canvas coords
-  const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
-  const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
+  let newX = coords.clientX - containerRect.left - activeDrag.value.offsetX;
+  let newY = coords.clientY - containerRect.top - activeDrag.value.offsetY;
 
-  // คำนวณตำแหน่งใหม่ใน canvas space
-  let newX = mouseCanvasX - activeDrag.value.offsetX;
-  let newY = mouseCanvasY - activeDrag.value.offsetY;
+  const containerWidth = containerRect.width;
+  const containerHeight = containerRect.height;
+  const fieldWidth = activeDrag.value.field.width || 150;
+  const fieldHeight = activeDrag.value.field.height || 40;
 
-  // ขนาด canvas จริง
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
+  newX = Math.max(0, Math.min(newX, containerWidth - fieldWidth));
+  newY = Math.max(0, Math.min(newY, containerHeight - fieldHeight));
 
-  // ขนาด field ใน canvas space
-  const fieldCanvas = activeDrag.value.field.normalizedWidth !== undefined
-    ? normalizedToCanvas(0, 0, activeDrag.value.field.normalizedWidth, activeDrag.value.field.normalizedHeight)
-    : { width: 150, height: 40 };
-
-  // จำกัด boundary ใน canvas space
-  newX = Math.max(0, Math.min(newX, canvasWidth - fieldCanvas.width));
-  newY = Math.max(0, Math.min(newY, canvasHeight - fieldCanvas.height));
-
-  // Canvas coords → Normalized (0-1)
-  const normalized = canvasToNormalized(newX, newY, fieldCanvas.width, fieldCanvas.height);
-
-  // Emit event
-  emit('fieldUpdated', {
-    instanceId: activeDrag.value.field.instanceId,
-    updates: {
-      normalizedX: normalized.x,
-      normalizedY: normalized.y,
-      normalizedWidth: normalized.width,
-      normalizedHeight: normalized.height,
-    },
-  });
+  activeDrag.value.field.x = Math.round(newX);
+  activeDrag.value.field.y = Math.round(newY);
 }
 
 function stopDrag() {
@@ -486,18 +281,11 @@ function stopDrag() {
 }
 
 function startResize(event, field, direction) {
-  if (props.readOnly)
-    return; // Disable resize in read-only mode
   if (!field)
     return;
 
   event.preventDefault();
   event.stopPropagation();
-
-  // Get current display size from normalized coordinates
-  const currentDisplay = field.normalizedWidth !== undefined
-    ? normalizedToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
-    : { width: 150, height: 40 };
 
   activeResize.value = {
     isResizing: true,
@@ -505,8 +293,8 @@ function startResize(event, field, direction) {
     direction,
     startX: event.clientX,
     startY: event.clientY,
-    startWidth: currentDisplay.width,
-    startHeight: currentDisplay.height,
+    startWidth: field.width,
+    startHeight: field.height,
   };
 
   emit('fieldSelected', field);
@@ -521,43 +309,19 @@ function handleResize(event) {
 
   event.preventDefault();
 
-  const uiScale = props.uiScale || 1;
-  // Adjust mouse delta for CSS transform scale
-  const deltaX = (event.clientX - activeResize.value.startX) / uiScale;
-  const deltaY = (event.clientY - activeResize.value.startY) / uiScale;
+  const deltaX = event.clientX - activeResize.value.startX;
+  const deltaY = event.clientY - activeResize.value.startY;
 
   const field = activeResize.value.field;
   const direction = activeResize.value.direction;
 
-  let newWidth = activeResize.value.startWidth;
-  let newHeight = activeResize.value.startHeight;
-
   if (direction === 'right' || direction === 'corner') {
-    newWidth = Math.max(20, activeResize.value.startWidth + deltaX);
+    field.width = Math.max(20, activeResize.value.startWidth + deltaX);
   }
 
   if (direction === 'bottom' || direction === 'corner') {
-    newHeight = Math.max(20, activeResize.value.startHeight + deltaY);
+    field.height = Math.max(20, activeResize.value.startHeight + deltaY);
   }
-
-  // Get current canvas position from normalized coordinates
-  const canvasPos = field.normalizedX !== undefined
-    ? normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
-    : { x: 50, y: 50 };
-
-  // Canvas coords → Normalized (0-1)
-  const normalized = canvasToNormalized(canvasPos.x, canvasPos.y, newWidth, newHeight);
-
-  // Emit event
-  emit('fieldUpdated', {
-    instanceId: field.instanceId,
-    updates: {
-      normalizedX: normalized.x,
-      normalizedY: normalized.y,
-      normalizedWidth: normalized.width,
-      normalizedHeight: normalized.height,
-    },
-  });
 }
 
 function stopResize() {
@@ -570,160 +334,179 @@ function stopResize() {
   }
 }
 
-async function _saveImagesToStorage(templateName, _compositePdfBytes) {
-  // Temporarily disabled - return mock URLs
-  console.warn('Storage upload disabled - using mock URLs');
+// async function saveImagesToStorage(templateName, _compositePdfBytes) {
+//   // Temporarily disabled - return mock URLs
+//   console.warn('Storage upload disabled - using mock URLs');
 
-  const timestamp = Date.now();
-  const fileExtension = props.pdfFile.name.split('.').pop();
-  const originalFileName = `${templateName}_${timestamp}.${fileExtension}`;
-  const compositeFileName = `${templateName}_${timestamp}_composite.pdf`;
+//   const timestamp = Date.now();
+//   const fileExtension = props.pdfFile.name.split('.').pop();
+//   const originalFileName = `${templateName}_${timestamp}.${fileExtension}`;
+//   const compositeFileName = `${templateName}_${timestamp}_composite.pdf`;
 
-  return {
-    originalImageUrl: `https://example.com/templates/${originalFileName}`,
-    compositeImageUrl: `https://example.com/composites/${compositeFileName}`,
-  };
+//   return {
+//     originalImageUrl: `https://example.com/templates/${originalFileName}`,
+//     compositeImageUrl: `https://example.com/composites/${compositeFileName}`,
+//   };
 
-  /*
-  const originalFilePath = `templates/${originalFileName}`;
+//   /*
+//   const originalFilePath = `templates/${originalFileName}`;
 
-  const { error: uploadError1 } = await supabase.storage
-    .from("contract")
-    .upload(originalFilePath, props.pdfFile, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (uploadError1)
-    throw new Error("Error uploading original PDF: " + uploadError1.message);
+// //   const { error: uploadError1 } = await supabase.storage
+// //     .from("contract")
+// //     .upload(originalFilePath, props.pdfFile, {
+// //       cacheControl: "3600",
+// //       upsert: false,
+// //     });
+// //   if (uploadError1)
+// //     throw new Error("Error uploading original PDF: " + uploadError1.message);
 
-  const { data: publicUrlData1 } = supabase.storage
-    .from("contract")
-    .getPublicUrl(originalFilePath);
+// //   const { data: publicUrlData1 } = supabase.storage
+// //     .from("contract")
+// //     .getPublicUrl(originalFilePath);
 
-  const compositeFilePath = `composites/${compositeFileName}`;
-  const compositeBlob = new Blob([compositePdfBytes], {
-    type: "application/pdf",
-  });
+// //   const compositeFilePath = `composites/${compositeFileName}`;
+// //   const compositeBlob = new Blob([compositePdfBytes], {
+// //     type: "application/pdf",
+// //   });
 
-  const { error: uploadError2 } = await supabase.storage
-    .from("contract")
-    .upload(compositeFilePath, compositeBlob, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (uploadError2)
-    throw new Error("Error uploading composite PDF: " + uploadError2.message);
+// //   const { error: uploadError2 } = await supabase.storage
+// //     .from("contract")
+// //     .upload(compositeFilePath, compositeBlob, {
+// //       cacheControl: "3600",
+// //       upsert: false,
+// //     });
+// //   if (uploadError2)
+// //     throw new Error("Error uploading composite PDF: " + uploadError2.message);
 
-  const { data: publicUrlData2 } = supabase.storage
-    .from("contract")
-    .getPublicUrl(compositeFilePath);
+// //   const { data: publicUrlData2 } = supabase.storage
+// //     .from("contract")
+// //     .getPublicUrl(compositeFilePath);
 
-  return {
-    originalImageUrl: publicUrlData1.publicUrl,
-    compositeImageUrl: publicUrlData2.publicUrl,
-  };
-  */
-}
+// //   return {
+// //     originalImageUrl: publicUrlData1.publicUrl,
+// //     compositeImageUrl: publicUrlData2.publicUrl,
+// //   };
+// //   */
+// }
 
 async function saveTemplate() {
-  try {
-    if (!props.pdfFile) {
-      console.error('กรุณาอัพโหลดไฟล์ PDF ก่อน');
-      return;
-    }
+  console.warn('Save template function is currently disabled');
+  // try {
+  //   if (!props.pdfFile) {
+  //     console.error('Please upload a PDF file first');
+  //     return;
+  //   }
 
-    if (props.placedFields.length === 0) {
-      console.error('กรุณาเพิ่ม field อย่างน้อย 1 field');
-      return;
-    }
+  //   if (props.placedFields.length === 0) {
+  //     console.error('Please add at least one field');
+  //     return;
+  //   }
 
-    const templateName = props.newTemplateName;
-    if (!templateName?.trim()) {
-      console.error('กรุณากรอกชื่อ template');
-      return;
-    }
+  //   const templateName = props.newTemplateName;
+  //   if (!templateName?.trim()) {
+  //     console.error('Please enter a template name');
+  //     return;
+  //   }
 
-    // Upload PDF file
-    const formData = new FormData();
-    formData.append('file', props.pdfFile);
+  //   if (!props.selectedContractId) {
+  //     console.error('Please select a contract');
+  //     return;
+  //   }
 
-    const uploadResult = await $fetch('/api/upload-template-file', {
-      method: 'POST',
-      body: formData,
-    });
+  //   if (!pdfBytes.value || pdfBytes.value.length === 0) {
+  //     const arrayBuffer = await props.pdfFile.arrayBuffer();
+  //     pdfBytes.value = new Uint8Array(arrayBuffer);
+  //   }
 
-    if (!uploadResult.success) {
-      console.error('เกิดข้อผิดพลาดในการอัพโหลดไฟล์');
-      return;
-    }
+  //   const header = String.fromCharCode.apply(null, pdfBytes.value.slice(0, 5));
+  //   if (header !== '%PDF-') {
+  //     console.error('Invalid PDF file');
+  //     return;
+  //   }
 
-    // Save only normalized coordinates (vector-based positioning)
-    // Security: Validate all fields before saving
-    const normalizedFields = [];
-    for (const field of props.placedFields) {
-      const validation = validateNormalizedField(field);
-      if (!validation.valid) {
-        console.error('Field validation failed:', validation.error, field);
-        continue; // Skip invalid fields
-      }
+  //   const bounds = getPdfBounds();
+  //   const transformedFields = props.placedFields
+  //     .filter(
+  //       field => !field.pageNumber || field.pageNumber === currentPage.value,
+  //     )
+  //     .map(field => ({
+  //       ...field,
+  //       x: field.x * bounds.scaleX,
+  //       y: field.y * bounds.scaleY,
+  //       width: field.width * bounds.scaleX,
+  //       height: field.height * bounds.scaleY,
+  //     }));
 
-      normalizedFields.push({
-        id: field.id,
-        instanceId: field.instanceId,
-        instanceNumber: field.instanceNumber,
-        normalizedX: Math.max(0, Math.min(1, field.normalizedX)), // Clamp to 0-1
-        normalizedY: Math.max(0, Math.min(1, field.normalizedY)),
-        normalizedWidth: Math.max(0, Math.min(1, field.normalizedWidth)),
-        normalizedHeight: Math.max(0, Math.min(1, field.normalizedHeight)),
-        type: field.type,
-        name: field.name,
-        label: field.label?.substring(0, 255) || '', // Limit label length
-        fontSize: Math.max(8, Math.min(72, field.fontSize || 14)), // Clamp font size 8-72
-        fontFamily: field.fontFamily || 'Arial',
-        icon: field.icon || null,
-        groupId: field.groupId,
-        isGrouped: field.isGrouped,
-        groupSize: field.groupSize,
-        groupPosition: field.groupPosition,
-        pageNumber: field.pageNumber || currentPage.value,
-      });
-    }
+  //   const { generateCompositePdf } = usePdfOperations();
+  //   const compositePdfBytes = await generateCompositePdf(
+  //     pdfBytes.value,
+  //     transformedFields,
+  //     currentPage.value,
+  //   );
 
-    if (normalizedFields.length === 0) {
-      console.error('ไม่มี field ที่ถูกต้องให้บันทึก');
-      return;
-    }
+  //   if (!compositePdfBytes) {
+  //     console.error('Failed to generate composite PDF');
+  //     return;
+  //   }
 
-    // Save template to database
-    const templateData = {
-      name: templateName.trim(),
-      description: `Template with ${normalizedFields.length} fields`,
-      category: 'general',
-      version: '1.0.0',
-      isActive: true,
-      createdBy: null,
-      documentUrl: uploadResult.url,
-      documentWidth: Math.round(pdfNaturalDimensions.value.width),
-      documentHeight: Math.round(pdfNaturalDimensions.value.height),
-      placedFieldsData: normalizedFields,
-    };
+  //   const { originalImageUrl, compositeImageUrl } = await saveImagesToStorage(
+  //     templateName,
+  //     compositePdfBytes,
+  //   );
 
-    const result = await $fetch('/api/templates', {
-      method: 'POST',
-      body: templateData,
-    });
+  //   const normalizedFields = props.placedFields.map(field => ({
+  //     id: field.id,
+  //     instanceId: field.instanceId,
+  //     instanceNumber: field.instanceNumber,
+  //     x: Math.round(field.x),
+  //     y: Math.round(field.y),
+  //     width: Math.round(field.width),
+  //     height: Math.round(field.height),
+  //     type: field.type,
+  //     groupId: field.groupId,
+  //     isGrouped: field.isGrouped,
+  //     groupSize: field.groupSize,
+  //     groupPosition: field.groupPosition,
+  //     pageNumber: field.pageNumber || currentPage.value,
+  //   }));
 
-    if (result.success) {
-      emit('templateSaved', result.data);
-    }
-    else {
-      console.error('เกิดข้อผิดพลาดในการบันทึก Template');
-    }
-  }
-  catch (error) {
-    console.error('Save error:', error);
-    emit('templateSaved', { error: true, message: error.message || 'Unknown error' });
-  }
+  //   const templateData = {
+  //     name: templateName.trim(),
+  //     contract_id: props.selectedContractId,
+  //     background_image_url: originalImageUrl,
+  //     composite_image_url: compositeImageUrl,
+  //     image_width: Math.round(pdfNaturalDimensions.value.width),
+  //     image_height: Math.round(pdfNaturalDimensions.value.height),
+  //     placed_fields_data: normalizedFields,
+  //     created_at: new Date().toISOString(),
+  //   };
+
+  //   // Temporarily disabled - skip database insert
+  //   console.warn('Database insert disabled - template data:', templateData);
+  //   console.warn('Template saved successfully! (Mock mode - no database)');
+  //   emit('templateSaved', { id: Date.now(), ...templateData });
+
+  //   /*
+  //   const { data, error } = await supabase
+  //     .from("contract_templates")
+  //     .insert(templateData)
+  //     .select()
+  //     .single();
+
+  //   if (error) {
+  //     console.error("Database error:", error);
+  //     alert("Error saving template: " + error.message);
+  //     return;
+  //   }
+
+  //   alert("Template saved successfully!");
+  //   emit("template-saved", data);
+  //   */
+  // }
+  // catch (error) {
+  //   console.error('Save error:', error);
+  //   console.error(`Error saving template: ${error.message}`);
+  // }
 }
 
 watch(
@@ -742,247 +525,99 @@ watch(currentPage, () => {
     renderCurrentPage();
 });
 
-// Auto-calculate normalized coordinates for fields that don't have them yet
-watch(
-  () => [props.placedFields, pdfLoaded.value, pdfNaturalDimensions.value],
-  () => {
-    if (!pdfLoaded.value || !pdfNaturalDimensions.value.width)
-      return;
-
-    // Auto-calculate normalized coordinates for new fields
-    props.placedFields.forEach((field) => {
-      if (field.normalizedX === undefined || field.normalizedY === undefined) {
-        // Use default display positions if not set (50, 50, 150, 40)
-        const defaultX = 50;
-        const defaultY = 50;
-        const defaultWidth = 150;
-        const defaultHeight = 40;
-
-        // Calculate normalized coordinates from default pixel values
-        const normalized = displayToNormalized(
-          defaultX,
-          defaultY,
-          defaultWidth,
-          defaultHeight,
-        );
-
-        // Emit update instead of direct mutation to avoid Vue warnings
-        emit('fieldUpdated', {
-          instanceId: field.instanceId,
-          updates: {
-            normalizedX: normalized.x,
-            normalizedY: normalized.y,
-            normalizedWidth: normalized.width,
-            normalizedHeight: normalized.height,
-          },
-        });
-      }
-    });
-  },
-  { deep: true },
-);
-
-// Debug: Watch uiScale changes
-watch(() => props.uiScale, (_newScale, _oldScale) => {
-  // Force canvas size update when scale changes
-  nextTick(() => {
-    updateCanvasSize();
-  });
-});
-
-// ========================================
-// Pan Scrolling (Drag to Scroll)
-// ========================================
-function startPan(event) {
-  // ไม่ pan ถ้ากำลังลาก field หรือ resize
-  if (activeDrag.value.isDragging || activeResize.value.isResizing)
-    return;
-
-  // ไม่ pan ถ้าคลิกบน field
-  if (event.target.closest('.placed-field'))
-    return;
-
-  // ใช้เฉพาะ left click (button 0)
-  if (event.button !== 0)
-    return;
-
-  isPanning.value = true;
-  panStart.value = {
-    x: event.clientX,
-    y: event.clientY,
-    scrollLeft: previewContainer.value.scrollLeft,
-    scrollTop: previewContainer.value.scrollTop,
-  };
-
-  event.preventDefault();
-}
-
-function handlePan(event) {
-  if (!isPanning.value)
-    return;
-
-  const dx = event.clientX - panStart.value.x;
-  const dy = event.clientY - panStart.value.y;
-
-  previewContainer.value.scrollLeft = panStart.value.scrollLeft - dx;
-  previewContainer.value.scrollTop = panStart.value.scrollTop - dy;
-}
-
-function stopPan() {
-  isPanning.value = false;
-}
-
-// Update canvas display size for reactivity
-function updateCanvasSize() {
-  if (pdfCanvas.value) {
-    const rect = pdfCanvas.value.getBoundingClientRect();
-    canvasDisplaySize.value = { width: rect.width, height: rect.height };
-  }
-}
-
-// Lifecycle
-onMounted(() => {
-  loadPdf();
-
-  // Add window resize listener to update canvas size
-  window.addEventListener('resize', updateCanvasSize);
-
-  // Add pan scrolling listeners
-  if (previewContainer.value) {
-    previewContainer.value.addEventListener('mousedown', startPan);
-    document.addEventListener('mousemove', handlePan);
-    document.addEventListener('mouseup', stopPan);
-    document.addEventListener('mouseleave', stopPan);
-  }
-});
-
 onUnmounted(() => {
-  window.removeEventListener('resize', updateCanvasSize);
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
   document.removeEventListener('touchend', stopDrag);
-
-  // Remove pan scrolling listeners
-  document.removeEventListener('mousemove', handlePan);
-  document.removeEventListener('mouseup', stopPan);
-  document.removeEventListener('mouseleave', stopPan);
 });
 
-// Expose functions and refs for parent component
 defineExpose({
-  displayToNormalized,
-  normalizedToDisplay,
-  getPdfBounds,
-  pdfNaturalDimensions,
-  pdfCanvas,
   saveTemplate,
 });
 </script>
 
 <template>
   <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>Preview</span>
-      <button class="btn btn-success btn-sm" @click="saveTemplate">
-        <i class="fas fa-save" /> Save Template
-      </button>
-    </div>
-    <div class="card-body">
+    <div class="card-body p-3">
       <div
         id="pdf-preview-container"
         ref="previewContainer"
         class="preview-area"
-        :class="{ panning: isPanning }"
+        @mouseup="stopDrag"
+        @mousemove="drag"
+        @mouseleave="stopDrag"
       >
-        <!-- Wrapper ที่รับ transform: scale() เพื่อให้ PDF และ fields ขยายพร้อมกัน -->
-        <div
-          class="pdf-scale-wrapper"
-          :style="{
-            transform: `scale(${props.uiScale || 1})`,
-            transformOrigin: 'top left',
-            transition: 'transform 0.2s ease-out',
-            minWidth: scaledDimensions.width ? `${scaledDimensions.width}px` : 'auto',
-            minHeight: scaledDimensions.height ? `${scaledDimensions.height}px` : 'auto',
-          }"
-        >
-          <div ref="pdfPageContainer" class="pdf-container">
-            <div v-if="!pdfLoaded" class="text-center py-5">
-              <i class="fas fa-file-pdf fa-3x text-muted mb-3" />
-              <p class="text-muted mb-0">
-                Loading PDF...
-              </p>
-            </div>
-
-            <canvas
-              v-show="pdfLoaded"
-              ref="pdfCanvas"
-              class="pdf-canvas"
-            />
-
-            <!-- Fields อยู่ใน pdf-container เดียวกับ canvas เพื่อให้ position: absolute ทำงานถูกต้อง -->
-            <div
-              v-for="field in fieldsWithDisplayCoords"
-              :key="field.instanceId"
-              class="placed-field"
-              :class="{
-                'field-selected': selectedField?.instanceId === field.instanceId && !props.readOnly,
-                'read-only': props.readOnly,
-              }"
-              :style="{
-                left: `${field.displayX}px`,
-                top: `${field.displayY}px`,
-                width: `${field.displayWidth}px`,
-                height: `${field.displayHeight}px`,
-                zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 100,
-                fontSize: `${field.fontSize || 14}px`,
-                fontFamily: field.fontFamily || 'Arial',
-                cursor: props.readOnly ? 'default' : 'grab',
-              }"
-              @mousedown.stop.prevent="!props.readOnly && startDrag($event, field)"
-              @touchstart.stop.prevent="!props.readOnly && startDrag($event, field)"
-              @click.stop="!props.readOnly && selectField(field)"
-            >
-              <div class="field-content">
-                <i v-if="field.name === 'Check Mark'" :class="field.icon" />
-                <span v-if="field.label">{{ field.label }}</span>
-                <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
-              </div>
-
-              <!-- Resize handles (hidden in read-only mode) -->
-              <div
-                v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
-                class="resize-handle resize-handle-right"
-                @mousedown.stop.prevent="startResize($event, field, 'right')"
-              />
-              <div
-                v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
-                class="resize-handle resize-handle-bottom"
-                @mousedown.stop.prevent="startResize($event, field, 'bottom')"
-              />
-              <div
-                v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
-                class="resize-handle resize-handle-corner"
-                @mousedown.stop.prevent="startResize($event, field, 'corner')"
-              />
-            </div>
+        <div ref="pdfPageContainer" class="pdf-container">
+          <div v-if="!pdfLoaded" class="text-center py-5">
+            <i class="fas fa-file-pdf fa-3x text-muted mb-3" />
+            <p class="text-muted mb-0">
+              Loading PDF...
+            </p>
           </div>
-        </div>
-        <!-- End of scale wrapper -->
-      </div>
 
-      <!-- Page Selector ด้านล่าง -->
-      <div v-if="pdfLoaded && totalPages > 1" class="page-selector">
-        <label class="form-label small mb-1">Page:</label>
-        <select
-          v-model="currentPage"
-          class="form-select form-select-sm"
-          @change="renderCurrentPage"
+          <canvas
+            v-show="pdfLoaded"
+            ref="pdfCanvas"
+            class="pdf-canvas"
+          />
+        </div>
+
+        <div
+          v-for="field in placedFieldsOnCurrentPage"
+          :key="field.instanceId"
+          class="placed-field"
+          :class="{
+            'field-selected': selectedField?.instanceId === field.instanceId,
+          }"
+          :style="{
+            left: `${field.x}px`,
+            top: `${field.y}px`,
+            width: `${field.width}px`,
+            height: `${field.height}px`,
+            fontSize: `${field.fontSize || 14}px`,
+            fontFamily: field.fontFamily || 'Arial',
+          }"
+          @mousedown="startDrag($event, field)"
+          @touchstart="startDrag($event, field)"
+          @click="selectField(field)"
         >
-          <option v-for="i in totalPages" :key="i" :value="i">
-            Page {{ i }}
-          </option>
-        </select>
+          <div class="field-content">
+            <i v-if="field.name === 'Check Mark'" :class="field.icon" />
+            <span v-if="field.label">{{ field.label }}</span>
+            <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+          </div>
+
+          <!-- Resize handles -->
+          <div
+            v-if="selectedField?.instanceId === field.instanceId"
+            class="resize-handle resize-handle-right"
+            @mousedown.stop.prevent="startResize($event, field, 'right')"
+          />
+          <div
+            v-if="selectedField?.instanceId === field.instanceId"
+            class="resize-handle resize-handle-bottom"
+            @mousedown.stop.prevent="startResize($event, field, 'bottom')"
+          />
+          <div
+            v-if="selectedField?.instanceId === field.instanceId"
+            class="resize-handle resize-handle-corner"
+            @mousedown.stop.prevent="startResize($event, field, 'corner')"
+          />
+        </div>
+
+        <div v-if="pdfLoaded && totalPages > 1" class="page-selector">
+          <label class="form-label small mb-1">Page:</label>
+          <select
+            v-model="currentPage"
+            class="form-select form-select-sm"
+            @change="renderCurrentPage"
+          >
+            <option v-for="i in totalPages" :key="i" :value="i">
+              Page {{ i }}
+            </option>
+          </select>
+        </div>
       </div>
     </div>
   </div>
@@ -992,18 +627,6 @@ defineExpose({
 .card {
   border: 1px solid #dee2e6;
   border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.card-body {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
 }
 
 .card-header {
@@ -1016,8 +639,13 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: relative;
-  z-index: 10;
+}
+
+.card-header .btn-success {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .preview-area {
@@ -1026,42 +654,28 @@ defineExpose({
     linear-gradient(45deg, #eee 25%, transparent 25%), linear-gradient(-45deg, #eee 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, #eee 75%), linear-gradient(-45deg, transparent 75%, #eee 75%);
   background-size: 20px 20px;
-  min-height: 500px;
+  min-height: 400px;
   margin: 0 auto;
   width: 100%;
-  padding: 2rem;
-  overflow: auto;
-  max-height: calc(100vh - 300px);
-  cursor: grab;
-  user-select: none;
-}
-
-.preview-area.panning {
-  cursor: grabbing;
-}
-
-/* Wrapper ที่รับ transform: scale() */
-.pdf-scale-wrapper {
-  position: relative;
-  transform-origin: top left;
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-font-smoothing: subpixel-antialiased;
-  display: inline-block;
+  max-width: 100%;
 }
 
 .pdf-container {
   position: relative;
-  width: fit-content;
+  width: 100%;
+  margin: 0 auto;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .pdf-canvas {
+  max-width: 100%;
+  height: auto;
   display: block;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #ddd;
   background: white;
-  max-width: none;
-  height: auto;
 }
 
 .placed-field {
@@ -1074,9 +688,6 @@ defineExpose({
   border: 1px solid #ddd;
   border-radius: 4px;
   padding: 0.25rem;
-  z-index: 100;
-  box-sizing: border-box;
-  transform: translateZ(0);
 }
 
 .placed-field:hover {
@@ -1085,11 +696,6 @@ defineExpose({
 
 .placed-field:active {
   cursor: grabbing;
-}
-
-.placed-field.read-only {
-  cursor: default !important;
-  pointer-events: none;
 }
 
 .field-selected {
@@ -1126,7 +732,7 @@ defineExpose({
 .resize-handle {
   position: absolute;
   background: #0056b3;
-  z-index: 1001;
+  z-index: 10;
   opacity: 0.8;
 }
 
@@ -1157,23 +763,9 @@ defineExpose({
 
 .page-selector {
   text-align: center;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-top: 1px solid #dee2e6;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.page-selector label {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #495057;
-}
-
-.page-selector select {
-  cursor: pointer;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  margin-top: 0.5rem;
 }
 </style>
