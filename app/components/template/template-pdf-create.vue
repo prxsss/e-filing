@@ -17,6 +17,8 @@ const emit = defineEmits<{
   pdfLoaded: [];
   templateSaved: [data: any];
   currentPageChanged: [pageNumber: number];
+  fieldUpdated: [data: { instanceId: string; updates: any }];
+  fieldRemoved: [instanceId: string];
 }>();
 
 const previewContainer = ref<HTMLDivElement | null>(null);
@@ -439,7 +441,7 @@ async function saveTemplate() {
     const uploadResponse = await $fetch('/api/upload-template-file', {
       method: 'POST',
       body: formData,
-    }) as { success: boolean; url?: string };
+    }) as any;
 
     if (!uploadResponse.success || !uploadResponse.url) {
       throw new Error('Failed to upload PDF file');
@@ -489,7 +491,7 @@ async function saveTemplate() {
     const saveResponse = await $fetch('/api/pdf-templates', {
       method: 'POST',
       body: templatePayload,
-    }) as { success: boolean; data?: any };
+    }) as any;
 
     if (!saveResponse.success || !saveResponse.data) {
       throw new Error('Failed to save template to database');
@@ -514,6 +516,61 @@ async function saveTemplate() {
     });
   }
 }
+
+function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
+  const field = (props.placedFields as Field[]).find(f => f.instanceId === data.instanceId);
+  if (field) {
+    Object.assign(field, data.updates);
+  }
+  // Also emit to parent for synchronization
+  emit('fieldUpdated', data);
+}
+
+function handleFieldRemoval(instanceId: string): void {
+  const idx = (props.placedFields as Field[]).findIndex(f => f.instanceId === instanceId);
+  if (idx > -1) {
+    (props.placedFields as Field[]).splice(idx, 1);
+  }
+  // Also emit to parent for synchronization
+  emit('fieldRemoved', instanceId);
+}
+
+// Coordinate conversion helper functions
+function normalizedToDisplay(
+  normalizedX: number,
+  normalizedY: number,
+  normalizedWidth: number,
+  normalizedHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  const pdf = pdfNaturalDimensions.value;
+  return {
+    x: Math.round(normalizedX * pdf.width),
+    y: Math.round(normalizedY * pdf.height),
+    width: Math.round(normalizedWidth * pdf.width),
+    height: Math.round(normalizedHeight * pdf.height),
+  };
+}
+
+function displayToNormalized(
+  displayX: number,
+  displayY: number,
+  displayWidth: number,
+  displayHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  const pdf = pdfNaturalDimensions.value;
+  return {
+    x: Math.round((displayX / pdf.width) * 10000) / 10000,
+    y: Math.round((displayY / pdf.height) * 10000) / 10000,
+    width: Math.round((displayWidth / pdf.width) * 10000) / 10000,
+    height: Math.round((displayHeight / pdf.height) * 10000) / 10000,
+  };
+}
+
+// Create a pdfRef object that provides coordinate conversion methods for child components
+const pdfRef = reactive<any>({
+  normalizedToDisplay,
+  displayToNormalized,
+});
 
 watch(
   () => props.pdfFile,
@@ -541,14 +598,41 @@ onUnmounted(() => {
   document.removeEventListener('touchend', stopDrag);
 });
 
-defineExpose<{ saveTemplate: () => Promise<void> }>({
+defineExpose<{
+  saveTemplate: () => Promise<void>;
+  normalizedToDisplay: (
+    normalizedX: number,
+    normalizedY: number,
+    normalizedWidth: number,
+    normalizedHeight: number,
+  ) => { x: number; y: number; width: number; height: number };
+  displayToNormalized: (
+    displayX: number,
+    displayY: number,
+    displayWidth: number,
+    displayHeight: number,
+  ) => { x: number; y: number; width: number; height: number };
+}>({
   saveTemplate,
+  normalizedToDisplay,
+  displayToNormalized,
 });
 </script>
 
 <template>
-  <div class="card">
-    <div class="card-body p-3">
+  <div class="card flex flex-col h-full">
+    <!-- Field Toolbar - Fixed at Top -->
+    <field-toolbar
+      v-if="selectedField"
+      :selected-field="selectedField"
+      :pdf-ref="pdfRef"
+      :scale="scale"
+      @field-updated="handleFieldUpdate"
+      @field-removed="handleFieldRemoval"
+    />
+
+    <!-- Canvas Area - Scrollable Below Toolbar -->
+    <div class="card-body p-3 flex-1 overflow-auto">
       <div
         id="pdf-preview-container"
         ref="previewContainer"
