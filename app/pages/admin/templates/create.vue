@@ -1214,7 +1214,7 @@ watch(
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
           <template-image-create
-            v-if="fileType === 'image' && previewImageUrl"
+            v-if="fileType === 'image' && previewImageUrl && selectedField !== null"
             :preview-image-url="previewImageUrl"
             :placed-fields="placedFields"
             :selected-field="selectedField || undefined"
@@ -1228,7 +1228,7 @@ watch(
           />
 
           <template-pdf-create
-            v-else-if="fileType === 'pdf' && uploadedFile"
+            v-else-if="fileType === 'pdf' && uploadedFile && selectedField !== null"
             ref="templatePdfRef"
             :pdf-file="uploadedFile"
             :placed-fields="placedFields"
