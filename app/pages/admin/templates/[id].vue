@@ -4,6 +4,21 @@ definePageMeta({
 });
 
 // --- Types ---
+type Template = {
+  id: number;
+  name: string | null;
+  description: string | null;
+  category: string | null;
+  version: string | null;
+  isActive: boolean | null;
+  createdBy: number | null;
+  createdAt: string;
+  documentUrl: string | null;
+  documentWidth: number | null;
+  documentHeight: number | null;
+  placedFieldsData: any;
+};
+
 type WorkflowStep = {
   id: number;
   title: string;
@@ -26,9 +41,9 @@ type RequestData = {
 // --- State ---
 const route = useRoute();
 const templateId = route.params.id;
-const template = ref(null);
+const template = ref<Template | null>(null);
 const isLoading = ref(true);
-const error = ref(null);
+const error = ref<string | null>(null);
 
 // Mock Data
 const _requestData = ref<RequestData>({
@@ -66,8 +81,8 @@ const workflowSteps = ref<WorkflowStep[]>([
 
 // const staffComment = ref('');
 const pdfFile = ref<File | null>(null);
-const placedFields = ref([]);
-const _selectedField = ref(null);
+const placedFields = ref<any[]>([]);
+const _selectedField = ref<any>(null);
 const _useSavedSignature = ref(false);
 const scale = ref(1); // Zoom level
 
@@ -94,16 +109,16 @@ async function fetchTemplate() {
     const result = await $fetch(`/api/pdf-templates/${templateId}`);
 
     if (result.success && result.data) {
-      template.value = result.data;
+      template.value = result.data as Template;
 
       // Load PDF file from URL
-      if (template.value.documentUrl) {
-        const filename = template.value.documentUrl.split('/').pop();
+      if (template.value?.documentUrl) {
+        const filename = template.value.documentUrl.split('/').pop() || 'document.pdf';
         pdfFile.value = await urlToFile(template.value.documentUrl, filename);
       }
 
       // Set placed fields
-      if (template.value.placedFieldsData) {
+      if (template.value?.placedFieldsData) {
         placedFields.value = template.value.placedFieldsData;
       }
     }
@@ -113,7 +128,7 @@ async function fetchTemplate() {
   }
   catch (err) {
     console.error('Error fetching template:', err);
-    error.value = err.message || 'Failed to load template';
+    error.value = err instanceof Error ? err.message : 'Failed to load template';
   }
   finally {
     isLoading.value = false;
@@ -167,7 +182,7 @@ onMounted(() => {
               @click="downloadPdf"
             />
             <UButton
-              to="`/admin/templates/edit?id=${templateId}`"
+              :to="`/admin/templates/edit?id=${templateId}`"
               icon="i-heroicons-pencil-square"
               variant="solid"
               color="info"
@@ -240,7 +255,7 @@ onMounted(() => {
             <template-pdf-create
               :pdf-file="pdfFile"
               :placed-fields="placedFields"
-              :selected-field="null"
+              :selected-field="undefined"
               :ui-scale="scale"
               :read-only="true"
             />
