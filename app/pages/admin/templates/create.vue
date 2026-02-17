@@ -320,8 +320,13 @@ function addFieldToPreview(fieldToAdd) {
       isGrouped: amount > 1,
       groupSize: amount,
       groupPosition: i,
+      // Initial display position: offset each field by 40px diagonally
+      // This ensures fields don't stack on top of each other
+      x: 50 + (i * 40),
+      y: 50 + (i * 40),
+      width: 150,
+      height: 40,
       // Normalized coordinates will be auto-calculated by component when PDF loads
-      // Initial display position: 50 + i*40, 50 with default size 150x40 will be converted to normalized
       label: fieldToAdd.name === 'Check Mark' ? '' : fieldToAdd.label,
       pageNumber: currentPdfPage.value,
       fontSize: fieldToAdd.fontSize || 14,
@@ -493,7 +498,7 @@ function validateTemplateName() {
   return true;
 }
 
-function handleTemplateSaved() {
+function handleSaveTemplate() {
   if (!validateTemplateName())
     return;
 

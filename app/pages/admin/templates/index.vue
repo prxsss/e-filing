@@ -39,7 +39,7 @@ async function fetchTemplates() {
   error.value = null;
 
   try {
-    const result = await $fetch('/api/templates');
+    const result = await $fetch('/api/pdf-templates');
 
     if (result.success && result.data) {
       templates.value = result.data;
