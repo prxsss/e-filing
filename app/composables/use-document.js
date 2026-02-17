@@ -49,7 +49,7 @@ export function useDocument() {
   // API Functions
   const fetchTemplates = async () => {
     try {
-      const response = await $fetch('/api/templates');
+      const response = await $fetch('/api/pdf-templates');
       return response.data || [];
     }
     catch (error) {
