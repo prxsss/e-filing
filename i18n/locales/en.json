@@ -57,6 +57,7 @@
   "fullName": "Full Name",
   "confirm": "Confirm",
   "createTemplate": "Create Template",
+  "editTemplate": "Edit Template",
   "documentReview": "Document Review",
   "allTemplates": "All Templates"
 }

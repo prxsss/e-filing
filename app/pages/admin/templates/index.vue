@@ -6,7 +6,7 @@ definePageMeta({
 // --- 1. Type Definitions ---
 type Template = {
   id: number;
-  name: string;
+  name: string | null;
   description: string | null;
   category: string | null;
   version: string | null;
@@ -23,7 +23,7 @@ type Template = {
 const searchQuery = ref('');
 const statusFilter = ref('all');
 const isLoading = ref(true);
-const error = ref(null);
+const error = ref<string | null>(null);
 
 const statusOptions = [
   { value: 'all', label: 'สถานะ: ทั้งหมด (All)' },
@@ -42,12 +42,12 @@ async function fetchTemplates() {
     const result = await $fetch('/api/pdf-templates');
 
     if (result.success && result.data) {
-      templates.value = result.data;
+      templates.value = result.data as Template[];
     }
   }
   catch (err) {
     console.error('Error fetching templates:', err);
-    error.value = err.message || 'Failed to load templates';
+    error.value = err instanceof Error ? err.message : 'Failed to load templates';
   }
   finally {
     isLoading.value = false;
@@ -65,7 +65,7 @@ const filteredTemplates = computed(() => {
 
     // 2. Filter Search Text
     const query = searchQuery.value.toLowerCase();
-    return item.name.toLowerCase().includes(query)
+    return (item.name?.toLowerCase().includes(query) ?? false)
       || item.description?.toLowerCase().includes(query);
   });
 });

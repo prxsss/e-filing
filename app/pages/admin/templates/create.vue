@@ -1,28 +1,32 @@
-<script setup>
+<script setup lang="ts">
+import type { FieldInstance, FileTypeValue, PdfRef } from '~/types/template';
+
+type Field = any;
+
 definePageMeta({
   title: 'createTemplate',
 });
 
 const router = useRouter();
 const toast = useToast();
-const hasChanges = ref(false);
-const isSaving = ref(false);
-const isDragging = ref(false);
-const fileInput = ref(null);
-const templatePdfRef = ref(null);
+const hasChanges = ref<boolean>(false);
+const isSaving = ref<boolean>(false);
+const isDragging = ref<boolean>(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+const templatePdfRef = ref<PdfRef | null>(null);
 
-const newTemplateName = ref('');
-const templateNameError = ref('');
-const previewImageUrl = ref(null);
-const placedFields = ref([]);
-const selectedFieldInstanceId = ref(null); // Store instanceId instead of field object
-const scale = ref(1); // Zoom level
-const selectedContractId = ref(null);
-const imageLoaded = ref(false);
-const uploadedFile = ref(null);
-const fileType = ref(null);
-const currentPdfPage = ref(1);
-const searchQuery = ref('');
+const newTemplateName = ref<string>('');
+const templateNameError = ref<string>('');
+const previewImageUrl = ref<string | null>(null);
+const placedFields = ref<FieldInstance[]>([]);
+const selectedFieldInstanceId = ref<string | null>(null); // Store instanceId instead of field object
+const scale = ref<number>(1); // Zoom level
+const selectedContractId = ref<string | number | null>(null);
+const imageLoaded = ref<boolean>(false);
+const uploadedFile = ref<File | null>(null);
+const fileType = ref<FileTypeValue>(null);
+const currentPdfPage = ref<number>(1);
+const searchQuery = ref<string>('');
 
 // Security constants
 const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -32,14 +36,14 @@ const _ALLOWED_FILE_TYPES = {
 };
 
 // Available fields for the template - load from database
-const availableFields = ref([]);
-const isLoadingFields = ref(false);
-const isCreateFieldModalOpen = ref(false);
-const isEditFieldModalOpen = ref(false);
-const editingField = ref(null);
+const availableFields = ref<Field[]>([]);
+const isLoadingFields = ref<boolean>(false);
+const isCreateFieldModalOpen = ref<boolean>(false);
+const isEditFieldModalOpen = ref<boolean>(false);
+const editingField = ref<Field | null>(null);
 
 // Computed property for filtered fields based on search
-const filteredFields = computed(() => {
+const filteredFields = computed<Field[]>(() => {
   if (!searchQuery.value)
     return availableFields.value;
   return availableFields.value.filter(f =>
@@ -50,7 +54,7 @@ const filteredFields = computed(() => {
 // Computed property for selected field
 // Returns null if no field selected, otherwise returns the field object with display coordinates
 // Display coordinates are calculated from normalized coordinates using current scale
-const selectedField = computed(() => {
+const selectedField = computed<FieldInstance | null>(() => {
   if (!selectedFieldInstanceId.value) {
     return null;
   }
@@ -62,13 +66,13 @@ const selectedField = computed(() => {
   }
 
   // For PDF files with normalized coordinates, calculate display coords
-  if (fileType.value === 'pdf' && templatePdfRef.value && field.normalizedX !== undefined) {
+  if (fileType.value === 'pdf' && templatePdfRef.value && field.normalizedX !== undefined && field.normalizedY !== undefined) {
     if (typeof templatePdfRef.value.normalizedToDisplay === 'function') {
       const display = templatePdfRef.value.normalizedToDisplay(
         field.normalizedX,
         field.normalizedY,
-        field.normalizedWidth,
-        field.normalizedHeight,
+        field.normalizedWidth || 0,
+        field.normalizedHeight || 0,
       );
       return {
         ...field,
@@ -76,7 +80,7 @@ const selectedField = computed(() => {
         displayY: display.y,
         displayWidth: display.width,
         displayHeight: display.height,
-      };
+      } as FieldInstance;
     }
   }
 
@@ -87,10 +91,10 @@ const selectedField = computed(() => {
     displayY: field.y,
     displayWidth: field.width,
     displayHeight: field.height,
-  };
+  } as FieldInstance;
 });
 
-async function _fetchContracts() {
+async function _fetchContracts(): Promise<void> {
   // Temporarily disabled - using mock data instead
   console.warn('Using mock contracts data - database fetch disabled');
 
@@ -109,10 +113,14 @@ async function _fetchContracts() {
   */
 }
 
-async function fetchTemplateFields() {
+async function fetchTemplateFields(): Promise<void> {
   isLoadingFields.value = true;
   try {
-    const response = await $fetch('/api/template-fields');
+    const response = await $fetch<{
+      success: boolean;
+      data?: Field[];
+      error?: string;
+    }>('/api/template-fields');
 
     if (response.success && response.data) {
       // ข้อมูลจาก API พร้อมใช้งานแล้ว ไม่ต้อง map
@@ -129,9 +137,10 @@ async function fetchTemplateFields() {
   }
   catch (error) {
     console.error('Error fetching template fields:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     toast.add({
       title: 'ไม่สามารถโหลดข้อมูล Fields ได้',
-      description: error.message || 'กรุณาลองใหม่อีกครั้ง',
+      description: errorMessage || 'กรุณาลองใหม่อีกครั้ง',
       color: 'error',
     });
   }
@@ -140,7 +149,7 @@ async function fetchTemplateFields() {
   }
 }
 
-function handleFieldCreated(newField) {
+function handleFieldCreated(newField: Field): void {
   // เพิ่ม field ใหม่เข้า list
   availableFields.value.push(newField);
   toast.add({
@@ -150,12 +159,12 @@ function handleFieldCreated(newField) {
   });
 }
 
-function openEditField(field) {
+function openEditField(field: Field): void {
   editingField.value = field;
   isEditFieldModalOpen.value = true;
 }
 
-function handleFieldUpdated(updatedField) {
+function handleFieldUpdated(updatedField: Field): void {
   // อัพเดท field ใน list
   const index = availableFields.value.findIndex(f => f.id === updatedField.id);
   if (index !== -1) {
@@ -168,7 +177,7 @@ function handleFieldUpdated(updatedField) {
   });
 }
 
-function handleFieldDeleted(fieldId) {
+function handleFieldDeleted(fieldId: number | string): void {
   // ลบ field จาก list
   const index = availableFields.value.findIndex(f => f.id === fieldId);
   if (index !== -1) {
@@ -180,19 +189,19 @@ function handleFieldDeleted(fieldId) {
   });
 }
 
-function triggerFileInput() {
+function triggerFileInput(): void {
   fileInput.value?.click();
 }
 
-function handleImageUpload(event) {
-  const file = event.target.files[0];
+function handleImageUpload(event: Event): void {
+  const file = (event.target as HTMLInputElement).files?.[0];
   if (file)
     processFile(file);
 }
 
-function handleFileDrop(event) {
+function handleFileDrop(event: DragEvent): void {
   isDragging.value = false;
-  const file = event.dataTransfer.files[0];
+  const file = event.dataTransfer?.files[0];
   if (file)
     processFile(file);
 }
@@ -228,21 +237,21 @@ function handleFileDrop(event) {
 // }
 
 // Security: Verify PDF magic bytes
-async function verifyPdfMagicBytes(file) {
-  return new Promise((resolve) => {
+async function verifyPdfMagicBytes(file: File): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const arr = new Uint8Array(e.target.result);
+    reader.onload = (e: ProgressEvent<FileReader>): void => {
+      const arr = new Uint8Array(e.target?.result as ArrayBuffer);
       // PDF files should start with %PDF-
-      const header = String.fromCharCode.apply(null, arr.slice(0, 5));
+      const header = String.fromCharCode(...Array.from(arr.slice(0, 5)));
       resolve(header === '%PDF-');
     };
-    reader.onerror = () => resolve(false);
+    reader.onerror = (): void => resolve(false);
     reader.readAsArrayBuffer(file.slice(0, 5));
   });
 }
 
-async function processFile(file) {
+async function processFile(file: File): Promise<void> {
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
     toast.add({ title: 'ไฟล์มีขนาดใหญ่เกินไป', description: 'ขนาดสูงสุด 50MB', color: 'error' });
@@ -256,7 +265,7 @@ async function processFile(file) {
 
   const fileName = file.name.toLowerCase();
   const fileTypeFromMime = file.type.toLowerCase();
-  const fileExtension = fileName.split('.').pop();
+  const fileExtension = (fileName.split('.').pop() || '').toLowerCase();
   const validImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
   const validExtensions = [...validImageExtensions, 'pdf'];
 
@@ -280,7 +289,7 @@ async function processFile(file) {
   }
 
   placedFields.value = [];
-  selectedField.value = null;
+  selectedFieldInstanceId.value = null;
   currentPdfPage.value = 1;
   uploadedFile.value = file;
 
@@ -299,7 +308,7 @@ async function processFile(file) {
   }
 }
 
-function addFieldToPreview(fieldToAdd) {
+function addFieldToPreview(fieldToAdd: Field): void {
   if (!fieldToAdd)
     return;
 
@@ -340,19 +349,19 @@ function addFieldToPreview(fieldToAdd) {
   }
 }
 
-function selectField(field) {
+function selectField(field: FieldInstance | null): void {
   selectedFieldInstanceId.value = field?.instanceId || null;
 }
 
-function onImageLoad() {
+function onImageLoad(): void {
   imageLoaded.value = true;
 }
 
-function handlePdfPageChange(pageNumber) {
+function handlePdfPageChange(pageNumber: number): void {
   currentPdfPage.value = pageNumber;
 }
 
-function removeSelectedField() {
+function removeSelectedField(): void {
   if (!selectedFieldInstanceId.value)
     return;
   const idx = placedFields.value.findIndex(
@@ -364,8 +373,12 @@ function removeSelectedField() {
   }
 }
 
-function handleKeyDown(event) {
+function handleKeyDown(event: KeyboardEvent): void {
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
+    return;
+
+  const field = selectedField.value;
+  if (!field)
     return;
 
   const step = event.shiftKey ? 10 : 1;
@@ -373,81 +386,81 @@ function handleKeyDown(event) {
   switch (event.key) {
     case 'ArrowUp':
       event.preventDefault();
-      if (selectedField.value.normalizedY !== undefined) {
+      if (field.normalizedY !== undefined) {
         // Get current display position
-        const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+        const display = templatePdfRef.value!.normalizedToDisplay(
+          field.normalizedX || 0,
+          field.normalizedY,
+          field.normalizedWidth || 0,
+          field.normalizedHeight || 0,
         );
         // Update display position
         const newY = Math.max(0, display.y - step);
         // Convert back to normalized
-        const normalized = templatePdfRef.value.displayToNormalized(
+        const normalized = templatePdfRef.value!.displayToNormalized(
           display.x,
           newY,
           display.width,
           display.height,
         );
-        selectedField.value.normalizedY = normalized.y;
+        field.normalizedY = normalized.y;
       }
       break;
     case 'ArrowDown':
       event.preventDefault();
-      if (selectedField.value.normalizedY !== undefined) {
-        const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+      if (field.normalizedY !== undefined) {
+        const display = templatePdfRef.value!.normalizedToDisplay(
+          field.normalizedX || 0,
+          field.normalizedY,
+          field.normalizedWidth || 0,
+          field.normalizedHeight || 0,
         );
         const newY = display.y + step;
-        const normalized = templatePdfRef.value.displayToNormalized(
+        const normalized = templatePdfRef.value!.displayToNormalized(
           display.x,
           newY,
           display.width,
           display.height,
         );
-        selectedField.value.normalizedY = normalized.y;
+        field.normalizedY = normalized.y;
       }
       break;
     case 'ArrowLeft':
       event.preventDefault();
-      if (selectedField.value.normalizedX !== undefined) {
-        const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+      if (field.normalizedX !== undefined) {
+        const display = templatePdfRef.value!.normalizedToDisplay(
+          field.normalizedX,
+          field.normalizedY || 0,
+          field.normalizedWidth || 0,
+          field.normalizedHeight || 0,
         );
         const newX = Math.max(0, display.x - step);
-        const normalized = templatePdfRef.value.displayToNormalized(
+        const normalized = templatePdfRef.value!.displayToNormalized(
           newX,
           display.y,
           display.width,
           display.height,
         );
-        selectedField.value.normalizedX = normalized.x;
+        field.normalizedX = normalized.x;
       }
       break;
     case 'ArrowRight':
       event.preventDefault();
-      if (selectedField.value.normalizedX !== undefined) {
-        const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+      if (field.normalizedX !== undefined) {
+        const display = templatePdfRef.value!.normalizedToDisplay(
+          field.normalizedX,
+          field.normalizedY || 0,
+          field.normalizedWidth || 0,
+          field.normalizedHeight || 0,
         );
         const newX = display.x + step;
-        const normalized = templatePdfRef.value.displayToNormalized(
+        const normalized = templatePdfRef.value!.displayToNormalized(
           newX,
           display.y,
           display.width,
           display.height,
         );
-        selectedField.value.normalizedX = normalized.x;
+        field.normalizedX = normalized.x;
       }
       break;
     case 'Delete':
@@ -457,18 +470,18 @@ function handleKeyDown(event) {
   }
 }
 
-function handleFieldUpdate(data) {
+function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
   const idx = placedFields.value.findIndex(
     field => field.instanceId === data.instanceId,
   );
-  if (idx > -1) {
+  if (idx > -1 && placedFields.value[idx]) {
     // Updates already contain normalized or pixel coordinates from Properties component
     // No need to convert here
-    Object.assign(placedFields.value[idx], data.updates);
+    Object.assign(placedFields.value[idx]!, data.updates);
   }
 }
 
-function handleFieldRemoval(instanceId) {
+function handleFieldRemoval(instanceId: string): void {
   const idx = placedFields.value.findIndex(f => f.instanceId === instanceId);
   if (idx > -1) {
     placedFields.value.splice(idx, 1);
@@ -476,7 +489,7 @@ function handleFieldRemoval(instanceId) {
   }
 }
 
-function validateTemplateName() {
+function validateTemplateName(): boolean {
   const name = newTemplateName.value.trim();
 
   if (!name) {
@@ -498,7 +511,7 @@ function validateTemplateName() {
   return true;
 }
 
-function handleSaveTemplate() {
+function handleSaveTemplate(): void {
   if (!validateTemplateName())
     return;
 
@@ -527,7 +540,7 @@ function handleSaveTemplate() {
   }
 }
 
-function handleTemplateSaved(templateData) {
+function handleTemplateSaved(templateData: any): void {
   isSaving.value = false;
 
   if (!templateData || templateData.error) {
@@ -551,7 +564,7 @@ function handleTemplateSaved(templateData) {
   }, 500);
 }
 
-function handleBeforeUnload(e) {
+function handleBeforeUnload(e: BeforeUnloadEvent): void {
   if (hasChanges.value) {
     e.preventDefault();
     e.returnValue = '';
@@ -573,13 +586,13 @@ onUnmounted(() => {
   }
 });
 
-watch([newTemplateName, placedFields, uploadedFile], () => {
+watch([newTemplateName, placedFields, uploadedFile], (): void => {
   hasChanges.value = true;
 });
 
 watch(
   selectedField,
-  (newField) => {
+  (newField: FieldInstance | null): void => {
     if (newField && typeof newField === 'object') {
       // Ensure required properties exist
       if (typeof newField.label !== 'string')
@@ -771,7 +784,7 @@ watch(
                 <UButton
                   icon="i-heroicons-pencil-square"
                   size="xs"
-                  color="gray"
+                  color="primary"
                   variant="ghost"
                   square
                   title="แก้ไข"
@@ -802,13 +815,13 @@ watch(
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
           <template-image-create
-            v-if="fileType === 'image' && previewImageUrl"
+            v-if="fileType === 'image' && previewImageUrl && selectedField !== null"
             :preview-image-url="previewImageUrl"
             :placed-fields="placedFields"
             :selected-field="selectedField"
             :new-template-name="newTemplateName"
-            :selected-contract-id="selectedContractId"
-            :original-file="uploadedFile"
+            :selected-contract-id="(selectedContractId as string | number | undefined)"
+            :original-file="(uploadedFile as File | undefined)"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
             @image-loaded="onImageLoad"
@@ -816,16 +829,17 @@ watch(
           />
 
           <template-pdf-create
-            v-else-if="fileType === 'pdf' && uploadedFile"
+            v-else-if="fileType === 'pdf' && uploadedFile && selectedField !== null"
             ref="templatePdfRef"
             :pdf-file="uploadedFile"
             :placed-fields="placedFields"
             :selected-field="selectedField"
             :new-template-name="newTemplateName"
-            :selected-contract-id="selectedContractId"
+            :selected-contract-id="(selectedContractId as string | number | undefined)"
             :ui-scale="scale"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
+            @field-removed="handleFieldRemoval"
             @pdf-loaded="onImageLoad"
             @template-saved="handleTemplateSaved"
             @current-page-changed="handlePdfPageChange"
@@ -841,35 +855,6 @@ watch(
           </div>
         </div>
       </section>
-
-      <!-- [RIGHT SIDEBAR] Properties -->
-      <aside class="w-72 flex flex-col shrink-0 z-10">
-        <div class="p-4 border-b ">
-          <h3 class="font-bold flex items-center gap-2">
-            <UIcon name="i-heroicons-adjustments-horizontal" />
-            คุณสมบัติ (Properties)
-          </h3>
-        </div>
-
-        <div class="p-5 overflow-y-auto flex-1">
-          <field-properties
-            v-if="selectedField"
-            :selected-field="selectedField"
-            :pdf-ref="templatePdfRef"
-            :scale="scale"
-            @field-updated="handleFieldUpdate"
-            @field-removed="handleFieldRemoval"
-          />
-
-          <!-- Empty State -->
-          <div v-else class="text-center py-10 opacity-60">
-            <UIcon name="i-heroicons-cursor-arrow-rays" class="w-12 h-12 mx-auto mb-2 " />
-            <p class="text-sm font-medium">
-              คลิกเลือก Field บนเอกสาร<br>เพื่อแก้ไขคุณสมบัติ
-            </p>
-          </div>
-        </div>
-      </aside>
     </div>
 
     <!-- Field Create Modal -->
