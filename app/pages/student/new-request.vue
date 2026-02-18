@@ -2,6 +2,12 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+definePageMeta({
+  title: 'newRequest',
+});
+
+const toast = useToast();
+
 // ===== STEP 1: Define data structure =====
 // Simple request type interface - easy to extend with API later
 type RequestType = {
@@ -16,7 +22,7 @@ type RequestType = {
 // This will be replaced with API call later
 const requestTypes: RequestType[] = [
   {
-    id: 1,
+    id: 11,
     name: 'General Request (KU.1)',
     description: 'For general administrative inquiries and petitions.',
     estimatedTime: '1-3 Days',
@@ -53,12 +59,9 @@ const requestTypes: RequestType[] = [
 ];
 
 // ===== STEP 3: Setup Vue composables and state =====
-definePageMeta({
-  title: 'newRequest',
-});
-
 const router = useRouter();
 const searchQuery = ref('');
+const isCreating = ref(false);
 
 // ===== STEP 4: Search/filter logic =====
 const filteredRequests = computed(() => {
@@ -74,21 +77,53 @@ const filteredRequests = computed(() => {
   });
 });
 
-// ===== STEP 5: Navigation handler with placeholder =====
-function handleSelectRequest(requestId: number, requestName: string) {
-  // TODO: Replace this with actual form editor page when ready
-  // For now, just log and navigate to placeholder
-  console.warn(`Selected request: ${requestName}`);
-  router.push({
-    path: `/student/new-request/${requestId}`,
-    // Placeholder: will change to actual form editor route
-  });
+// ===== STEP 5: Navigation handler - Create request and redirect =====
+async function handleSelectRequest(templateId: number) {
+  if (isCreating.value)
+    return;
+
+  isCreating.value = true;
+
+  try {
+    // Create a new request
+    const result: any = await $fetch('/api/requests', {
+      method: 'POST',
+      body: {
+        templateId,
+        status: 'draft',
+      },
+    });
+
+    if (result.success && result.data) {
+      // Navigate to the form filling page
+      router.push(`/student/my-requests/${result.data.id}`);
+    }
+    else {
+      console.error('Failed to create request:', result.error);
+      toast.add({
+        title: 'Failed to create request',
+        description: 'Please try again.',
+        color: 'error',
+      });
+    }
+  }
+  catch (error) {
+    console.error('Error creating request:', error);
+    toast.add({
+      title: 'Error',
+      description: 'An error occurred. Please try again.',
+      color: 'error',
+    });
+  }
+  finally {
+    isCreating.value = false;
+  }
 }
 
 // ===== STEP 6: Go back handler =====
-function goBack() {
-  router.back();
-}
+// function goBack() {
+//   router.back();
+// }
 </script>
 
 <template>
@@ -96,12 +131,6 @@ function goBack() {
   <div class="space-y-6">
     <!-- ===== STEP 2: Header with back button and title ===== -->
     <div class="flex items-center gap-3">
-      <UButton
-        color="neutral"
-        variant="ghost"
-        icon="i-lucide-arrow-left"
-        @click="goBack"
-      />
       <div>
         <h1 class="text-2xl font-bold text-slate-800">
           New Request
@@ -135,7 +164,8 @@ function goBack() {
         v-for="request in filteredRequests"
         :key="request.id"
         class="cursor-pointer group"
-        @click="handleSelectRequest(request.id, request.name)"
+        :class="{ 'opacity-50 pointer-events-none': isCreating }"
+        @click="handleSelectRequest(request.id)"
       >
         <!-- Request card using UCard component -->
         <UCard
@@ -166,6 +196,19 @@ function goBack() {
             </p>
           </div>
         </UCard>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div
+      v-if="isCreating"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-lg p-6 flex flex-col items-center gap-4">
+        <i class="fas fa-spinner fa-spin text-4xl text-green-600" />
+        <p class="text-gray-700 font-medium">
+          Creating request...
+        </p>
       </div>
     </div>
 
