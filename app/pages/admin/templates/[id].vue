@@ -115,7 +115,7 @@ async function fetchTemplate() {
     const result = await $fetch<ApiResponse<Template>>(`/api/pdf-templates/${templateId}`);
 
     if (result.success && result.data) {
-      template.value = result.data as Template;
+      template.value = result.data;
 
       // Load PDF file from URL
       if (template.value?.documentUrl) {
