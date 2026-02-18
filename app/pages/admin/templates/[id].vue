@@ -19,6 +19,12 @@ type Template = {
   placedFieldsData: any;
 };
 
+type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
 type WorkflowStep = {
   id: number;
   title: string;
@@ -106,10 +112,10 @@ async function fetchTemplate() {
   error.value = null;
 
   try {
-    const result = await $fetch(`/api/pdf-templates/${templateId}`);
+    const result = await $fetch<ApiResponse<Template>>(`/api/pdf-templates/${templateId}`);
 
     if (result.success && result.data) {
-      template.value = result.data as Template;
+      template.value = result.data;
 
       // Load PDF file from URL
       if (template.value?.documentUrl) {

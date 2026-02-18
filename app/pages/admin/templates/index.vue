@@ -19,6 +19,12 @@ type Template = {
   placedFieldsData: any;
 };
 
+type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
 // --- 2. State & Data ---
 const searchQuery = ref('');
 const statusFilter = ref('all');
@@ -39,10 +45,10 @@ async function fetchTemplates() {
   error.value = null;
 
   try {
-    const result = await $fetch('/api/pdf-templates');
+    const result = await $fetch<ApiResponse<Template[]>>('/api/pdf-templates');
 
     if (result.success && result.data) {
-      templates.value = result.data as Template[];
+      templates.value = result.data;
     }
   }
   catch (err) {
