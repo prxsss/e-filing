@@ -3,6 +3,12 @@ import type { FieldInstance, FileTypeValue, PdfRef } from '~/types/template';
 
 type Field = any;
 
+type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
 definePageMeta({
   title: 'editTemplate',
 });
@@ -107,7 +113,7 @@ async function urlToFile(url: string, filename: string): Promise<File> {
 async function fetchTemplate(): Promise<void> {
   isLoading.value = true;
   try {
-    const result = await $fetch(`/api/pdf-templates/${templateId.value}`);
+    const result = await $fetch<ApiResponse<any>>(`/api/pdf-templates/${templateId.value}`);
     if (!result.success || !result.data)
       throw new Error('Failed to fetch template');
 

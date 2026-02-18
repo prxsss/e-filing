@@ -298,6 +298,7 @@ async function handleFileUpload(event: Event) {
 
 // Delete attachment
 async function deleteAttachment(attachmentId: number) {
+  // eslint-disable-next-line no-alert
   if (!confirm('Are you sure you want to delete this file?')) {
     return;
   }
@@ -360,7 +361,7 @@ function getFileIcon(fileName: string | null) {
 }
 
 // Format file size
-function formatFileSize(url: string | null) {
+function _formatFileSize(_url: string | null) {
   // This is a placeholder - actual file size would need to be stored in DB
   return 'Unknown size';
 }
