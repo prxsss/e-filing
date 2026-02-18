@@ -59,5 +59,6 @@
   "createTemplate": "สร้างแม่แบบคำร้อง",
   "editTemplate": "แก้ไขแม่แบบคำร้อง",
   "documentReview": "ตรวจสอบเอกสาร",
-  "allTemplates": "แม่แบบคำร้องทั้งหมด"
+  "allTemplates": "แม่แบบคำร้องทั้งหมด",
+  "requestDetails": "รายละเอียดคำร้อง"
 }
