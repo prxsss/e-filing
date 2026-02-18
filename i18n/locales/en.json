@@ -36,5 +36,6 @@
   "createTemplate": "Create Template",
   "editTemplate": "Edit Template",
   "documentReview": "Document Review",
-  "allTemplates": "All Templates"
+  "allTemplates": "All Templates",
+  "requestDetails": "Request Details"
 }
