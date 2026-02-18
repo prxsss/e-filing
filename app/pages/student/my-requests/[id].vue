@@ -25,8 +25,6 @@ type TemplateData = {
   placedFieldsData: any[] | null;
 };
 
-<<<<<<< HEAD
-=======
 type Attachment = {
   id: number;
   requestId: number;
@@ -35,7 +33,6 @@ type Attachment = {
   createdAt: string;
 };
 
->>>>>>> admin-template-supabase
 // --- State ---
 const route = useRoute();
 const requestId = route.params.id;
@@ -52,15 +49,12 @@ const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<number, string>>({});
 const scale = ref(1);
 
-<<<<<<< HEAD
-=======
 // Attachments
 const attachments = ref<Attachment[]>([]);
 const isUploadingAttachment = ref(false);
 const isDeletingAttachment = ref<number | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
->>>>>>> admin-template-supabase
 // --- Methods ---
 // Convert URL to File object
 async function urlToFile(url: string, filename: string) {
@@ -96,11 +90,7 @@ async function fetchRequestData() {
 
       // Fetch template details
       if (requestData.value?.templateId) {
-<<<<<<< HEAD
-        const templateResult: any = await $fetch(`/api/pdf-templates/${requestData.value.templateId}`);
-=======
         const templateResult: any = await $fetch(`/api/templates/${requestData.value.templateId}`);
->>>>>>> admin-template-supabase
 
         if (templateResult.success && templateResult.data) {
           templateData.value = templateResult.data as TemplateData;
@@ -234,10 +224,6 @@ function openPdfInNewTab(url: string) {
   }
 }
 
-<<<<<<< HEAD
-onMounted(() => {
-  fetchRequestData();
-=======
 // --- Attachment Methods ---
 // Fetch attachments
 async function fetchAttachments() {
@@ -312,6 +298,7 @@ async function handleFileUpload(event: Event) {
 
 // Delete attachment
 async function deleteAttachment(attachmentId: number) {
+  // eslint-disable-next-line no-alert
   if (!confirm('Are you sure you want to delete this file?')) {
     return;
   }
@@ -374,7 +361,7 @@ function getFileIcon(fileName: string | null) {
 }
 
 // Format file size
-function formatFileSize(url: string | null) {
+function _formatFileSize(_url: string | null) {
   // This is a placeholder - actual file size would need to be stored in DB
   return 'Unknown size';
 }
@@ -382,7 +369,6 @@ function formatFileSize(url: string | null) {
 onMounted(() => {
   fetchRequestData();
   fetchAttachments();
->>>>>>> admin-template-supabase
 });
 </script>
 
@@ -532,8 +518,6 @@ onMounted(() => {
             </div>
           </UCard>
 
-<<<<<<< HEAD
-=======
           <!-- Attachments Card -->
           <UCard>
             <template #header>
@@ -629,7 +613,6 @@ onMounted(() => {
             </div>
           </UCard>
 
->>>>>>> admin-template-supabase
           <!-- Action Buttons -->
           <div class="flex flex-col gap-3">
             <!-- Show download button if PDF is generated -->

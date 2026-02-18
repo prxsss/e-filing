@@ -34,13 +34,7 @@
   "tryAdjustingFilters": "Try adjusting your filters or search",
   "noRecentRequests": "No recent requests yet",
   "createTemplate": "Create Template",
-<<<<<<< HEAD
-  "editTemplate": "Edit Template",
-  "documentReview": "Document Review",
-  "allTemplates": "All Templates"
-=======
   "documentReview": "Document Review",
   "allTemplates": "All Templates",
   "requestDetails": "Request Details"
->>>>>>> admin-template-supabase
 }
