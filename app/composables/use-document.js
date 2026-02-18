@@ -49,7 +49,11 @@ export function useDocument() {
   // API Functions
   const fetchTemplates = async () => {
     try {
+<<<<<<< HEAD
       const response = await $fetch('/api/pdf-templates');
+=======
+      const response = await $fetch('/api/templates');
+>>>>>>> admin-template-supabase
       return response.data || [];
     }
     catch (error) {

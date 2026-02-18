@@ -4,6 +4,7 @@ definePageMeta({
 });
 
 // --- Types ---
+<<<<<<< HEAD
 type Template = {
   id: number;
   name: string | null;
@@ -19,6 +20,8 @@ type Template = {
   placedFieldsData: any;
 };
 
+=======
+>>>>>>> admin-template-supabase
 type WorkflowStep = {
   id: number;
   title: string;
@@ -41,9 +44,15 @@ type RequestData = {
 // --- State ---
 const route = useRoute();
 const templateId = route.params.id;
+<<<<<<< HEAD
 const template = ref<Template | null>(null);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
+=======
+const template = ref(null);
+const isLoading = ref(true);
+const error = ref(null);
+>>>>>>> admin-template-supabase
 
 // Mock Data
 const _requestData = ref<RequestData>({
@@ -81,8 +90,13 @@ const workflowSteps = ref<WorkflowStep[]>([
 
 // const staffComment = ref('');
 const pdfFile = ref<File | null>(null);
+<<<<<<< HEAD
 const placedFields = ref<any[]>([]);
 const _selectedField = ref<any>(null);
+=======
+const placedFields = ref([]);
+const _selectedField = ref(null);
+>>>>>>> admin-template-supabase
 const _useSavedSignature = ref(false);
 const scale = ref(1); // Zoom level
 
@@ -106,6 +120,7 @@ async function fetchTemplate() {
   error.value = null;
 
   try {
+<<<<<<< HEAD
     const result = await $fetch(`/api/pdf-templates/${templateId}`);
 
     if (result.success && result.data) {
@@ -114,11 +129,25 @@ async function fetchTemplate() {
       // Load PDF file from URL
       if (template.value?.documentUrl) {
         const filename = template.value.documentUrl.split('/').pop() || 'document.pdf';
+=======
+    const result = await $fetch(`/api/templates/${templateId}`);
+
+    if (result.success && result.data) {
+      template.value = result.data;
+
+      // Load PDF file from URL
+      if (template.value.documentUrl) {
+        const filename = template.value.documentUrl.split('/').pop();
+>>>>>>> admin-template-supabase
         pdfFile.value = await urlToFile(template.value.documentUrl, filename);
       }
 
       // Set placed fields
+<<<<<<< HEAD
       if (template.value?.placedFieldsData) {
+=======
+      if (template.value.placedFieldsData) {
+>>>>>>> admin-template-supabase
         placedFields.value = template.value.placedFieldsData;
       }
     }
@@ -128,7 +157,11 @@ async function fetchTemplate() {
   }
   catch (err) {
     console.error('Error fetching template:', err);
+<<<<<<< HEAD
     error.value = err instanceof Error ? err.message : 'Failed to load template';
+=======
+    error.value = err.message || 'Failed to load template';
+>>>>>>> admin-template-supabase
   }
   finally {
     isLoading.value = false;
@@ -182,7 +215,11 @@ onMounted(() => {
               @click="downloadPdf"
             />
             <UButton
+<<<<<<< HEAD
               :to="`/admin/templates/edit?id=${templateId}`"
+=======
+              to="`/admin/templates/edit?id=${templateId}`"
+>>>>>>> admin-template-supabase
               icon="i-heroicons-pencil-square"
               variant="solid"
               color="info"
@@ -255,7 +292,11 @@ onMounted(() => {
             <template-pdf-create
               :pdf-file="pdfFile"
               :placed-fields="placedFields"
+<<<<<<< HEAD
               :selected-field="undefined"
+=======
+              :selected-field="null"
+>>>>>>> admin-template-supabase
               :ui-scale="scale"
               :read-only="true"
             />

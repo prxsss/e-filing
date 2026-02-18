@@ -1,32 +1,34 @@
-<script setup lang="ts">
-import type { FieldInstance, FileTypeValue, PdfRef } from '~/types/template';
-
-type Field = any;
-
+<script setup>
 definePageMeta({
   title: 'createTemplate',
 });
 
 const router = useRouter();
 const toast = useToast();
-const hasChanges = ref<boolean>(false);
-const isSaving = ref<boolean>(false);
-const isDragging = ref<boolean>(false);
-const fileInput = ref<HTMLInputElement | null>(null);
-const templatePdfRef = ref<PdfRef | null>(null);
+const hasChanges = ref(false);
+const isSaving = ref(false);
+const isDragging = ref(false);
+const fileInput = ref(null);
+const templatePdfRef = ref(null);
 
-const newTemplateName = ref<string>('');
-const templateNameError = ref<string>('');
-const previewImageUrl = ref<string | null>(null);
-const placedFields = ref<FieldInstance[]>([]);
-const selectedFieldInstanceId = ref<string | null>(null); // Store instanceId instead of field object
-const scale = ref<number>(1); // Zoom level
-const selectedContractId = ref<string | number | null>(null);
-const imageLoaded = ref<boolean>(false);
-const uploadedFile = ref<File | null>(null);
-const fileType = ref<FileTypeValue>(null);
-const currentPdfPage = ref<number>(1);
-const searchQuery = ref<string>('');
+const newTemplateName = ref('');
+const templateNameError = ref('');
+const previewImageUrl = ref(null);
+const placedFields = ref([]);
+const selectedFieldInstanceId = ref(null); // Store instanceId instead of field object
+const scale = ref(1); // Zoom level
+// Mock contracts data
+// const contracts = ref([
+//   { id: 1, name: 'Student Agreement', is_active: true },
+//   { id: 2, name: 'Course Registration', is_active: true },
+//   { id: 3, name: 'Internship Contract', is_active: true },
+// ]);
+const selectedContractId = ref(null);
+const imageLoaded = ref(false);
+const uploadedFile = ref(null);
+const fileType = ref(null);
+const currentPdfPage = ref(1);
+const searchQuery = ref('');
 
 // Security constants
 const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -36,14 +38,14 @@ const _ALLOWED_FILE_TYPES = {
 };
 
 // Available fields for the template - load from database
-const availableFields = ref<Field[]>([]);
-const isLoadingFields = ref<boolean>(false);
-const isCreateFieldModalOpen = ref<boolean>(false);
-const isEditFieldModalOpen = ref<boolean>(false);
-const editingField = ref<Field | null>(null);
+const availableFields = ref([]);
+const isLoadingFields = ref(false);
+const isCreateFieldModalOpen = ref(false);
+const isEditFieldModalOpen = ref(false);
+const editingField = ref(null);
 
 // Computed property for filtered fields based on search
-const filteredFields = computed<Field[]>(() => {
+const filteredFields = computed(() => {
   if (!searchQuery.value)
     return availableFields.value;
   return availableFields.value.filter(f =>
@@ -54,7 +56,7 @@ const filteredFields = computed<Field[]>(() => {
 // Computed property for selected field
 // Returns null if no field selected, otherwise returns the field object with display coordinates
 // Display coordinates are calculated from normalized coordinates using current scale
-const selectedField = computed<FieldInstance | null>(() => {
+const selectedField = computed(() => {
   if (!selectedFieldInstanceId.value) {
     return null;
   }
@@ -66,13 +68,13 @@ const selectedField = computed<FieldInstance | null>(() => {
   }
 
   // For PDF files with normalized coordinates, calculate display coords
-  if (fileType.value === 'pdf' && templatePdfRef.value && field.normalizedX !== undefined && field.normalizedY !== undefined) {
+  if (fileType.value === 'pdf' && templatePdfRef.value && field.normalizedX !== undefined) {
     if (typeof templatePdfRef.value.normalizedToDisplay === 'function') {
       const display = templatePdfRef.value.normalizedToDisplay(
         field.normalizedX,
         field.normalizedY,
-        field.normalizedWidth || 0,
-        field.normalizedHeight || 0,
+        field.normalizedWidth,
+        field.normalizedHeight,
       );
       return {
         ...field,
@@ -80,7 +82,7 @@ const selectedField = computed<FieldInstance | null>(() => {
         displayY: display.y,
         displayWidth: display.width,
         displayHeight: display.height,
-      } as FieldInstance;
+      };
     }
   }
 
@@ -91,10 +93,10 @@ const selectedField = computed<FieldInstance | null>(() => {
     displayY: field.y,
     displayWidth: field.width,
     displayHeight: field.height,
-  } as FieldInstance;
+  };
 });
 
-async function _fetchContracts(): Promise<void> {
+async function _fetchContracts() {
   // Temporarily disabled - using mock data instead
   console.warn('Using mock contracts data - database fetch disabled');
 
@@ -113,14 +115,10 @@ async function _fetchContracts(): Promise<void> {
   */
 }
 
-async function fetchTemplateFields(): Promise<void> {
+async function fetchTemplateFields() {
   isLoadingFields.value = true;
   try {
-    const response = await $fetch<{
-      success: boolean;
-      data?: Field[];
-      error?: string;
-    }>('/api/template-fields');
+    const response = await $fetch('/api/template-fields');
 
     if (response.success && response.data) {
       // ข้อมูลจาก API พร้อมใช้งานแล้ว ไม่ต้อง map
@@ -137,10 +135,9 @@ async function fetchTemplateFields(): Promise<void> {
   }
   catch (error) {
     console.error('Error fetching template fields:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     toast.add({
       title: 'ไม่สามารถโหลดข้อมูล Fields ได้',
-      description: errorMessage || 'กรุณาลองใหม่อีกครั้ง',
+      description: error.message || 'กรุณาลองใหม่อีกครั้ง',
       color: 'error',
     });
   }
@@ -149,7 +146,7 @@ async function fetchTemplateFields(): Promise<void> {
   }
 }
 
-function handleFieldCreated(newField: Field): void {
+function handleFieldCreated(newField) {
   // เพิ่ม field ใหม่เข้า list
   availableFields.value.push(newField);
   toast.add({
@@ -159,12 +156,12 @@ function handleFieldCreated(newField: Field): void {
   });
 }
 
-function openEditField(field: Field): void {
+function openEditField(field) {
   editingField.value = field;
   isEditFieldModalOpen.value = true;
 }
 
-function handleFieldUpdated(updatedField: Field): void {
+function handleFieldUpdated(updatedField) {
   // อัพเดท field ใน list
   const index = availableFields.value.findIndex(f => f.id === updatedField.id);
   if (index !== -1) {
@@ -177,7 +174,7 @@ function handleFieldUpdated(updatedField: Field): void {
   });
 }
 
-function handleFieldDeleted(fieldId: number | string): void {
+function handleFieldDeleted(fieldId) {
   // ลบ field จาก list
   const index = availableFields.value.findIndex(f => f.id === fieldId);
   if (index !== -1) {
@@ -189,69 +186,69 @@ function handleFieldDeleted(fieldId: number | string): void {
   });
 }
 
-function triggerFileInput(): void {
+function triggerFileInput() {
   fileInput.value?.click();
 }
 
-function handleImageUpload(event: Event): void {
-  const file = (event.target as HTMLInputElement).files?.[0];
+function handleImageUpload(event) {
+  const file = event.target.files[0];
   if (file)
     processFile(file);
 }
 
-function handleFileDrop(event: DragEvent): void {
+function handleFileDrop(event) {
   isDragging.value = false;
-  const file = event.dataTransfer?.files[0];
+  const file = event.dataTransfer.files[0];
   if (file)
     processFile(file);
 }
 
 // Security: Validate template name format
-// function validateTemplateNameFormat(name) {
-//   if (!name || typeof name !== 'string') {
-//     return { isValid: false, message: 'กรุณากรอกชื่อ template' };
-//   }
+function validateTemplateNameFormat(name) {
+  if (!name || typeof name !== 'string') {
+    return { isValid: false, message: 'กรุณากรอกชื่อ template' };
+  }
 
-//   const trimmedName = name.trim();
+  const trimmedName = name.trim();
 
-//   if (trimmedName.length < 3) {
-//     return { isValid: false, message: 'ชื่อ template ต้องมีอย่างน้อย 3 ตัวอักษร' };
-//   }
+  if (trimmedName.length < 3) {
+    return { isValid: false, message: 'ชื่อ template ต้องมีอย่างน้อย 3 ตัวอักษร' };
+  }
 
-//   if (trimmedName.length > 100) {
-//     return { isValid: false, message: 'ชื่อ template ต้องไม่เกิน 100 ตัวอักษร' };
-//   }
+  if (trimmedName.length > 100) {
+    return { isValid: false, message: 'ชื่อ template ต้องไม่เกิน 100 ตัวอักษร' };
+  }
 
-//   // Allow Thai, English, numbers, spaces, hyphens, underscores
-//   const validPattern = /^[\u0E00-\u0E7F\w\s\-]+$/;
-//   if (!validPattern.test(trimmedName)) {
-//     return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
-//   }
+  // Allow Thai, English, numbers, spaces, hyphens, underscores
+  const validPattern = /^[\u0E00-\u0E7F\w\s\-]+$/;
+  if (!validPattern.test(trimmedName)) {
+    return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
+  }
 
-//   // Prevent path traversal
-//   if (trimmedName.includes('..') || trimmedName.includes('/') || trimmedName.includes('\\')) {
-//     return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
-//   }
+  // Prevent path traversal
+  if (trimmedName.includes('..') || trimmedName.includes('/') || trimmedName.includes('\\')) {
+    return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
+  }
 
-//   return { isValid: true, message: '' };
-// }
+  return { isValid: true, message: '' };
+}
 
 // Security: Verify PDF magic bytes
-async function verifyPdfMagicBytes(file: File): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
+async function verifyPdfMagicBytes(file) {
+  return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = (e: ProgressEvent<FileReader>): void => {
-      const arr = new Uint8Array(e.target?.result as ArrayBuffer);
+    reader.onload = (e) => {
+      const arr = new Uint8Array(e.target.result);
       // PDF files should start with %PDF-
-      const header = String.fromCharCode(...Array.from(arr.slice(0, 5)));
+      const header = String.fromCharCode.apply(null, arr.slice(0, 5));
       resolve(header === '%PDF-');
     };
-    reader.onerror = (): void => resolve(false);
+    reader.onerror = () => resolve(false);
     reader.readAsArrayBuffer(file.slice(0, 5));
   });
 }
 
-async function processFile(file: File): Promise<void> {
+async function processFile(file) {
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
     toast.add({ title: 'ไฟล์มีขนาดใหญ่เกินไป', description: 'ขนาดสูงสุด 50MB', color: 'error' });
@@ -265,7 +262,7 @@ async function processFile(file: File): Promise<void> {
 
   const fileName = file.name.toLowerCase();
   const fileTypeFromMime = file.type.toLowerCase();
-  const fileExtension = (fileName.split('.').pop() || '').toLowerCase();
+  const fileExtension = fileName.split('.').pop();
   const validImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
   const validExtensions = [...validImageExtensions, 'pdf'];
 
@@ -289,7 +286,7 @@ async function processFile(file: File): Promise<void> {
   }
 
   placedFields.value = [];
-  selectedFieldInstanceId.value = null;
+  selectedField.value = null;
   currentPdfPage.value = 1;
   uploadedFile.value = file;
 
@@ -308,7 +305,7 @@ async function processFile(file: File): Promise<void> {
   }
 }
 
-function addFieldToPreview(fieldToAdd: Field): void {
+function addFieldToPreview(fieldToAdd) {
   if (!fieldToAdd)
     return;
 
@@ -329,13 +326,8 @@ function addFieldToPreview(fieldToAdd: Field): void {
       isGrouped: amount > 1,
       groupSize: amount,
       groupPosition: i,
-      // Initial display position: offset each field by 40px diagonally
-      // This ensures fields don't stack on top of each other
-      x: 50 + (i * 40),
-      y: 50 + (i * 40),
-      width: 150,
-      height: 40,
       // Normalized coordinates will be auto-calculated by component when PDF loads
+      // Initial display position: 50 + i*40, 50 with default size 150x40 will be converted to normalized
       label: fieldToAdd.name === 'Check Mark' ? '' : fieldToAdd.label,
       pageNumber: currentPdfPage.value,
       fontSize: fieldToAdd.fontSize || 14,
@@ -349,19 +341,19 @@ function addFieldToPreview(fieldToAdd: Field): void {
   }
 }
 
-function selectField(field: FieldInstance | null): void {
+function selectField(field) {
   selectedFieldInstanceId.value = field?.instanceId || null;
 }
 
-function onImageLoad(): void {
+function onImageLoad() {
   imageLoaded.value = true;
 }
 
-function handlePdfPageChange(pageNumber: number): void {
+function handlePdfPageChange(pageNumber) {
   currentPdfPage.value = pageNumber;
 }
 
-function removeSelectedField(): void {
+function removeSelectedField() {
   if (!selectedFieldInstanceId.value)
     return;
   const idx = placedFields.value.findIndex(
@@ -373,12 +365,8 @@ function removeSelectedField(): void {
   }
 }
 
-function handleKeyDown(event: KeyboardEvent): void {
+function handleKeyDown(event) {
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
-    return;
-
-  const field = selectedField.value;
-  if (!field)
     return;
 
   const step = event.shiftKey ? 10 : 1;
@@ -386,81 +374,81 @@ function handleKeyDown(event: KeyboardEvent): void {
   switch (event.key) {
     case 'ArrowUp':
       event.preventDefault();
-      if (field.normalizedY !== undefined) {
+      if (selectedField.value.normalizedY !== undefined) {
         // Get current display position
-        const display = templatePdfRef.value!.normalizedToDisplay(
-          field.normalizedX || 0,
-          field.normalizedY,
-          field.normalizedWidth || 0,
-          field.normalizedHeight || 0,
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
         );
         // Update display position
         const newY = Math.max(0, display.y - step);
         // Convert back to normalized
-        const normalized = templatePdfRef.value!.displayToNormalized(
+        const normalized = templatePdfRef.value.displayToNormalized(
           display.x,
           newY,
           display.width,
           display.height,
         );
-        field.normalizedY = normalized.y;
+        selectedField.value.normalizedY = normalized.y;
       }
       break;
     case 'ArrowDown':
       event.preventDefault();
-      if (field.normalizedY !== undefined) {
-        const display = templatePdfRef.value!.normalizedToDisplay(
-          field.normalizedX || 0,
-          field.normalizedY,
-          field.normalizedWidth || 0,
-          field.normalizedHeight || 0,
+      if (selectedField.value.normalizedY !== undefined) {
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
         );
         const newY = display.y + step;
-        const normalized = templatePdfRef.value!.displayToNormalized(
+        const normalized = templatePdfRef.value.displayToNormalized(
           display.x,
           newY,
           display.width,
           display.height,
         );
-        field.normalizedY = normalized.y;
+        selectedField.value.normalizedY = normalized.y;
       }
       break;
     case 'ArrowLeft':
       event.preventDefault();
-      if (field.normalizedX !== undefined) {
-        const display = templatePdfRef.value!.normalizedToDisplay(
-          field.normalizedX,
-          field.normalizedY || 0,
-          field.normalizedWidth || 0,
-          field.normalizedHeight || 0,
+      if (selectedField.value.normalizedX !== undefined) {
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
         );
         const newX = Math.max(0, display.x - step);
-        const normalized = templatePdfRef.value!.displayToNormalized(
+        const normalized = templatePdfRef.value.displayToNormalized(
           newX,
           display.y,
           display.width,
           display.height,
         );
-        field.normalizedX = normalized.x;
+        selectedField.value.normalizedX = normalized.x;
       }
       break;
     case 'ArrowRight':
       event.preventDefault();
-      if (field.normalizedX !== undefined) {
-        const display = templatePdfRef.value!.normalizedToDisplay(
-          field.normalizedX,
-          field.normalizedY || 0,
-          field.normalizedWidth || 0,
-          field.normalizedHeight || 0,
+      if (selectedField.value.normalizedX !== undefined) {
+        const display = templatePdfRef.value.normalizedToDisplay(
+          selectedField.value.normalizedX,
+          selectedField.value.normalizedY,
+          selectedField.value.normalizedWidth,
+          selectedField.value.normalizedHeight,
         );
         const newX = display.x + step;
-        const normalized = templatePdfRef.value!.displayToNormalized(
+        const normalized = templatePdfRef.value.displayToNormalized(
           newX,
           display.y,
           display.width,
           display.height,
         );
-        field.normalizedX = normalized.x;
+        selectedField.value.normalizedX = normalized.x;
       }
       break;
     case 'Delete':
@@ -470,18 +458,18 @@ function handleKeyDown(event: KeyboardEvent): void {
   }
 }
 
-function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
+function handleFieldUpdate(data) {
   const idx = placedFields.value.findIndex(
     field => field.instanceId === data.instanceId,
   );
-  if (idx > -1 && placedFields.value[idx]) {
+  if (idx > -1) {
     // Updates already contain normalized or pixel coordinates from Properties component
     // No need to convert here
-    Object.assign(placedFields.value[idx]!, data.updates);
+    Object.assign(placedFields.value[idx], data.updates);
   }
 }
 
-function handleFieldRemoval(instanceId: string): void {
+function handleFieldRemoval(instanceId) {
   const idx = placedFields.value.findIndex(f => f.instanceId === instanceId);
   if (idx > -1) {
     placedFields.value.splice(idx, 1);
@@ -489,29 +477,13 @@ function handleFieldRemoval(instanceId: string): void {
   }
 }
 
-function validateTemplateName(): boolean {
-  const name = newTemplateName.value.trim();
-
-  if (!name) {
-    templateNameError.value = 'กรุณาป้อนชื่อเทมเพลต';
-    return false;
-  }
-
-  if (name.length < 3) {
-    templateNameError.value = 'ชื่อเทมเพลตต้องมีอย่างน้อย 3 ตัวอักษร';
-    return false;
-  }
-
-  if (name.length > 100) {
-    templateNameError.value = 'ชื่อเทมเพลตต้องไม่เกิน 100 ตัวอักษร';
-    return false;
-  }
-
-  templateNameError.value = '';
-  return true;
+function validateTemplateName() {
+  const result = validateTemplateNameFormat(newTemplateName.value);
+  templateNameError.value = result.isValid ? '' : result.message;
+  return result.isValid;
 }
 
-function handleSaveTemplate(): void {
+function handleSaveTemplate() {
   if (!validateTemplateName())
     return;
 
@@ -540,7 +512,7 @@ function handleSaveTemplate(): void {
   }
 }
 
-function handleTemplateSaved(templateData: any): void {
+function handleTemplateSaved(templateData) {
   isSaving.value = false;
 
   if (!templateData || templateData.error) {
@@ -564,7 +536,7 @@ function handleTemplateSaved(templateData: any): void {
   }, 500);
 }
 
-function handleBeforeUnload(e: BeforeUnloadEvent): void {
+function handleBeforeUnload(e) {
   if (hasChanges.value) {
     e.preventDefault();
     e.returnValue = '';
@@ -586,13 +558,13 @@ onUnmounted(() => {
   }
 });
 
-watch([newTemplateName, placedFields, uploadedFile], (): void => {
+watch([newTemplateName, placedFields, uploadedFile], () => {
   hasChanges.value = true;
 });
 
 watch(
   selectedField,
-  (newField: FieldInstance | null): void => {
+  (newField) => {
     if (newField && typeof newField === 'object') {
       // Ensure required properties exist
       if (typeof newField.label !== 'string')
@@ -606,9 +578,9 @@ watch(
 </script>
 
 <template>
-  <div class="h-screen flex flex-col overflow-hidden">
+  <div class="h-screen flex flex-col bg-gray-50 overflow-hidden">
     <!-- === TOP HEADER (Toolbar) === -->
-    <header class="h-16 flex items-center justify-between px-4 z-20 shadow-sm shrink-0">
+    <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-20 shadow-sm shrink-0">
       <div class="flex items-center gap-4">
         <UButton
           icon="i-heroicons-arrow-left"
@@ -616,23 +588,38 @@ watch(
           variant="ghost"
           @click="router.back()"
         />
+        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
 
         <!-- Template Name Input -->
         <div class="flex flex-col">
-          <label class="text-[10px] uppercase font-bold tracking-wider">Template Name</label>
+          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Template Name</label>
           <input
             v-model="newTemplateName"
             type="text"
-            :class="templateNameError ? 'border border-red-500 bg-red-50' : 'border bg-transparent'"
-            class="p-2 font-semibold focus:ring-1 focus:ring-red-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors "
+            class="bg-transparent border-none p-0 text-gray-800 font-semibold focus:ring-0 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-1 transition-colors"
             placeholder="Enter template name..."
             @input="validateTemplateName"
           >
-          <div v-if="templateNameError" class="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs font-semibold">
-            <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 shrink-0" />
+          <div v-if="templateNameError" class="text-red-500 text-[10px] mt-0.5">
             {{ templateNameError }}
           </div>
         </div>
+
+        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
+
+        <!-- Contract Selector -->
+        <!-- <div class="flex flex-col">
+          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Contract</label>
+          <USelectMenu
+            v-model="selectedContractId"
+            :options="contracts"
+            value-attribute="id"
+            option-attribute="name"
+            placeholder="Choose Contract"
+            size="sm"
+            class="w-48"
+          />
+        </div> -->
       </div>
 
       <div class="flex items-center gap-3">
@@ -641,7 +628,7 @@ watch(
           icon="i-heroicons-check"
           color="neutral"
           label="Save Template"
-          size="xl"
+          size="sm"
           class="px-6 font-bold"
           @click="handleSaveTemplate"
         />
@@ -651,10 +638,10 @@ watch(
     <!-- === WORKSPACE === -->
     <div class="flex-1 flex overflow-hidden">
       <!-- [LEFT SIDEBAR] Tools & Assets -->
-      <aside class="w-72  flex flex-col shrink-0 z-10">
+      <aside class="w-72 bg-white border-r border-gray-200 flex flex-col shrink-0 z-10">
         <!-- Tabs / Sections -->
-        <div class="p-4 border-b">
-          <h3 class="font-bold flex items-center gap-2">
+        <div class="p-4 border-b border-gray-100">
+          <h3 class="font-bold text-gray-800 flex items-center gap-2">
             <UIcon name="i-heroicons-swatch" class="text-primary-500" />
             เครื่องมือ (Tools)
           </h3>
@@ -664,7 +651,7 @@ watch(
           <!-- Upload Section -->
           <div>
             <div class="flex justify-between items-center mb-2">
-              <label class="text-xs font-semibold uppercase">เอกสารตั้นต้นฉบับ</label>
+              <label class="text-xs font-semibold text-gray-500 uppercase">เอกสารตั้นต้นฉบับ</label>
               <UBadge v-if="uploadedFile" color="success" variant="subtle" size="xs">
                 Uploaded
               </UBadge>
@@ -672,26 +659,26 @@ watch(
 
             <div
               v-if="!uploadedFile"
-              class="border-2 border-dashed rounded-xl p-6 text-center hover:bg-gray-50 hover:border-primary-400 transition-all cursor-pointer group"
+              class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 hover:border-primary-400 transition-all cursor-pointer group"
               :class="{ 'border-primary-500 bg-primary-50': isDragging }"
               @click="triggerFileInput"
               @drop.prevent="handleFileDrop"
               @dragover.prevent="isDragging = true"
               @dragleave.prevent="isDragging = false"
             >
-              <div class=" w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
+              <div class="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
                 <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6" />
               </div>
-              <p class="text-sm font-medium">
+              <p class="text-sm font-medium text-gray-600">
                 คลิกเพื่ออัปโหลด
               </p>
-              <p class="text-xs mt-1">
+              <p class="text-xs text-gray-400 mt-1">
                 PDF หรือ รูปภาพ (JPG, PNG)
               </p>
             </div>
 
             <!-- Uploaded State -->
-            <div v-else class="rounded-lg p-3 flex items-center gap-3">
+            <div v-else class="bg-gray-50 rounded-lg p-3 border border-gray-200 flex items-center gap-3">
               <div class="w-10 h-10 bg-white border border-gray-200 rounded flex items-center justify-center text-gray-400 shrink-0">
                 <UIcon :name="fileType === 'pdf' ? 'i-heroicons-document-text' : 'i-heroicons-photo'" class="w-6 h-6" />
               </div>
@@ -784,7 +771,7 @@ watch(
                 <UButton
                   icon="i-heroicons-pencil-square"
                   size="xs"
-                  color="primary"
+                  color="gray"
                   variant="ghost"
                   square
                   title="แก้ไข"
@@ -797,17 +784,17 @@ watch(
       </aside>
 
       <!-- [CENTER] Canvas Area -->
-      <section class="flex-1 relative overflow-hidden flex flex-col">
+      <section class="flex-1 bg-gray-100/50 relative overflow-hidden flex flex-col">
         <!-- Toolbar (Zoom etc.) -->
-        <div class="h-10 border-b px-4 flex items-center justify-between shrink-0">
-          <div class="text-xs">
+        <div class="h-10 border-b border-gray-200 bg-white px-4 flex items-center justify-between shrink-0">
+          <div class="text-xs text-gray-400">
             <span v-if="!uploadedFile">ยังไม่มีไฟล์</span>
             <span v-else-if="fileType === 'pdf'">เอกสาร PDF - หน้า {{ currentPdfPage }}</span>
             <span v-else>เอกสารรูปภาพ</span>
           </div>
           <div class="flex items-center gap-2">
             <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" @click="scale = Math.max(0.5, scale - 0.1)" />
-            <span class="text-xs font-mono w-12 text-center">{{ Math.round(scale * 100) }}%</span>
+            <span class="text-xs font-mono w-12 text-center text-gray-600">{{ Math.round(scale * 100) }}%</span>
             <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" @click="scale = Math.min(2, scale + 0.1)" />
           </div>
         </div>
@@ -815,13 +802,13 @@ watch(
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
           <template-image-create
-            v-if="fileType === 'image' && previewImageUrl && selectedField !== null"
+            v-if="fileType === 'image' && previewImageUrl"
             :preview-image-url="previewImageUrl"
             :placed-fields="placedFields"
             :selected-field="selectedField"
             :new-template-name="newTemplateName"
-            :selected-contract-id="(selectedContractId as string | number | undefined)"
-            :original-file="(uploadedFile as File | undefined)"
+            :selected-contract-id="selectedContractId"
+            :original-file="uploadedFile"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
             @image-loaded="onImageLoad"
@@ -829,17 +816,16 @@ watch(
           />
 
           <template-pdf-create
-            v-else-if="fileType === 'pdf' && uploadedFile && selectedField !== null"
+            v-else-if="fileType === 'pdf' && uploadedFile"
             ref="templatePdfRef"
             :pdf-file="uploadedFile"
             :placed-fields="placedFields"
             :selected-field="selectedField"
             :new-template-name="newTemplateName"
-            :selected-contract-id="(selectedContractId as string | number | undefined)"
+            :selected-contract-id="selectedContractId"
             :ui-scale="scale"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
-            @field-removed="handleFieldRemoval"
             @pdf-loaded="onImageLoad"
             @template-saved="handleTemplateSaved"
             @current-page-changed="handlePdfPageChange"
@@ -855,6 +841,35 @@ watch(
           </div>
         </div>
       </section>
+
+      <!-- [RIGHT SIDEBAR] Properties -->
+      <aside class="w-72 bg-white border-l border-gray-200 flex flex-col shrink-0 z-10">
+        <div class="p-4 border-b border-gray-100">
+          <h3 class="font-bold text-gray-800 flex items-center gap-2">
+            <UIcon name="i-heroicons-adjustments-horizontal" class="text-gray-500" />
+            คุณสมบัติ (Properties)
+          </h3>
+        </div>
+
+        <div class="p-5 overflow-y-auto flex-1">
+          <field-properties
+            v-if="selectedField"
+            :selected-field="selectedField"
+            :pdf-ref="templatePdfRef"
+            :scale="scale"
+            @field-updated="handleFieldUpdate"
+            @field-removed="handleFieldRemoval"
+          />
+
+          <!-- Empty State -->
+          <div v-else class="text-center py-10 opacity-60">
+            <UIcon name="i-heroicons-cursor-arrow-rays" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p class="text-sm text-gray-500 font-medium">
+              คลิกเลือก Field บนเอกสาร<br>เพื่อแก้ไขคุณสมบัติ
+            </p>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <!-- Field Create Modal -->

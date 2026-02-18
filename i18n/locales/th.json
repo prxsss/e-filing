@@ -34,7 +34,13 @@
   "tryAdjustingFilters": "ลองปรับตัวกรองหรือการค้นหา",
   "noRecentRequests": "ยังไม่มีรายการคำร้องเร็วๆ นี้",
   "createTemplate": "สร้างแม่แบบคำร้อง",
+<<<<<<< HEAD
   "editTemplate": "แก้ไขแม่แบบคำร้อง",
   "documentReview": "ตรวจสอบเอกสาร",
   "allTemplates": "แม่แบบคำร้องทั้งหมด"
+=======
+  "documentReview": "ตรวจสอบเอกสาร",
+  "allTemplates": "แม่แบบคำร้องทั้งหมด",
+  "requestDetails": "รายละเอียดคำร้อง"
+>>>>>>> admin-template-supabase
 }
