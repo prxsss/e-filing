@@ -116,6 +116,139 @@ const scaledDimensions = computed(() => {
 // ใช้ normalized coordinates (0-1) เป็นหลัก
 // ========================================
 
+// Helper: Get actual displayed canvas dimensions (not internal resolution)
+function getDisplayedCanvasDimensions() {
+  if (!pdfCanvas.value) {
+    return { width: 0, height: 0 };
+  }
+  // Use getBoundingClientRect for actual displayed dimensions
+  const rect = pdfCanvas.value.getBoundingClientRect();
+  return { width: rect.width, height: rect.height };
+}
+
+// แปลง canvas pixel coordinates → normalized (0-1)
+// Uses displayed canvas dimensions (not internal resolution) for stability
+function canvasToNormalized(x, y, width, height) {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+
+  // Use displayed dimensions instead of internal canvas resolution
+  const displayDims = getDisplayedCanvasDimensions();
+  const canvasWidth = displayDims.width || pdfCanvas.value.width;
+  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  const naturalWidth = pdfNaturalDimensions.value.width;
+  const naturalHeight = pdfNaturalDimensions.value.height;
+
+  // Canvas pixel → Natural PDF coordinates
+  const naturalX = (x / canvasWidth) * naturalWidth;
+  const naturalY = (y / canvasHeight) * naturalHeight;
+  const naturalW = (width / canvasWidth) * naturalWidth;
+  const naturalH = (height / canvasHeight) * naturalHeight;
+
+  // Natural → Normalized (0-1)
+  return {
+    x: naturalX / naturalWidth,
+    y: naturalY / naturalHeight,
+    width: naturalW / naturalWidth,
+    height: naturalH / naturalHeight,
+  };
+}
+
+// แปลง normalized (0-1) → canvas pixel coordinates
+// Uses displayed canvas dimensions (not internal resolution) for stability
+function normalizedToCanvas(normX, normY, normWidth, normHeight) {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
+
+  // Use displayed dimensions instead of internal canvas resolution
+  const displayDims = getDisplayedCanvasDimensions();
+  const canvasWidth = displayDims.width || pdfCanvas.value.width;
+  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  const naturalWidth = pdfNaturalDimensions.value.width;
+  const naturalHeight = pdfNaturalDimensions.value.height;
+
+  // Normalized → Natural PDF coordinates
+  const naturalX = normX * naturalWidth;
+  const naturalY = normY * naturalHeight;
+  const naturalW = normWidth * naturalWidth;
+  const naturalH = normHeight * naturalHeight;
+
+  // Natural → Canvas pixels
+  return {
+    x: (naturalX / naturalWidth) * canvasWidth,
+    y: (naturalY / naturalHeight) * canvasHeight,
+    width: (naturalW / naturalWidth) * canvasWidth,
+    height: (naturalH / naturalHeight) * canvasHeight,
+  };
+}
+
+// Legacy aliases for backward compatibility
+const displayToNormalized = canvasToNormalized;
+const normalizedToDisplay = normalizedToCanvas;
+
+// Security: Validate normalized coordinates
+function isValidNormalizedCoord(value) {
+  return typeof value === 'number'
+    && !Number.isNaN(value)
+    && Number.isFinite(value)
+    && value >= 0
+    && value <= 1;
+}
+
+function validateNormalizedField(field) {
+  if (!field) {
+    return { valid: false, error: 'Field is null or undefined' };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedX)) {
+    return { valid: false, error: `Invalid normalizedX: ${field.normalizedX}` };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedY)) {
+    return { valid: false, error: `Invalid normalizedY: ${field.normalizedY}` };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedWidth) || field.normalizedWidth === 0) {
+    return { valid: false, error: `Invalid normalizedWidth: ${field.normalizedWidth}` };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedHeight) || field.normalizedHeight === 0) {
+    return { valid: false, error: `Invalid normalizedHeight: ${field.normalizedHeight}` };
+  }
+
+  return { valid: true };
+}
+
+// Pan scrolling state
+const isPanning = ref(false);
+const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+// Computed: Calculate wrapper dimensions after scale for proper scrolling
+const scaledDimensions = computed(() => {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { width: 0, height: 0 };
+  }
+
+  const canvasWidth = pdfCanvas.value.width;
+  const canvasHeight = pdfCanvas.value.height;
+  const currentScale = props.uiScale || 1;
+
+  return {
+    width: canvasWidth * currentScale,
+    height: canvasHeight * currentScale,
+  };
+});
+
+// ========================================
+// Coordinate Conversion Functions (Simplified)
+// ใช้ normalized coordinates (0-1) เป็นหลัก
+// Note: Uses canvas.width/height (actual rendering dimensions) NOT getBoundingClientRect()
+// because getBoundingClientRect() includes CSS transforms, which would cause coordinate
+// shifts when zoom (uiScale) changes. The CSS transform handles all visual scaling.
+// ========================================
+
 // แปลง canvas pixel coordinates → normalized (0-1)
 function canvasToNormalized(x, y, width, height) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
@@ -126,6 +259,10 @@ function canvasToNormalized(x, y, width, height) {
   const canvasHeight = pdfCanvas.value.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
 
   // Canvas pixel → Natural PDF coordinates
   const naturalX = (x / canvasWidth) * naturalWidth;
@@ -152,6 +289,10 @@ function normalizedToCanvas(normX, normY, normWidth, normHeight) {
   const canvasHeight = pdfCanvas.value.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
 
   // Normalized → Natural PDF coordinates
   const naturalX = normX * naturalWidth;
