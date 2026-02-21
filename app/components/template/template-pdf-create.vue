@@ -885,7 +885,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', updateCanvasSize);
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
@@ -1190,23 +1189,9 @@ defineExpose<{
 
 .page-selector {
   text-align: center;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-top: 1px solid #dee2e6;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.page-selector label {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #495057;
-}
-
-.page-selector select {
-  cursor: pointer;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  margin-top: 0.5rem;
 }
 </style>
