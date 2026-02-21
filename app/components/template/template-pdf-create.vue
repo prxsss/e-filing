@@ -67,9 +67,139 @@ const activeResize = ref<{
   startHeight: 0,
 });
 
-const placedFieldsOnCurrentPage = computed<Field[]>(() => {
-  return (props.placedFields as Field[]).filter(
-    (field: Field) => !field.pageNumber || field.pageNumber === currentPage.value,
+// Pan scrolling state
+const isPanning = ref(false);
+const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+// Computed: Calculate wrapper dimensions after scale for proper scrolling
+const scaledDimensions = computed(() => {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { width: 0, height: 0 };
+  }
+
+  const canvasWidth = pdfCanvas.value.width;
+  const canvasHeight = pdfCanvas.value.height;
+  const currentScale = props.uiScale || 1;
+
+  return {
+    width: canvasWidth * currentScale,
+    height: canvasHeight * currentScale,
+  };
+});
+
+// ========================================
+// Coordinate Conversion Functions (Simplified)
+// ใช้ normalized coordinates (0-1) เป็นหลัก
+// ========================================
+
+// Helper: Get actual displayed canvas dimensions (not internal resolution)
+function getDisplayedCanvasDimensions() {
+  if (!pdfCanvas.value) {
+    return { width: 0, height: 0 };
+  }
+  // Use getBoundingClientRect for actual displayed dimensions
+  const rect = pdfCanvas.value.getBoundingClientRect();
+  return { width: rect.width, height: rect.height };
+}
+
+// แปลง canvas pixel coordinates → normalized (0-1)
+// Uses displayed canvas dimensions (not internal resolution) for stability
+function canvasToNormalized(x, y, width, height) {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+
+  // Use displayed dimensions instead of internal canvas resolution
+  const displayDims = getDisplayedCanvasDimensions();
+  const canvasWidth = displayDims.width || pdfCanvas.value.width;
+  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  const naturalWidth = pdfNaturalDimensions.value.width;
+  const naturalHeight = pdfNaturalDimensions.value.height;
+
+  // Canvas pixel → Natural PDF coordinates
+  const naturalX = (x / canvasWidth) * naturalWidth;
+  const naturalY = (y / canvasHeight) * naturalHeight;
+  const naturalW = (width / canvasWidth) * naturalWidth;
+  const naturalH = (height / canvasHeight) * naturalHeight;
+
+  // Natural → Normalized (0-1)
+  return {
+    x: naturalX / naturalWidth,
+    y: naturalY / naturalHeight,
+    width: naturalW / naturalWidth,
+    height: naturalH / naturalHeight,
+  };
+}
+
+// แปลง normalized (0-1) → canvas pixel coordinates
+// Uses displayed canvas dimensions (not internal resolution) for stability
+function normalizedToCanvas(normX, normY, normWidth, normHeight) {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
+
+  // Use displayed dimensions instead of internal canvas resolution
+  const displayDims = getDisplayedCanvasDimensions();
+  const canvasWidth = displayDims.width || pdfCanvas.value.width;
+  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  const naturalWidth = pdfNaturalDimensions.value.width;
+  const naturalHeight = pdfNaturalDimensions.value.height;
+
+  // Normalized → Natural PDF coordinates
+  const naturalX = normX * naturalWidth;
+  const naturalY = normY * naturalHeight;
+  const naturalW = normWidth * naturalWidth;
+  const naturalH = normHeight * naturalHeight;
+
+  // Natural → Canvas pixels
+  return {
+    x: (naturalX / naturalWidth) * canvasWidth,
+    y: (naturalY / naturalHeight) * canvasHeight,
+    width: (naturalW / naturalWidth) * canvasWidth,
+    height: (naturalH / naturalHeight) * canvasHeight,
+  };
+}
+
+// Legacy aliases for backward compatibility
+const displayToNormalized = canvasToNormalized;
+const normalizedToDisplay = normalizedToCanvas;
+
+// Security: Validate normalized coordinates
+function isValidNormalizedCoord(value) {
+  return typeof value === 'number'
+    && !Number.isNaN(value)
+    && Number.isFinite(value)
+    && value >= 0
+    && value <= 1;
+}
+
+function validateNormalizedField(field) {
+  if (!field) {
+    return { valid: false, error: 'Field is null or undefined' };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedX)) {
+    return { valid: false, error: `Invalid normalizedX: ${field.normalizedX}` };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedY)) {
+    return { valid: false, error: `Invalid normalizedY: ${field.normalizedY}` };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedWidth) || field.normalizedWidth === 0) {
+    return { valid: false, error: `Invalid normalizedWidth: ${field.normalizedWidth}` };
+  }
+
+  if (!isValidNormalizedCoord(field.normalizedHeight) || field.normalizedHeight === 0) {
+    return { valid: false, error: `Invalid normalizedHeight: ${field.normalizedHeight}` };
+  }
+
+  return { valid: true };
+}
+
+const placedFieldsOnCurrentPage = computed(() => {
+  return props.placedFields.filter(
+    field => !field.pageNumber || field.pageNumber === currentPage.value,
   );
 });
 
@@ -306,9 +436,10 @@ function drag(event: any): void {
   const fieldWidth = (activeDrag.value.field as Field).width || 150;
   const fieldHeight = (activeDrag.value.field as Field).height || 40;
 
-  // ขนาด canvas จริง
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
+  // ขนาด canvas ที่แสดง (ไม่ใช่ internal resolution)
+  const displayDims = getDisplayedCanvasDimensions();
+  const canvasWidth = displayDims.width || pdfCanvas.value.width;
+  const canvasHeight = displayDims.height || pdfCanvas.value.height;
 
   activeDrag.value.field!.x = Math.round(newX);
   activeDrag.value.field!.y = Math.round(newY);
@@ -743,8 +874,8 @@ function updateCanvasSize() {
 onMounted(() => {
   loadPdf();
 
-  // Add window resize listener to update canvas size
-  window.addEventListener('resize', updateCanvasSize);
+  // Note: Window resize listener removed - canvas now has fixed dimensions
+  // Canvas dimensions are controlled by PDF natural size, not window size
 
   // Add pan scrolling listeners
   if (previewContainer.value) {
@@ -756,7 +887,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', updateCanvasSize);
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
@@ -893,20 +1023,20 @@ defineExpose<{
           </div>
         </div>
         <!-- End of scale wrapper -->
-      </div>
 
-      <!-- Page Selector ด้านล่าง -->
-      <div v-if="pdfLoaded && totalPages > 1" class="page-selector">
-        <label class="form-label small mb-1">Page:</label>
-        <select
-          v-model="currentPage"
-          class="form-select form-select-sm"
-          @change="renderCurrentPage"
-        >
-          <option v-for="i in totalPages" :key="i" :value="i">
-            Page {{ i }}
-          </option>
-        </select>
+        <!-- Page Selector -->
+        <div v-if="pdfLoaded && totalPages > 1" class="page-selector">
+          <label class="form-label small mb-1">Page:</label>
+          <select
+            v-model="currentPage"
+            class="form-select form-select-sm"
+            @change="renderCurrentPage"
+          >
+            <option v-for="i in totalPages" :key="i" :value="i">
+              Page {{ i }}
+            </option>
+          </select>
+        </div>
       </div>
     </div>
   </div>
@@ -916,32 +1046,6 @@ defineExpose<{
 .card {
   border: 1px solid #dee2e6;
   border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.card-body {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
-.card-header {
-  background: #007bff;
-  border-bottom: none;
-  padding: 0.75rem 1rem;
-  font-weight: 600;
-  color: #ffffff;
-  font-size: 0.9rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  z-index: 10;
 }
 
 .preview-area {
@@ -950,14 +1054,12 @@ defineExpose<{
     linear-gradient(45deg, #eee 25%, transparent 25%), linear-gradient(-45deg, #eee 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, #eee 75%), linear-gradient(-45deg, transparent 75%, #eee 75%);
   background-size: 20px 20px;
-  min-height: 500px;
-  margin: 0 auto;
-  width: 100%;
-  padding: 2rem;
+  min-height: 400px;
+  /* Fixed size with scrolling - NOT responsive */
   overflow: auto;
-  max-height: calc(100vh - 300px);
   cursor: grab;
   user-select: none;
+  border: 1px solid #ddd;
 }
 
 .preview-area.panning {
@@ -972,20 +1074,24 @@ defineExpose<{
   backface-visibility: hidden;
   -webkit-font-smoothing: subpixel-antialiased;
   display: inline-block;
+  /* Fixed dimensions - do NOT scale responsively */
 }
 
 .pdf-container {
   position: relative;
-  width: fit-content;
+  /* Fixed dimensions based on PDF - NOT responsive */
+  display: flex;
+  justify-content: flex-start;
 }
 
 .pdf-canvas {
+  /* Fixed dimensions - do NOT use max-width: 100% */
   display: block;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #ddd;
   background: white;
-  max-width: none;
-  height: auto;
+  /* Canvas internal resolution used only for rendering */
+  /* Displayed size controlled by getBoundingClientRect() in coordinate functions */
 }
 
 .placed-field {
@@ -1081,23 +1187,9 @@ defineExpose<{
 
 .page-selector {
   text-align: center;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-top: 1px solid #dee2e6;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.page-selector label {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #495057;
-}
-
-.page-selector select {
-  cursor: pointer;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  margin-top: 0.5rem;
 }
 </style>
