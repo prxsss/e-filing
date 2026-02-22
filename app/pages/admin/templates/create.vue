@@ -769,9 +769,19 @@ watch(
       </aside>
 
       <!-- [CENTER] Canvas Area -->
-      <section class="flex-1 relative overflow-hidden flex flex-col">
+      <section class="flex-1 relative overflow-hidden flex flex-col bg-gray-50">
+        <!-- Field Toolbar (Shows when field is selected) -->
+        <field-toolbar
+          v-if="selectedField && uploadedFile"
+          :selected-field="selectedField"
+          :pdf-ref="fileType === 'pdf' ? templatePdfRef : undefined"
+          :scale="scale"
+          @field-updated="handleFieldUpdate"
+          @field-removed="handleFieldRemoval"
+        />
+
         <!-- Toolbar (Zoom etc.) -->
-        <div class="h-10 border-b px-4 flex items-center justify-between shrink-0">
+        <div class="h-10 border-b px-4 flex items-center justify-between shrink-0 bg-white">
           <div class="text-xs">
             <span v-if="!uploadedFile">ยังไม่มีไฟล์</span>
             <span v-else-if="fileType === 'pdf'">เอกสาร PDF - หน้า {{ currentPdfPage }}</span>

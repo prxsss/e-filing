@@ -31,7 +31,6 @@ const currentPage = ref(1);
 const pdfBytes = ref(null);
 const scale = ref(1.5);
 const pdfNaturalDimensions = ref({ width: 0, height: 0 });
-const canvasDisplaySize = ref({ width: 0, height: 0 }); // Track canvas display size for reactivity
 const renderTask = shallowRef(null);
 const isRendering = ref(false);
 
@@ -74,31 +73,40 @@ const scaledDimensions = computed(() => {
 // ========================================
 // Coordinate Conversion Functions (Simplified)
 // ใช้ normalized coordinates (0-1) เป็นหลัก
+// Note: Uses canvas.width/height (actual rendering dimensions) NOT getBoundingClientRect()
+// because getBoundingClientRect() includes CSS transforms, which would cause coordinate
+// shifts when zoom (uiScale) changes. The CSS transform handles all visual scaling.
 // ========================================
 
-// Helper: Get actual displayed canvas dimensions (not internal resolution)
-function getDisplayedCanvasDimensions() {
+// Helper: Get actual canvas rendering dimensions (NOT affected by CSS transforms)
+// IMPORTANT: Uses canvas.width/height directly, not getBoundingClientRect()
+function getCanvasRenderingDimensions() {
   if (!pdfCanvas.value) {
     return { width: 0, height: 0 };
   }
-  // Use getBoundingClientRect for actual displayed dimensions
-  const rect = pdfCanvas.value.getBoundingClientRect();
-  return { width: rect.width, height: rect.height };
+  // Use the actual canvas rendering dimensions (set during PDF render)
+  // NOT getBoundingClientRect() which includes CSS transforms
+  return { width: pdfCanvas.value.width, height: pdfCanvas.value.height };
 }
 
 // แปลง canvas pixel coordinates → normalized (0-1)
-// Uses displayed canvas dimensions (not internal resolution) for stability
+// Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
 function canvasToNormalized(x, y, width, height) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
 
-  // Use displayed dimensions instead of internal canvas resolution
-  const displayDims = getDisplayedCanvasDimensions();
-  const canvasWidth = displayDims.width || pdfCanvas.value.width;
-  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  // Use actual canvas rendering dimensions, NOT getBoundingClientRect()
+  // This ensures zoom (uiScale) does NOT affect coordinate conversion
+  const canvasDims = getCanvasRenderingDimensions();
+  const canvasWidth = canvasDims.width;
+  const canvasHeight = canvasDims.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
 
   // Canvas pixel → Natural PDF coordinates
   const naturalX = (x / canvasWidth) * naturalWidth;
@@ -116,18 +124,23 @@ function canvasToNormalized(x, y, width, height) {
 }
 
 // แปลง normalized (0-1) → canvas pixel coordinates
-// Uses displayed canvas dimensions (not internal resolution) for stability
+// Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
 function normalizedToCanvas(normX, normY, normWidth, normHeight) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 50, y: 50, width: 150, height: 40 };
   }
 
-  // Use displayed dimensions instead of internal canvas resolution
-  const displayDims = getDisplayedCanvasDimensions();
-  const canvasWidth = displayDims.width || pdfCanvas.value.width;
-  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  // Use actual canvas rendering dimensions, NOT getBoundingClientRect()
+  // This ensures zoom (uiScale) does NOT affect coordinate conversion
+  const canvasDims = getCanvasRenderingDimensions();
+  const canvasWidth = canvasDims.width;
+  const canvasHeight = canvasDims.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
 
   // Normalized → Natural PDF coordinates
   const naturalX = normX * naturalWidth;
@@ -195,7 +208,6 @@ const fieldsWithDisplayCoords = computed(() => {
   const _uiScale = props.uiScale; // Track UI scale for debugging
   const _canvas = pdfCanvas.value;
   const _dims = pdfNaturalDimensions.value;
-  const _canvasSize = canvasDisplaySize.value; // Also depend on canvas display size
 
   // If PDF not loaded yet, return empty array
   if (!_canvas || !_dims.width) {
@@ -364,8 +376,8 @@ async function renderCurrentPage() {
     await renderTask.value.promise;
     renderTask.value = null;
 
-    // Update canvas display size after render
-    updateCanvasSize();
+    // Note: canvas dimensions don't change with zoom
+    // The CSS transform: scale() on parent handles all visual scaling
 
     emit('currentPageChanged', pageNumber);
   }
@@ -461,10 +473,10 @@ function drag(event) {
   let newX = mouseCanvasX - activeDrag.value.offsetX;
   let newY = mouseCanvasY - activeDrag.value.offsetY;
 
-  // ขนาด canvas ที่แสดง (ไม่ใช่ internal resolution)
-  const displayDims = getDisplayedCanvasDimensions();
-  const canvasWidth = displayDims.width || pdfCanvas.value.width;
-  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  // ขนาด canvas ที่แสดง (actual rendering dimensions, NOT affected by CSS zoom)
+  const canvasDims = getCanvasRenderingDimensions();
+  const canvasWidth = canvasDims.width;
+  const canvasHeight = canvasDims.height;
 
   // ขนาด field ใน canvas space
   const fieldCanvas = activeDrag.value.field.normalizedWidth !== undefined
@@ -799,14 +811,6 @@ watch(
   { deep: true },
 );
 
-// Debug: Watch uiScale changes
-watch(() => props.uiScale, (_newScale, _oldScale) => {
-  // Force canvas size update when scale changes
-  nextTick(() => {
-    updateCanvasSize();
-  });
-});
-
 // ========================================
 // Pan Scrolling (Drag to Scroll)
 // ========================================
@@ -847,14 +851,6 @@ function handlePan(event) {
 
 function stopPan() {
   isPanning.value = false;
-}
-
-// Update canvas display size for reactivity
-function updateCanvasSize() {
-  if (pdfCanvas.value) {
-    const rect = pdfCanvas.value.getBoundingClientRect();
-    canvasDisplaySize.value = { width: rect.width, height: rect.height };
-  }
 }
 
 // Lifecycle
@@ -1002,6 +998,8 @@ defineExpose({
 .card {
   border: 1px solid #dee2e6;
   border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .preview-area {
@@ -1013,6 +1011,7 @@ defineExpose({
   min-height: 400px;
   /* Fixed size with scrolling - NOT responsive */
   overflow: auto;
+  scrollbar-gutter: stable;
   cursor: grab;
   user-select: none;
   border: 1px solid #ddd;
@@ -1029,7 +1028,8 @@ defineExpose({
   will-change: transform;
   backface-visibility: hidden;
   -webkit-font-smoothing: subpixel-antialiased;
-  display: inline-block;
+  display: block;
+  width: fit-content;
   /* Fixed dimensions - do NOT scale responsively */
 }
 
