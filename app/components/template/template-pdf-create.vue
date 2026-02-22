@@ -114,6 +114,9 @@ const scaledDimensions = computed(() => {
 // ========================================
 // Coordinate Conversion Functions (Simplified)
 // ใช้ normalized coordinates (0-1) เป็นหลัก
+// Note: Uses canvas.width/height (actual rendering dimensions) NOT getBoundingClientRect()
+// because getBoundingClientRect() includes CSS transforms, which would cause coordinate
+// shifts when zoom (uiScale) changes. The CSS transform handles all visual scaling.
 // ========================================
 
 // แปลง canvas pixel coordinates → normalized (0-1)
@@ -126,6 +129,10 @@ function canvasToNormalized(x, y, width, height) {
   const canvasHeight = pdfCanvas.value.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
 
   // Canvas pixel → Natural PDF coordinates
   const naturalX = (x / canvasWidth) * naturalWidth;
@@ -152,6 +159,10 @@ function normalizedToCanvas(normX, normY, normWidth, normHeight) {
   const canvasHeight = pdfCanvas.value.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
 
   // Normalized → Natural PDF coordinates
   const naturalX = normX * naturalWidth;
