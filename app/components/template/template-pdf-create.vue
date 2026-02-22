@@ -114,31 +114,40 @@ const scaledDimensions = computed(() => {
 // ========================================
 // Coordinate Conversion Functions (Simplified)
 // ใช้ normalized coordinates (0-1) เป็นหลัก
+// Note: Uses canvas.width/height (actual rendering dimensions) NOT getBoundingClientRect()
+// because getBoundingClientRect() includes CSS transforms, which would cause coordinate
+// shifts when zoom (uiScale) changes. The CSS transform handles all visual scaling.
 // ========================================
 
-// Helper: Get actual displayed canvas dimensions (not internal resolution)
-function getDisplayedCanvasDimensions() {
+// Helper: Get actual canvas rendering dimensions (NOT affected by CSS transforms)
+// IMPORTANT: Uses canvas.width/height directly, not getBoundingClientRect()
+function getCanvasRenderingDimensions() {
   if (!pdfCanvas.value) {
     return { width: 0, height: 0 };
   }
-  // Use getBoundingClientRect for actual displayed dimensions
-  const rect = pdfCanvas.value.getBoundingClientRect();
-  return { width: rect.width, height: rect.height };
+  // Use the actual canvas rendering dimensions (set during PDF render)
+  // NOT getBoundingClientRect() which includes CSS transforms
+  return { width: pdfCanvas.value.width, height: pdfCanvas.value.height };
 }
 
 // แปลง canvas pixel coordinates → normalized (0-1)
-// Uses displayed canvas dimensions (not internal resolution) for stability
+// Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
 function canvasToNormalized(x, y, width, height) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
 
-  // Use displayed dimensions instead of internal canvas resolution
-  const displayDims = getDisplayedCanvasDimensions();
-  const canvasWidth = displayDims.width || pdfCanvas.value.width;
-  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  // Use actual canvas rendering dimensions, NOT getBoundingClientRect()
+  // This ensures zoom (uiScale) does NOT affect coordinate conversion
+  const canvasDims = getCanvasRenderingDimensions();
+  const canvasWidth = canvasDims.width;
+  const canvasHeight = canvasDims.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
 
   // Canvas pixel → Natural PDF coordinates
   const naturalX = (x / canvasWidth) * naturalWidth;
@@ -156,18 +165,23 @@ function canvasToNormalized(x, y, width, height) {
 }
 
 // แปลง normalized (0-1) → canvas pixel coordinates
-// Uses displayed canvas dimensions (not internal resolution) for stability
+// Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
 function normalizedToCanvas(normX, normY, normWidth, normHeight) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 50, y: 50, width: 150, height: 40 };
   }
 
-  // Use displayed dimensions instead of internal canvas resolution
-  const displayDims = getDisplayedCanvasDimensions();
-  const canvasWidth = displayDims.width || pdfCanvas.value.width;
-  const canvasHeight = displayDims.height || pdfCanvas.value.height;
+  // Use actual canvas rendering dimensions, NOT getBoundingClientRect()
+  // This ensures zoom (uiScale) does NOT affect coordinate conversion
+  const canvasDims = getCanvasRenderingDimensions();
+  const canvasWidth = canvasDims.width;
+  const canvasHeight = canvasDims.height;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
+
+  if (!canvasWidth || !canvasHeight) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
 
   // Normalized → Natural PDF coordinates
   const naturalX = normX * naturalWidth;
