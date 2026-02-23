@@ -455,7 +455,6 @@ onMounted(() => {
           <!-- PDF Viewer (Read-only Display) -->
           <div
             v-if="pdfFile"
-            class="bg-gray-100/50 overflow-auto p-8 rounded-lg border border-gray-200"
             style="min-height: 600px;"
           >
             <template-pdf-create

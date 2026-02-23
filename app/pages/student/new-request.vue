@@ -29,7 +29,7 @@ const requestTypes: RequestType[] = [
     icon: 'i-lucide-file-text',
   },
   {
-    id: 2,
+    id: 15,
     name: 'Tuition Fee Waiver',
     description: 'Request for delay or waiver of tuition fees.',
     estimatedTime: '5-7 Days',

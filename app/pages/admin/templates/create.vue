@@ -7,6 +7,9 @@ const router = useRouter();
 const toast = useToast();
 const hasChanges = ref(false);
 const isSaving = ref(false);
+const isPreviewing = ref(false);
+const isPreviewOpen = ref(false);
+const previewBlobUrl = ref(null);
 const isDragging = ref(false);
 const fileInput = ref(null);
 const templatePdfRef = ref(null);
@@ -543,6 +546,66 @@ function handleBeforeUnload(e) {
   }
 }
 
+async function handlePreview() {
+  if (!uploadedFile.value) {
+    toast.add({ title: 'ข้อผิดพลาด', description: 'กรุณาอัพโหลดไฟล์ PDF ก่อน', color: 'error' });
+    return;
+  }
+
+  if (fileType.value !== 'pdf') {
+    toast.add({ title: 'รองรับเฉพาะ PDF', description: 'Preview ใช้ได้กับไฟล์ PDF เท่านั้น', color: 'warning' });
+    return;
+  }
+
+  if (placedFields.value.length === 0) {
+    toast.add({ title: 'ยังไม่มี Field', description: 'กรุณาวาง field อย่างน้อย 1 field ก่อน Preview', color: 'warning' });
+    return;
+  }
+
+  isPreviewing.value = true;
+  try {
+    const naturalDims = templatePdfRef.value?.pdfNaturalDimensions || {};
+
+    const formData = new FormData();
+    formData.append('pdfFile', uploadedFile.value);
+    formData.append('fields', JSON.stringify(placedFields.value));
+    formData.append('templateInfo', JSON.stringify({
+      documentWidth: naturalDims.width || 595,
+      documentHeight: naturalDims.height || 842,
+    }));
+
+    const response = await $fetch('/api/preview-template-pdf', {
+      method: 'POST',
+      body: formData,
+      responseType: 'blob',
+    });
+
+    if (previewBlobUrl.value) {
+      URL.revokeObjectURL(previewBlobUrl.value);
+    }
+    previewBlobUrl.value = URL.createObjectURL(response);
+    isPreviewOpen.value = true;
+  }
+  catch (error) {
+    toast.add({
+      title: 'ไม่สามารถสร้าง Preview ได้',
+      description: error?.message || 'กรุณาลองใหม่อีกครั้ง',
+      color: 'error',
+    });
+  }
+  finally {
+    isPreviewing.value = false;
+  }
+}
+
+function closePreview() {
+  isPreviewOpen.value = false;
+  if (previewBlobUrl.value) {
+    URL.revokeObjectURL(previewBlobUrl.value);
+    previewBlobUrl.value = null;
+  }
+}
+
 onMounted(async () => {
   // await fetchContracts(); // Temporarily disabled - using mock data
   await fetchTemplateFields();
@@ -555,6 +618,9 @@ onUnmounted(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
   if (previewImageUrl.value) {
     URL.revokeObjectURL(previewImageUrl.value);
+  }
+  if (previewBlobUrl.value) {
+    URL.revokeObjectURL(previewBlobUrl.value);
   }
 });
 
@@ -608,6 +674,17 @@ watch(
       </div>
 
       <div class="flex items-center gap-3">
+        <UButton
+          :loading="isPreviewing"
+          :disabled="!uploadedFile || fileType !== 'pdf' || placedFields.length === 0"
+          icon="i-heroicons-eye"
+          color="primary"
+          variant="soft"
+          label="Preview"
+          size="xl"
+          class="px-6 font-bold"
+          @click="handlePreview"
+        />
         <UButton
           :loading="isSaving"
           icon="i-heroicons-check"
@@ -853,6 +930,65 @@ watch(
       @field-updated="handleFieldUpdated"
       @field-deleted="handleFieldDeleted"
     />
+
+    <!-- PDF Preview Modal -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-200"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-200"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isPreviewOpen"
+          class="fixed inset-0 z-50 flex flex-col bg-black/70 backdrop-blur-sm"
+        >
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between px-6 py-3 bg-white shadow shrink-0">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-heroicons-eye" class="w-5 h-5 text-primary-600" />
+              <h2 class="font-bold text-lg">
+                Preview: {{ newTemplateName || 'Template' }}
+              </h2>
+              <UBadge color="primary" variant="subtle" size="sm">
+                ตัวอย่างข้อมูล
+              </UBadge>
+            </div>
+            <div class="flex items-center gap-2">
+              <UButton
+                icon="i-heroicons-arrow-top-right-on-square"
+                color="neutral"
+                variant="soft"
+                label="เปิดใน Tab ใหม่"
+                size="sm"
+                :href="previewBlobUrl"
+                target="_blank"
+                as="a"
+              />
+              <UButton
+                icon="i-heroicons-x-mark"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="closePreview"
+              />
+            </div>
+          </div>
+
+          <!-- PDF Iframe -->
+          <div class="flex-1 overflow-hidden p-4">
+            <iframe
+              v-if="previewBlobUrl"
+              :src="previewBlobUrl"
+              class="w-full h-full rounded-lg shadow-lg bg-white"
+              style="border: none;"
+            />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 

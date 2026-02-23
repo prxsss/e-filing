@@ -33,6 +33,10 @@ const scale = ref(1.5);
 const pdfNaturalDimensions = ref({ width: 0, height: 0 });
 const renderTask = shallowRef(null);
 const isRendering = ref(false);
+// Reactive canvas rendering dimensions – updated after each renderCurrentPage().
+// Using a reactive ref instead of canvas.width/height directly ensures that
+// fieldsWithDisplayCoords recomputes AFTER the canvas has been fully rendered.
+const canvasRenderingSize = ref({ width: 0, height: 0 });
 
 const activeDrag = ref({
   isDragging: false,
@@ -54,19 +58,17 @@ const activeResize = ref({
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
-// Computed: Calculate wrapper dimensions after scale for proper scrolling
+// Computed: Calculate wrapper dimensions after scale for proper scrolling.
+// Uses canvasRenderingSize (reactive) instead of canvas.width/height directly.
 const scaledDimensions = computed(() => {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+  const size = canvasRenderingSize.value;
+  if (!size.width || !size.height) {
     return { width: 0, height: 0 };
   }
-
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
   const currentScale = props.uiScale || 1;
-
   return {
-    width: canvasWidth * currentScale,
-    height: canvasHeight * currentScale,
+    width: size.width * currentScale,
+    height: size.height * currentScale,
   };
 });
 
@@ -79,14 +81,19 @@ const scaledDimensions = computed(() => {
 // ========================================
 
 // Helper: Get actual canvas rendering dimensions (NOT affected by CSS transforms)
-// IMPORTANT: Uses canvas.width/height directly, not getBoundingClientRect()
+// Uses the reactive canvasRenderingSize ref (updated after each render) so that
+// computed properties that call this function will correctly re-run once the
+// canvas has been rendered with its final dimensions.
 function getCanvasRenderingDimensions() {
-  if (!pdfCanvas.value) {
+  const size = canvasRenderingSize.value;
+  if (!size.width || !size.height) {
+    // Fallback to live DOM value if reactive state not yet populated
+    if (pdfCanvas.value) {
+      return { width: pdfCanvas.value.width, height: pdfCanvas.value.height };
+    }
     return { width: 0, height: 0 };
   }
-  // Use the actual canvas rendering dimensions (set during PDF render)
-  // NOT getBoundingClientRect() which includes CSS transforms
-  return { width: pdfCanvas.value.width, height: pdfCanvas.value.height };
+  return { width: size.width, height: size.height };
 }
 
 // แปลง canvas pixel coordinates → normalized (0-1)
@@ -201,16 +208,19 @@ const placedFieldsOnCurrentPage = computed(() => {
 });
 
 // Computed: Get display coordinates for each field
-// MUST depend on scale, canvas, and natural dimensions for reactivity
+// MUST depend on scale, canvas, natural dimensions AND canvasRenderingSize for reactivity.
+// canvasRenderingSize is updated AFTER renderCurrentPage() sets canvas.width/height,
+// ensuring fields are positioned with the correct canvas dimensions.
 const fieldsWithDisplayCoords = computed(() => {
   // Force dependency on these values to trigger recalculation when they change
   const _scale = scale.value;
   const _uiScale = props.uiScale; // Track UI scale for debugging
   const _canvas = pdfCanvas.value;
   const _dims = pdfNaturalDimensions.value;
+  const _canvasSize = canvasRenderingSize.value; // KEY: must depend on this reactive ref
 
-  // If PDF not loaded yet, return empty array
-  if (!_canvas || !_dims.width) {
+  // If PDF not loaded yet or canvas not rendered, return empty array
+  if (!_canvas || !_dims.width || !_canvasSize.width) {
     return [];
   }
 
@@ -299,6 +309,8 @@ async function loadPdf() {
 
   try {
     pdfLoaded.value = false;
+    // Reset canvas size so fieldsWithDisplayCoords returns [] until new render completes
+    canvasRenderingSize.value = { width: 0, height: 0 };
     if (!pdfPageContainer.value)
       throw new Error('PDF container not found');
 
@@ -375,6 +387,10 @@ async function renderCurrentPage() {
     renderTask.value = page.render({ canvasContext: context, viewport });
     await renderTask.value.promise;
     renderTask.value = null;
+
+    // Update reactive canvas size AFTER rendering so that fieldsWithDisplayCoords
+    // recomputes with the correct dimensions (not the default 300×150 canvas size).
+    canvasRenderingSize.value = { width: canvas.width, height: canvas.height };
 
     // Note: canvas dimensions don't change with zoom
     // The CSS transform: scale() on parent handles all visual scaling

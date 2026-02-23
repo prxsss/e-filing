@@ -257,7 +257,7 @@ onMounted(() => {
           </div>
 
           <!-- PDF Viewer -->
-          <div class="bg-gray-100/50 overflow-auto p-8 rounded-lg border border-gray-200" style="min-height: 600px;">
+          <div style="min-height: 600px;">
             <template-pdf-create
               :pdf-file="pdfFile"
               :placed-fields="placedFields"
