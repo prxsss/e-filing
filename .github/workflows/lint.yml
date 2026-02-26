@@ -12,6 +12,8 @@ jobs:
     env:
       NODE_ENV: development
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
 
     steps:
       - uses: actions/checkout@v5
