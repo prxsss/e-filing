@@ -2,7 +2,6 @@
 import type { NavigationMenuItem } from '@nuxt/ui';
 
 const authStore = useAuthStore();
-await authStore.init();
 
 const route = useRoute();
 const { locale, locales, t, setLocale } = useI18n();
@@ -120,7 +119,7 @@ const selectedLanguageIcon = computed(() =>
           }"
         />
       </template>
-      <template v-if="authStore.user" #footer="{ collapsed }">
+      <template v-if="authStore.session.loggedIn" #footer="{ collapsed }">
         <UButton
           icon="i-lucide-log-out"
           :label="collapsed ? undefined : t('logout')"
@@ -128,7 +127,7 @@ const selectedLanguageIcon = computed(() =>
           variant="ghost"
           class="w-full py-3"
           :block="collapsed"
-          @click="authStore.signOut()"
+          @click="authStore.logout()"
         />
       </template>
     </UDashboardSidebar>
@@ -149,7 +148,7 @@ const selectedLanguageIcon = computed(() =>
 
             <!-- Notifications Button -->
             <UButton
-              v-if="authStore.user"
+              v-if="authStore.session.loggedIn"
               color="neutral"
               variant="ghost"
               square
@@ -160,7 +159,7 @@ const selectedLanguageIcon = computed(() =>
             </UButton>
 
             <div class="pl-4 border-l-2 border-slate-200">
-              <div v-if="authStore.loading" class="flex items-center gap-3">
+              <div v-if="false" class="flex items-center gap-3">
                 <div class="hidden md:block space-y-1">
                   <USkeleton class="h-4 w-24" />
                   <USkeleton class="h-3 w-16 ml-auto" />
@@ -169,10 +168,10 @@ const selectedLanguageIcon = computed(() =>
               </div>
 
               <!-- User Info -->
-              <div v-else-if="authStore.user" class="flex items-center gap-3">
+              <div v-else-if="authStore.session.loggedIn" class="flex items-center gap-3">
                 <div class="text-right hidden md:block">
                   <p class="font-semibold text-sm">
-                    {{ authStore.user.name }}
+                    {{ authStore.session.user?.fullName }}
                   </p>
                   <p class="text-xs">
                     Admin

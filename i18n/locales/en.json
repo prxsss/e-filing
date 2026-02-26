@@ -59,5 +59,7 @@
   "saveChanges": "Save Changes",
   "cancel": "Cancel",
   "fullName": "Full Name",
-  "confirm": "Confirm"
+  "confirm": "Confirm",
+  "createTemplate": "Create Template",
+  "documentReview": "Document Review"
 }

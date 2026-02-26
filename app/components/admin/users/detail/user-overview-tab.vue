@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import type { User } from '~/types/user';
+import type { UserDetail } from '~/types/user';
 
 import { formatDate } from '~/utils/formatters';
 
 defineProps<{
-  user: User;
+  user: UserDetail;
   statusSummary: {
     totalRequests: number;
     pendingAction: number;
     approved: number;
   };
 }>();
-
-const localPath = useLocalePath();
 </script>
 
 <template>
@@ -33,28 +31,20 @@ const localPath = useLocalePath();
         <div class="divide-y divide-gray-200 dark:divide-gray-800">
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Institution ID
+              ID
             </p>
             <p class="text-sm font-medium">
-              {{ user.institutionId }}
+              {{ user.id }}
             </p>
           </div>
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Faculty/Department
+              Faculty
             </p>
             <p class="text-sm font-medium">
-              {{ user.faculty }}
+              {{ user.facultyName || '-' }}
             </p>
           </div>
-          <!-- <div class="p-5">
-            <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              User Type
-            </p>
-            <p class="text-sm font-medium">
-              {{ user.type }}
-            </p>
-          </div> -->
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
               Created At
@@ -72,30 +62,6 @@ const localPath = useLocalePath();
             </p>
           </div>
         </div>
-
-        <template #footer>
-          <div class="space-y-3">
-            <UButton
-              :to="localPath(`/admin/users/${user.id}/edit`)"
-              label="Edit Profile"
-              block
-              color="neutral"
-              variant="soft"
-            />
-            <UButton
-              label="Reset Password"
-              block
-              color="neutral"
-              variant="soft"
-            />
-            <UButton
-              label="Force Logout"
-              block
-              color="error"
-              variant="soft"
-            />
-          </div>
-        </template>
       </UCard>
     </div>
 
@@ -145,21 +111,14 @@ const localPath = useLocalePath();
         </div>
       </UCard>
 
-      <!-- Permissions & Groups Card -->
+      <!-- Roles Card -->
       <UCard>
         <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <UIcon name="i-heroicons-users-20-solid" class="text-gray-400" />
-              <h2 class="font-semibold">
-                Permissions Preview
-              </h2>
-            </div>
-            <UButton
-              color="primary"
-              variant="link"
-              label="View All"
-            />
+          <div class="flex items-center gap-3">
+            <UIcon name="i-heroicons-users-20-solid" class="text-gray-400" />
+            <h2 class="font-semibold">
+              Roles
+            </h2>
           </div>
         </template>
 
@@ -190,7 +149,7 @@ const localPath = useLocalePath();
         </template>
 
         <!-- No Signature State -->
-        <div v-if="!user.signature" class="flex flex-col items-center justify-center py-8">
+        <div v-if="true" class="flex flex-col items-center justify-center py-8">
           <div class="flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
             <UIcon name="i-heroicons-document-plus-20-solid" class="w-7 h-7 text-gray-400" />
           </div>
@@ -212,7 +171,7 @@ const localPath = useLocalePath();
         <div v-else class="flex flex-col md:flex-row gap-8 items-center">
           <div class="w-full md:w-64 h-32 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center p-4">
             <img
-              :src="user.signature"
+              :src="undefined"
               alt="Signature Preview"
               class="max-h-full dark:invert opacity-80"
             >

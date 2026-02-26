@@ -6,13 +6,26 @@ import env from './lib/env';
 export default defineNuxtConfig({
   // ssr: false,
 
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxtjs/i18n', '@pinia/nuxt'],
+  modules: [
+    '@nuxt/eslint',
+    '@nuxt/ui',
+    '@nuxtjs/i18n',
+    '@pinia/nuxt',
+    'nuxt-auth-utils',
+  ],
 
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css'],
   runtimeConfig: {
     public: {
       nodeEnv: env.NODE_ENV,
+    },
+    session: {
+      password: env.NUXT_SESSION_PASSWORD,
+      name: 'e-filing-session',
+      cookie: {
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      },
     },
   },
   compatibilityDate: '2025-07-15',

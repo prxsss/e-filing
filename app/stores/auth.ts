@@ -1,52 +1,39 @@
-import { createAuthClient } from 'better-auth/vue';
 import { defineStore } from 'pinia';
-
-const authClient = createAuthClient();
 
 export const useAuthStore = defineStore('auth', () => {
   const localePath = useLocalePath();
 
-  const session = ref<Awaited<ReturnType<typeof authClient.useSession>> | null>(null);
+  const session = useUserSession();
   const errorMessage = ref<string | null>(null);
-  const isSubmitting = ref(false);
+  const loading = ref(false);
 
-  async function init() {
-    const data = await authClient.useSession(useFetch);
-    session.value = data;
-  }
+  async function login(email: string, password: string) {
+    try {
+      loading.value = true;
 
-  const user = computed(() => session.value?.data?.user);
-  const loading = computed(() => session.value?.isPending || isSubmitting.value);
+      const response = await $fetch('/api/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      });
+      if (!response.success) {
+        throw new Error('Login failed');
+      }
 
-  async function signIn(email: string, password: string) {
-    errorMessage.value = null;
-    isSubmitting.value = true;
-
-    const { error } = await authClient.signIn.email({
-      email,
-      password,
-      callbackURL: localePath('/'),
-    });
-
-    isSubmitting.value = false;
-
-    if (error) {
-      errorMessage.value = error.message || 'An error occurred';
-
-      return false;
+      await session.fetch();
+      navigateTo(localePath('/'));
     }
-
-    return true;
+    catch (error) {
+      console.error('Login error:', error);
+      errorMessage.value = 'Invalid email or password';
+    }
+    finally {
+      loading.value = false;
+    }
   }
 
-  async function signOut() {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          navigateTo(localePath('/login'));
-        },
-      },
-    });
+  async function logout() {
+    await session.clear();
+    navigateTo(localePath('/login'));
   }
 
   function clearError() {
@@ -54,12 +41,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    errorMessage,
-    user,
+    session,
     loading,
-    init,
-    signIn,
-    signOut,
+    errorMessage,
+    login,
+    logout,
     clearError,
   };
 });
