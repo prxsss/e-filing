@@ -4,8 +4,9 @@ import env from './lib/env';
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  // ssr: false,
 
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxtjs/i18n'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxtjs/i18n', '@pinia/nuxt'],
 
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css'],
