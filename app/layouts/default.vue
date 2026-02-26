@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui';
 
+const authStore = useAuthStore();
+await authStore.init();
+
 const route = useRoute();
 const { locale, locales, t, setLocale } = useI18n();
 const localePath = useLocalePath();
 
 const open = ref(false);
-const isLoggedIn = ref(false); // Replace with actual auth state
 
 const sidebarItems = computed(() => [{
   label: t('dashboard'),
@@ -118,7 +120,7 @@ const selectedLanguageIcon = computed(() =>
           }"
         />
       </template>
-      <template v-if="isLoggedIn" #footer="{ collapsed }">
+      <template v-if="authStore.user" #footer="{ collapsed }">
         <UButton
           icon="i-lucide-log-out"
           :label="collapsed ? undefined : t('logout')"
@@ -126,6 +128,7 @@ const selectedLanguageIcon = computed(() =>
           variant="ghost"
           class="w-full py-3"
           :block="collapsed"
+          @click="authStore.signOut()"
         />
       </template>
     </UDashboardSidebar>
@@ -146,7 +149,7 @@ const selectedLanguageIcon = computed(() =>
 
             <!-- Notifications Button -->
             <UButton
-              v-if="isLoggedIn"
+              v-if="authStore.user"
               color="neutral"
               variant="ghost"
               square
@@ -156,30 +159,42 @@ const selectedLanguageIcon = computed(() =>
               </UChip>
             </UButton>
 
-            <!-- User Info -->
-            <div v-if="isLoggedIn" class="flex items-center gap-3 pl-4 border-l border-slate-200">
-              <div class="text-right hidden md:block">
-                <p class="font-semibold text-sm">
-                  Admin System
-                </p>
-                <p class="text-xs">
-                  IT Services
-                </p>
+            <div class="pl-4 border-l-2 border-slate-200">
+              <div v-if="authStore.loading" class="flex items-center gap-3">
+                <div class="hidden md:block space-y-1">
+                  <USkeleton class="h-4 w-24" />
+                  <USkeleton class="h-3 w-16 ml-auto" />
+                </div>
+                <USkeleton class="h-10 w-10 rounded-full" />
               </div>
-              <UAvatar
-                icon="i-lucide-user"
-                size="lg"
-              />
+
+              <!-- User Info -->
+              <div v-else-if="authStore.user" class="flex items-center gap-3">
+                <div class="text-right hidden md:block">
+                  <p class="font-semibold text-sm">
+                    {{ authStore.user.name }}
+                  </p>
+                  <p class="text-xs">
+                    {{ t('admin') }}
+                  </p>
+                </div>
+                <UAvatar
+                  icon="i-lucide-user"
+                  size="lg"
+                />
+              </div>
+
+              <!-- Login Button -->
+              <UButton v-else :to="localePath('/login')" icon="i-lucide-log-in">
+                {{ t('login') }}
+              </UButton>
             </div>
-            <UButton v-else :to="localePath('/login')" icon="i-lucide-log-in">
-              Staff Login
-            </UButton>
           </template>
         </UDashboardNavbar>
       </template>
       <template #body>
         <!-- Main content goes here... -->
-        <slot />
+        <slot class="relative" />
       </template>
     </UDashboardPanel>
   </UDashboardGroup>
