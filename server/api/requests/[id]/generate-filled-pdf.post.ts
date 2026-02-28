@@ -1,10 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 import db from '../../../../lib/db';
 import { request, requestTemplate, requestTemplateValues } from '../../../../lib/db/schema';
+import { supabaseAdmin } from '../../../../lib/supabase/client';
 
 export default defineEventHandler(async (event) => {
   try {
@@ -112,31 +110,40 @@ export default defineEventHandler(async (event) => {
       };
     }
 
-    // Save to uploads/filled-requests/
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'filled-requests');
+    // Upload to Supabase Storage
+    const filename = `request-${requestId}-filled.pdf`;
 
-    // Create directory if it doesn't exist
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
+    // Overwrite if already exists (re-submit case)
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('filled-requests')
+      .upload(filename, filledPdfBytes, {
+        contentType: 'application/pdf',
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return {
+        success: false,
+        error: `Failed to upload filled PDF: ${uploadError.message}`,
+      };
     }
 
-    const filename = `request-${requestId}-filled.pdf`;
-    const filePath = join(uploadsDir, filename);
-
-    await writeFile(filePath, filledPdfBytes);
-
-    const fileUrl = `/uploads/filled-requests/${filename}`;
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('filled-requests')
+      .getPublicUrl(filename);
 
     // Update request with filled document URL
     await db
       .update(request)
-      .set({ filledDocumentUrl: fileUrl })
+      .set({ filledDocumentUrl: publicUrl })
       .where(eq(request.id, requestId));
 
     return {
       success: true,
       data: {
-        filledDocumentUrl: fileUrl,
+        filledDocumentUrl: publicUrl,
       },
     };
   }
