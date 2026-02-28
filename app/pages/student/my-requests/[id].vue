@@ -33,9 +33,20 @@ type Attachment = {
   createdAt: string;
 };
 
+// Staged file for new-request mode (client-side only, not yet uploaded)
+type PendingAttachment = {
+  id: string; // temporary local id (e.g. crypto.randomUUID)
+  file: File;
+  localUrl: string; // URL.createObjectURL for preview
+  name: string;
+  size: number;
+};
+
 // --- State ---
 const route = useRoute();
 const requestId = route.params.id;
+const isNewRequest = requestId === 'new';
+const newTemplateId = isNewRequest ? Number(route.query.templateId) : null;
 const isLoading = ref(true);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
@@ -49,11 +60,14 @@ const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<number, string>>({});
 const scale = ref(1);
 
-// Attachments
+// Attachments (existing request)
 const attachments = ref<Attachment[]>([]);
 const isUploadingAttachment = ref(false);
 const isDeletingAttachment = ref<number | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// Pending attachments (new request mode — staged client-side)
+const pendingAttachments = ref<PendingAttachment[]>([]);
 
 // --- Methods ---
 // Convert URL to File object
@@ -75,7 +89,36 @@ async function fetchRequestData() {
   error.value = null;
 
   try {
-    // Fetch request details
+    if (isNewRequest) {
+      // New request mode: load template directly without a DB record
+      if (!newTemplateId) {
+        error.value = 'No template selected';
+        return;
+      }
+
+      const templateResult: any = await $fetch(`/api/templates/${newTemplateId}`);
+
+      if (templateResult.success && templateResult.data) {
+        templateData.value = templateResult.data as TemplateData;
+
+        if (templateData.value?.documentUrl) {
+          const filename = templateData.value.documentUrl.split('/').pop() || 'template.pdf';
+          pdfFile.value = await urlToFile(templateData.value.documentUrl, filename);
+        }
+
+        if (templateData.value?.placedFieldsData) {
+          placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
+            (field: any) => field.isFillable !== false,
+          );
+        }
+      }
+      else {
+        error.value = 'Template not found';
+      }
+      return;
+    }
+
+    // Existing request mode: fetch request details
     const requestResult: any = await $fetch(`/api/requests/${requestId}`);
 
     if (requestResult.success && requestResult.data) {
@@ -169,15 +212,62 @@ async function submitRequest() {
   error.value = null;
 
   try {
-    // 1. Save field values first
-    await saveFieldValues();
+    let activeRequestId: string | string[] = requestId ?? '';
 
-    if (error.value) {
-      return; // Stop if saving failed
+    if (isNewRequest) {
+      // New request mode: create the DB record first
+      const createResult: any = await $fetch('/api/requests', {
+        method: 'POST',
+        body: {
+          templateId: newTemplateId,
+          status: 'draft',
+        },
+      });
+
+      if (!createResult.success || !createResult.data) {
+        error.value = (createResult.error as string) || 'Failed to create request';
+        return;
+      }
+
+      activeRequestId = String(createResult.data.id);
+
+      // Upload staged attachments now that we have a request ID
+      for (const pending of pendingAttachments.value) {
+        try {
+          const formData = new FormData();
+          formData.append('file', pending.file, pending.name);
+          await $fetch(`/api/requests/${activeRequestId}/attachments/upload`, {
+            method: 'POST',
+            body: formData,
+          });
+        }
+        catch (uploadErr) {
+          console.error('Failed to upload attachment:', pending.name, uploadErr);
+          // Continue — don't block submission for attachment failures
+        }
+      }
+    }
+
+    // 1. Save field values
+    const fieldValuesArray: FieldValue[] = Object.entries(fieldValues.value).map(
+      ([fieldId, value]) => ({
+        fieldId: Number.parseInt(fieldId),
+        value: value || '',
+      }),
+    );
+
+    const saveResult: any = await $fetch(`/api/requests/${activeRequestId}/field-values`, {
+      method: 'POST',
+      body: { fieldValues: fieldValuesArray },
+    });
+
+    if (!saveResult.success) {
+      error.value = (saveResult.error as string) || 'Failed to save field values';
+      return;
     }
 
     // 2. Generate filled PDF
-    const pdfResult = await $fetch(`/api/requests/${requestId}/generate-filled-pdf`, {
+    const pdfResult = await $fetch(`/api/requests/${activeRequestId}/generate-filled-pdf`, {
       method: 'POST',
     });
 
@@ -187,7 +277,7 @@ async function submitRequest() {
     }
 
     // 3. Update request status to submitted
-    const updateResult: any = await $fetch(`/api/requests/${requestId}`, {
+    const updateResult: any = await $fetch(`/api/requests/${activeRequestId}`, {
       method: 'PATCH',
       body: {
         status: 'submitted',
@@ -244,6 +334,8 @@ function triggerFileUpload() {
 }
 
 // Handle file upload
+// In new-request mode: stage the file client-side (no upload yet)
+// In existing-request mode: upload immediately to the API
 async function handleFileUpload(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
@@ -255,10 +347,28 @@ async function handleFileUpload(event: Event) {
   // Validate file size (max 30MB)
   const maxSize = 30 * 1024 * 1024; // 30MB
   if (file.size > maxSize) {
-    error.value = 'File size must be less than 10MB';
+    error.value = 'File size must be less than 30MB';
+    if (target)
+      target.value = '';
     return;
   }
 
+  if (isNewRequest) {
+    // ---- Client-side staging (Pattern: hold in memory, upload on submit) ----
+    // No API call yet — the request record doesn't exist until submit
+    pendingAttachments.value.push({
+      id: crypto.randomUUID(),
+      file,
+      localUrl: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
+    });
+    if (target)
+      target.value = '';
+    return;
+  }
+
+  // ---- Existing request: upload immediately ----
   isUploadingAttachment.value = true;
   error.value = null;
 
@@ -272,7 +382,6 @@ async function handleFileUpload(event: Event) {
     });
 
     if (result.success && result.data) {
-      // Add new attachment to list
       attachments.value.push(result.data);
       successMessage.value = 'File uploaded successfully!';
       setTimeout(() => {
@@ -289,11 +398,29 @@ async function handleFileUpload(event: Event) {
   }
   finally {
     isUploadingAttachment.value = false;
-    // Reset file input
-    if (target) {
+    if (target)
       target.value = '';
-    }
   }
+}
+
+// Remove a staged (pending) attachment before submit
+function removePendingAttachment(id: string) {
+  const idx = pendingAttachments.value.findIndex(a => a.id === id);
+  if (idx !== -1) {
+    const attachment = pendingAttachments.value[idx];
+    if (attachment)
+      URL.revokeObjectURL(attachment.localUrl);
+    pendingAttachments.value.splice(idx, 1);
+  }
+}
+
+// Human-readable file size
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024)
+    return `${bytes} B`;
+  if (bytes < 1024 * 1024)
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // Delete attachment
@@ -360,15 +487,11 @@ function getFileIcon(fileName: string | null) {
   }
 }
 
-// Format file size
-function _formatFileSize(_url: string | null) {
-  // This is a placeholder - actual file size would need to be stored in DB
-  return 'Unknown size';
-}
-
 onMounted(() => {
   fetchRequestData();
-  fetchAttachments();
+  if (!isNewRequest) {
+    fetchAttachments();
+  }
 });
 </script>
 
@@ -380,7 +503,7 @@ onMounted(() => {
         <UBreadcrumb
           :links="[
             { label: 'My Requests', to: '/student/my-requests' },
-            { label: `Request #${requestId}`, to: `/student/my-requests/${requestId}` },
+            { label: isNewRequest ? 'New Request' : `Request #${requestId}`, to: `/student/my-requests/${requestId}` },
           ]"
         />
         <div class="mt-4 flex items-center justify-between">
@@ -525,7 +648,7 @@ onMounted(() => {
                   Attachments
                 </h3>
                 <UButton
-                  v-if="requestData?.status === 'draft' || !requestData?.status"
+                  v-if="isNewRequest || requestData?.status === 'draft'"
                   size="xs"
                   color="primary"
                   icon="i-heroicons-paper-clip"
@@ -547,59 +670,103 @@ onMounted(() => {
                 @change="handleFileUpload"
               >
 
-              <!-- Attachment list -->
-              <div
-                v-for="attachment in attachments"
-                :key="attachment.id"
-                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <UIcon
-                    :name="getFileIcon(attachment.fileName)"
-                    class="w-5 h-5 text-gray-600 shrink-0"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-900 truncate">
-                      {{ attachment.fileName }}
-                    </p>
-                    <p class="text-xs text-gray-500">
-                      {{ new Date(attachment.createdAt).toLocaleDateString() }}
-                    </p>
+              <!-- Pending attachments (new-request mode: staged client-side) -->
+              <template v-if="isNewRequest">
+                <div
+                  v-for="pending in pendingAttachments"
+                  :key="pending.id"
+                  class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <UIcon
+                      :name="getFileIcon(pending.name)"
+                      class="w-5 h-5 text-blue-600 shrink-0"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 truncate">
+                        {{ pending.name }}
+                      </p>
+                      <p class="text-xs text-gray-500">
+                        {{ formatFileSize(pending.size) }} · Will be uploaded on submit
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div class="flex items-center gap-2">
                   <UButton
-                    size="xs"
-                    variant="ghost"
-                    icon="i-heroicons-book-open"
-                    @click="openPdfInNewTab(attachment.fileUrl!)"
-                  >
-                    View
-                  </UButton>
-                  <UButton
-                    v-if="requestData?.status === 'draft' || !requestData?.status"
                     size="xs"
                     variant="ghost"
                     color="error"
                     icon="i-heroicons-trash"
-                    :loading="isDeletingAttachment === attachment.id"
-                    @click="deleteAttachment(attachment.id)"
-                  >
-                    Delete
-                  </UButton>
+                    @click="removePendingAttachment(pending.id)"
+                  />
                 </div>
-              </div>
 
-              <!-- Empty state -->
-              <div v-if="attachments.length === 0" class="text-center py-8 text-gray-500">
-                <i class="fas fa-paperclip text-3xl mb-2" />
-                <p class="text-sm">
-                  No attachments yet
-                </p>
-                <p class="text-xs mt-1">
-                  Add supporting documents for your request
-                </p>
-              </div>
+                <!-- Empty state (new mode) -->
+                <div v-if="pendingAttachments.length === 0" class="text-center py-8 text-gray-500">
+                  <i class="fas fa-paperclip text-3xl mb-2" />
+                  <p class="text-sm">
+                    No attachments yet
+                  </p>
+                  <p class="text-xs mt-1">
+                    Files will be uploaded when you submit
+                  </p>
+                </div>
+              </template>
+
+              <!-- Attachment list (existing request) -->
+              <template v-else>
+                <div
+                  v-for="attachment in attachments"
+                  :key="attachment.id"
+                  class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <UIcon
+                      :name="getFileIcon(attachment.fileName)"
+                      class="w-5 h-5 text-gray-600 shrink-0"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 truncate">
+                        {{ attachment.fileName }}
+                      </p>
+                      <p class="text-xs text-gray-500">
+                        {{ new Date(attachment.createdAt).toLocaleDateString() }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      icon="i-heroicons-book-open"
+                      @click="openPdfInNewTab(attachment.fileUrl!)"
+                    >
+                      View
+                    </UButton>
+                    <UButton
+                      v-if="requestData?.status === 'draft'"
+                      size="xs"
+                      variant="ghost"
+                      color="error"
+                      icon="i-heroicons-trash"
+                      :loading="isDeletingAttachment === attachment.id"
+                      @click="deleteAttachment(attachment.id)"
+                    >
+                      Delete
+                    </UButton>
+                  </div>
+                </div>
+
+                <!-- Empty state (existing request) -->
+                <div v-if="attachments.length === 0" class="text-center py-8 text-gray-500">
+                  <i class="fas fa-paperclip text-3xl mb-2" />
+                  <p class="text-sm">
+                    No attachments yet
+                  </p>
+                  <p class="text-xs mt-1">
+                    Add supporting documents for your request
+                  </p>
+                </div>
+              </template>
 
               <!-- Upload progress -->
               <div
@@ -627,8 +794,9 @@ onMounted(() => {
             </UButton>
 
             <!-- Show save/submit buttons only for draft status -->
-            <template v-if="requestData?.status === 'draft' || !requestData?.status">
+            <template v-if="requestData?.status === 'draft' || isNewRequest">
               <UButton
+                v-if="!isNewRequest"
                 block
                 color="primary"
                 size="lg"
@@ -665,7 +833,7 @@ onMounted(() => {
           </div>
 
           <!-- Request Status -->
-          <UCard v-if="requestData">
+          <UCard v-if="requestData && !isNewRequest">
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
                 Request Status

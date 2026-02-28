@@ -6,8 +6,6 @@ definePageMeta({
   title: 'newRequest',
 });
 
-const toast = useToast();
-
 // ===== STEP 1: Define data structure =====
 // Simple request type interface - easy to extend with API later
 type RequestType = {
@@ -77,47 +75,11 @@ const filteredRequests = computed(() => {
   });
 });
 
-// ===== STEP 5: Navigation handler - Create request and redirect =====
-async function handleSelectRequest(templateId: number) {
-  if (isCreating.value)
-    return;
-
-  isCreating.value = true;
-
-  try {
-    // Create a new request
-    const result: any = await $fetch('/api/requests', {
-      method: 'POST',
-      body: {
-        templateId,
-        status: 'draft',
-      },
-    });
-
-    if (result.success && result.data) {
-      // Navigate to the form filling page
-      router.push(`/student/my-requests/${result.data.id}`);
-    }
-    else {
-      console.error('Failed to create request:', result.error);
-      toast.add({
-        title: 'Failed to create request',
-        description: 'Please try again.',
-        color: 'error',
-      });
-    }
-  }
-  catch (error) {
-    console.error('Error creating request:', error);
-    toast.add({
-      title: 'Error',
-      description: 'An error occurred. Please try again.',
-      color: 'error',
-    });
-  }
-  finally {
-    isCreating.value = false;
-  }
+// ===== STEP 5: Navigation handler - Navigate to form page (no DB record yet) =====
+function handleSelectRequest(templateId: number) {
+  // Navigate to the form filling page passing templateId as query param
+  // The DB record will only be created when the user actually submits
+  router.push(`/student/my-requests/new?templateId=${templateId}`);
 }
 
 // ===== STEP 6: Go back handler =====
