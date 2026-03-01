@@ -639,30 +639,6 @@ async function saveTemplate(): Promise<void> {
   }
 }
 
-// ─── Toolbar Handlers ─────────────────────────────────────────────────────────
-
-function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
-  const field = (props.placedFields as FieldInstance[]).find(f => f.instanceId === data.instanceId);
-  if (field)
-    Object.assign(field, data.updates);
-  emit('fieldUpdated', data);
-}
-
-function handleFieldRemoval(instanceId: string): void {
-  const idx = (props.placedFields as FieldInstance[]).findIndex(f => f.instanceId === instanceId);
-  if (idx > -1)
-    (props.placedFields as FieldInstance[]).splice(idx, 1);
-  emit('fieldRemoved', instanceId);
-}
-
-// Expose pdfRef for toolbar and parent keyboard handler
-const pdfRef = reactive<any>({
-  normalizedToDisplay,
-  displayToNormalized,
-  saveTemplate,
-  pdfNaturalDimensions,
-});
-
 // ─── Auto-calculate normalized coords for fields that lack them ───────────────
 
 watch(
@@ -730,16 +706,6 @@ defineExpose({
 
 <template>
   <div class="w-full h-full flex flex-col">
-    <!-- Field Toolbar – Appears when field selected -->
-    <field-toolbar
-      v-if="selectedField"
-      :selected-field="selectedField"
-      :pdf-ref="pdfRef"
-      :scale="scale"
-      @field-updated="handleFieldUpdate"
-      @field-removed="handleFieldRemoval"
-    />
-
     <!-- Canvas Area – Scrollable -->
     <div class="flex-1 overflow-auto bg-gray-100 p-8 flex justify-center items-start">
       <div
