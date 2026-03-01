@@ -85,28 +85,9 @@ const workflowSteps = ref<WorkflowStep[]>([
   },
 ]);
 
-// const staffComment = ref('');
-const pdfFile = ref<File | null>(null);
 const placedFields = ref<any[]>([]);
-const _selectedField = ref<any>(null);
-const _useSavedSignature = ref(false);
-const scale = ref(1); // Zoom level
 
 // --- Methods ---
-// Convert URL to File object
-async function urlToFile(url: string, filename: string) {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new File([blob], filename, { type: blob.type });
-  }
-  catch (err) {
-    console.error('Error converting URL to File:', err);
-    throw err;
-  }
-}
-
-// Fetch template data from API
 async function fetchTemplate() {
   isLoading.value = true;
   error.value = null;
@@ -116,12 +97,6 @@ async function fetchTemplate() {
 
     if (result.success && result.data) {
       template.value = result.data;
-
-      // Load PDF file from URL
-      if (template.value?.documentUrl) {
-        const filename = template.value.documentUrl.split('/').pop() || 'document.pdf';
-        pdfFile.value = await urlToFile(template.value.documentUrl, filename);
-      }
 
       // Set placed fields
       if (template.value?.placedFieldsData) {
@@ -226,77 +201,17 @@ onMounted(() => {
       </UCard>
 
       <!-- Template Content -->
-      <div v-else-if="template && pdfFile" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left: PDF Preview -->
         <div class="lg:col-span-2">
-          <!-- Zoom Controls -->
-          <div class="mb-4 flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2">
-            <span class="text-sm text-gray-600">Zoom:</span>
-            <UButton
-              icon="i-heroicons-minus"
-              size="xs"
-              variant="ghost"
-              :disabled="scale <= 0.5"
-              @click="scale = Math.max(0.5, scale - 0.25)"
-            />
-            <span class="text-sm font-medium w-12 text-center">{{ Math.round(scale * 100) }}%</span>
-            <UButton
-              icon="i-heroicons-plus"
-              size="xs"
-              variant="ghost"
-              :disabled="scale >= 3"
-              @click="scale = Math.min(3, scale + 0.25)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              @click="scale = 1"
-            >
-              Reset
-            </UButton>
-          </div>
-
-          <!-- PDF Viewer -->
-          <div class="bg-gray-100/50 overflow-auto p-8 rounded-lg border border-gray-200" style="min-height: 600px;">
-            <template-pdf-create
-              :pdf-file="pdfFile"
-              :placed-fields="placedFields"
-              :selected-field="undefined"
-              :ui-scale="scale"
-              :read-only="true"
-            />
-          </div>
+          <template-pdf-preview
+            :pdf-url="template.documentUrl"
+            :placed-fields="placedFields"
+          />
         </div>
 
         <!-- Right: Sidebar -->
         <div class="space-y-6">
-          <!-- Student Information -->
-          <!-- <UCard>
-            <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Student Information
-              </h3>
-            </template>
-            <div class="flex items-center gap-4 mb-4">
-              <UAvatar
-                size="xl"
-                :alt="requestData.studentName"
-                src="https://i.pravatar.cc/150?img=12"
-              />
-              <div>
-                <h4 class="font-semibold text-gray-900">
-                  {{ requestData.studentName }}
-                </h4>
-                <p class="text-sm text-gray-500">
-                  ID: {{ requestData.studentId }}
-                </p>
-                <p class="text-sm text-gray-500">
-                  {{ requestData.faculty }}
-                </p>
-              </div>
-            </div>
-          </UCard> -->
-
           <!-- Request Summary -->
           <UCard>
             <template #header>
