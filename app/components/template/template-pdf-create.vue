@@ -132,7 +132,7 @@ function getCanvasRenderingDimensions() {
 
 // แปลง canvas pixel coordinates → normalized (0-1)
 // Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
-function canvasToNormalized(x, y, width, height) {
+function canvasToNormalized(x: number, y: number, width: number, height: number) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
@@ -166,7 +166,7 @@ function canvasToNormalized(x, y, width, height) {
 
 // แปลง normalized (0-1) → canvas pixel coordinates
 // Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
-function normalizedToCanvas(normX, normY, normWidth, normHeight) {
+function normalizedToCanvas(normX: number, normY: number, normWidth: number, normHeight: number) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 50, y: 50, width: 150, height: 40 };
   }
@@ -198,12 +198,8 @@ function normalizedToCanvas(normX, normY, normWidth, normHeight) {
   };
 }
 
-// Legacy aliases for backward compatibility
-const displayToNormalized = canvasToNormalized;
-const normalizedToDisplay = normalizedToCanvas;
-
 // Security: Validate normalized coordinates
-function isValidNormalizedCoord(value) {
+function isValidNormalizedCoord(value: unknown) {
   return typeof value === 'number'
     && !Number.isNaN(value)
     && Number.isFinite(value)
@@ -211,7 +207,7 @@ function isValidNormalizedCoord(value) {
     && value <= 1;
 }
 
-function validateNormalizedField(field) {
+function _validateNormalizedField(field: Field) {
   if (!field) {
     return { valid: false, error: 'Field is null or undefined' };
   }
