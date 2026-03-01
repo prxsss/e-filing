@@ -809,35 +809,48 @@ watch(
       </aside>
 
       <!-- [CENTER] Canvas Area -->
-      <section class="flex-1 relative overflow-hidden flex flex-col bg-gray-50">
-        <!-- Field Toolbar (Shows when field is selected) -->
-        <field-toolbar
-          v-if="selectedField && uploadedFile"
-          :selected-field="selectedField"
-          :pdf-ref="fileType === 'pdf' ? templatePdfRef : undefined"
-          :scale="scale"
-          @field-updated="handleFieldUpdate"
-          @field-removed="handleFieldRemoval"
-        />
-
-        <!-- Toolbar (Zoom etc.) -->
-        <div class="h-10 border-b px-4 flex items-center justify-between shrink-0 bg-white">
-          <div class="text-xs">
-            <span v-if="!uploadedFile">ยังไม่มีไฟล์</span>
-            <span v-else-if="fileType === 'pdf'">เอกสาร PDF - หน้า {{ currentPdfPage }}</span>
-            <span v-else>เอกสารรูปภาพ</span>
+      <section class="flex-1 relative overflow-hidden flex flex-col bg-gray-100">
+        <!-- Canvas toolbar (page info | centered field toolbar | zoom) -->
+        <div class="h-11 bg-white border-b border-gray-200 px-4 flex items-center shrink-0">
+          <!-- Left: page info -->
+          <div class="flex items-center shrink-0 w-20">
+            <span class="text-xs text-gray-400 font-medium">
+              <template v-if="!uploadedFile">ยังไม่มีไฟล์</template>
+              <template v-else-if="fileType === 'pdf'">หน้า {{ currentPdfPage }}</template>
+              <template v-else>รูปภาพ</template>
+            </span>
           </div>
-          <div class="flex items-center gap-2">
-            <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" @click="scale = Math.max(0.5, scale - 0.1)" />
-            <span class="text-xs font-mono w-12 text-center">{{ Math.round(scale * 100) }}%</span>
-            <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" @click="scale = Math.min(2, scale + 0.1)" />
+
+          <!-- Center: field toolbar -->
+          <div class="flex-1 flex justify-center">
+            <field-toolbar
+              v-if="selectedField && uploadedFile"
+              :selected-field="selectedField"
+              :pdf-ref="fileType === 'pdf' ? templatePdfRef : undefined"
+              :scale="scale"
+              @field-updated="handleFieldUpdate"
+              @field-removed="handleFieldRemoval"
+            />
+          </div>
+
+          <!-- Right: zoom controls -->
+          <div class="flex items-center gap-1.5 shrink-0 w-20 justify-end">
+            <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" :disabled="scale <= 0.5" @click="scale = Math.max(0.5, +(scale - 0.1).toFixed(1))" />
+            <button
+              class="text-xs font-mono text-gray-500 hover:text-gray-700 w-10 text-center"
+              title="Reset zoom"
+              @click="scale = 1"
+            >
+              {{ Math.round(scale * 100) }}%
+            </button>
+            <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" :disabled="scale >= 2" @click="scale = Math.min(2, +(scale + 0.1).toFixed(1))" />
           </div>
         </div>
 
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
           <template-image-create
-            v-if="fileType === 'image' && previewImageUrl && selectedField !== null"
+            v-if="fileType === 'image' && previewImageUrl"
             :preview-image-url="previewImageUrl"
             :placed-fields="placedFields"
             :selected-field="selectedField || undefined"
@@ -851,7 +864,7 @@ watch(
           />
 
           <template-pdf-create
-            v-else-if="fileType === 'pdf' && uploadedFile && selectedField !== null"
+            v-else-if="fileType === 'pdf' && uploadedFile"
             ref="templatePdfRef"
             :pdf-file="uploadedFile"
             :placed-fields="placedFields"

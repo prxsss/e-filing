@@ -605,20 +605,40 @@ onUnmounted(() => {
 
       <!-- ─── CENTER CANVAS ─── -->
       <section class="flex-1 relative overflow-hidden flex flex-col bg-gray-100">
-        <!-- Canvas toolbar (zoom + page info) -->
-        <div class="h-10 bg-white border-b border-gray-200 px-4 flex items-center justify-between shrink-0">
-          <div class="text-xs text-gray-500">
-            <span v-if="isLoading">Loading template...</span>
-            <span v-else-if="!uploadedFile">No file loaded</span>
-            <span v-else>PDF — Page {{ currentPdfPage }}</span>
+        <!-- Canvas toolbar (page info | centered field toolbar | zoom) -->
+        <div class="h-11 bg-white border-b border-gray-200 px-4 flex items-center shrink-0">
+          <!-- Left: page info -->
+          <div class="flex items-center shrink-0 w-20">
+            <span class="text-xs text-gray-400 font-medium">
+              <template v-if="isLoading">Loading...</template>
+              <template v-else-if="!uploadedFile">No file</template>
+              <template v-else>Page {{ currentPdfPage }}</template>
+            </span>
           </div>
-          <div class="flex items-center gap-2">
-            <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" :disabled="scale <= 0.5" @click="scale = Math.max(0.5, scale - 0.1)" />
-            <span class="text-xs font-mono w-12 text-center">{{ Math.round(scale * 100) }}%</span>
-            <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" :disabled="scale >= 2" @click="scale = Math.min(2, scale + 0.1)" />
-            <UButton size="xs" color="neutral" variant="ghost" @click="scale = 1">
-              Reset
-            </UButton>
+
+          <!-- Center: field toolbar -->
+          <div class="flex-1 flex justify-center">
+            <field-toolbar
+              v-if="selectedField"
+              :selected-field="selectedField"
+              :pdf-ref="templatePdfEditRef"
+              :scale="scale"
+              @field-updated="handleFieldUpdate"
+              @field-removed="handleFieldRemoval"
+            />
+          </div>
+
+          <!-- Right: zoom controls -->
+          <div class="flex items-center gap-1.5 shrink-0 w-20 justify-end">
+            <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" :disabled="scale <= 0.5" @click="scale = Math.max(0.5, +(scale - 0.1).toFixed(1))" />
+            <button
+              class="text-xs font-mono text-gray-500 hover:text-gray-700 w-10 text-center"
+              title="Reset zoom"
+              @click="scale = 1"
+            >
+              {{ Math.round(scale * 100) }}%
+            </button>
+            <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" :disabled="scale >= 2" @click="scale = Math.min(2, +(scale + 0.1).toFixed(1))" />
           </div>
         </div>
 

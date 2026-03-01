@@ -131,165 +131,166 @@ function removeField() {
 </script>
 
 <template>
-  <div class="sticky top-0 z-50 w-full h-14 bg-white border-b border-gray-200 flex items-center gap-3 px-4 shadow-md">
-    <!-- Identity Section -->
-    <div class="flex items-center gap-2 min-w-fit">
-      <div class="flex flex-col">
-        <span class="text-xs font-semibold text-gray-900">{{ selectedField.name }}</span>
-        <span v-if="selectedField.instanceNumber > 1" class="text-xs text-gray-500">
-          #{{ selectedField.instanceNumber }}
-        </span>
-      </div>
+  <div class="field-toolbar-inline">
+    <!-- Identity -->
+    <div class="flex items-center gap-1.5">
+      <span class="text-xs font-semibold text-gray-900 truncate max-w-32">{{ selectedField.name }}</span>
+      <span v-if="selectedField.instanceNumber > 1" class="text-[11px] text-gray-400">#{{ selectedField.instanceNumber }}</span>
     </div>
 
-    <!-- Separator -->
-    <div class="h-8 w-px bg-gray-300" />
+    <div class="h-6 w-px bg-gray-200" />
 
-    <!-- Position Section X, Y -->
-    <div class="flex items-end gap-2">
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-gray-600">X</label>
-        <input
-          v-model.number="editableX"
-          type="number"
-          class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-          min="0"
-          @input="onPropertyChange"
-        >
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-gray-600">Y</label>
-        <input
-          v-model.number="editableY"
-          type="number"
-          class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-          min="0"
-          @input="onPropertyChange"
-        >
-      </div>
+    <!-- Position -->
+    <div class="flex items-center gap-2">
+      <label class="text-[11px] text-gray-500 font-medium">X</label>
+      <input v-model.number="editableX" type="number" class="toolbar-input" min="0" @input="onPropertyChange">
+      <label class="text-[11px] text-gray-500 font-medium">Y</label>
+      <input v-model.number="editableY" type="number" class="toolbar-input" min="0" @input="onPropertyChange">
     </div>
 
-    <!-- Separator -->
-    <div class="h-8 w-px bg-gray-300" />
+    <div class="h-6 w-px bg-gray-200" />
 
-    <!-- Size Section -->
-    <div class="flex items-end gap-2">
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-gray-600">W</label>
-        <input
-          v-model.number="editableWidth"
-          type="number"
-          class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-          min="10"
-          @input="onPropertyChange"
-        >
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-xs font-medium text-gray-600">H</label>
-        <input
-          v-model.number="editableHeight"
-          type="number"
-          class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-          min="10"
-          @input="onPropertyChange"
-        >
-      </div>
+    <!-- Size -->
+    <div class="flex items-center gap-2">
+      <label class="text-[11px] text-gray-500 font-medium">W</label>
+      <input v-model.number="editableWidth" type="number" class="toolbar-input" min="10" @input="onPropertyChange">
+      <label class="text-[11px] text-gray-500 font-medium">H</label>
+      <input v-model.number="editableHeight" type="number" class="toolbar-input" min="10" @input="onPropertyChange">
     </div>
 
-    <!-- Font Section - only for text fields -->
+    <!-- Font (text fields only) -->
     <template v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'">
-      <!-- Separator -->
-      <div class="h-8 w-px bg-gray-300" />
+      <div class="h-6 w-px bg-gray-200" />
+      <div class="flex items-center gap-2">
+        <input
+          v-model.number="localField.fontSize"
+          type="number"
+          class="toolbar-input w-11"
+          min="8"
+          max="72"
+          placeholder="14"
+          title="Font size"
+          @input="onPropertyChange"
+        >
+        <select
+          v-model="localField.fontFamily"
+          class="toolbar-select"
+          title="Font family"
+          @change="onPropertyChange"
+        >
+          <option value="Arial">
+            Arial
+          </option>
 
-      <div class="flex items-end gap-2">
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-gray-600">Font Size</label>
-          <input
-            v-model.number="localField.fontSize"
-            type="number"
-            class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            min="8"
-            max="72"
-            placeholder="14"
-            @input="onPropertyChange"
-          >
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-gray-600">Font</label>
-          <select
-            v-model="localField.fontFamily"
-            class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            @change="onPropertyChange"
-          >
-            <option value="Arial">
-              Arial
-            </option>
-            <option value="Helvetica">
-              Helvetica
-            </option>
-            <option value="Times New Roman">
-              Times New Roman
-            </option>
-            <option value="Courier New">
-              Courier New
-            </option>
-            <option value="Georgia">
-              Georgia
-            </option>
-            <option value="Verdana">
-              Verdana
-            </option>
-            <option value="Tahoma">
-              Tahoma
-            </option>
-            <option value="Sarabun">
-              Sarabun (Thai)
-            </option>
-            <option value="Prompt">
-              Prompt (Thai)
-            </option>
-            <option value="Mitr">
-              Mitr (Thai)
-            </option>
-          </select>
-        </div>
+          <option value="Helvetica">
+            Helvetica
+          </option>
+
+          <option value="Times New Roman">
+            Times New Roman
+          </option>
+
+          <option value="Courier New">
+            Courier New
+          </option>
+
+          <option value="Georgia">
+            Georgia
+          </option>
+
+          <option value="Verdana">
+            Verdana
+          </option>
+
+          <option value="Tahoma">
+            Tahoma
+          </option>
+
+          <option value="Sarabun">
+            Sarabun (Thai)
+          </option>
+
+          <option value="Prompt">
+            Prompt (Thai)
+          </option>
+
+          <option value="Mitr">
+            Mitr (Thai)
+          </option>
+        </select>
       </div>
     </template>
 
-    <!-- Spacer -->
-    <div class="flex-1" />
+    <div class="h-6 w-px bg-gray-200" />
 
-    <!-- Actions Section -->
-    <div class="flex items-end gap-2">
-      <button
-        class="px-3 py-1 text-sm font-medium text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
-        @click="removeField"
-      >
-        <UIcon name="i-heroicons-trash-20-solid" class="w-4 h-4" />
-      </button>
-    </div>
+    <!-- Delete -->
+    <button
+      class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+      title="Remove field"
+      @click="removeField"
+    >
+      <UIcon name="i-heroicons-trash-20-solid" class="w-4 h-4" />
+    </button>
   </div>
 </template>
 
 <style scoped>
-div {
+.field-toolbar-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
   -webkit-user-select: none;
   user-select: none;
 }
 
-/* Ensure smooth transitions and interactions */
-input,
-select {
+.toolbar-input {
+  width: 3.25rem;
+  padding: 3px 5px;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  text-align: center;
   -webkit-user-select: text;
   user-select: text;
   transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
-input:focus,
-select:focus {
+.toolbar-input:focus {
+  outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.toolbar-select {
+  padding: 3px 6px;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  max-width: 7rem;
+  -webkit-user-select: text;
+  user-select: text;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.toolbar-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Hide number spin buttons */
+.toolbar-input::-webkit-inner-spin-button,
+.toolbar-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.toolbar-input[type='number'] {
+  -moz-appearance: textfield;
 }
 </style>

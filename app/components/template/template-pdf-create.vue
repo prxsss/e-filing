@@ -43,11 +43,15 @@ const activeDrag = ref<{
   field: Field | null;
   offsetX: number;
   offsetY: number;
+  displayWidth: number;
+  displayHeight: number;
 }>({
   isDragging: false,
   field: null,
   offsetX: 0,
   offsetY: 0,
+  displayWidth: 150,
+  displayHeight: 40,
 });
 const activeResize = ref<{
   isResizing: boolean;
@@ -108,7 +112,7 @@ function getCanvasRenderingDimensions() {
 
 // แปลง canvas pixel coordinates → normalized (0-1)
 // Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
-function canvasToNormalized(x, y, width, height) {
+function canvasToNormalized(x: number, y: number, width: number, height: number) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
@@ -142,7 +146,7 @@ function canvasToNormalized(x, y, width, height) {
 
 // แปลง normalized (0-1) → canvas pixel coordinates
 // Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
-function normalizedToCanvas(normX, normY, normWidth, normHeight) {
+function normalizedToCanvas(normX: number, normY: number, normWidth: number, normHeight: number) {
   if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
     return { x: 50, y: 50, width: 150, height: 40 };
   }
@@ -174,12 +178,8 @@ function normalizedToCanvas(normX, normY, normWidth, normHeight) {
   };
 }
 
-// Legacy aliases for backward compatibility
-const displayToNormalized = canvasToNormalized;
-const normalizedToDisplay = normalizedToCanvas;
-
 // Security: Validate normalized coordinates
-function isValidNormalizedCoord(value) {
+function isValidNormalizedCoord(value: unknown) {
   return typeof value === 'number'
     && !Number.isNaN(value)
     && Number.isFinite(value)
@@ -187,7 +187,7 @@ function isValidNormalizedCoord(value) {
     && value <= 1;
 }
 
-function validateNormalizedField(field) {
+function _validateNormalizedField(field: Field) {
   if (!field) {
     return { valid: false, error: 'Field is null or undefined' };
   }
@@ -210,12 +210,6 @@ function validateNormalizedField(field) {
 
   return { valid: true };
 }
-
-const placedFieldsOnCurrentPage = computed(() => {
-  return props.placedFields.filter(
-    field => !field.pageNumber || field.pageNumber === currentPage.value,
-  );
-});
 
 async function initPdfJs(): Promise<PDFJSType> {
   if (pdfjsLib.value)
@@ -397,21 +391,24 @@ function startDrag(event: any, field: Field): void {
   const containerRect = previewContainer.value.getBoundingClientRect();
   const uiScale = props.uiScale || 1;
 
-  // Get current canvas position
-  const canvasPos = field.normalizedX !== undefined
-    ? normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
-    : { x: field.x || 50, y: field.y || 50 };
+  // Use displayX/displayY from computed field, or fall back to x/y
+  const fieldDisplayX = (field as any).displayX ?? field.x ?? 50;
+  const fieldDisplayY = (field as any).displayY ?? field.y ?? 50;
 
   // Mouse coords (screen space) → Canvas coords
-  // หาก uiScale เพื่อแปลง screen space → canvas space
   const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
   const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
 
+  // Find the original field in placedFields to track which one we're dragging
+  const originalField = (props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId);
+
   activeDrag.value = {
     isDragging: true,
-    field,
-    offsetX: mouseCanvasX - canvasPos.x,
-    offsetY: mouseCanvasY - canvasPos.y,
+    field: originalField || field,
+    offsetX: mouseCanvasX - fieldDisplayX,
+    offsetY: mouseCanvasY - fieldDisplayY,
+    displayWidth: (field as any).displayWidth ?? field.width ?? 150,
+    displayHeight: (field as any).displayHeight ?? field.height ?? 40,
   };
 
   emit('fieldSelected', field);
@@ -445,22 +442,52 @@ function drag(event: any): void {
   const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
   const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
 
-  const containerWidth = containerRect.width;
-  const containerHeight = containerRect.height;
-  const fieldWidth = (activeDrag.value.field as Field).width || 150;
-  const fieldHeight = (activeDrag.value.field as Field).height || 40;
+  const field = activeDrag.value.field;
 
-  // ขนาด canvas ที่แสดง (actual rendering dimensions, NOT affected by CSS zoom)
-  const canvasDims = getCanvasRenderingDimensions();
-  const canvasWidth = canvasDims.width;
-  const canvasHeight = canvasDims.height;
+  // Use canvas buffer dimensions for bounds (not affected by CSS transform)
+  const canvasWidth = pdfCanvas.value.width;
+  const canvasHeight = pdfCanvas.value.height;
 
-  activeDrag.value.field!.x = Math.round(newX);
-  activeDrag.value.field!.y = Math.round(newY);
+  // Use display dimensions captured at drag start
+  const fieldDisplayWidth = activeDrag.value.displayWidth;
+  const fieldDisplayHeight = activeDrag.value.displayHeight;
+
+  // Constrain to canvas bounds
+  let newDisplayX = mouseCanvasX - activeDrag.value.offsetX;
+  let newDisplayY = mouseCanvasY - activeDrag.value.offsetY;
+  newDisplayX = Math.max(0, Math.min(newDisplayX, canvasWidth - fieldDisplayWidth));
+  newDisplayY = Math.max(0, Math.min(newDisplayY, canvasHeight - fieldDisplayHeight));
+
+  // Convert display coordinates back to normalized for storage
+  if (field!.normalizedX !== undefined && field!.normalizedWidth !== undefined) {
+    const normalized = canvasToNormalized(newDisplayX, newDisplayY, fieldDisplayWidth, fieldDisplayHeight);
+    field!.normalizedX = normalized.x;
+    field!.normalizedY = normalized.y;
+    field!.normalizedWidth = normalized.width;
+    field!.normalizedHeight = normalized.height;
+  }
+  else {
+    field!.x = Math.round(newDisplayX);
+    field!.y = Math.round(newDisplayY);
+  }
 }
 
 function stopDrag(): void {
   if (activeDrag.value.isDragging) {
+    const field = activeDrag.value.field;
+    // Emit final position to parent for synchronization
+    if (field && field.normalizedX !== undefined) {
+      emit('fieldUpdated', {
+        instanceId: field.instanceId,
+        updates: {
+          normalizedX: field.normalizedX,
+          normalizedY: field.normalizedY,
+          normalizedWidth: field.normalizedWidth,
+          normalizedHeight: field.normalizedHeight,
+        },
+      });
+    }
+
     activeDrag.value.isDragging = false;
     activeDrag.value.field = null;
 
@@ -480,12 +507,15 @@ function startResize(event: any, field: Field, direction: string): void {
 
   // Get current display size from normalized coordinates
   const currentDisplay = field.normalizedWidth !== undefined
-    ? normalizedToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
+    ? normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
     : { width: 150, height: 40 };
+
+  // Find the original field in placedFields for direct mutation
+  const originalField = (props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId);
 
   activeResize.value = {
     isResizing: true,
-    field,
+    field: originalField || field,
     direction,
     startX: event.clientX,
     startY: event.clientY,
@@ -524,28 +554,37 @@ function handleResize(event: any): void {
     newHeight = Math.max(20, activeResize.value.startHeight + deltaY);
   }
 
-  // Get current canvas position from normalized coordinates
-  const canvasPos = field.normalizedX !== undefined
-    ? normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
-    : { x: 50, y: 50 };
-
-  // Canvas coords → Normalized (0-1)
-  const normalized = canvasToNormalized(canvasPos.x, canvasPos.y, newWidth, newHeight);
-
-  // Emit event
-  emit('fieldUpdated', {
-    instanceId: field.instanceId,
-    updates: {
-      normalizedX: normalized.x,
-      normalizedY: normalized.y,
-      normalizedWidth: normalized.width,
-      normalizedHeight: normalized.height,
-    },
-  });
+  // Convert display coords back to normalized and directly mutate the field
+  if (field.normalizedX !== undefined) {
+    const currentDisplay = normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight);
+    const normalized = canvasToNormalized(currentDisplay.x, currentDisplay.y, newWidth, newHeight);
+    field.normalizedX = normalized.x;
+    field.normalizedY = normalized.y;
+    field.normalizedWidth = normalized.width;
+    field.normalizedHeight = normalized.height;
+  }
+  else {
+    field.width = Math.round(newWidth);
+    field.height = Math.round(newHeight);
+  }
 }
 
 function stopResize(): void {
   if (activeResize.value.isResizing) {
+    const field = activeResize.value.field;
+    // Emit final size to parent for synchronization
+    if (field && field.normalizedX !== undefined) {
+      emit('fieldUpdated', {
+        instanceId: field.instanceId,
+        updates: {
+          normalizedX: field.normalizedX,
+          normalizedY: field.normalizedY,
+          normalizedWidth: field.normalizedWidth,
+          normalizedHeight: field.normalizedHeight,
+        },
+      });
+    }
+
     activeResize.value.isResizing = false;
     activeResize.value.field = null;
 
@@ -712,37 +751,27 @@ async function saveTemplate() {
   }
 }
 
-function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
-  const field = (props.placedFields as Field[]).find(f => f.instanceId === data.instanceId);
-  if (field) {
-    Object.assign(field, data.updates);
-  }
-  // Also emit to parent for synchronization
-  emit('fieldUpdated', data);
-}
-
-function handleFieldRemoval(instanceId: string): void {
-  const idx = (props.placedFields as Field[]).findIndex(f => f.instanceId === instanceId);
-  if (idx > -1) {
-    (props.placedFields as Field[]).splice(idx, 1);
-  }
-  // Also emit to parent for synchronization
-  emit('fieldRemoved', instanceId);
-}
-
 // Coordinate conversion helper functions
+// These use canvas pixel coordinates (matching the edit version)
 function normalizedToDisplay(
   normalizedX: number,
   normalizedY: number,
   normalizedWidth: number,
   normalizedHeight: number,
 ): { x: number; y: number; width: number; height: number } {
-  const pdf = pdfNaturalDimensions.value;
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 50, y: 50, width: 150, height: 40 };
+  }
+  const canvasDims = getCanvasRenderingDimensions();
+  const nw = pdfNaturalDimensions.value.width;
+  const nh = pdfNaturalDimensions.value.height;
+  const scaleX = nw / canvasDims.width;
+  const scaleY = nh / canvasDims.height;
   return {
-    x: Math.round(normalizedX * pdf.width),
-    y: Math.round(normalizedY * pdf.height),
-    width: Math.round(normalizedWidth * pdf.width),
-    height: Math.round(normalizedHeight * pdf.height),
+    x: (normalizedX * nw) / scaleX,
+    y: (normalizedY * nh) / scaleY,
+    width: (normalizedWidth * nw) / scaleX,
+    height: (normalizedHeight * nh) / scaleY,
   };
 }
 
@@ -752,19 +781,50 @@ function displayToNormalized(
   displayWidth: number,
   displayHeight: number,
 ): { x: number; y: number; width: number; height: number } {
-  const pdf = pdfNaturalDimensions.value;
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const canvasDims = getCanvasRenderingDimensions();
+  const nw = pdfNaturalDimensions.value.width;
+  const nh = pdfNaturalDimensions.value.height;
+  const scaleX = nw / canvasDims.width;
+  const scaleY = nh / canvasDims.height;
   return {
-    x: Math.round((displayX / pdf.width) * 10000) / 10000,
-    y: Math.round((displayY / pdf.height) * 10000) / 10000,
-    width: Math.round((displayWidth / pdf.width) * 10000) / 10000,
-    height: Math.round((displayHeight / pdf.height) * 10000) / 10000,
+    x: (displayX * scaleX) / nw,
+    y: (displayY * scaleY) / nh,
+    width: (displayWidth * scaleX) / nw,
+    height: (displayHeight * scaleY) / nh,
   };
 }
 
-// Create a pdfRef object that provides coordinate conversion methods for child components
-const pdfRef = reactive<any>({
-  normalizedToDisplay,
-  displayToNormalized,
+// Computed: fields with display coordinates for rendering in the template
+const fieldsWithDisplayCoords = computed(() => {
+  return props.placedFields
+    .filter((field: Field) => !field.pageNumber || field.pageNumber === currentPage.value)
+    .map((field: Field) => {
+      if (field.normalizedX !== undefined) {
+        const display = normalizedToCanvas(
+          field.normalizedX,
+          field.normalizedY,
+          field.normalizedWidth,
+          field.normalizedHeight,
+        );
+        return {
+          ...field,
+          displayX: display.x,
+          displayY: display.y,
+          displayWidth: display.width,
+          displayHeight: display.height,
+        };
+      }
+      return {
+        ...field,
+        displayX: field.x || 50,
+        displayY: field.y || 50,
+        displayWidth: field.width || 150,
+        displayHeight: field.height || 40,
+      };
+    });
 });
 
 watch(
@@ -793,33 +853,19 @@ watch(
     if (!pdfLoaded.value || !pdfNaturalDimensions.value.width)
       return;
 
-    // Auto-calculate normalized coordinates for new fields
-    props.placedFields.forEach((field) => {
+    // Auto-calculate normalized coordinates for new fields (direct mutation like edit version)
+    (props.placedFields as Field[]).forEach((field) => {
       if (field.normalizedX === undefined || field.normalizedY === undefined) {
-        // Use default display positions if not set (50, 50, 150, 40)
-        const defaultX = 50;
-        const defaultY = 50;
-        const defaultWidth = 150;
-        const defaultHeight = 40;
-
-        // Calculate normalized coordinates from default pixel values
-        const normalized = displayToNormalized(
-          defaultX,
-          defaultY,
-          defaultWidth,
-          defaultHeight,
+        const normalized = canvasToNormalized(
+          field.x || 50,
+          field.y || 50,
+          field.width || 150,
+          field.height || 40,
         );
-
-        // Emit update instead of direct mutation to avoid Vue warnings
-        emit('fieldUpdated', {
-          instanceId: field.instanceId,
-          updates: {
-            normalizedX: normalized.x,
-            normalizedY: normalized.y,
-            normalizedWidth: normalized.width,
-            normalizedHeight: normalized.height,
-          },
-        });
+        field.normalizedX = normalized.x;
+        field.normalizedY = normalized.y;
+        field.normalizedWidth = normalized.width;
+        field.normalizedHeight = normalized.height;
       }
     });
   },
@@ -829,17 +875,20 @@ watch(
 // ========================================
 // Pan Scrolling (Drag to Scroll)
 // ========================================
-function startPan(event) {
+function startPan(event: MouseEvent) {
   // ไม่ pan ถ้ากำลังลาก field หรือ resize
   if (activeDrag.value.isDragging || activeResize.value.isResizing)
     return;
 
   // ไม่ pan ถ้าคลิกบน field
-  if (event.target.closest('.placed-field'))
+  if ((event.target as HTMLElement)?.closest('.placed-field'))
     return;
 
   // ใช้เฉพาะ left click (button 0)
   if (event.button !== 0)
+    return;
+
+  if (!previewContainer.value)
     return;
 
   isPanning.value = true;
@@ -853,8 +902,8 @@ function startPan(event) {
   event.preventDefault();
 }
 
-function handlePan(event) {
-  if (!isPanning.value)
+function handlePan(event: MouseEvent) {
+  if (!isPanning.value || !previewContainer.value)
     return;
 
   const dx = event.clientX - panStart.value.x;
@@ -870,12 +919,8 @@ function stopPan() {
 
 // Lifecycle
 onMounted(() => {
-  loadPdf();
+  // loadPdf() is handled by the watch on props.pdfFile with { immediate: true }
 
-  // Note: Window resize listener removed - canvas now has fixed dimensions
-  // Canvas dimensions are controlled by PDF natural size, not window size
-
-  // Add pan scrolling listeners
   if (previewContainer.value) {
     previewContainer.value.addEventListener('mousedown', startPan);
     document.addEventListener('mousemove', handlePan);
@@ -897,15 +942,6 @@ onUnmounted(() => {
 });
 
 // Expose functions and refs for parent component
-defineExpose({
-  displayToNormalized,
-  normalizedToDisplay,
-  getPdfBounds,
-  pdfNaturalDimensions,
-  pdfCanvas,
-  saveTemplate,
-});
-
 defineExpose<{
   saveTemplate: () => Promise<void>;
   normalizedToDisplay: (
@@ -928,19 +964,9 @@ defineExpose<{
 </script>
 
 <template>
-  <div class="card flex flex-col h-full">
-    <!-- Field Toolbar - Fixed at Top -->
-    <field-toolbar
-      v-if="selectedField"
-      :selected-field="selectedField"
-      :pdf-ref="pdfRef"
-      :scale="scale"
-      @field-updated="handleFieldUpdate"
-      @field-removed="handleFieldRemoval"
-    />
-
-    <!-- Canvas Area - Scrollable Below Toolbar -->
-    <div class="card-body p-3 flex-1 overflow-auto">
+  <div class="w-full h-full flex flex-col">
+    <!-- Canvas Area – Scrollable -->
+    <div class="flex-1 overflow-auto bg-gray-100 p-8 flex justify-center items-start">
       <div
         id="pdf-preview-container"
         ref="previewContainer"
@@ -1023,15 +1049,15 @@ defineExpose<{
         <!-- End of scale wrapper -->
 
         <!-- Page Selector -->
-        <div v-if="pdfLoaded && totalPages > 1" class="page-selector">
-          <label class="form-label small mb-1">Page:</label>
+        <div v-if="pdfLoaded && totalPages > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
+          <label class="text-xs font-semibold text-gray-600">Page</label>
           <select
             v-model="currentPage"
-            class="form-select form-select-sm"
+            class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
             @change="renderCurrentPage"
           >
             <option v-for="i in totalPages" :key="i" :value="i">
-              Page {{ i }}
+              {{ i }}
             </option>
           </select>
         </div>
@@ -1041,26 +1067,22 @@ defineExpose<{
 </template>
 
 <style scoped>
-.card {
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
 .preview-area {
   position: relative;
   background:
-    linear-gradient(45deg, #eee 25%, transparent 25%), linear-gradient(-45deg, #eee 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #eee 75%), linear-gradient(-45deg, transparent 75%, #eee 75%);
+    linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%),
+    linear-gradient(45deg, #ddd 75%, transparent 75%), linear-gradient(-45deg, #ddd 75%, transparent 75%);
   background-size: 20px 20px;
+  background-position:
+    0 0,
+    0 10px,
+    10px -10px,
+    0 -10px;
+  background-color: #f0f0f0;
   min-height: 400px;
-  /* Fixed size with scrolling - NOT responsive */
-  overflow: auto;
-  scrollbar-gutter: stable;
-  cursor: grab;
-  user-select: none;
-  border: 1px solid #ddd;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 .preview-area.panning {
@@ -1185,13 +1207,5 @@ defineExpose<{
   bottom: -4px;
   cursor: nwse-resize;
   border-radius: 50%;
-}
-
-.page-selector {
-  text-align: center;
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-  margin-top: 0.5rem;
 }
 </style>
