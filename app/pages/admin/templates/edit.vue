@@ -645,6 +645,7 @@ onUnmounted(() => {
             :template-name="templateName"
             :template-id="templateId"
             :original-composite-url="templateData?.compositeImageUrl"
+            :ui-scale="scale"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
             @field-removed="handleFieldRemoval"
