@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FieldInstance, FileTypeValue, PdfRef } from '~/types/template';
+import type { FieldInstance, FileTypeValue, PdfRef, SigningStep, WizardStep } from '~/types/template';
 
 type Field = any;
 
@@ -9,6 +9,7 @@ definePageMeta({
 
 const router = useRouter();
 const toast = useToast();
+const { t } = useI18n();
 const hasChanges = ref<boolean>(false);
 const isSaving = ref<boolean>(false);
 const isDragging = ref<boolean>(false);
@@ -27,6 +28,79 @@ const uploadedFile = ref<File | null>(null);
 const fileType = ref<FileTypeValue>(null);
 const currentPdfPage = ref<number>(1);
 const searchQuery = ref<string>('');
+
+// === WIZARD STATE ===
+const currentWizardStep = ref<WizardStep>(1);
+const signingSteps = ref<SigningStep[]>([]);
+
+// Wizard step definitions
+const wizardSteps = computed(() => [
+  { step: 1 as WizardStep, label: t('placeFields'), icon: 'i-heroicons-document-text' },
+  { step: 2 as WizardStep, label: t('signingFlow'), icon: 'i-heroicons-queue-list' },
+  { step: 3 as WizardStep, label: t('reviewAndSave'), icon: 'i-heroicons-clipboard-document-check' },
+]);
+
+// Validation for proceeding from step 1 to step 2
+const canProceedToStep2 = computed<boolean>(() => {
+  const name = newTemplateName.value.trim();
+  return !!(name && name.length >= 3 && name.length <= 100 && uploadedFile.value && placedFields.value.length > 0);
+});
+
+// Validation for proceeding from step 2 to step 3
+const canProceedToStep3 = computed<boolean>(() => {
+  if (signingSteps.value.length === 0)
+    return false;
+  const allAssigned = placedFields.value.every(f => f.signerStepId);
+  return allAssigned;
+});
+
+// Navigate wizard
+function goToStep(step: WizardStep): void {
+  if (step === 2 && !canProceedToStep2.value) {
+    if (!newTemplateName.value.trim() || newTemplateName.value.trim().length < 3) {
+      toast.add({ title: 'กรุณาป้อนชื่อเทมเพลต (อย่างน้อย 3 ตัวอักษร)', color: 'error' });
+    }
+    else if (!uploadedFile.value) {
+      toast.add({ title: 'กรุณาอัปโหลดไฟล์', color: 'error' });
+    }
+    else if (placedFields.value.length === 0) {
+      toast.add({ title: 'กรุณาเพิ่ม field อย่างน้อย 1 field', color: 'error' });
+    }
+    return;
+  }
+  if (step === 3 && !canProceedToStep3.value) {
+    if (signingSteps.value.length === 0) {
+      toast.add({ title: t('signingStepRequired'), color: 'error' });
+    }
+    else {
+      toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+    }
+    return;
+  }
+  currentWizardStep.value = step;
+}
+
+function goNext(): void {
+  if (currentWizardStep.value < 3) {
+    goToStep((currentWizardStep.value + 1) as WizardStep);
+  }
+}
+
+function goPrevious(): void {
+  if (currentWizardStep.value > 1) {
+    currentWizardStep.value = (currentWizardStep.value - 1) as WizardStep;
+  }
+}
+
+// Handle signing steps update from editor
+function handleSigningStepsUpdate(steps: SigningStep[]): void {
+  signingSteps.value = steps;
+}
+
+// Handle placed fields update from editor (with signerStepId changes)
+function handlePlacedFieldsUpdate(fields: FieldInstance[]): void {
+  placedFields.value = fields;
+}
 
 // Security constants
 const _MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -533,10 +607,128 @@ function handleSaveTemplate(): void {
     return;
   }
 
-  // Call saveTemplate from child component
-  if (templatePdfRef.value && templatePdfRef.value.saveTemplate) {
-    isSaving.value = true;
-    templatePdfRef.value.saveTemplate();
+  if (signingSteps.value.length === 0) {
+    toast.add({ title: t('signingStepRequired'), color: 'error' });
+    return;
+  }
+
+  if (!placedFields.value.every(f => f.signerStepId)) {
+    toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+    return;
+  }
+
+  // Save template with signing flow — parent handles the entire save
+  performSave();
+}
+
+async function performSave(): Promise<void> {
+  isSaving.value = true;
+
+  try {
+    // Step 1: Upload PDF file
+    const formData = new FormData();
+    formData.append('file', uploadedFile.value!);
+
+    const uploadResponse = await $fetch('/api/upload-template-file', {
+      method: 'POST',
+      body: formData,
+    }) as any;
+
+    if (!uploadResponse.success || !uploadResponse.url) {
+      throw new Error('Failed to upload PDF file');
+    }
+
+    const documentUrl = uploadResponse.url;
+
+    // Step 2: Get PDF natural dimensions from child component
+    let docWidth = 0;
+    let docHeight = 0;
+    if (templatePdfRef.value && (templatePdfRef.value as any).getPdfNaturalDimensions) {
+      const dims = (templatePdfRef.value as any).getPdfNaturalDimensions();
+      docWidth = Math.round(dims.width || 0);
+      docHeight = Math.round(dims.height || 0);
+    }
+
+    // Step 3: Normalize field coordinates (fields already have normalized coords from the child)
+    const normalizedFields = placedFields.value.map((field: FieldInstance) => ({
+      id: field.id,
+      instanceId: field.instanceId,
+      instanceNumber: field.instanceNumber,
+      type: field.fieldType || (field as any).type,
+      name: field.name,
+      label: field.label,
+      fontSize: field.fontSize || 14,
+      fontFamily: field.fontFamily || 'Arial',
+      normalizedX: field.normalizedX,
+      normalizedY: field.normalizedY,
+      normalizedWidth: field.normalizedWidth,
+      normalizedHeight: field.normalizedHeight,
+      groupId: field.groupId || null,
+      isGrouped: field.isGrouped || false,
+      groupSize: field.groupSize || 1,
+      groupPosition: field.groupPosition || 0,
+      pageNumber: field.pageNumber || 1,
+      signerStepId: field.signerStepId || null,
+    }));
+
+    // Step 4: Prepare signing flow data
+    const signingFlowData = signingSteps.value.map(step => ({
+      id: step.id,
+      order: step.order,
+      roleName: step.roleName,
+      description: step.description || null,
+      isRequired: step.isRequired,
+      assignedFieldInstanceIds: step.assignedFieldInstanceIds,
+      color: step.color,
+    }));
+
+    // Step 5: Save template to database
+    const templatePayload = {
+      name: newTemplateName.value.trim(),
+      description: null,
+      category: null,
+      version: '1.0.0',
+      isActive: true,
+      createdBy: null,
+      documentUrl,
+      documentWidth: docWidth,
+      documentHeight: docHeight,
+      placedFieldsData: normalizedFields,
+      signingFlowData,
+    };
+
+    const saveResponse = await $fetch('/api/pdf-templates', {
+      method: 'POST',
+      body: templatePayload,
+    }) as any;
+
+    if (!saveResponse.success || !saveResponse.data) {
+      throw new Error('Failed to save template to database');
+    }
+
+    toast.add({
+      title: 'บันทึกสำเร็จ',
+      description: `Template "${newTemplateName.value.trim()}" ถูกบันทึกแล้ว`,
+      color: 'success',
+    });
+
+    hasChanges.value = false;
+
+    setTimeout(() => {
+      router.push('/admin/templates');
+    }, 500);
+  }
+  catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Save template error:', error);
+    toast.add({
+      title: 'เกิดข้อผิดพลาด',
+      description: errorMessage || 'ไม่สามารถบันทึก Template ได้',
+      color: 'error',
+    });
+  }
+  finally {
+    isSaving.value = false;
   }
 }
 
@@ -607,40 +799,82 @@ watch(
 
 <template>
   <div class="h-screen flex flex-col overflow-hidden">
-    <!-- === TOP HEADER (Toolbar) === -->
+    <!-- === TOP HEADER (Toolbar with Step Indicator) === -->
     <header class="h-16 flex items-center justify-between px-4 z-20 shadow-sm shrink-0">
       <div class="flex items-center gap-4">
         <UButton
           icon="i-heroicons-arrow-left"
           color="neutral"
           variant="ghost"
-          @click="router.back()"
+          @click="currentWizardStep > 1 ? goPrevious() : router.back()"
         />
 
-        <!-- Template Name Input -->
+        <!-- Template Name Input (visible across all steps) -->
         <div class="flex flex-col">
           <label class="text-[10px] uppercase font-bold tracking-wider">Template Name</label>
           <input
             v-model="newTemplateName"
             type="text"
             :class="templateNameError ? 'border border-red-500 bg-red-50' : 'border bg-transparent'"
-            class="p-2 font-semibold focus:ring-1 focus:ring-red-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors "
+            class="p-2 font-semibold focus:ring-1 focus:ring-red-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors"
             placeholder="Enter template name..."
+            :disabled="currentWizardStep > 1"
             @input="validateTemplateName"
           >
-          <div v-if="templateNameError" class="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs font-semibold">
+          <div v-if="templateNameError && currentWizardStep === 1" class="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-xs font-semibold">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 shrink-0" />
             {{ templateNameError }}
           </div>
         </div>
       </div>
 
+      <!-- Step Indicator (center) -->
+      <div class="flex items-center gap-1">
+        <template v-for="(ws, idx) in wizardSteps" :key="ws.step">
+          <!-- Step circle + label -->
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+            :class="{
+              'bg-primary-500 text-white': currentWizardStep === ws.step,
+              'bg-primary-100 text-primary-700': currentWizardStep > ws.step,
+              'bg-gray-100 text-gray-400': currentWizardStep < ws.step,
+            }"
+            @click="ws.step <= currentWizardStep ? goToStep(ws.step) : undefined"
+          >
+            <UIcon :name="ws.icon" class="w-4 h-4" />
+            <span class="hidden sm:inline">{{ ws.label }}</span>
+          </button>
+          <!-- Connector -->
+          <div v-if="idx < wizardSteps.length - 1" class="w-6 h-px" :class="currentWizardStep > ws.step ? 'bg-primary-400' : 'bg-gray-200'" />
+        </template>
+      </div>
+
+      <!-- Right actions -->
       <div class="flex items-center gap-3">
         <UButton
+          v-if="currentWizardStep > 1"
+          icon="i-heroicons-arrow-left"
+          color="neutral"
+          variant="ghost"
+          :label="t('previous')"
+          @click="goPrevious"
+        />
+        <UButton
+          v-if="currentWizardStep < 3"
+          icon="i-heroicons-arrow-right"
+          trailing
+          color="primary"
+          :label="t('next')"
+          size="xl"
+          class="px-6 font-bold"
+          @click="goNext"
+        />
+        <UButton
+          v-if="currentWizardStep === 3"
           :loading="isSaving"
           icon="i-heroicons-check"
-          color="neutral"
-          label="Save Template"
+          color="primary"
+          :label="t('saveTemplate')"
           size="xl"
           class="px-6 font-bold"
           @click="handleTemplateSaved"
@@ -660,10 +894,10 @@ watch(
       </div>
     </header>
 
-    <!-- === WORKSPACE === -->
-    <div class="flex-1 flex overflow-hidden">
+    <!-- === STEP 1: Upload & Place Fields (existing functionality) === -->
+    <div v-if="currentWizardStep === 1" class="flex-1 flex overflow-hidden">
       <!-- [LEFT SIDEBAR] Tools & Assets -->
-      <aside class="w-72  flex flex-col shrink-0 z-10">
+      <aside class="w-72 flex flex-col shrink-0 z-10">
         <!-- Tabs / Sections -->
         <div class="p-4 border-b">
           <h3 class="font-bold flex items-center gap-2">
@@ -691,7 +925,7 @@ watch(
               @dragover.prevent="isDragging = true"
               @dragleave.prevent="isDragging = false"
             >
-              <div class=" w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white group-hover:text-primary-500 transition-colors text-gray-400">
                 <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6" />
               </div>
               <p class="text-sm font-medium">
@@ -891,6 +1125,31 @@ watch(
         </div>
       </section>
     </div>
+
+    <!-- === STEP 2: Signing Flow === -->
+    <template-signing-flow-editor
+      v-else-if="currentWizardStep === 2"
+      :signing-steps="signingSteps"
+      :placed-fields="placedFields"
+      :pdf-file="uploadedFile"
+      :file-type="fileType"
+      :ui-scale="scale"
+      @update:signing-steps="handleSigningStepsUpdate"
+      @update:placed-fields="handlePlacedFieldsUpdate"
+    />
+
+    <!-- === STEP 3: Review & Save === -->
+    <template-review-summary
+      v-else-if="currentWizardStep === 3"
+      :template-name="newTemplateName"
+      :uploaded-file="uploadedFile"
+      :file-type="fileType"
+      :placed-fields="placedFields"
+      :signing-steps="signingSteps"
+      :pdf-file="uploadedFile"
+      :ui-scale="scale"
+      @confirm="handleSaveTemplate"
+    />
 
     <!-- Field Create Modal -->
     <template-field-create-modal
