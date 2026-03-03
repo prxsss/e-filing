@@ -42,9 +42,9 @@ function getStatusLabel(status: string): string {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) {
+  if (!dateStr)
     return '-';
-  }
+
   return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
