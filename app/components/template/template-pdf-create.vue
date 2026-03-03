@@ -12,6 +12,7 @@ const props = defineProps({
   selectedContractId: { type: [String, Number], default: null },
   uiScale: { type: Number, default: 1 }, // UI zoom scale from parent
   readOnly: { type: Boolean, default: false }, // Read-only mode (no editing)
+  signingSteps: { type: Array as () => { id: string; color: string; roleName: string }[], default: () => [] }, // Signing steps for color-coding fields
 });
 
 const emit = defineEmits<{
@@ -21,11 +22,30 @@ const emit = defineEmits<{
   currentPageChanged: [pageNumber: number];
   fieldUpdated: [data: { instanceId: string; updates: any }];
   fieldRemoved: [instanceId: string];
+  fieldClicked: [field: Field];
 }>();
 
+// Helper: get signing step color for a field
+function getFieldSignerColor(field: Field): string | null {
+  if (!field.signerStepId || !props.signingSteps.length)
+    return null;
+  const step = props.signingSteps.find((s: any) => s.id === field.signerStepId);
+  return step ? step.color : null;
+}
+
+// Helper: get signing step role name for a field
+function getFieldSignerRole(field: Field): string | null {
+  if (!field.signerStepId || !props.signingSteps.length)
+    return null;
+  const step = props.signingSteps.find((s: any) => s.id === field.signerStepId);
+  return step ? step.roleName : null;
+}
+
+const viewerArea = ref<HTMLDivElement | null>(null);
 const previewContainer = ref<HTMLDivElement | null>(null);
 const pdfPageContainer = ref<HTMLDivElement | null>(null);
 const pdfCanvas = ref<HTMLCanvasElement | null>(null);
+const containerWidth = ref(0);
 
 const pdfLoaded = ref(false);
 const pdfDoc = shallowRef<PDFDocumentProxy | null>(null);
@@ -75,106 +95,83 @@ const activeResize = ref<{
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
+// --- Fit-to-width ---
+// Scale factor to make the PDF fill the container width
+const fitScale = computed(() => {
+  const natW = pdfNaturalDimensions.value.width;
+  if (!natW || !containerWidth.value)
+    return 1;
+  return containerWidth.value / natW;
+});
+
+const displayWidth = computed(() => {
+  if (!pdfNaturalDimensions.value.width || !containerWidth.value)
+    return 0;
+  return containerWidth.value;
+});
+
+const displayHeight = computed(() => {
+  const natH = pdfNaturalDimensions.value.height;
+  if (!natH)
+    return 0;
+  return natH * fitScale.value;
+});
+
+// Canvas CSS display size: scaled to fill the container width
+const canvasDisplayStyle = computed(() => ({
+  width: `${displayWidth.value}px`,
+  height: `${displayHeight.value}px`,
+}));
+
 // Computed: Calculate wrapper dimensions after scale for proper scrolling
 const scaledDimensions = computed(() => {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+  const dw = displayWidth.value;
+  const dh = displayHeight.value;
+  if (!dw || !dh) {
     return { width: 0, height: 0 };
   }
-
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
   const currentScale = props.uiScale || 1;
-
   return {
-    width: canvasWidth * currentScale,
-    height: canvasHeight * currentScale,
+    width: dw * currentScale,
+    height: dh * currentScale,
   };
 });
 
 // ========================================
-// Coordinate Conversion Functions (Simplified)
+// Coordinate Conversion Functions (Fit-to-width)
 // ใช้ normalized coordinates (0-1) เป็นหลัก
-// Note: Uses canvas.width/height (actual rendering dimensions) NOT getBoundingClientRect()
-// because getBoundingClientRect() includes CSS transforms, which would cause coordinate
-// shifts when zoom (uiScale) changes. The CSS transform handles all visual scaling.
+// Maps between normalized (0-1) and fit-to-width display coordinates.
+// The CSS transform: scale(uiScale) handles all visual zoom scaling.
 // ========================================
 
-// Helper: Get actual canvas rendering dimensions (NOT affected by CSS transforms)
-// IMPORTANT: Uses canvas.width/height directly, not getBoundingClientRect()
-function getCanvasRenderingDimensions() {
-  if (!pdfCanvas.value) {
-    return { width: 0, height: 0 };
-  }
-  // Use the actual canvas rendering dimensions (set during PDF render)
-  // NOT getBoundingClientRect() which includes CSS transforms
-  return { width: pdfCanvas.value.width, height: pdfCanvas.value.height };
-}
-
-// แปลง canvas pixel coordinates → normalized (0-1)
-// Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
-function canvasToNormalized(x: number, y: number, width: number, height: number) {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+// แปลง display pixel coordinates → normalized (0-1)
+// Uses fit-to-width display dimensions (unaffected by CSS zoom transforms)
+function displayToNorm(x: number, y: number, width: number, height: number) {
+  const dw = displayWidth.value;
+  const dh = displayHeight.value;
+  if (!dw || !dh) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
-
-  // Use actual canvas rendering dimensions, NOT getBoundingClientRect()
-  // This ensures zoom (uiScale) does NOT affect coordinate conversion
-  const canvasDims = getCanvasRenderingDimensions();
-  const canvasWidth = canvasDims.width;
-  const canvasHeight = canvasDims.height;
-  const naturalWidth = pdfNaturalDimensions.value.width;
-  const naturalHeight = pdfNaturalDimensions.value.height;
-
-  if (!canvasWidth || !canvasHeight) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
-
-  // Canvas pixel → Natural PDF coordinates
-  const naturalX = (x / canvasWidth) * naturalWidth;
-  const naturalY = (y / canvasHeight) * naturalHeight;
-  const naturalW = (width / canvasWidth) * naturalWidth;
-  const naturalH = (height / canvasHeight) * naturalHeight;
-
-  // Natural → Normalized (0-1)
   return {
-    x: naturalX / naturalWidth,
-    y: naturalY / naturalHeight,
-    width: naturalW / naturalWidth,
-    height: naturalH / naturalHeight,
+    x: x / dw,
+    y: y / dh,
+    width: width / dw,
+    height: height / dh,
   };
 }
 
-// แปลง normalized (0-1) → canvas pixel coordinates
-// Uses actual canvas rendering dimensions (unaffected by CSS zoom transforms)
-function normalizedToCanvas(normX: number, normY: number, normWidth: number, normHeight: number) {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+// แปลง normalized (0-1) → display pixel coordinates (fit-to-width)
+function normToDisplay(normX: number, normY: number, normWidth: number, normHeight: number) {
+  const dw = displayWidth.value;
+  const dh = displayHeight.value;
+  if (!dw || !dh) {
     return { x: 50, y: 50, width: 150, height: 40 };
   }
-
-  // Use actual canvas rendering dimensions, NOT getBoundingClientRect()
-  // This ensures zoom (uiScale) does NOT affect coordinate conversion
-  const canvasDims = getCanvasRenderingDimensions();
-  const canvasWidth = canvasDims.width;
-  const canvasHeight = canvasDims.height;
-  const naturalWidth = pdfNaturalDimensions.value.width;
-  const naturalHeight = pdfNaturalDimensions.value.height;
-
-  if (!canvasWidth || !canvasHeight) {
-    return { x: 50, y: 50, width: 150, height: 40 };
-  }
-
-  // Normalized → Natural PDF coordinates
-  const naturalX = normX * naturalWidth;
-  const naturalY = normY * naturalHeight;
-  const naturalW = normWidth * naturalWidth;
-  const naturalH = normHeight * naturalHeight;
-
-  // Natural → Canvas pixels
   return {
-    x: (naturalX / naturalWidth) * canvasWidth,
-    y: (naturalY / naturalHeight) * canvasHeight,
-    width: (naturalW / naturalWidth) * canvasWidth,
-    height: (naturalH / naturalHeight) * canvasHeight,
+    x: normX * dw,
+    y: normY * dh,
+    width: normWidth * dw,
+    height: normHeight * dh,
   };
 }
 
@@ -444,23 +441,23 @@ function drag(event: any): void {
 
   const field = activeDrag.value.field;
 
-  // Use canvas buffer dimensions for bounds (not affected by CSS transform)
-  const canvasWidth = pdfCanvas.value.width;
-  const canvasHeight = pdfCanvas.value.height;
+  // Use fit-to-width display dimensions for bounds (not affected by CSS transform)
+  const dw = displayWidth.value || 1;
+  const dh = displayHeight.value || 1;
 
   // Use display dimensions captured at drag start
   const fieldDisplayWidth = activeDrag.value.displayWidth;
   const fieldDisplayHeight = activeDrag.value.displayHeight;
 
-  // Constrain to canvas bounds
+  // Constrain to display bounds
   let newDisplayX = mouseCanvasX - activeDrag.value.offsetX;
   let newDisplayY = mouseCanvasY - activeDrag.value.offsetY;
-  newDisplayX = Math.max(0, Math.min(newDisplayX, canvasWidth - fieldDisplayWidth));
-  newDisplayY = Math.max(0, Math.min(newDisplayY, canvasHeight - fieldDisplayHeight));
+  newDisplayX = Math.max(0, Math.min(newDisplayX, dw - fieldDisplayWidth));
+  newDisplayY = Math.max(0, Math.min(newDisplayY, dh - fieldDisplayHeight));
 
   // Convert display coordinates back to normalized for storage
   if (field!.normalizedX !== undefined && field!.normalizedWidth !== undefined) {
-    const normalized = canvasToNormalized(newDisplayX, newDisplayY, fieldDisplayWidth, fieldDisplayHeight);
+    const normalized = displayToNorm(newDisplayX, newDisplayY, fieldDisplayWidth, fieldDisplayHeight);
     field!.normalizedX = normalized.x;
     field!.normalizedY = normalized.y;
     field!.normalizedWidth = normalized.width;
@@ -507,7 +504,7 @@ function startResize(event: any, field: Field, direction: string): void {
 
   // Get current display size from normalized coordinates
   const currentDisplay = field.normalizedWidth !== undefined
-    ? normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
+    ? normToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
     : { width: 150, height: 40 };
 
   // Find the original field in placedFields for direct mutation
@@ -556,8 +553,8 @@ function handleResize(event: any): void {
 
   // Convert display coords back to normalized and directly mutate the field
   if (field.normalizedX !== undefined) {
-    const currentDisplay = normalizedToCanvas(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight);
-    const normalized = canvasToNormalized(currentDisplay.x, currentDisplay.y, newWidth, newHeight);
+    const currentDisplay = normToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight);
+    const normalized = displayToNorm(currentDisplay.x, currentDisplay.y, newWidth, newHeight);
     field.normalizedX = normalized.x;
     field.normalizedY = normalized.y;
     field.normalizedWidth = normalized.width;
@@ -751,50 +748,24 @@ async function saveTemplate() {
   }
 }
 
-// Coordinate conversion helper functions
-// These use canvas pixel coordinates (matching the edit version)
+// Coordinate conversion helper functions (exposed to parent)
+// These use fit-to-width display coordinates
 function normalizedToDisplay(
   normalizedX: number,
   normalizedY: number,
   normalizedWidth: number,
   normalizedHeight: number,
 ): { x: number; y: number; width: number; height: number } {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
-    return { x: 50, y: 50, width: 150, height: 40 };
-  }
-  const canvasDims = getCanvasRenderingDimensions();
-  const nw = pdfNaturalDimensions.value.width;
-  const nh = pdfNaturalDimensions.value.height;
-  const scaleX = nw / canvasDims.width;
-  const scaleY = nh / canvasDims.height;
-  return {
-    x: (normalizedX * nw) / scaleX,
-    y: (normalizedY * nh) / scaleY,
-    width: (normalizedWidth * nw) / scaleX,
-    height: (normalizedHeight * nh) / scaleY,
-  };
+  return normToDisplay(normalizedX, normalizedY, normalizedWidth, normalizedHeight);
 }
 
 function displayToNormalized(
-  displayX: number,
-  displayY: number,
-  displayWidth: number,
-  displayHeight: number,
+  dispX: number,
+  dispY: number,
+  dispW: number,
+  dispH: number,
 ): { x: number; y: number; width: number; height: number } {
-  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
-    return { x: 0, y: 0, width: 0, height: 0 };
-  }
-  const canvasDims = getCanvasRenderingDimensions();
-  const nw = pdfNaturalDimensions.value.width;
-  const nh = pdfNaturalDimensions.value.height;
-  const scaleX = nw / canvasDims.width;
-  const scaleY = nh / canvasDims.height;
-  return {
-    x: (displayX * scaleX) / nw,
-    y: (displayY * scaleY) / nh,
-    width: (displayWidth * scaleX) / nw,
-    height: (displayHeight * scaleY) / nh,
-  };
+  return displayToNorm(dispX, dispY, dispW, dispH);
 }
 
 // Computed: fields with display coordinates for rendering in the template
@@ -803,7 +774,7 @@ const fieldsWithDisplayCoords = computed(() => {
     .filter((field: Field) => !field.pageNumber || field.pageNumber === currentPage.value)
     .map((field: Field) => {
       if (field.normalizedX !== undefined) {
-        const display = normalizedToCanvas(
+        const display = normToDisplay(
           field.normalizedX,
           field.normalizedY,
           field.normalizedWidth,
@@ -856,7 +827,7 @@ watch(
     // Auto-calculate normalized coordinates for new fields (direct mutation like edit version)
     (props.placedFields as Field[]).forEach((field) => {
       if (field.normalizedX === undefined || field.normalizedY === undefined) {
-        const normalized = canvasToNormalized(
+        const normalized = displayToNorm(
           field.x || 50,
           field.y || 50,
           field.width || 150,
@@ -917,9 +888,30 @@ function stopPan() {
   isPanning.value = false;
 }
 
+// --- Measure container width ---
+function updateContainerWidth() {
+  if (viewerArea.value) {
+    const style = getComputedStyle(viewerArea.value);
+    const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+    const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+    containerWidth.value = viewerArea.value.clientWidth - paddingLeft - paddingRight;
+  }
+}
+
+let resizeObserver: ResizeObserver | null = null;
+
 // Lifecycle
 onMounted(() => {
   // loadPdf() is handled by the watch on props.pdfFile with { immediate: true }
+
+  // Measure container width for fit-to-width
+  updateContainerWidth();
+  if (viewerArea.value) {
+    resizeObserver = new ResizeObserver(() => {
+      updateContainerWidth();
+    });
+    resizeObserver.observe(viewerArea.value);
+  }
 
   if (previewContainer.value) {
     previewContainer.value.addEventListener('mousedown', startPan);
@@ -930,6 +922,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  resizeObserver?.disconnect();
+
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
@@ -956,17 +950,19 @@ defineExpose<{
     displayWidth: number,
     displayHeight: number,
   ) => { x: number; y: number; width: number; height: number };
+  getPdfNaturalDimensions: () => { width: number; height: number };
 }>({
   saveTemplate,
   normalizedToDisplay,
   displayToNormalized,
+  getPdfNaturalDimensions: () => pdfNaturalDimensions.value,
 });
 </script>
 
 <template>
   <div class="w-full h-full flex flex-col">
     <!-- Canvas Area – Scrollable -->
-    <div class="flex-1 overflow-auto bg-gray-100 p-8 flex justify-center items-start">
+    <div ref="viewerArea" class="flex-1 overflow-auto bg-gray-100 p-4">
       <div
         id="pdf-preview-container"
         ref="previewContainer"
@@ -996,6 +992,7 @@ defineExpose<{
               v-show="pdfLoaded"
               ref="pdfCanvas"
               class="pdf-canvas"
+              :style="canvasDisplayStyle"
             />
 
             <!-- Fields อยู่ใน pdf-container เดียวกับ canvas เพื่อให้ position: absolute ทำงานถูกต้อง -->
@@ -1005,7 +1002,9 @@ defineExpose<{
               class="placed-field"
               :class="{
                 'field-selected': selectedField?.instanceId === field.instanceId && !props.readOnly,
-                'read-only': props.readOnly,
+                'read-only': props.readOnly && !props.signingSteps.length,
+                'field-unassigned': props.signingSteps.length > 0 && !field.signerStepId,
+                'field-clickable': props.readOnly && props.signingSteps.length > 0,
               }"
               :style="{
                 left: `${field.displayX}px`,
@@ -1015,16 +1014,28 @@ defineExpose<{
                 zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 100,
                 fontSize: `${field.fontSize || 14}px`,
                 fontFamily: field.fontFamily || 'Arial',
-                cursor: props.readOnly ? 'default' : 'grab',
+                cursor: props.readOnly ? (props.signingSteps.length > 0 ? 'pointer' : 'default') : 'grab',
+                borderColor: getFieldSignerColor(field) || undefined,
+                borderWidth: getFieldSignerColor(field) ? '2px' : undefined,
+                borderStyle: getFieldSignerColor(field) ? 'solid' : undefined,
+                backgroundColor: getFieldSignerColor(field) ? `${getFieldSignerColor(field)}15` : undefined,
               }"
               @mousedown.stop.prevent="!props.readOnly && startDrag($event, field)"
               @touchstart.stop.prevent="!props.readOnly && startDrag($event, field)"
-              @click.stop="!props.readOnly && selectField(field)"
+              @click.stop="props.readOnly && props.signingSteps.length > 0 ? emit('fieldClicked', field) : !props.readOnly && selectField(field)"
             >
               <div class="field-content">
                 <i v-if="field.name === 'Check Mark'" :class="field.icon" />
                 <span v-if="field.label">{{ field.label }}</span>
                 <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+              </div>
+              <!-- Signer role tag (visible in read-only mode with signing steps) -->
+              <div
+                v-if="props.signingSteps.length > 0 && getFieldSignerRole(field)"
+                class="signer-tag"
+                :style="{ backgroundColor: getFieldSignerColor(field) || '#6B7280' }"
+              >
+                {{ getFieldSignerRole(field) }}
               </div>
 
               <!-- Resize handles (hidden in read-only mode) -->
@@ -1144,6 +1155,42 @@ defineExpose<{
 .placed-field.read-only {
   cursor: default !important;
   pointer-events: none;
+}
+
+.placed-field.field-clickable {
+  cursor: pointer !important;
+  pointer-events: auto;
+}
+
+.placed-field.field-unassigned {
+  border: 2px dashed #9ca3af !important;
+  background: rgba(156, 163, 175, 0.1) !important;
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.signer-tag {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  font-size: 0.55rem;
+  color: white;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.2;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1002;
 }
 
 .field-selected {
