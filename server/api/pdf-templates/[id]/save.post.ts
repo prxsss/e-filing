@@ -38,6 +38,7 @@ export default defineEventHandler(async (event: H3Event) => {
         documentWidth: body.documentWidth || null,
         documentHeight: body.documentHeight || null,
         placedFieldsData: body.placedFieldsData,
+        signingFlowData: body.signingFlowData || null,
       })
       .where(eq(requestTemplate.id, Number(templateId)))
       .returning();
