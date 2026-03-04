@@ -206,36 +206,6 @@ function handleFileDrop(event) {
     processFile(file);
 }
 
-// Security: Validate template name format
-function validateTemplateNameFormat(name) {
-  if (!name || typeof name !== 'string') {
-    return { isValid: false, message: 'กรุณากรอกชื่อ template' };
-  }
-
-  const trimmedName = name.trim();
-
-  if (trimmedName.length < 3) {
-    return { isValid: false, message: 'ชื่อ template ต้องมีอย่างน้อย 3 ตัวอักษร' };
-  }
-
-  if (trimmedName.length > 100) {
-    return { isValid: false, message: 'ชื่อ template ต้องไม่เกิน 100 ตัวอักษร' };
-  }
-
-  // Allow Thai, English, numbers, spaces, hyphens, underscores
-  const validPattern = /^[\u0E00-\u0E7F\w\s\-]+$/;
-  if (!validPattern.test(trimmedName)) {
-    return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
-  }
-
-  // Prevent path traversal
-  if (trimmedName.includes('..') || trimmedName.includes('/') || trimmedName.includes('\\')) {
-    return { isValid: false, message: 'ชื่อ template มีอักขระที่ไม่อนุญาต' };
-  }
-
-  return { isValid: true, message: '' };
-}
-
 // Security: Verify PDF magic bytes
 async function verifyPdfMagicBytes(file) {
   return new Promise((resolve) => {
@@ -289,7 +259,7 @@ async function processFile(file) {
   }
 
   placedFields.value = [];
-  selectedField.value = null;
+  selectedFieldInstanceId.value = null;
   currentPdfPage.value = 1;
   uploadedFile.value = file;
 
@@ -372,18 +342,23 @@ function handleKeyDown(event) {
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
     return;
 
+  // Mutate the actual field in placedFields (not the computed spread copy)
+  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
+  if (!field)
+    return;
+
   const step = event.shiftKey ? 10 : 1;
 
   switch (event.key) {
     case 'ArrowUp':
       event.preventDefault();
-      if (selectedField.value.normalizedY !== undefined) {
+      if (field.normalizedY !== undefined) {
         // Get current display position
         const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+          field.normalizedX,
+          field.normalizedY,
+          field.normalizedWidth,
+          field.normalizedHeight,
         );
         // Update display position
         const newY = Math.max(0, display.y - step);
@@ -394,17 +369,17 @@ function handleKeyDown(event) {
           display.width,
           display.height,
         );
-        selectedField.value.normalizedY = normalized.y;
+        field.normalizedY = normalized.y;
       }
       break;
     case 'ArrowDown':
       event.preventDefault();
-      if (selectedField.value.normalizedY !== undefined) {
+      if (field.normalizedY !== undefined) {
         const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+          field.normalizedX,
+          field.normalizedY,
+          field.normalizedWidth,
+          field.normalizedHeight,
         );
         const newY = display.y + step;
         const normalized = templatePdfRef.value.displayToNormalized(
@@ -413,17 +388,17 @@ function handleKeyDown(event) {
           display.width,
           display.height,
         );
-        selectedField.value.normalizedY = normalized.y;
+        field.normalizedY = normalized.y;
       }
       break;
     case 'ArrowLeft':
       event.preventDefault();
-      if (selectedField.value.normalizedX !== undefined) {
+      if (field.normalizedX !== undefined) {
         const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+          field.normalizedX,
+          field.normalizedY,
+          field.normalizedWidth,
+          field.normalizedHeight,
         );
         const newX = Math.max(0, display.x - step);
         const normalized = templatePdfRef.value.displayToNormalized(
@@ -432,17 +407,17 @@ function handleKeyDown(event) {
           display.width,
           display.height,
         );
-        selectedField.value.normalizedX = normalized.x;
+        field.normalizedX = normalized.x;
       }
       break;
     case 'ArrowRight':
       event.preventDefault();
-      if (selectedField.value.normalizedX !== undefined) {
+      if (field.normalizedX !== undefined) {
         const display = templatePdfRef.value.normalizedToDisplay(
-          selectedField.value.normalizedX,
-          selectedField.value.normalizedY,
-          selectedField.value.normalizedWidth,
-          selectedField.value.normalizedHeight,
+          field.normalizedX,
+          field.normalizedY,
+          field.normalizedWidth,
+          field.normalizedHeight,
         );
         const newX = display.x + step;
         const normalized = templatePdfRef.value.displayToNormalized(
@@ -451,7 +426,7 @@ function handleKeyDown(event) {
           display.width,
           display.height,
         );
-        selectedField.value.normalizedX = normalized.x;
+        field.normalizedX = normalized.x;
       }
       break;
     case 'Delete':
@@ -481,9 +456,25 @@ function handleFieldRemoval(instanceId) {
 }
 
 function validateTemplateName() {
-  const result = validateTemplateNameFormat(newTemplateName.value);
-  templateNameError.value = result.isValid ? '' : result.message;
-  return result.isValid;
+  const name = newTemplateName.value.trim();
+
+  if (!name) {
+    templateNameError.value = 'กรุณาป้อนชื่อเทมเพลต';
+    return false;
+  }
+
+  if (name.length < 3) {
+    templateNameError.value = 'ชื่อเทมเพลตต้องมีอย่างน้อย 3 ตัวอักษร';
+    return false;
+  }
+
+  if (name.length > 100) {
+    templateNameError.value = 'ชื่อเทมเพลตต้องไม่เกิน 100 ตัวอักษร';
+    return false;
+  }
+
+  templateNameError.value = '';
+  return true;
 }
 
 function handleSaveTemplate() {
@@ -492,8 +483,8 @@ function handleSaveTemplate() {
 
   if (!uploadedFile.value) {
     toast.add({
-      title: 'ข้อผิดพลาด',
-      description: 'กรุณาอัพโหลดไฟล์ PDF ก่อน',
+      title: 'กรุณาอัปโหลดไฟล์',
+      description: 'อัปโหลดไฟล์ PDF ก่อนบันทึกเทมเพลต',
       color: 'error',
     });
     return;
@@ -508,10 +499,105 @@ function handleSaveTemplate() {
     return;
   }
 
-  // Call saveTemplate from child component
-  if (templatePdfRef.value && templatePdfRef.value.saveTemplate) {
-    isSaving.value = true;
-    templatePdfRef.value.saveTemplate();
+  // Save template — parent handles the entire save process
+  performSave();
+}
+
+async function performSave() {
+  isSaving.value = true;
+
+  try {
+    // Step 1: Upload PDF file
+    const formData = new FormData();
+    formData.append('file', uploadedFile.value);
+
+    const uploadResponse = await $fetch('/api/upload-template-file', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!uploadResponse.success || !uploadResponse.url) {
+      throw new Error('Failed to upload PDF file');
+    }
+
+    const documentUrl = uploadResponse.url;
+
+    // Step 2: Get PDF natural dimensions from child component
+    let docWidth = 0;
+    let docHeight = 0;
+    if (templatePdfRef.value && templatePdfRef.value.getPdfNaturalDimensions) {
+      const dims = templatePdfRef.value.getPdfNaturalDimensions();
+      docWidth = Math.round(dims.width || 0);
+      docHeight = Math.round(dims.height || 0);
+    }
+
+    // Step 3: Normalize field coordinates
+    const normalizedFields = placedFields.value.map(field => ({
+      id: field.id,
+      instanceId: field.instanceId,
+      instanceNumber: field.instanceNumber,
+      type: field.fieldType || field.type,
+      name: field.name,
+      label: field.label,
+      fontSize: field.fontSize || 14,
+      fontFamily: field.fontFamily || 'Arial',
+      normalizedX: field.normalizedX,
+      normalizedY: field.normalizedY,
+      normalizedWidth: field.normalizedWidth,
+      normalizedHeight: field.normalizedHeight,
+      groupId: field.groupId || null,
+      isGrouped: field.isGrouped || false,
+      groupSize: field.groupSize || 1,
+      groupPosition: field.groupPosition || 0,
+      pageNumber: field.pageNumber || 1,
+    }));
+
+    // Step 4: Save template to database
+    const templatePayload = {
+      name: newTemplateName.value.trim(),
+      description: null,
+      category: null,
+      version: '1.0.0',
+      isActive: true,
+      createdBy: null,
+      documentUrl,
+      documentWidth: docWidth,
+      documentHeight: docHeight,
+      placedFieldsData: normalizedFields,
+    };
+
+    const saveResponse = await $fetch('/api/pdf-templates', {
+      method: 'POST',
+      body: templatePayload,
+    });
+
+    if (!saveResponse.success || !saveResponse.data) {
+      throw new Error('Failed to save template to database');
+    }
+
+    toast.add({
+      title: 'บันทึกสำเร็จ',
+      description: `Template "${newTemplateName.value.trim()}" ถูกบันทึกแล้ว`,
+      color: 'success',
+    });
+
+    hasChanges.value = false;
+
+    setTimeout(() => {
+      router.push('/admin/templates');
+    }, 500);
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Save template error:', error);
+    toast.add({
+      title: 'เกิดข้อผิดพลาด',
+      description: errorMessage || 'ไม่สามารถบันทึก Template ได้',
+      color: 'error',
+    });
+  }
+  finally {
+    isSaving.value = false;
   }
 }
 
@@ -629,17 +715,19 @@ watch([newTemplateName, placedFields, uploadedFile], () => {
 });
 
 watch(
-  selectedField,
-  (newField) => {
-    if (newField && typeof newField === 'object') {
-      // Ensure required properties exist
-      if (typeof newField.label !== 'string')
-        newField.label = '';
-      if (!newField.instanceId)
-        newField.instanceId = `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  selectedFieldInstanceId,
+  (newId) => {
+    if (!newId)
+      return;
+    const field = placedFields.value.find(f => f.instanceId === newId);
+    if (field) {
+      // Ensure required properties exist on the actual placedFields entry
+      if (typeof field.label !== 'string')
+        field.label = '';
+      if (!field.instanceId)
+        field.instanceId = `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
   },
-  { deep: true },
 );
 </script>
 
