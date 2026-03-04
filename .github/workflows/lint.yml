@@ -10,10 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: Build
     env:
-      NODE_ENV: development
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
-      BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+      NUXT_SESSION_PASSWORD: ${{ secrets.NUXT_SESSION_PASSWORD}}
 
     steps:
       - uses: actions/checkout@v5

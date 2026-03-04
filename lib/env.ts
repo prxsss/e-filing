@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  NODE_ENV: z.string(),
   DATABASE_URL: z.string(),
   NUXT_SESSION_PASSWORD: z.string(),
 });

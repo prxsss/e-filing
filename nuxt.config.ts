@@ -17,9 +17,6 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css'],
   runtimeConfig: {
-    public: {
-      nodeEnv: env.NODE_ENV,
-    },
     session: {
       password: env.NUXT_SESSION_PASSWORD,
       name: 'e-filing-session',
