@@ -7,13 +7,12 @@ export async function getUsers() {
   return db
     .select({
       id: users.id,
-      name: users.name,
+      fullNameEN: sql<string>`concat(${users.firstNameEN}, ' ', ${users.lastNameEN})`,
+      fullNameTH: sql<string>`concat(${users.firstNameTH}, ' ', ${users.lastNameTH})`,
       email: users.email,
-      institutionId: users.institutionId,
       faculty: faculties.name,
-      status: users.status,
+      banned: users.banned,
       roles: sql<string[]>`coalesce(array_agg(${roles.name}) filter (where ${roles.name} is not null), '{}')`,
-
     })
     .from(users)
     .leftJoin(userRoles, eq(users.id, userRoles.userId))
@@ -25,10 +24,13 @@ export async function getUsers() {
 export async function getUserById(id: string) {
   return db.select({
     id: users.id,
-    name: users.name,
+    firstNameEN: users.firstNameEN,
+    lastNameEN: users.lastNameEN,
+    fullNameEN: sql<string>`concat(${users.firstNameEN}, ' ', ${users.lastNameEN})`,
+    firstNameTH: users.firstNameTH,
+    lastNameTH: users.lastNameTH,
+    fullNameTH: sql<string>`concat(${users.firstNameTH}, ' ', ${users.lastNameTH})`,
     email: users.email,
-    institutionId: users.institutionId,
-    status: users.status,
     roles: sql<string[]>`array_agg(
       jsonb_build_object(
             'id', ${roles.id},
@@ -36,8 +38,9 @@ export async function getUserById(id: string) {
         )
     )`,
     facultyId: users.facultyId,
-    faculty: faculties.name,
+    facultyName: faculties.name,
     image: users.image,
+    banned: users.banned,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
   })

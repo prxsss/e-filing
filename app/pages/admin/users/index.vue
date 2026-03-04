@@ -3,9 +3,7 @@ import type { TableColumn } from '@nuxt/ui';
 
 import { h, resolveComponent } from 'vue';
 
-import type { User } from '~/types/user';
-
-import { getUserStatusColor } from '~/utils/user-status';
+import type { UserListItem } from '~/types/user';
 
 definePageMeta({
   title: 'users',
@@ -18,18 +16,16 @@ const router = useRouter();
 
 const localPath = useLocalePath();
 
-const { data, status } = await useFetch<User[]>('/api/users', {
-  lazy: true,
-});
+const { data, status } = await useFetch<UserListItem[]>('/api/users');
 
-const columns: TableColumn<User>[] = [
+const columns: TableColumn<UserListItem>[] = [
   {
-    accessorKey: 'institutionId',
-    header: 'Institution ID',
+    accessorKey: 'id',
+    header: 'ID',
 
   },
   {
-    accessorKey: 'name',
+    accessorKey: 'fullNameEN',
     header: 'Full Name',
   },
   {
@@ -41,15 +37,16 @@ const columns: TableColumn<User>[] = [
     header: 'Faculty',
     cell: ({ row }) => {
       const faculty = row.getValue('faculty') as string | null;
-      return faculty || h('div', { class: 'text-slate-500' }, 'No faculty');
+      return faculty || h('div', '-');
     },
   },
   {
-    accessorKey: 'status',
+    accessorKey: 'banned',
     header: 'Status',
     cell: ({ row }) => {
-      const color = getUserStatusColor(row.getValue('status'));
-      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, row.getValue('status'));
+      const color = row.getValue('banned') ? 'error' : 'success';
+      const statusText = row.getValue('banned') ? 'Banned' : 'Active';
+      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, statusText);
     },
   },
   {
