@@ -123,7 +123,7 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
           <UIcon name="i-heroicons-eye" class="text-primary-500" />
           ตัวอย่างเอกสาร
         </h3>
-        <div class="overflow-hidden rounded-lg border border-gray-200 overflow-y-auto max-h-[600px]">
+        <div class="overflow-hidden rounded-lg border border-gray-200 overflow-y-auto max-h-150">
           <template-pdf-create
             :pdf-file="pdfFile"
             :placed-fields="placedFields"

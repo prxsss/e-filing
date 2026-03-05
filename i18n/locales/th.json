@@ -71,6 +71,7 @@
   "next": "ถัดไป",
   "previous": "ย้อนกลับ",
   "addSigningStep": "เพิ่มลำดับ",
+  "selectRole": "เลือกบทบาท...",
   "roleName": "ชื่อตำแหน่ง",
   "assignedFields": "ฟิลด์ที่กำหนด",
   "unassignedFields": "ฟิลด์ที่ยังไม่ได้กำหนด",
