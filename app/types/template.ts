@@ -127,6 +127,7 @@ export type TemplateData = {
 export type SigningStep = {
   id: string;
   order: number;
+  roleId?: number;
   roleName: string;
   description?: string;
   isRequired: boolean;

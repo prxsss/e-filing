@@ -48,6 +48,7 @@
   "next": "Next",
   "previous": "Previous",
   "addSigningStep": "Add Step",
+  "selectRole": "Select a role...",
   "roleName": "Role Name",
   "assignedFields": "Assigned Fields",
   "unassignedFields": "Unassigned Fields",

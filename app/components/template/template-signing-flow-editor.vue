@@ -21,9 +21,49 @@ const { t } = useI18n();
 // Local state
 const selectedStepId = ref<string | null>(null);
 const isAddingStep = ref(false);
-const newStepRoleName = ref('');
-const newStepDescription = ref('');
+const newStepRoleId = ref<number | undefined>(undefined);
 const newStepIsRequired = ref(true);
+
+// Fetch roles from database
+const roles = ref<{ id: number; name: string; description: string | null }[]>([]);
+const isLoadingRoles = ref(false);
+
+async function fetchRoles(): Promise<void> {
+  isLoadingRoles.value = true;
+  try {
+    const data = await $fetch<{ id: number; name: string; description: string | null }[]>('/api/roles');
+    roles.value = data;
+  }
+  catch (error) {
+    console.error('Failed to fetch roles:', error);
+  }
+  finally {
+    isLoadingRoles.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchRoles();
+});
+
+// Roles formatted for USelect (filter out already-used roles)
+const roleItems = computed(() => {
+  const usedRoleIds = props.signingSteps.map(s => s.roleId).filter(Boolean);
+  return roles.value
+    .filter(r => !usedRoleIds.includes(r.id))
+    .map(r => ({
+      label: r.name,
+      value: r.id,
+      description: r.description ?? undefined,
+    }));
+});
+
+// Selected role object (for auto-filling description)
+const selectedNewRole = computed(() => {
+  if (!newStepRoleId.value)
+    return null;
+  return roles.value.find(r => r.id === newStepRoleId.value) ?? null;
+});
 
 // Computed
 const selectedStep = computed<SigningStep | null>(() => {
@@ -53,15 +93,15 @@ function getNextColor(): string {
 
 // Add a new signing step
 function addStep(): void {
-  const roleName = newStepRoleName.value.trim();
-  if (!roleName)
+  if (!selectedNewRole.value)
     return;
 
   const newStep: SigningStep = {
     id: `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     order: props.signingSteps.length + 1,
-    roleName,
-    description: newStepDescription.value.trim() || undefined,
+    roleId: selectedNewRole.value.id,
+    roleName: selectedNewRole.value.name,
+    description: selectedNewRole.value.description || undefined,
     isRequired: newStepIsRequired.value,
     assignedFieldInstanceIds: [],
     color: getNextColor(),
@@ -71,8 +111,7 @@ function addStep(): void {
   emit('update:signingSteps', updatedSteps);
 
   // Reset form
-  newStepRoleName.value = '';
-  newStepDescription.value = '';
+  newStepRoleId.value = undefined;
   newStepIsRequired.value = true;
   isAddingStep.value = false;
 
@@ -284,18 +323,20 @@ watch(() => props.signingSteps.length, (newLen) => {
 
         <!-- Add Step Form -->
         <div v-if="isAddingStep" class="rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 p-3 space-y-2">
-          <UInput
-            v-model="newStepRoleName"
-            :placeholder="t('roleName')"
+          <USelect
+            v-model="newStepRoleId"
+            :items="roleItems"
+            :placeholder="t('selectRole')"
+            value-key="value"
+            label-key="label"
             size="sm"
-            autofocus
-            @keyup.enter="addStep"
+            :loading="isLoadingRoles"
+            icon="i-heroicons-user-circle"
           />
-          <UInput
-            v-model="newStepDescription"
-            :placeholder="t('description')"
-            size="sm"
-          />
+          <!-- Show selected role description -->
+          <p v-if="selectedNewRole?.description" class="text-xs text-gray-500 bg-white rounded px-2 py-1.5 border border-gray-200">
+            {{ selectedNewRole.description }}
+          </p>
           <div class="flex items-center justify-between">
             <label class="flex items-center gap-2 text-xs">
               <input v-model="newStepIsRequired" type="checkbox" class="rounded">
@@ -307,13 +348,13 @@ watch(() => props.signingSteps.length, (newLen) => {
                 color="neutral"
                 variant="ghost"
                 :label="t('previous')"
-                @click="isAddingStep = false"
+                @click="isAddingStep = false; newStepRoleId = undefined"
               />
               <UButton
                 size="xs"
                 color="primary"
                 :label="t('addSigningStep')"
-                :disabled="!newStepRoleName.trim()"
+                :disabled="!newStepRoleId"
                 @click="addStep"
               />
             </div>
