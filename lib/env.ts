@@ -3,8 +3,7 @@ import { z } from 'zod';
 const EnvSchema = z.object({
   NODE_ENV: z.string(),
   DATABASE_URL: z.string(),
-  BETTER_AUTH_SECRET: z.string(),
-  BETTER_AUTH_URL: z.string(),
+  NUXT_SESSION_PASSWORD: z.string(),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });

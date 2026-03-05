@@ -5,13 +5,15 @@ import { users } from './auth';
 export const permissions = pgTable('permissions', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
   code: text('code').notNull().unique(),
-  description: text('description'),
+  descriptionEN: text('description_en'),
+  descriptionTH: text('description_th'),
 });
 
 export const roles = pgTable('roles', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
   name: text('name').notNull(),
-  description: text('description'),
+  descriptionEN: text('description_en'),
+  descriptionTH: text('description_th'),
 });
 
 export const rolePermissions = pgTable('role_permissions', {

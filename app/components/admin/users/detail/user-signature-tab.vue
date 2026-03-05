@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { User } from '~/types/user';
+import type { UserListItem } from '~/types/user';
 
 defineProps<{
-  user: User;
+  user: UserListItem;
   signatureDetails: {
     status: string;
     lastUsed: string;

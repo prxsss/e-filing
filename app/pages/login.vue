@@ -40,18 +40,12 @@ const formState = reactive({
 });
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
-  await authStore.signIn(payload.data.email, payload.data.password);
+  await authStore.login(payload.data.email, payload.data.password);
 }
-
-watchEffect(() => {
-  authStore.clearError();
-});
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
-    {{ formState.email }}
-    {{ formState.password }}
     <UPageCard class="w-full max-w-md">
       <UAuthForm
         v-model="formState"
@@ -64,7 +58,7 @@ watchEffect(() => {
           <SciKuSrcLogo :width="300" class="mx-auto" />
         </template>
         <template #validation>
-          <UAlert v-if="authStore.errorMessage" color="error" icon="i-lucide-info" :title="authStore.errorMessage" />
+          <UAlert v-if="authStore.errorMessage" color="error" variant="subtle" icon="i-lucide-info" :title="authStore.errorMessage" />
         </template>
         <template #footer>
           <USeparator class="mb-4" />

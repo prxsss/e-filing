@@ -1,16 +1,14 @@
-import type { User } from '~/types/user';
+import type { UserDetail, UserListItem } from '~/types/user';
 
 export const useUsersStore = defineStore('users', () => {
-  const users = ref<User[] | null>(null);
-  const user = ref<User | null>(null);
+  const users = ref<UserListItem[] | null>(null);
+  const user = ref<UserDetail | null>(null);
   const isLoading = ref(false);
 
   async function fetchUsers() {
     isLoading.value = true;
     try {
-      const data = await $fetch<User[]>('/api/users', { query: {
-        include: 'roles',
-      } });
+      const data = await $fetch<UserListItem[]>('/api/users');
       users.value = data ?? [];
     }
     finally {
@@ -18,12 +16,10 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function fetchUserById(id: number) {
+  async function fetchUserById(id: string) {
     isLoading.value = true;
     try {
-      const data = await $fetch<User>(`/api/users/${id}`, { query: {
-        include: 'roles',
-      } });
+      const data = await $fetch<UserDetail>(`/api/users/${id}`);
       user.value = data ?? null;
     }
     finally {

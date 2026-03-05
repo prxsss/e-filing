@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { TableColumn, TabsItem } from '@nuxt/ui';
+import type { DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui';
 
+import { LazyBaseConfirmDialogWithReason } from '#components';
 import { h, resolveComponent } from 'vue';
 
-import type { User } from '~/types/user';
+import type { UserDetail } from '~/types/user';
 import type { RequestStatus } from '~/utils/request-status';
 
 import { getRequestStatusColor } from '~/utils/request-status';
-import { getUserStatusColor } from '~/utils/user-status';
 
 const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
@@ -17,9 +17,12 @@ const router = useRouter();
 
 const localPath = useLocalePath();
 
-const { data: user } = await useFetch<User>(`/api/users/${route.params.id}`, {
-  lazy: true,
-});
+const overlay = useOverlay();
+const toast = useToast();
+
+const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
+
+const { data: user, execute: refreshUser } = await useFetch<UserDetail>(`/api/users/${route.params.id}`);
 
 const statusSummary = reactive({
   totalRequests: 12,
@@ -140,86 +143,174 @@ const active = computed({
     });
   },
 });
+
+type DropdownMenuItemWithVisibility = {
+  visible: ComputedRef<boolean>;
+} & DropdownMenuItem;
+
+const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
+  {
+    label: 'Reset Password',
+    icon: 'i-lucide-rotate-ccw',
+    color: 'neutral',
+    visible: computed(() => true), // Always visible
+  },
+  {
+    label: 'Ban User',
+    icon: 'i-lucide-user-x',
+    color: 'error',
+    visible: computed(() => !user.value?.banned),
+    onSelect: async () => {
+      const instance = confirmDialogWithReason.open({
+        title: 'Ban User',
+        description: `Are you sure you want to ban ${user.value?.fullNameEN}? This will prevent them from accessing their account.`,
+        reasonRequired: true,
+        reasonPlaceholder: 'Please provide a reason for banning this user',
+        reasonErrorMessage: 'Ban reason is required',
+        cancelButton: {
+          label: 'Cancel',
+        },
+        confirmButton: {
+          label: 'Ban',
+          color: 'error',
+        },
+      });
+
+      const result = await instance.result;
+      if (result.confirmed) {
+        await $fetch(`/api/users/${user.value?.id}/ban`, {
+          method: 'PATCH',
+          body: {
+            banReason: result.confirmationReason || 'No reason provided',
+          },
+        });
+
+        toast.add({
+          title: 'User Banned',
+          description: `User ${user.value?.fullNameEN} has been banned.`,
+          color: 'success',
+        });
+
+        await refreshUser();
+      }
+    },
+  },
+  {
+    label: 'Unban User',
+    icon: 'i-lucide-user-check',
+    color: 'success',
+    visible: computed(() => user.value?.banned),
+    onSelect: async () => {
+      await $fetch(`/api/users/${user.value?.id}/unban`, {
+        method: 'PATCH',
+      });
+
+      toast.add({
+        title: 'User Unbanned',
+        description: `User ${user.value?.fullNameEN} has been unbanned.`,
+        color: 'success',
+      });
+
+      await refreshUser();
+    },
+  },
+] as DropdownMenuItemWithVisibility[]).filter(item => item.visible.value));
 </script>
 
 <template>
-  <UPage>
-    <div>
-      <UButton
-        icon="i-lucide-arrow-left"
-        color="neutral"
-        variant="link"
-        :to="localPath('/admin/users')"
-        class="mb-6"
-      >
-        Back to Users
-      </UButton>
+  <div>
+    <UButton
+      icon="i-lucide-arrow-left"
+      color="neutral"
+      variant="link"
+      :to="localPath('/admin/users')"
+      class="mb-6"
+    >
+      Back to Users
+    </UButton>
 
-      <div v-if="user">
-        <!-- Header Section -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div v-if="user">
+      <!-- Header Section -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div class="flex items-center gap-4">
           <div class="flex items-center gap-4">
-            <div class="flex items-center gap-4">
-              <div class="relative">
-                <UAvatar
-                  :src="user.image"
-                  :text="user.image ? '' : user.name.split(' ').map(word => word[0]).join('').toUpperCase()"
-                  :alt="user.name"
-                  size="3xl"
-                />
+            <div class="relative">
+              <UAvatar
+                :src="user.image || undefined"
+                :text="user.image ? '' : user.firstNameEN.charAt(0).toUpperCase() + user.lastNameEN.charAt(0).toUpperCase()"
+                :alt="user.fullNameEN"
+                size="3xl"
+              />
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-2xl font-bold tracking-tight">
+                  {{ user.fullNameEN }}
+                </h1>
+                <UBadge
+                  :color="user.banned ? 'error' : 'success'"
+                  variant="subtle"
+                  class="uppercase text-xs"
+                >
+                  {{ user.banned ? 'Banned' : 'Active' }}
+                </UBadge>
               </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h1 class="text-2xl font-bold tracking-tight">
-                    {{ user.name }}
-                  </h1>
-                  <UBadge
-                    :color="getUserStatusColor(user.status)"
-                    variant="subtle"
-                    class="uppercase text-xs"
-                  >
-                    {{ user.status }}
-                  </UBadge>
-                </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                  {{ user.email }}
-                </p>
-              </div>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                {{ user.email }}
+              </p>
             </div>
           </div>
+        </div>
+        <div class="flex items-center gap-2">
           <UButton
             color="primary"
-            trailing-icon="i-lucide-chevron-down"
+            icon="i-lucide-pencil"
+            :to="localPath(`/admin/users/${user.id}/edit`)"
           >
-            Actions
+            Edit
           </UButton>
+          <UDropdownMenu
+            :items="actionMenuItems"
+            :content="{
+              align: 'end',
+              side: 'bottom',
+            }"
+          >
+            <UButton
+              color="neutral"
+              variant="soft"
+              trailing-icon="i-lucide-chevron-down"
+            >
+              Actions
+            </UButton>
+          </UDropdownMenu>
         </div>
-        <UTabs
-          v-model="active" :items="items" size="lg" variant="link" :ui="{
-          }" class="gap-8 w-full"
-        >
-          <template #overview>
-            <AdminUsersDetailUserOverviewTab :user="user" :status-summary="statusSummary" />
-          </template>
-          <!-- <template #permissions>
+      </div>
+      <UTabs
+        v-model="active" :items="items" size="lg" variant="link" :ui="{
+        }" class="gap-8 w-full"
+      >
+        <template #overview>
+          <AdminUsersDetailUserOverviewTab :user="user" :status-summary="statusSummary" />
+        </template>
+        <!-- <template #permissions>
             <AdminUsersDetailUserPermissionsTab :roles="user.roles" />
           </template>
           <template #signature>
             <AdminUsersDetailUserSignatureTab :user="user" :signature-details="signatureDetails" />
           </template> -->
-          <template #requests>
-            <AdminUsersDetailUserRequestsTab :requests="requests" :columns="columns" />
-          </template>
-          <template #activity>
-            <AdminUsersDetailUserActivityTab />
-          </template>
-        </UTabs>
-      </div>
-      <div v-else>
-        <p class="text-center text-gray-500 dark:text-gray-400">
-          Loading user details...
-        </p>
-      </div>
+        <template #requests>
+          <AdminUsersDetailUserRequestsTab :requests="requests" :columns="columns" />
+        </template>
+        <template #activity>
+          <AdminUsersDetailUserActivityTab />
+        </template>
+      </UTabs>
     </div>
-  </UPage>
+    <div v-else>
+      <p>
+        Sorry, user with ID {{ route.params.id }} not found.
+      </p>
+    </div>
+  </div>
 </template>

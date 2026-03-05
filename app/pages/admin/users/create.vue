@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui';
 
-import { authClient } from '~~/lib/auth-client';
+import { LazyBaseConfirmDialog } from '#components';
 import { ref } from 'vue';
 import * as z from 'zod';
 
@@ -9,23 +9,30 @@ import type { Role } from '~/types/user';
 
 const localPath = useLocalePath();
 const toast = useToast();
+const overlay = useOverlay();
+
+const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
 const show = ref(false);
+const loading = ref(false);
+const isDirty = ref(false);
 
-const schema = z.object({
-  institutionId: z.string().min(1, 'Institution ID is required'),
-  fullName: z.string().min(1, 'Full name is required'),
+const createUserSchema = z.object({
+  id: z.string().min(1, 'ID is required'),
+  firstNameEN: z.string().min(1, 'First name is required'),
+  lastNameEN: z.string().min(1, 'Last name is required'),
   email: z.email('Invalid email'),
   faculty: z.number().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
 });
 
-type Schema = z.output<typeof schema>;
+type CreateUserSchema = z.output<typeof createUserSchema>;
 
-const form = ref<Partial<Schema>>({
-  institutionId: '',
-  fullName: '',
+const form = ref<Partial<CreateUserSchema>>({
+  id: '',
+  firstNameEN: '',
+  lastNameEN: '',
   email: '',
   faculty: null,
   password: '',
@@ -54,22 +61,31 @@ function handleCancel() {
   navigateTo(localPath('/admin/users'));
 }
 
-async function handleCreateUser(event: FormSubmitEvent<Schema>) {
+async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
   try {
-    // Create the user using the auth client
-    const response = await authClient.signUp.email({
-      email: event.data.email,
-      password: event.data.password,
-      institutionId: event.data.institutionId,
-      name: event.data.fullName,
-      facultyId: event.data.faculty,
+    loading.value = true;
+
+    // Create the user
+    const response = await $fetch('/api/users', {
+      method: 'POST',
+      body: {
+        id: event.data.id,
+        firstNameEN: event.data.firstNameEN,
+        lastNameEN: event.data.lastNameEN,
+        email: event.data.email,
+        facultyId: event.data.faculty,
+        password: event.data.password,
+      },
     });
+    if (!response.success) {
+      throw new Error('Failed to create user');
+    }
 
     // Assign roles to the user
     for (const roleId of event.data.roles) {
       await $fetch('/api/user-role', {
         method: 'POST',
-        body: { userId: response.data?.user.id, roleId },
+        body: { userId: response.user.id, roleId },
       });
     }
 
@@ -80,13 +96,58 @@ async function handleCreateUser(event: FormSubmitEvent<Schema>) {
     console.error('Error creating user:', error);
     toast.add({ title: 'Error', description: 'Failed to create user. Please try again.', color: 'error' });
   }
+  finally {
+    loading.value = false;
+  }
 }
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (isDirty.value) {
+    event.preventDefault();
+  }
+}
+
+watch(form, (newData) => {
+  isDirty.value = JSON.stringify(newData) !== JSON.stringify({
+    id: '',
+    firstNameEN: '',
+    lastNameEN: '',
+    email: '',
+    faculty: null,
+    password: '',
+    roles: [] as number[],
+  });
+}, { deep: true });
+
+onBeforeRouteLeave(async () => {
+  if (!isDirty.value)
+    return true;
+
+  const instance = confirmDialog.open({
+    title: 'Discard changes?',
+    description: 'You have unsaved changes. Are you sure you want to leave this page?',
+    cancelButton: {
+      label: 'Cancel',
+    },
+    confirmButton: {
+      label: 'Leave',
+      color: 'error',
+    },
+  });
+
+  const result = await instance.result;
+
+  return Boolean(result);
+});
+
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 </script>
 
 <template>
   <div class="flex flex-col relative">
     <!-- Main Content -->
-    <UForm :schema="schema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleCreateUser">
+    <UForm :schema="createUserSchema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleCreateUser">
       <UButton
         type="button"
         icon="i-lucide-arrow-left"
@@ -158,26 +219,39 @@ async function handleCreateUser(event: FormSubmitEvent<Schema>) {
             </template>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="col-span-2">
+                <UFormField
+                  label="ID"
+                  name="id"
+                  required
+                >
+                  <UInput
+                    v-model="form.id"
+                    class="w-full"
+                  />
+                </UFormField>
+              </div>
+
+              <!-- First Name (EN) -->
               <UFormField
-                label="Institution ID"
-                name="institutionId"
+                label="Full Name (EN)"
+                name="fullNameEN"
                 required
               >
                 <UInput
-                  v-model="form.institutionId"
-                  placeholder="e.g. 653xxxxxxx"
+                  v-model="form.firstNameEN"
                   class="w-full"
                 />
               </UFormField>
 
-              <!-- Last Name -->
+              <!-- Last Name (EN) -->
               <UFormField
-                label="Full Name"
-                name="fullName"
+                label="Last Name (EN)"
+                name="lastNameEN"
                 required
               >
                 <UInput
-                  v-model="form.fullName"
+                  v-model="form.lastNameEN"
                   class="w-full"
                 />
               </UFormField>
@@ -282,6 +356,7 @@ async function handleCreateUser(event: FormSubmitEvent<Schema>) {
           color="primary"
           label="Create User"
           icon="i-heroicons-check-20-solid"
+          :loading
         />
       </div>
     </UForm>
