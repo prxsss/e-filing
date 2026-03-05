@@ -869,28 +869,6 @@ watch(
           class="px-6 font-bold"
           @click="goNext"
         />
-        <UButton
-          v-if="currentWizardStep === 3"
-          :loading="isSaving"
-          icon="i-heroicons-check"
-          color="primary"
-          :label="t('saveTemplate')"
-          size="xl"
-          class="px-6 font-bold"
-          @click="handleTemplateSaved"
-        />
-      </div>
-
-      <div class="flex items-center gap-3">
-        <UButton
-          :loading="isSaving"
-          icon="i-heroicons-check"
-          color="neutral"
-          label="Save Template"
-          size="xl"
-          class="px-6 font-bold"
-          @click="handleSaveTemplate"
-        />
       </div>
     </header>
 

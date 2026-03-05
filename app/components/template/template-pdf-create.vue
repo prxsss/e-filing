@@ -228,37 +228,6 @@ async function initPdfJs(): Promise<PDFJSType> {
   }
 }
 
-// function getPdfBounds() {
-//   if (!pdfCanvas.value) {
-//     return {
-//       displayWidth: 0,
-//       displayHeight: 0,
-//       naturalWidth: 0,
-//       naturalHeight: 0,
-//       scaleX: 1,
-//       scaleY: 1,
-//     };
-//   }
-
-//   const canvas = pdfCanvas.value;
-//   const canvasRect = canvas.getBoundingClientRect();
-//   const displayWidth = canvasRect.width;
-//   const displayHeight = canvasRect.height;
-//   const naturalWidth = pdfNaturalDimensions.value.width;
-//   const naturalHeight = pdfNaturalDimensions.value.height;
-//   const scaleX = naturalWidth / displayWidth;
-//   const scaleY = naturalHeight / displayHeight;
-
-//   return {
-//     displayWidth,
-//     displayHeight,
-//     naturalWidth,
-//     naturalHeight,
-//     scaleX,
-//     scaleY,
-//   };
-// }
-
 async function loadPdf(): Promise<void> {
   if (!props.pdfFile)
     return;
