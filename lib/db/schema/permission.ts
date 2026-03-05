@@ -1,16 +1,16 @@
-import { integer, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
+import { integer, pgTable, primaryKey, serial, text, varchar } from 'drizzle-orm/pg-core';
 
 import { users } from './auth';
 
 export const permissions = pgTable('permissions', {
   id: serial('id').primaryKey(),
-  code: text('code').notNull().unique(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
   description: text('description'),
 });
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
-  name: text('name').notNull(),
+  name: varchar('name', { length: 50 }).notNull().unique(),
   description: text('description'),
 });
 
