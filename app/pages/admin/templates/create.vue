@@ -102,10 +102,6 @@ function handlePlacedFieldsUpdate(fields: FieldInstance[]): void {
   placedFields.value = fields;
 }
 
-// Template component refs
-const pdfTemplateRef = ref(null);
-const imageTemplateRef = ref(null);
-
 // Available fields for the template - load from database
 const availableFields = ref<Field[]>([]);
 const isLoadingFields = ref<boolean>(false);
