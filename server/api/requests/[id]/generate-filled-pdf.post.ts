@@ -199,12 +199,8 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], template: 
           height = field.normalizedHeight * templateHeight;
         }
 
-        // Convert field.fontSize (CSS px at 1.5× canvas render scale) to PDF points
-        // 1 PDF pt = 1.5 CSS px at the render scale used in template-pdf-create.vue
-        const PDF_RENDER_SCALE = 1.5;
-        const fontSize = field.fontSize
-          ? Math.max(4, field.fontSize / PDF_RENDER_SCALE)
-          : Math.min(height * 0.6, 12);
+        // Calculate font size (fit to height)
+        const fontSize = Math.min(height * 0.6, 12);
 
         // Draw text on PDF
         targetPage.drawText(field.value, {

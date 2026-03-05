@@ -4,102 +4,104 @@ definePageMeta({
 });
 
 // === Composables ===
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 const localePath = useLocalePath();
 
-// === Type Definitions ===
-type RequestStatus = 'Approved' | 'In Progress' | 'Rejected' | 'Draft';
+// TODO: Replace with real auth when implemented
+const TEST_USER_ID = 1;
 
-type Request = {
-  id: string;
-  title: string;
-  date: string;
-  status: RequestStatus;
-  signer: string;
+// === Type Definitions ===
+type RequestStatus = 'draft' | 'submitted' | 'pending' | 'approved' | 'rejected' | 'completed';
+
+// === Status Helpers ===
+const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
+  draft: 'neutral',
+  submitted: 'info',
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'error',
+  completed: 'success',
 };
+
+function getStatusColor(status: string) {
+  return statusColorMap[status as RequestStatus] ?? 'neutral';
+}
+
+function getStatusLabel(status: string): string {
+  const key = status as RequestStatus;
+  const labels: Record<RequestStatus, string> = {
+    draft: t('draft'),
+    submitted: t('submitted'),
+    pending: t('pending'),
+    approved: t('approved'),
+    rejected: t('rejected'),
+    completed: t('completed'),
+  };
+  return labels[key] ?? status;
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr)
+    return '-';
+
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 // === Table Configuration ===
 const columns: any[] = [
-  { accessorKey: 'id', header: 'Request ID' },
-  { accessorKey: 'title', header: 'Topic' },
-  { accessorKey: 'date', header: 'Date' },
-  { accessorKey: 'signer', header: 'Approver' },
-  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'id', header: t('requestId') || 'Request ID' },
+  { accessorKey: 'templateName', header: t('requestTitle') || 'Topic' },
+  { accessorKey: 'createdAt', header: t('submittedDate') || 'Date' },
+  { accessorKey: 'status', header: t('status') || 'Status' },
 ];
 
 // === Filter Options ===
 const statusOptions = [
-  { label: 'All Statuses', value: undefined },
-  { label: 'Draft', value: 'Draft' },
-  { label: 'In Progress', value: 'In Progress' },
-  { label: 'Approved', value: 'Approved' },
-  { label: 'Rejected', value: 'Rejected' },
+  { label: t('allStatuses') || 'All Statuses', value: undefined },
+  { label: t('draft'), value: 'draft' },
+  { label: t('submitted'), value: 'submitted' },
+  { label: t('pending'), value: 'pending' },
+  { label: t('approved'), value: 'approved' },
+  { label: t('rejected'), value: 'rejected' },
+  { label: t('completed'), value: 'completed' },
 ];
 
 // === Reactive State ===
 const searchQuery = ref('');
-const selectedStatus = ref<RequestStatus | undefined>(undefined);
+const selectedStatus = ref<string | undefined>(undefined);
 const page = ref(1);
-const pageCount = ref(10); // จำนวนรายการต่อหน้า
+const pageCount = 10;
 
-// === Mock Data ===
-const allRequests: Request[] = [
-  { id: 'REQ-2024-001', title: 'Late Registration (Course 01204)', date: '2024-01-10', status: 'Approved', signer: 'Dean of Engineering' },
-  { id: 'REQ-2024-002', title: 'Tuition Fee Installment', date: '2024-01-12', status: 'In Progress', signer: 'Dr. Suthep Panya' },
-  { id: 'REQ-2024-003', title: 'Activity Room Booking', date: '2024-01-15', status: 'Rejected', signer: 'Building Manager' },
-  { id: 'REQ-2024-004', title: 'Add/Drop Course Request', date: '2024-01-18', status: 'Draft', signer: '-' },
-  { id: 'REQ-2024-005', title: 'Scholarship Application', date: '2024-01-20', status: 'In Progress', signer: 'Financial Aid Office' },
-  { id: 'REQ-2024-006', title: 'Transcript Request', date: '2024-01-22', status: 'Approved', signer: 'Registrar' },
-  { id: 'REQ-2024-007', title: 'Dormitory Change Request', date: '2024-01-25', status: 'In Progress', signer: 'Housing Manager' },
-  { id: 'REQ-2024-008', title: 'Medical Certificate Submission', date: '2024-01-28', status: 'Approved', signer: 'Health Center' },
-  { id: 'REQ-2024-009', title: 'Course Prerequisite Waiver', date: '2024-02-01', status: 'In Progress', signer: 'Department Head' },
-  { id: 'REQ-2024-010', title: 'Payment Plan Setup', date: '2024-02-03', status: 'Draft', signer: '-' },
-  { id: 'REQ-2024-011', title: 'Student ID Card Replacement', date: '2024-02-05', status: 'Approved', signer: 'Student Affairs' },
-  { id: 'REQ-2024-012', title: 'Grade Appeal Submission', date: '2024-02-08', status: 'In Progress', signer: 'Academic Dean' },
-  { id: 'REQ-2024-013', title: 'Semester Extension Request', date: '2024-02-10', status: 'Rejected', signer: 'Academic Advisor' },
-  { id: 'REQ-2024-014', title: 'Financial Aid Appeal', date: '2024-02-12', status: 'Draft', signer: '-' },
-  { id: 'REQ-2024-015', title: 'Campus Parking Permit', date: '2024-02-15', status: 'Approved', signer: 'Parking Services' },
-];
-
-// === Computed Logic ===
-// 1. Filter Data
-const filteredRows = computed(() => {
-  return allRequests.filter((request) => {
-    // Filter by Status
-    const statusMatch = !selectedStatus.value || request.status === selectedStatus.value;
-
-    // Filter by Search
-    const query = searchQuery.value.toLowerCase();
-    const searchMatch = !query
-      || request.title.toLowerCase().includes(query)
-      || request.id.toLowerCase().includes(query);
-
-    return statusMatch && searchMatch;
-  });
+// Reset to page 1 when filters change
+watch([searchQuery, selectedStatus], () => {
+  page.value = 1;
 });
 
-// 2. Pagination Logic
-const paginatedRows = computed(() => {
-  const start = (page.value - 1) * pageCount.value;
-  const end = page.value * pageCount.value;
-  return filteredRows.value.slice(start, end);
+// === Fetch Requests from API ===
+const queryParams = computed(() => ({
+  page: page.value,
+  limit: pageCount,
+  createdBy: TEST_USER_ID,
+  ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
+  ...(searchQuery.value ? { search: searchQuery.value } : {}),
+}));
+
+const { data: response, status: fetchStatus } = await useFetch('/api/requests', {
+  query: queryParams,
+  watch: [queryParams],
 });
+
+const requests = computed(() => response.value?.data ?? []);
+const total = computed(() => response.value?.meta?.total ?? 0);
 
 // === Methods ===
 function handleNewRequest() {
   router.push(localePath('/student/new-request'));
-}
-
-// Helper: เลือกสี Badge ตามสถานะ (for future use)
-function _getStatusColor(status: RequestStatus): 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral' {
-  switch (status) {
-    case 'Approved': return 'success';
-    case 'In Progress': return 'info';
-    case 'Rejected': return 'error';
-    case 'Draft': return 'neutral';
-    default: return 'neutral';
-  }
 }
 </script>
 
@@ -150,14 +152,27 @@ function _getStatusColor(status: RequestStatus): 'primary' | 'secondary' | 'succ
 
       <!-- Table Content -->
       <UTable
-        :data="paginatedRows"
+        :data="requests"
         :columns="columns"
-        :loading="false"
+        :loading="fetchStatus === 'pending'"
         empty=" "
-      />
+      >
+        <template #createdAt-cell="{ row }">
+          {{ formatDate(row.original.submittedAt || row.original.createdAt) }}
+        </template>
+        <template #status-cell="{ row }">
+          <UBadge
+            :color="getStatusColor(row.original.status ?? '')"
+            variant="subtle"
+            size="sm"
+          >
+            {{ getStatusLabel(row.original.status ?? '') }}
+          </UBadge>
+        </template>
+      </UTable>
 
       <!-- Empty State -->
-      <div v-if="filteredRows.length === 0" class="py-12 text-center">
+      <div v-if="requests.length === 0 && fetchStatus !== 'pending'" class="py-12 text-center">
         <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-heroicons-inbox" class="w-8 h-8 " />
         </div>
@@ -167,12 +182,12 @@ function _getStatusColor(status: RequestStatus): 'primary' | 'secondary' | 'succ
       </div>
 
       <!-- Pagination Footer -->
-      <template v-if="filteredRows.length > 0" #footer>
+      <template v-if="total > 0" #footer>
         <div class="justify-items-center py-2">
           <UPagination
             v-model:page="page"
-            :items-per-page="10"
-            :total="filteredRows.length"
+            :items-per-page="pageCount"
+            :total="total"
             size="md"
           />
         </div>

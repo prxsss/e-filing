@@ -200,9 +200,10 @@ async function saveField() {
 }
 
 async function deleteField(fieldId) {
-  // User confirmation removed - replace with console warning
-  console.warn('Attempting to delete field:', fieldId);
-
+  // eslint-disable-next-line no-alert
+  if (!window.confirm('Are you sure you want to delete this field?')) {
+    return;
+  }
   try {
     const { error } = await supabase
       .from('contract_fields')
@@ -474,7 +475,8 @@ watch(
                 <div class="col-md-6">
                   <div class="form-group">
                     <label class="font-weight-semibold">
-                      <i class="fas fa-arrows-alt-h text-primary mr-1" />Default Width (px)
+                      <i class="fas fa-arrows-alt-h text-primary mr-1" />
+                      Default Width (px)
                     </label>
                     <input
                       id="fieldWidth"
@@ -491,7 +493,8 @@ watch(
                 <div class="col-md-6">
                   <div class="form-group">
                     <label class="font-weight-semibold">
-                      <i class="fas fa-arrows-alt-v text-primary mr-1" />Default Height (px)
+                      <i class="fas fa-arrows-alt-v text-primary mr-1" />
+                      Default Height (px)
                     </label>
                     <input
                       id="fieldHeight"

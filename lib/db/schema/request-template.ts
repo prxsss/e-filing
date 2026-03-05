@@ -12,5 +12,6 @@ export const requestTemplate = pgTable('request_template', {
   documentWidth: integer('document_width'),
   documentHeight: integer('document_height'),
   placedFieldsData: jsonb('placed_fields_data'),
+  signingFlowData: jsonb('signing_flow_data'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

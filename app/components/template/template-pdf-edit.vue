@@ -12,6 +12,7 @@ type Props = {
   originalCompositeUrl?: string | null;
   imageWidth?: number;
   imageHeight?: number;
+  uiScale?: number; // UI zoom scale from parent component
 };
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
   originalCompositeUrl: null,
   imageWidth: 0,
   imageHeight: 0,
+  uiScale: 1,
 });
 
 const emit = defineEmits<{
@@ -42,6 +44,8 @@ const pdfPageContainer = ref<HTMLDivElement | null>(null);
 const pdfCanvas = ref<HTMLCanvasElement | null>(null);
 
 // PDF State
+const cachedPdfBytes = ref<Uint8Array | null>(null);
+const cachedOriginalPdfBytes = ref<Uint8Array | null>(null);
 const pdfLoaded = ref<boolean>(false);
 const pdfDoc = shallowRef<any>(null);
 const pdfjsLib = shallowRef<any>(null);
@@ -59,11 +63,15 @@ const activeDrag = ref<{
   field: FieldInstance | null;
   offsetX: number;
   offsetY: number;
+  displayWidth: number;
+  displayHeight: number;
 }>({
   isDragging: false,
   field: null,
   offsetX: 0,
   offsetY: 0,
+  displayWidth: 150,
+  displayHeight: 40,
 });
 
 // Resize State
@@ -92,16 +100,20 @@ function getPdfBounds() {
     return { displayWidth: 0, displayHeight: 0, naturalWidth: 0, naturalHeight: 0, scaleX: 1, scaleY: 1 };
   }
   const canvas = pdfCanvas.value;
-  const rect = canvas.getBoundingClientRect();
+  // Use canvas buffer dimensions (canvas.width/height) instead of getBoundingClientRect().
+  // getBoundingClientRect() returns 0 when the canvas is hidden via v-show="pdfLoaded",
+  // which causes fields to render at (0,0) on initial load.
+  const canvasWidth = canvas.width || 0;
+  const canvasHeight = canvas.height || 0;
   const naturalWidth = pdfNaturalDimensions.value.width;
   const naturalHeight = pdfNaturalDimensions.value.height;
   return {
-    displayWidth: rect.width,
-    displayHeight: rect.height,
+    displayWidth: canvasWidth,
+    displayHeight: canvasHeight,
     naturalWidth,
     naturalHeight,
-    scaleX: naturalWidth / rect.width,
-    scaleY: naturalHeight / rect.height,
+    scaleX: canvasWidth > 0 ? naturalWidth / canvasWidth : 1,
+    scaleY: canvasHeight > 0 ? naturalHeight / canvasHeight : 1,
   };
 }
 
@@ -147,6 +159,20 @@ function displayToNormalized(
 
 // ─── Computed ────────────────────────────────────────────────────────────────
 
+// Computed: Calculate wrapper dimensions after scale for proper scrolling
+const scaledDimensions = computed(() => {
+  if (!pdfCanvas.value || !pdfNaturalDimensions.value.width) {
+    return { width: 0, height: 0 };
+  }
+  const canvasWidth = pdfCanvas.value.width;
+  const canvasHeight = pdfCanvas.value.height;
+  const currentScale = props.uiScale || 1;
+  return {
+    width: canvasWidth * currentScale,
+    height: canvasHeight * currentScale,
+  };
+});
+
 const placedFieldsOnCurrentPage = computed<FieldInstance[]>(() => {
   return (props.placedFields as FieldInstance[]).filter(
     field => !field.pageNumber || field.pageNumber === currentPage.value,
@@ -160,10 +186,12 @@ const fieldsWithDisplayCoords = computed<FieldInstance[]>(() => {
   const _dims = pdfNaturalDimensions.value;
   const _canvasSize = canvasDisplaySize.value;
 
-  if (!_canvas || !_dims.width)
+  // Don't render fields until PDF is loaded and canvas dimensions are set
+  if (!_canvas || !_dims.width || !pdfLoaded.value)
     return [];
 
   return placedFieldsOnCurrentPage.value.map((field) => {
+    // Ensure normalized coordinates are available
     if (
       field.normalizedX !== undefined
       && field.normalizedY !== undefined
@@ -173,6 +201,7 @@ const fieldsWithDisplayCoords = computed<FieldInstance[]>(() => {
       const d = normalizedToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight);
       return { ...field, displayX: d.x, displayY: d.y, displayWidth: d.width, displayHeight: d.height };
     }
+    // Fallback for fields with pixel coordinates
     return {
       ...field,
       displayX: field.x || 50,
@@ -231,6 +260,9 @@ async function loadPdf(): Promise<void> {
     setTimeout(async () => {
       await renderCurrentPage();
       pdfLoaded.value = true;
+      // Wait for v-show to unhide the canvas, then update display size
+      await nextTick();
+      updateCanvasSize();
       emit('pdfLoaded');
     }, 100);
   }
@@ -272,6 +304,8 @@ async function renderCurrentPage(): Promise<void> {
     renderTask.value = null;
 
     updateCanvasSize();
+    // Ensure canvas layout is finalized before rendering fields
+    await new Promise(resolve => requestAnimationFrame(resolve));
     emit('currentPageChanged', currentPage.value);
   }
   catch (error: any) {
@@ -310,12 +344,26 @@ function startDrag(event: MouseEvent | TouchEvent, field: FieldInstance): void {
 
   const coords = getEventCoordinates(event);
   const containerRect = previewContainer.value.getBoundingClientRect();
+  const uiScale = props.uiScale || 1;
+
+  // Use displayX/displayY from computed field, or fall back to x/y
+  const fieldDisplayX = (field as any).displayX ?? field.x ?? 50;
+  const fieldDisplayY = (field as any).displayY ?? field.y ?? 50;
+
+  // Convert mouse screen coords to canvas space (account for CSS transform scale)
+  const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
+  const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
+
+  // Find the original field in placedFields to track which one we're dragging
+  const originalField = (props.placedFields as FieldInstance[]).find(f => f.instanceId === field.instanceId);
 
   activeDrag.value = {
     isDragging: true,
-    field,
-    offsetX: coords.clientX - containerRect.left - (field.x || 50),
-    offsetY: coords.clientY - containerRect.top - (field.y || 50),
+    field: originalField || field, // Keep reference to original field
+    offsetX: mouseCanvasX - fieldDisplayX,
+    offsetY: mouseCanvasY - fieldDisplayY,
+    displayWidth: (field as any).displayWidth ?? field.width ?? 150,
+    displayHeight: (field as any).displayHeight ?? field.height ?? 40,
   };
 
   emit('fieldSelected', field);
@@ -329,28 +377,50 @@ function startDrag(event: MouseEvent | TouchEvent, field: FieldInstance): void {
 }
 
 function drag(event: MouseEvent | TouchEvent): void {
-  if (!activeDrag.value.isDragging || !activeDrag.value.field || !previewContainer.value)
+  if (!activeDrag.value.isDragging || !activeDrag.value.field || !previewContainer.value || !pdfCanvas.value)
     return;
   event.preventDefault();
   event.stopPropagation();
 
   const coords = getEventCoordinates(event);
   const containerRect = previewContainer.value.getBoundingClientRect();
+  const uiScale = props.uiScale || 1;
 
-  let newX = coords.clientX - containerRect.left - activeDrag.value.offsetX;
-  let newY = coords.clientY - containerRect.top - activeDrag.value.offsetY;
+  // Convert mouse screen coords to canvas space (account for CSS transform scale)
+  const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
+  const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
+
+  let newDisplayX = mouseCanvasX - activeDrag.value.offsetX;
+  let newDisplayY = mouseCanvasY - activeDrag.value.offsetY;
 
   const field = activeDrag.value.field;
-  const containerWidth = containerRect.width;
-  const containerHeight = containerRect.height;
-  const fieldWidth = field.width || 150;
-  const fieldHeight = field.height || 40;
 
-  newX = Math.max(0, Math.min(newX, containerWidth - fieldWidth));
-  newY = Math.max(0, Math.min(newY, containerHeight - fieldHeight));
+  // Use canvas buffer dimensions for bounds (not affected by CSS transform)
+  const canvasWidth = pdfCanvas.value.width;
+  const canvasHeight = pdfCanvas.value.height;
 
-  field.x = Math.round(newX);
-  field.y = Math.round(newY);
+  // Use display dimensions captured at drag start
+  const fieldDisplayWidth = activeDrag.value.displayWidth;
+  const fieldDisplayHeight = activeDrag.value.displayHeight;
+
+  // Constrain to canvas bounds
+  newDisplayX = Math.max(0, Math.min(newDisplayX, canvasWidth - fieldDisplayWidth));
+  newDisplayY = Math.max(0, Math.min(newDisplayY, canvasHeight - fieldDisplayHeight));
+
+  // Convert display coordinates back to normalized for storage
+  if (field.normalizedX !== undefined && field.normalizedWidth !== undefined) {
+    // Field uses normalized coordinates
+    const normalized = displayToNormalized(newDisplayX, newDisplayY, fieldDisplayWidth, fieldDisplayHeight);
+    field.normalizedX = normalized.x;
+    field.normalizedY = normalized.y;
+    field.normalizedWidth = normalized.width;
+    field.normalizedHeight = normalized.height;
+  }
+  else {
+    // Field uses pixel coordinates
+    field.x = Math.round(newDisplayX);
+    field.y = Math.round(newDisplayY);
+  }
 }
 
 function stopDrag(): void {
@@ -395,8 +465,10 @@ function handleResize(event: MouseEvent): void {
     return;
   event.preventDefault();
 
-  const deltaX = event.clientX - activeResize.value.startX;
-  const deltaY = event.clientY - activeResize.value.startY;
+  const uiScale = props.uiScale || 1;
+  // Adjust mouse delta for CSS transform scale
+  const deltaX = (event.clientX - activeResize.value.startX) / uiScale;
+  const deltaY = (event.clientY - activeResize.value.startY) / uiScale;
   const field = activeResize.value.field;
   const direction = activeResize.value.direction;
 
@@ -448,7 +520,8 @@ function validateNormalizedField(field: FieldInstance): { valid: boolean; error?
 
 async function saveTemplate(): Promise<void> {
   try {
-    const bytesToUse = props.originalPdfBytes || props.pdfBytes;
+    // Use cached bytes to ensure they're always available
+    const bytesToUse = cachedOriginalPdfBytes.value || cachedPdfBytes.value;
 
     if (!bytesToUse || bytesToUse.length === 0) {
       emit('templateSaved', { success: false, error: true, message: 'PDF not loaded' });
@@ -566,30 +639,6 @@ async function saveTemplate(): Promise<void> {
   }
 }
 
-// ─── Toolbar Handlers ─────────────────────────────────────────────────────────
-
-function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
-  const field = (props.placedFields as FieldInstance[]).find(f => f.instanceId === data.instanceId);
-  if (field)
-    Object.assign(field, data.updates);
-  emit('fieldUpdated', data);
-}
-
-function handleFieldRemoval(instanceId: string): void {
-  const idx = (props.placedFields as FieldInstance[]).findIndex(f => f.instanceId === instanceId);
-  if (idx > -1)
-    (props.placedFields as FieldInstance[]).splice(idx, 1);
-  emit('fieldRemoved', instanceId);
-}
-
-// Expose pdfRef for toolbar and parent keyboard handler
-const pdfRef = reactive<any>({
-  normalizedToDisplay,
-  displayToNormalized,
-  saveTemplate,
-  pdfNaturalDimensions,
-});
-
 // ─── Auto-calculate normalized coords for fields that lack them ───────────────
 
 watch(
@@ -612,8 +661,15 @@ watch(
 
 watch(() => props.pdfBytes, async (newBytes) => {
   if (newBytes && newBytes.length > 0) {
+    cachedPdfBytes.value = newBytes;
     await nextTick();
     await loadPdf();
+  }
+}, { immediate: true });
+
+watch(() => props.originalPdfBytes, (newBytes) => {
+  if (newBytes && newBytes.length > 0) {
+    cachedOriginalPdfBytes.value = newBytes;
   }
 }, { immediate: true });
 
@@ -643,97 +699,102 @@ defineExpose({
   getPdfBounds,
   pdfNaturalDimensions,
   pdfCanvas,
+  cachedPdfBytes,
+  cachedOriginalPdfBytes,
 });
 </script>
 
 <template>
-  <div class="card flex flex-col h-full">
-    <!-- Field Toolbar – Fixed at Top when a field is selected -->
-    <field-toolbar
-      v-if="selectedField"
-      :selected-field="selectedField"
-      :pdf-ref="pdfRef"
-      :scale="scale"
-      @field-updated="handleFieldUpdate"
-      @field-removed="handleFieldRemoval"
-    />
-
+  <div class="w-full h-full flex flex-col">
     <!-- Canvas Area – Scrollable -->
-    <div class="card-body p-3 flex-1 overflow-auto">
+    <div class="flex-1 overflow-auto bg-gray-100 p-8 flex justify-center items-start">
       <div
         id="pdf-preview-container"
         ref="previewContainer"
         class="preview-area"
       >
-        <!-- PDF Page -->
-        <div ref="pdfPageContainer" class="pdf-container">
-          <div v-if="!pdfLoaded" class="text-center py-5">
-            <i class="fas fa-file-pdf fa-3x text-muted mb-3" />
-            <p class="text-muted mb-0">
-              Loading PDF...
-            </p>
-          </div>
-
-          <canvas
-            v-show="pdfLoaded"
-            ref="pdfCanvas"
-            class="pdf-canvas"
-          />
-        </div>
-
-        <!-- Placed Fields Overlay -->
+        <!-- Scale wrapper: scales PDF and fields together via CSS transform -->
         <div
-          v-for="field in fieldsWithDisplayCoords"
-          :key="field.instanceId"
-          class="placed-field"
-          :class="{ 'field-selected': selectedField?.instanceId === field.instanceId }"
+          class="pdf-scale-wrapper"
           :style="{
-            left: `${field.displayX}px`,
-            top: `${field.displayY}px`,
-            width: `${field.displayWidth}px`,
-            height: `${field.displayHeight}px`,
-            fontSize: `${field.fontSize || 14}px`,
-            fontFamily: field.fontFamily || 'Arial',
-            zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
+            transform: `scale(${props.uiScale || 1})`,
+            transformOrigin: 'top left',
+            transition: 'transform 0.2s ease-out',
+            minWidth: scaledDimensions.width ? `${scaledDimensions.width}px` : 'auto',
+            minHeight: scaledDimensions.height ? `${scaledDimensions.height}px` : 'auto',
           }"
-          @mousedown="startDrag($event, field)"
-          @touchstart="startDrag($event, field)"
-          @click="selectField(field)"
         >
-          <div class="field-content">
-            <i v-if="field.name === 'Check Mark'" :class="field.icon" />
-            <span v-if="field.label">{{ field.label }}</span>
-            <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
-          </div>
+          <!-- PDF Page -->
+          <div ref="pdfPageContainer" class="pdf-container">
+            <div v-if="!pdfLoaded" class="absolute inset-0 flex flex-col items-center justify-center bg-white rounded border border-gray-200">
+              <UIcon name="i-heroicons-document-text" class="w-12 h-12 text-gray-300 mb-3" />
+              <p class="text-sm text-gray-500">
+                Loading PDF...
+              </p>
+            </div>
 
-          <!-- Resize handles (only when selected) -->
-          <div
-            v-if="selectedField?.instanceId === field.instanceId"
-            class="resize-handle resize-handle-right"
-            @mousedown.stop.prevent="startResize($event, field, 'right')"
-          />
-          <div
-            v-if="selectedField?.instanceId === field.instanceId"
-            class="resize-handle resize-handle-bottom"
-            @mousedown.stop.prevent="startResize($event, field, 'bottom')"
-          />
-          <div
-            v-if="selectedField?.instanceId === field.instanceId"
-            class="resize-handle resize-handle-corner"
-            @mousedown.stop.prevent="startResize($event, field, 'corner')"
-          />
+            <canvas
+              v-show="pdfLoaded"
+              ref="pdfCanvas"
+              class="pdf-canvas"
+            />
+
+            <!-- Placed Fields Overlay (inside pdf-container so position: absolute aligns with canvas) -->
+            <div
+              v-for="field in fieldsWithDisplayCoords"
+              :key="field.instanceId"
+              class="placed-field"
+              :class="{ 'field-selected': selectedField?.instanceId === field.instanceId }"
+              :style="{
+                left: `${field.displayX}px`,
+                top: `${field.displayY}px`,
+                width: `${field.displayWidth}px`,
+                height: `${field.displayHeight}px`,
+                fontSize: `${field.fontSize || 14}px`,
+                fontFamily: field.fontFamily || 'Arial',
+                zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
+              }"
+              @mousedown="startDrag($event, field)"
+              @touchstart="startDrag($event, field)"
+              @click="selectField(field)"
+            >
+              <div class="field-content">
+                <UIcon v-if="field.name === 'Check Mark'" :name="field.icon" class="w-4 h-4" />
+                <span v-if="field.label">{{ field.label }}</span>
+                <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+              </div>
+
+              <!-- Resize handles (only when selected) -->
+              <div
+                v-if="selectedField?.instanceId === field.instanceId"
+                class="resize-handle resize-handle-right"
+                @mousedown.stop.prevent="startResize($event, field, 'right')"
+              />
+              <div
+                v-if="selectedField?.instanceId === field.instanceId"
+                class="resize-handle resize-handle-bottom"
+                @mousedown.stop.prevent="startResize($event, field, 'bottom')"
+              />
+              <div
+                v-if="selectedField?.instanceId === field.instanceId"
+                class="resize-handle resize-handle-corner"
+                @mousedown.stop.prevent="startResize($event, field, 'corner')"
+              />
+            </div>
+          </div>
         </div>
+        <!-- End of scale wrapper -->
 
         <!-- Page Selector -->
-        <div v-if="pdfLoaded && totalPages > 1" class="page-selector">
-          <label class="form-label small mb-1">Page:</label>
+        <div v-if="pdfLoaded && totalPages > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
+          <label class="text-xs font-semibold text-gray-600">Page</label>
           <select
             v-model="currentPage"
-            class="form-select form-select-sm"
+            class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
             @change="renderCurrentPage"
           >
             <option v-for="i in totalPages" :key="i" :value="i">
-              Page {{ i }}
+              {{ i }}
             </option>
           </select>
         </div>
@@ -743,35 +804,44 @@ defineExpose({
 </template>
 
 <style scoped>
-.card {
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-}
-
 .preview-area {
   position: relative;
   background:
-    linear-gradient(45deg, #eee 25%, transparent 25%), linear-gradient(-45deg, #eee 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #eee 75%), linear-gradient(-45deg, transparent 75%, #eee 75%);
+    linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%),
+    linear-gradient(45deg, #ddd 75%, transparent 75%), linear-gradient(-45deg, #ddd 75%, transparent 75%);
   background-size: 20px 20px;
+  background-position:
+    0 0,
+    10px 0,
+    10px -10px,
+    0 -10px;
+  background-color: #f0f0f0;
   min-height: 400px;
   margin: 0 auto;
   width: 100%;
   max-width: 100%;
 }
 
+/* Scale wrapper for CSS transform zoom */
+.pdf-scale-wrapper {
+  position: relative;
+  transform-origin: top left;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+  display: block;
+  width: fit-content;
+}
+
 .pdf-container {
   position: relative;
-  width: 100%;
-  margin: 0 auto;
-  max-width: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .pdf-canvas {
-  max-width: 100%;
-  height: auto;
+  /* Fixed dimensions - do NOT use max-width: 100% */
+  /* Canvas buffer size is the source of truth for coordinate conversion */
   display: block;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #ddd;
@@ -870,13 +940,5 @@ defineExpose({
   bottom: -4px;
   cursor: nwse-resize;
   border-radius: 50%;
-}
-
-.page-selector {
-  text-align: center;
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-  margin-top: 0.5rem;
 }
 </style>
