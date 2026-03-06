@@ -1,6 +1,6 @@
 import db from '~~/lib/db';
-import { users } from '~~/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import * as zod from 'zod';
 
 const loginSchema = zod.object({
@@ -21,13 +21,38 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, message: 'Invalid email or password' });
   }
 
+  const [userAuth] = await db
+    .select({
+      roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
+      permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
+    })
+    .from(userRoles)
+    .leftJoin(roles, eq(userRoles.roleId, roles.id))
+    .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+    .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .where(eq(userRoles.userId, user.id));
+
   await setUserSession(event, {
     user: {
       id: user.id,
       fullName: `${user.firstNameEN} ${user.lastNameEN}`,
+      roles: userAuth.roles,
+      currentRole: userAuth.roles[0],
+      permissions: userAuth.permissions,
     },
     lastLoggedIn: new Date(),
   });
 
-  return { success: true, user: { id: user.id, email: user.email } };
+  return {
+    success: true,
+    user:
+    {
+      id: user.id,
+      email: user.email,
+      fullName: `${user.firstNameEN} ${user.lastNameEN}`,
+      roles: userAuth.roles,
+      currentRole: userAuth.roles[0],
+      permissions: userAuth.permissions,
+    },
+  };
 });

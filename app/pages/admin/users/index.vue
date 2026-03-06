@@ -16,6 +16,8 @@ const router = useRouter();
 
 const localPath = useLocalePath();
 
+const authStore = useAuthStore();
+
 const { data, status } = await useFetch<UserListItem[]>('/api/users');
 
 const columns: TableColumn<UserListItem>[] = [
@@ -112,7 +114,7 @@ const columns: TableColumn<UserListItem>[] = [
         </h1>
         <p>Manage system users and access permissions.</p>
       </div>
-      <UButton icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
+      <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
         Add User
       </UButton>
     </div>
