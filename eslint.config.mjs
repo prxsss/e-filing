@@ -28,7 +28,7 @@ export default withNuxt(
       }],
       'unicorn/filename-case': ['error', {
         case: 'kebabCase',
-        ignore: ['README.md', /^\d{4}_.*\.json$/],
+        ignore: ['README.md', /^\d{4}_.*\.json$/, /^\[.*\]\.vue$/],
       }],
     },
   }),
