@@ -3,47 +3,68 @@ definePageMeta({
   title: 'dashboard',
 });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const localePath = useLocalePath();
 
-type Request = {
-  id: string;
-  title: string;
-  submittedDate: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  description: string;
+// TODO: Replace with real auth when implemented
+const TEST_USER_ID = 1;
+
+// === Status Helpers ===
+type RequestStatus = 'draft' | 'submitted' | 'pending' | 'approved' | 'rejected' | 'completed';
+
+const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
+  draft: 'neutral',
+  submitted: 'info',
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'error',
+  completed: 'success',
 };
 
-// Mock Data: รายการคำร้องล่าสุด
-const recentRequests: Request[] = [
-  {
-    id: 'REQ-24001',
-    title: 'คำร้องขอลงทะเบียนเรียนล่าช้า',
-    submittedDate: '19 ม.ค. 2567',
-    status: 'pending',
-    description: 'รออาจารย์ที่ปรึกษา',
-  },
-  {
-    id: 'REQ-23098',
-    title: 'ขอใบรับรองความประพฤติ',
-    submittedDate: '15 ม.ค. 2567',
-    status: 'approved',
-    description: 'อนุมัติแล้ว',
-  },
-  {
-    id: 'REQ-23095',
-    title: 'ขอผ่อนผันค่าเทอม',
-    submittedDate: '10 ธ.ค. 2566',
-    status: 'rejected',
-    description: 'ไม่อนุมัติ/แก้ไข',
-  },
-  {
-    id: 'REQ-23080',
-    title: 'คำร้องขอสอบซ้ำซ้อน',
-    submittedDate: '01 พ.ย. 2566',
-    status: 'completed',
-    description: 'ดำเนินการเสร็จสิ้น',
-  },
+function getStatusColor(status: string) {
+  return statusColorMap[status as RequestStatus] ?? 'neutral';
+}
+
+function getStatusLabel(status: string): string {
+  const key = status as RequestStatus;
+  const labels: Record<RequestStatus, string> = {
+    draft: t('draft'),
+    submitted: t('submitted'),
+    pending: t('pending'),
+    approved: t('approved'),
+    rejected: t('rejected'),
+    completed: t('completed'),
+  };
+  return labels[key] ?? status;
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr)
+    return '-';
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+// === Table Columns ===
+const columns = [
+  { accessorKey: 'id', header: t('requestId') || 'ID' },
+  { accessorKey: 'templateName', header: t('requestTitle') || 'Title' },
+  { accessorKey: 'submittedAt', header: t('submittedDate') || 'Date' },
+  { accessorKey: 'status', header: t('status') || 'Status' },
 ];
+
+// === Fetch Recent Requests from API ===
+const { data: response, status: fetchStatus } = await useFetch('/api/requests', {
+  query: {
+    limit: 5,
+    createdBy: TEST_USER_ID,
+  },
+});
+
+const recentRequests = computed(() => response.value?.data ?? []);
 
 // Mock Data: เมนูยอดฮิต (พร้อม Class สีสำหรับ Tailwind)
 const popularRequests = [
@@ -53,12 +74,9 @@ const popularRequests = [
   { label: 'คำร้องทั่วไป (General)', icon: 'i-heroicons-folder', bg: 'bg-gray-100', text: 'text-gray-600' },
 ];
 
-// --- 2. Methods / Logic ---
-
-// ฟังก์ชันนำทาง (ใช้ navigateTo ของ Nuxt)
+// --- Methods / Logic ---
 function navigateToNewRequest() {
-  // ในโปรเจกต์จริงใช้: return navigateTo('/new-request')
-  console.warn('Navigating to New Request...');
+  return navigateTo(localePath('/student/new-request'));
 }
 </script>
 
@@ -66,22 +84,6 @@ function navigateToNewRequest() {
   <div class="min-h-screen bg-gray-50/50">
     <!-- Main Content -->
     <UContainer class="space-y-8 pb-8">
-      <!-- 1. Header & Greeting -->
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">
-            สวัสดี, คุณสมชาย
-          </h1>
-          <p class="text-gray-500 mt-1 text-sm">
-            รหัสนิสิต 63010xxx • คณะวิศวกรรมศาสตร์
-          </p>
-        </div>
-        <UBadge color="neutral" variant="solid" size="md" class="px-3 py-1.5">
-          <UIcon name="i-heroicons-calendar" class="mr-1.5 w-4 h-4" />
-          ภาคเรียนที่ 1/2567
-        </UBadge>
-      </div>
-
       <!-- 2. Primary Action (Banner) -->
       <!-- ใช้ Div ผสมกับ UButton เพื่อความยืดหยุ่นในการทำ Background Gradient -->
       <div
@@ -151,7 +153,26 @@ function navigateToNewRequest() {
         </template>
 
         <!-- UTable Implementation -->
-        <UTable :data="recentRequests" class="w-full" :empty="t('noRecentRequests')" />
+        <UTable
+          :data="recentRequests"
+          :columns="columns"
+          :loading="fetchStatus === 'pending'"
+          class="w-full"
+          :empty="t('noRecentRequests')"
+        >
+          <template #submittedAt-cell="{ row }">
+            {{ formatDate(row.original.submittedAt || row.original.createdAt) }}
+          </template>
+          <template #status-cell="{ row }">
+            <UBadge
+              :color="getStatusColor(row.original.status ?? '')"
+              variant="subtle"
+              size="sm"
+            >
+              {{ getStatusLabel(row.original.status ?? '') }}
+            </UBadge>
+          </template>
+        </UTable>
       </UCard>
 
       <!-- 5. Help Section -->

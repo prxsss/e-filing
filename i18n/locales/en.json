@@ -23,6 +23,8 @@
   "action": "Action",
   "view": "View",
   "draft": "Draft",
+  "submitted": "Submitted",
+  "pending": "Pending",
   "waiting": "Waiting",
   "search": "Search",
   "searchByTitle": "Search by title...",
