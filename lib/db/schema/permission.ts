@@ -5,13 +5,15 @@ import { users } from './auth';
 export const permissions = pgTable('permissions', {
   id: serial('id').primaryKey(),
   code: varchar('code', { length: 50 }).notNull().unique(),
-  description: text('description'),
+  descriptionEN: text('description_en'),
+  descriptionTH: text('description_th'),
 });
 
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 50 }).notNull().unique(),
-  description: text('description'),
+  descriptionEN: text('description_en'),
+  descriptionTH: text('description_th'),
 });
 
 export const rolePermissions = pgTable('role_permissions', {
