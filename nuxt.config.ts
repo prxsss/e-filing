@@ -21,7 +21,9 @@ export default defineNuxtConfig({
       password: env.NUXT_SESSION_PASSWORD,
       name: 'e-filing-session',
       cookie: {
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        // maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: 60 * 60 * 24, // 1 day
+        // maxAge: 60 * 60, // 1 hour
       },
     },
   },
