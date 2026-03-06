@@ -19,36 +19,21 @@ export default defineEventHandler(async (event) => {
 
   const hashedPassword = await hashPassword(body.password);
 
-  try {
-    const [user] = await db.insert(users).values({
-      id: body.id,
-      firstNameEN: body.firstNameEN,
-      lastNameEN: body.lastNameEN,
-      email: body.email,
-      passwordHash: hashedPassword,
-      firstNameTH: body.firstNameTH,
-      lastNameTH: body.lastNameTH,
-      facultyId: body.facultyId,
-      image: body.image,
-    }).returning();
+  const [user] = await db.insert(users).values({
+    id: body.id,
+    firstNameEN: body.firstNameEN,
+    lastNameEN: body.lastNameEN,
+    email: body.email,
+    passwordHash: hashedPassword,
+    firstNameTH: body.firstNameTH,
+    lastNameTH: body.lastNameTH,
+    facultyId: body.facultyId,
+    image: body.image,
+  }).returning();
 
-    if (!user) {
-      throw createError({ statusCode: 500, message: 'Failed to create user' });
-    }
+  if (!user) {
+    throw createError({ statusCode: 500, message: 'Failed to create user' });
+  }
 
-    return { success: true, user: { id: user.id, email: user.email } };
-  }
-  catch (error: any) {
-    if (error?.cause?.code === '23505' || error?.code === '23505') {
-      const detail: string = error?.cause?.detail ?? error?.detail ?? '';
-      if (detail.includes('email')) {
-        throw createError({ statusCode: 409, message: 'Email already exists' });
-      }
-      if (detail.includes('id')) {
-        throw createError({ statusCode: 409, message: 'User ID already exists' });
-      }
-      throw createError({ statusCode: 409, message: 'Duplicate value' });
-    }
-    throw error;
-  }
+  return { success: true, user: { id: user.id, email: user.email } };
 });

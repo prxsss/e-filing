@@ -1,6 +1,6 @@
 {
-  "id": "8612453c-9d3d-43d0-85be-3c662a17d55b",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "bea9c310-0c1c-4267-8b53-4021d4301b12",
+  "prevId": "5e796bc8-ebbd-49ca-b86f-d4cd7cc47a44",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -176,7 +176,7 @@
         },
         "code": {
           "name": "code",
-          "type": "text",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
@@ -275,7 +275,7 @@
         },
         "name": {
           "name": "name",
-          "type": "text",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
@@ -289,7 +289,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "roles_name_unique": {
+          "name": "roles_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

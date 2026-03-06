@@ -89,6 +89,8 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
       });
     }
 
+    isDirty.value = false;
+
     toast.add({ title: 'Success', description: 'User has been created successfully.', color: 'success' });
     navigateTo(localPath('/admin/users'));
   }

@@ -1,26 +1,26 @@
-import { bigint, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
+import { integer, pgTable, primaryKey, serial, text, varchar } from 'drizzle-orm/pg-core';
 
 import { users } from './auth';
 
 export const permissions = pgTable('permissions', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
-  code: text('code').notNull().unique(),
+  id: serial('id').primaryKey(),
+  code: varchar('code', { length: 50 }).notNull().unique(),
   descriptionEN: text('description_en'),
   descriptionTH: text('description_th'),
 });
 
 export const roles = pgTable('roles', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
-  name: text('name').notNull(),
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 50 }).notNull().unique(),
   descriptionEN: text('description_en'),
   descriptionTH: text('description_th'),
 });
 
 export const rolePermissions = pgTable('role_permissions', {
-  roleId: bigint('role_id', { mode: 'number' })
+  roleId: integer('role_id')
     .references(() => roles.id)
     .notNull(),
-  permissionId: bigint('permission_id', { mode: 'number' })
+  permissionId: integer('permission_id')
     .references(() => permissions.id)
     .notNull(),
 }, t => [
@@ -31,7 +31,7 @@ export const userRoles = pgTable('user_roles', {
   userId: text('user_id')
     .references(() => users.id)
     .notNull(),
-  roleId: bigint('role_id', { mode: 'number' })
+  roleId: integer('role_id')
     .references(() => roles.id)
     .notNull(),
 }, t => [

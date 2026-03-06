@@ -40,6 +40,14 @@ export const useAuthStore = defineStore('auth', () => {
     errorMessage.value = null;
   }
 
+  function can(permissionCode: string) {
+    return session.user.value?.permissions.includes(permissionCode);
+  }
+
+  function hasRole(roleName: string) {
+    return session.user.value?.currentRole === roleName;
+  }
+
   return {
     session,
     loading,
@@ -47,5 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     clearError,
+    can,
+    hasRole,
   };
 });

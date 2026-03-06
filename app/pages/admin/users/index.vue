@@ -16,6 +16,8 @@ const router = useRouter();
 
 const localPath = useLocalePath();
 
+const authStore = useAuthStore();
+
 const { data, status } = await useFetch<UserListItem[]>('/api/users');
 
 const columns: TableColumn<UserListItem>[] = [
@@ -46,7 +48,7 @@ const columns: TableColumn<UserListItem>[] = [
     cell: ({ row }) => {
       const color = row.getValue('banned') ? 'error' : 'success';
       const statusText = row.getValue('banned') ? 'Banned' : 'Active';
-      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, () => statusText);
+      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, statusText);
     },
   },
   {
@@ -57,7 +59,7 @@ const columns: TableColumn<UserListItem>[] = [
       if (roles.length === 0) {
         return h('div', { class: 'text-slate-500' }, 'No roles');
       }
-      return h('div', { class: 'flex flex-wrap gap-1' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, () => role)));
+      return h('div', { class: 'flex flex-wrap gap-1' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, role)));
     },
   },
   {
@@ -112,7 +114,7 @@ const columns: TableColumn<UserListItem>[] = [
         </h1>
         <p>Manage system users and access permissions.</p>
       </div>
-      <UButton icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
+      <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
         Add User
       </UButton>
     </div>
