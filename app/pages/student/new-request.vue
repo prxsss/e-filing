@@ -1,194 +1,135 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
-
 definePageMeta({
   title: 'newRequest',
 });
 
-// ===== STEP 1: Define data structure =====
-// Simple request type interface - easy to extend with API later
-type RequestType = {
+type Template = {
   id: number;
-  name: string;
-  description: string;
-  estimatedTime: string;
-  icon: string;
+  name: string | null;
+  description: string | null;
+  category: string | null;
+  isActive: boolean | null;
 };
 
-// ===== STEP 2: Hardcoded request data =====
-// This will be replaced with API call later
-const requestTypes: RequestType[] = [
-  {
-    id: 11,
-    name: 'General Request (KU.1)',
-    description: 'For general administrative inquiries and petitions.',
-    estimatedTime: '1-3 Days',
-    icon: 'i-lucide-file-text',
-  },
-  {
-    id: 15,
-    name: 'Tuition Fee Waiver',
-    description: 'Request for delay or waiver of tuition fees.',
-    estimatedTime: '5-7 Days',
-    icon: 'i-lucide-wallet',
-  },
-  {
-    id: 3,
-    name: 'Transcript Request',
-    description: 'Official academic record request.',
-    estimatedTime: '2 Days',
-    icon: 'i-lucide-scroll',
-  },
-  {
-    id: 4,
-    name: 'Late Registration',
-    description: 'Petition to register for courses after deadline.',
-    estimatedTime: '3-5 Days',
-    icon: 'i-lucide-calendar',
-  },
-  {
-    id: 5,
-    name: 'Equipment Borrowing',
-    description: 'Request to borrow faculty laboratory equipment.',
-    estimatedTime: '1 Day',
-    icon: 'i-lucide-package',
-  },
-];
-
-// ===== STEP 3: Setup Vue composables and state =====
 const router = useRouter();
 const searchQuery = ref('');
-const isCreating = ref(false);
 
-// ===== STEP 4: Search/filter logic =====
-const filteredRequests = computed(() => {
-  if (!searchQuery.value)
-    return requestTypes;
+const { data: templatesData, status, error } = await useFetch<{ success: boolean; data: Template[] }>('/api/templates');
 
-  const query = searchQuery.value.toLowerCase();
-  return requestTypes.filter((req) => {
-    return (
-      req.name.toLowerCase().includes(query)
-      || req.description.toLowerCase().includes(query)
-    );
-  });
+const activeTemplates = computed<Template[]>(() => {
+  if (!templatesData.value?.data)
+    return [];
+  return templatesData.value.data.filter(t => t.isActive === true);
 });
 
-// ===== STEP 5: Navigation handler - Navigate to form page (no DB record yet) =====
+const filteredRequests = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+  if (!query)
+    return activeTemplates.value;
+  return activeTemplates.value.filter(t =>
+    (t.name ?? '').toLowerCase().includes(query)
+    || (t.description ?? '').toLowerCase().includes(query)
+    || (t.category ?? '').toLowerCase().includes(query),
+  );
+});
+
 function handleSelectRequest(templateId: number) {
-  // Navigate to the form filling page passing templateId as query param
-  // The DB record will only be created when the user actually submits
   router.push(`/student/new-requests/${templateId}`);
 }
-
-// ===== STEP 6: Go back handler =====
-// function goBack() {
-//   router.back();
-// }
 </script>
 
 <template>
-  <!-- ===== STEP 1: Page Container with max-width and padding ===== -->
   <div class="space-y-6">
-    <!-- ===== STEP 2: Header with back button and title ===== -->
-    <div class="flex items-center gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-800">
-          New Request
-        </h1>
-        <p class="text-sm text-slate-500 mt-1">
-          Choose a request type to get started
-        </p>
-      </div>
+    <!-- Header -->
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">
+        New Request
+      </h1>
+      <p class="text-sm text-slate-500 mt-1">
+        Choose a request type to get started
+      </p>
     </div>
 
-    <!-- ===== STEP 3: Search bar ===== -->
+    <!-- Search bar -->
     <div class="flex gap-3">
       <div class="flex-1">
         <UInput
           v-model="searchQuery"
-          placeholder="Search requests by name"
+          placeholder="Search requests by name or category"
           icon="i-lucide-search"
           color="success"
         />
       </div>
     </div>
 
-    <!-- ===== STEP 4: Result counter ===== -->
-    <div class="text-sm text-slate-500">
-      Showing {{ filteredRequests.length }} of {{ requestTypes.length }} requests
+    <!-- Loading state -->
+    <div v-if="status === 'pending'" class="flex justify-center py-16">
+      <UIcon name="i-lucide-loader-circle" class="w-8 h-8 text-green-600 animate-spin" />
     </div>
 
-    <!-- ===== STEP 5: Request catalog grid ===== -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div
-        v-for="request in filteredRequests"
-        :key="request.id"
-        class="cursor-pointer group"
-        :class="{ 'opacity-50 pointer-events-none': isCreating }"
-        @click="handleSelectRequest(request.id)"
-      >
-        <!-- Request card using UCard component -->
-        <UCard
-          class="h-full hover:shadow-md transition-all duration-200 hover:border-green-500"
-          @click.prevent
-        >
-          <!-- ===== STEP 6: Card header with icon and category badge ===== -->
-          <template #header>
-            <div class="flex items-start justify-between">
-              <!-- Icon badge -->
-              <div
-                class="bg-green-50 text-green-700 p-3 rounded-lg group-hover:bg-green-600 group-hover:text-white transition-colors duration-200"
-              >
-                <UIcon :name="request.icon" class="w-6 h-6" />
-              </div>
-            </div>
-          </template>
-
-          <!-- ===== STEP 7: Card content - title and description ===== -->
-          <div class="space-y-3">
-            <h3
-              class="font-bold text-slate-800 group-hover:text-green-700 transition-colors duration-200"
-            >
-              {{ request.name }}
-            </h3>
-            <p class="text-sm text-slate-600 line-clamp-2">
-              {{ request.description }}
-            </p>
-          </div>
-        </UCard>
-      </div>
-    </div>
-
-    <!-- Loading overlay -->
-    <div
-      v-if="isCreating"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-lg p-6 flex flex-col items-center gap-4">
-        <i class="fas fa-spinner fa-spin text-4xl text-green-600" />
-        <p class="text-gray-700 font-medium">
-          Creating request...
-        </p>
-      </div>
-    </div>
-
-    <!-- ===== STEP 9: Empty state when no results ===== -->
-    <div
-      v-if="filteredRequests.length === 0"
-      class="text-center py-12"
-    >
-      <UIcon
-        name="i-lucide-inbox"
-        class="w-12 h-12 text-slate-300 mx-auto mb-4"
-      />
+    <!-- Error state -->
+    <div v-else-if="error" class="text-center py-12">
+      <UIcon name="i-lucide-triangle-alert" class="w-12 h-12 text-red-400 mx-auto mb-4" />
       <h3 class="font-semibold text-slate-800 mb-2">
-        No requests found
+        Failed to load templates
       </h3>
       <p class="text-sm text-slate-500">
-        Try adjusting your search query
+        {{ error.message }}
       </p>
     </div>
+
+    <template v-else>
+      <!-- Result counter -->
+      <div class="text-sm text-slate-500">
+        Showing {{ filteredRequests.length }} of {{ activeTemplates.length }} templates
+      </div>
+
+      <!-- Template catalog grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          v-for="template in filteredRequests"
+          :key="template.id"
+          class="cursor-pointer group"
+          @click="handleSelectRequest(template.id)"
+        >
+          <UCard class="h-full hover:shadow-md transition-all duration-200 hover:border-green-500">
+            <template #header>
+              <div class="flex items-start justify-between">
+                <div class="bg-green-50 text-green-700 p-3 rounded-lg group-hover:bg-green-600 group-hover:text-white transition-colors duration-200">
+                  <UIcon name="i-lucide-file-text" class="w-6 h-6" />
+                </div>
+                <UBadge
+                  v-if="template.category"
+                  :label="template.category"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                />
+              </div>
+            </template>
+
+            <div class="space-y-2">
+              <h3 class="font-bold text-slate-800 group-hover:text-green-700 transition-colors duration-200">
+                {{ template.name }}
+              </h3>
+              <p class="text-sm text-slate-600 line-clamp-2">
+                {{ template.description || 'No description available.' }}
+              </p>
+            </div>
+          </UCard>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div v-if="filteredRequests.length === 0" class="text-center py-12">
+        <UIcon name="i-lucide-inbox" class="w-12 h-12 text-slate-300 mx-auto mb-4" />
+        <h3 class="font-semibold text-slate-800 mb-2">
+          No templates found
+        </h3>
+        <p class="text-sm text-slate-500">
+          {{ searchQuery ? 'Try adjusting your search query' : 'No active templates available' }}
+        </p>
+      </div>
+    </template>
   </div>
 </template>
