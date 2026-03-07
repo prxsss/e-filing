@@ -583,7 +583,7 @@ watch(() => props.signingSteps.length, (newLen) => {
 
       <!-- System Auto-Fill Fields (always visible when auto-generate fields exist) -->
       <div v-if="autoGenerateFields.length > 0" class="p-4 border-t border-gray-200">
-        <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block flex items-center gap-1">
+        <label class="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1">
           <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5" />
           ระบบเติมอัตโนมัติ ({{ autoGenerateFields.length }})
         </label>
