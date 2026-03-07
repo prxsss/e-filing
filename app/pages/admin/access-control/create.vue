@@ -1,0 +1,340 @@
+<script setup lang="ts">
+import type { FormSubmitEvent } from '@nuxt/ui';
+
+import { LazyBaseConfirmDialog } from '#components';
+import * as z from 'zod';
+
+definePageMeta({
+  title: 'createNewRole',
+});
+
+const { t, locale } = useI18n();
+const localPath = useLocalePath();
+const toast = useToast();
+const overlay = useOverlay();
+const confirmDialog = overlay.create(LazyBaseConfirmDialog);
+
+const loading = ref(false);
+const isDirty = ref(false);
+const searchQuery = ref('');
+
+// ── Form Schema ──
+const createRoleSchema = z.object({
+  name: z.string().min(1, 'Role name is required'),
+  descriptionEN: z.string().optional(),
+  descriptionTH: z.string().optional(),
+  permissionIds: z.array(z.number()),
+});
+
+type CreateRoleSchema = z.output<typeof createRoleSchema>;
+
+const form = ref<Partial<CreateRoleSchema>>({
+  name: '',
+  descriptionEN: '',
+  descriptionTH: '',
+  permissionIds: [],
+});
+
+// ── Fetch all permissions ──
+const { data: permissions } = await useFetch<{
+  id: number;
+  code: string;
+  descriptionEN: string | null;
+  descriptionTH: string | null;
+}[]>('/api/permissions');
+
+// ── Group permissions by module ──
+const moduleIcons: Record<string, string> = {
+  request: 'i-lucide-file-text',
+  user: 'i-lucide-users',
+  template: 'i-lucide-layout',
+};
+
+const permissionModules = computed(() => {
+  if (!permissions.value)
+    return [];
+
+  const moduleMap = new Map<string, typeof permissions.value>();
+
+  for (const perm of permissions.value) {
+    const moduleKey = perm.code.split('.')[0] ?? perm.code;
+    if (!moduleMap.has(moduleKey)) {
+      moduleMap.set(moduleKey, []);
+    }
+    moduleMap.get(moduleKey)!.push(perm);
+  }
+
+  return Array.from(moduleMap.entries()).map(([key, perms]) => ({
+    key,
+    permissions: perms,
+  }));
+});
+
+// ── Filtered modules based on search ──
+const filteredModules = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim();
+  if (!query)
+    return permissionModules.value;
+
+  return permissionModules.value
+    .map((mod) => {
+      const filtered = mod.permissions.filter(
+        p =>
+          p.code.toLowerCase().includes(query)
+          || p.descriptionEN?.toLowerCase().includes(query)
+          || p.descriptionTH?.toLowerCase().includes(query),
+      );
+      return { ...mod, permissions: filtered };
+    })
+    .filter(mod => mod.permissions.length > 0);
+});
+
+// ── Toggle permission ──
+function togglePermission(permId: number) {
+  const ids = [...(form.value.permissionIds ?? [])];
+  const idx = ids.indexOf(permId);
+  if (idx >= 0) {
+    ids.splice(idx, 1);
+  }
+  else {
+    ids.push(permId);
+  }
+  form.value.permissionIds = ids;
+}
+
+// ── Selected count ──
+const selectedCount = computed(() => form.value.permissionIds?.length ?? 0);
+
+// ── Dirty tracking ──
+watch(form, () => {
+  isDirty.value = !!(
+    form.value.name
+    || form.value.descriptionEN
+    || form.value.descriptionTH
+    || (form.value.permissionIds && form.value.permissionIds.length > 0)
+  );
+}, { deep: true });
+
+// ── Submit ──
+async function handleCreateRole(event: FormSubmitEvent<CreateRoleSchema>) {
+  loading.value = true;
+  try {
+    await $fetch('/api/roles', {
+      method: 'POST',
+      body: {
+        name: event.data.name,
+        descriptionEN: event.data.descriptionEN || null,
+        descriptionTH: event.data.descriptionTH || null,
+        permissionIds: event.data.permissionIds,
+      },
+    });
+
+    isDirty.value = false;
+    toast.add({ title: t('createRole'), description: 'Role created successfully.', color: 'success' });
+    navigateTo(localPath('/admin/access-control'));
+  }
+  catch (error: any) {
+    const message = error?.data?.statusMessage || 'Failed to create role. Please try again.';
+    toast.add({ title: 'Error', description: message, color: 'error' });
+  }
+  finally {
+    loading.value = false;
+  }
+}
+
+// ── Cancel ──
+function handleCancel() {
+  navigateTo(localPath('/admin/access-control'));
+}
+
+// ── Unsaved changes guard ──
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (isDirty.value) {
+    event.preventDefault();
+  }
+}
+
+onBeforeRouteLeave(async () => {
+  if (!isDirty.value)
+    return true;
+
+  const instance = confirmDialog.open({
+    title: t('discardChanges'),
+    description: t('discardChangesDescription'),
+    cancelButton: { label: t('cancel') },
+    confirmButton: { label: t('leave'), color: 'error' },
+  });
+
+  const result = await instance.result;
+  return Boolean(result);
+});
+
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload));
+</script>
+
+<template>
+  <div class="flex flex-col relative">
+    <UForm :schema="createRoleSchema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleCreateRole">
+      <!-- Back Button -->
+      <UButton
+        type="button"
+        icon="i-lucide-arrow-left"
+        color="neutral"
+        variant="link"
+        :to="localPath('/admin/access-control')"
+      >
+        {{ t('backToAccessControl') }}
+      </UButton>
+
+      <!-- Page Header -->
+      <div>
+        <h1 class="text-2xl font-bold mb-1">
+          {{ t('newRole') }}
+        </h1>
+        <p class="text-sm text-muted">
+          {{ t('accessControlDescription') }}
+        </p>
+      </div>
+
+      <!-- Role Information Card -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-lucide-shield" class="text-muted" />
+            <h2 class="font-semibold text-base">
+              {{ t('roleInformation') }}
+            </h2>
+          </div>
+        </template>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Role Name -->
+          <div class="col-span-2 md:col-span-1">
+            <UFormField :label="t('roleName')" name="name" required>
+              <UInput
+                v-model="form.name"
+                :placeholder="t('roleNamePlaceholder')"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+
+          <div class="hidden md:block" />
+
+          <!-- Description EN -->
+          <UFormField :label="t('descriptionEN')" name="descriptionEN">
+            <UTextarea
+              v-model="form.descriptionEN"
+              :placeholder="t('descriptionENPlaceholder')"
+              class="w-full"
+              :rows="3"
+            />
+          </UFormField>
+
+          <!-- Description TH -->
+          <UFormField :label="t('descriptionTH')" name="descriptionTH">
+            <UTextarea
+              v-model="form.descriptionTH"
+              :placeholder="t('descriptionTHPlaceholder')"
+              class="w-full"
+              :rows="3"
+            />
+          </UFormField>
+        </div>
+      </UCard>
+
+      <!-- Permissions Card -->
+      <UCard>
+        <template #header>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-shield-check" class="text-muted" />
+              <div>
+                <h2 class="font-semibold text-base">
+                  {{ t('assignPermissions') }}
+                </h2>
+                <p class="text-xs text-muted mt-0.5">
+                  {{ t('assignPermissionsDescription') }}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <UBadge v-if="selectedCount > 0" color="primary" variant="soft" size="sm">
+                {{ t('selectedCount', { count: selectedCount }) }}
+              </UBadge>
+              <div class="shrink-0 w-full sm:w-56">
+                <UInput
+                  v-model="searchQuery"
+                  icon="i-lucide-search"
+                  :placeholder="t('searchPermissions')"
+                  variant="subtle"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <div class="space-y-8">
+          <!-- No results -->
+          <div v-if="filteredModules.length === 0" class="text-center py-12">
+            <UIcon name="i-lucide-search-x" class="size-12 text-muted mx-auto mb-3" />
+            <p class="text-sm text-muted">
+              {{ t('noPermissionsFound') }}
+            </p>
+          </div>
+
+          <!-- Module sections -->
+          <section v-for="mod in filteredModules" :key="mod.key">
+            <div class="flex items-center gap-2 mb-4">
+              <UIcon :name="moduleIcons[mod.key] ?? 'i-lucide-settings'" class="size-5 text-primary" />
+              <h3 class="text-sm font-bold uppercase tracking-wide">
+                {{ mod.key }}
+              </h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label
+                v-for="perm in mod.permissions"
+                :key="perm.id"
+                class="flex items-start p-4 border border-default rounded-xl hover:bg-elevated/50 transition-all cursor-pointer group"
+                :class="{ 'bg-elevated/30': form.permissionIds?.includes(perm.id) }"
+              >
+                <UCheckbox
+                  :model-value="form.permissionIds?.includes(perm.id)"
+                  class="mt-0.5"
+                  @update:model-value="togglePermission(perm.id)"
+                />
+                <div class="ml-3">
+                  <span class="block text-sm font-semibold">{{ perm.code }}</span>
+                  <span class="block text-xs text-dimmed italic mt-0.5">
+                    {{ locale === 'en' ? perm.descriptionEN : perm.descriptionTH }}
+                  </span>
+                </div>
+              </label>
+            </div>
+          </section>
+        </div>
+      </UCard>
+
+      <!-- Footer Actions -->
+      <div class="flex items-center justify-end gap-4">
+        <UButton
+          type="button"
+          color="neutral"
+          variant="ghost"
+          :label="t('cancel')"
+          @click="handleCancel"
+        />
+        <UButton
+          type="submit"
+          color="primary"
+          :label="t('createRole')"
+          icon="i-lucide-check"
+          :loading
+        />
+      </div>
+    </UForm>
+  </div>
+</template>

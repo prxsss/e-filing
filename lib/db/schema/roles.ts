@@ -5,8 +5,8 @@ import { permissions } from './permission';
 export const roles = pgTable('roles', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 50 }).notNull().unique(),
-  descriptionEn: text('description_en'),
-  descriptionTh: text('description_th'),
+  descriptionEN: text('description_en'),
+  descriptionTH: text('description_th'),
 });
 
 export const rolePermissions = pgTable('role_permissions', {

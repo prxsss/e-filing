@@ -66,9 +66,9 @@ const sidebarItems = computed(() => [{
     open.value = false;
   },
 }, {
-  label: t('permissionGroups'),
+  label: t('accessControl'),
   icon: 'i-lucide-shield-check',
-  to: localePath('/admin/permission-groups'),
+  to: localePath('/admin/access-control'),
   onSelect: () => {
     open.value = false;
   },
@@ -173,8 +173,8 @@ const selectedLanguageIcon = computed(() =>
                   <p class="font-semibold text-sm">
                     {{ authStore.session.user?.fullName }}
                   </p>
-                  <p class="text-xs">
-                    Admin
+                  <p class="text-xs capitalize">
+                    {{ authStore.session.user?.currentRole }}
                   </p>
                 </div>
                 <UAvatar

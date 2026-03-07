@@ -1,0 +1,512 @@
+<script lang="ts" setup>
+definePageMeta({
+  title: 'newRequest',
+});
+
+// --- Types ---
+type FieldValue = {
+  fieldId: number;
+  value: string;
+};
+
+type TemplateData = {
+  id: number;
+  name: string;
+  documentUrl: string | null;
+  placedFieldsData: any[] | null;
+};
+
+// Staged file for new-request mode (client-side only, not yet uploaded)
+type PendingAttachment = {
+  id: string;
+  file: File;
+  localUrl: string;
+  name: string;
+  size: number;
+};
+
+// --- State ---
+const route = useRoute();
+const templateId = Number(route.params.templateId);
+const isLoading = ref(true);
+const isSaving = ref(false);
+const error = ref<string | null>(null);
+const successMessage = ref('');
+
+const templateData = ref<TemplateData | null>(null);
+const pdfFile = ref<File | null>(null);
+const placedFields = ref<any[]>([]);
+const fieldValues = ref<Record<number, string>>({});
+const scale = ref(1);
+
+const pendingAttachments = ref<PendingAttachment[]>([]);
+const isUploadingAttachment = ref(false);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// --- Methods ---
+async function urlToFile(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new File([blob], filename, { type: blob.type });
+  }
+  catch (err) {
+    console.error('Error converting URL to File:', err);
+    throw err;
+  }
+}
+
+async function fetchTemplateData() {
+  isLoading.value = true;
+  error.value = null;
+
+  try {
+    if (!templateId || Number.isNaN(templateId)) {
+      error.value = 'No template selected';
+      return;
+    }
+
+    const templateResult: any = await $fetch(`/api/templates/${templateId}`);
+
+    if (templateResult.success && templateResult.data) {
+      templateData.value = templateResult.data as TemplateData;
+
+      if (templateData.value?.documentUrl) {
+        const filename = templateData.value.documentUrl.split('/').pop() || 'template.pdf';
+        pdfFile.value = await urlToFile(templateData.value.documentUrl, filename);
+      }
+
+      if (templateData.value?.placedFieldsData) {
+        placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
+          (field: any) => field.isFillable !== false,
+        );
+      }
+    }
+    else {
+      error.value = 'Template not found';
+    }
+  }
+  catch (err: any) {
+    console.error('Error fetching template:', err);
+    error.value = err?.message || 'Failed to load template';
+  }
+  finally {
+    isLoading.value = false;
+  }
+}
+
+async function submitRequest() {
+  isSaving.value = true;
+  error.value = null;
+
+  try {
+    // 1. Create the DB record
+    const createResult: any = await $fetch('/api/requests', {
+      method: 'POST',
+      body: {
+        templateId,
+        status: 'draft',
+      },
+    });
+
+    if (!createResult.success || !createResult.data) {
+      error.value = (createResult.error as string) || 'Failed to create request';
+      return;
+    }
+
+    const activeRequestId = String(createResult.data.id);
+
+    // 2. Upload staged attachments
+    for (const pending of pendingAttachments.value) {
+      try {
+        const formData = new FormData();
+        formData.append('file', pending.file, pending.name);
+        await $fetch(`/api/requests/${activeRequestId}/attachments/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+      }
+      catch (uploadErr) {
+        console.error('Failed to upload attachment:', pending.name, uploadErr);
+      }
+    }
+
+    // 3. Save field values
+    const fieldValuesArray: FieldValue[] = Object.entries(fieldValues.value).map(
+      ([fieldId, value]) => ({
+        fieldId: Number.parseInt(fieldId),
+        value: value || '',
+      }),
+    );
+
+    const saveResult: any = await $fetch(`/api/requests/${activeRequestId}/field-values`, {
+      method: 'POST',
+      body: { fieldValues: fieldValuesArray },
+    });
+
+    if (!saveResult.success) {
+      error.value = (saveResult.error as string) || 'Failed to save field values';
+      return;
+    }
+
+    // 4. Generate filled PDF
+    const pdfResult = await $fetch(`/api/requests/${activeRequestId}/generate-filled-pdf`, {
+      method: 'POST',
+    });
+
+    if (!pdfResult.success) {
+      error.value = 'Failed to generate PDF';
+      return;
+    }
+
+    // 5. Update status to submitted
+    const updateResult: any = await $fetch(`/api/requests/${activeRequestId}`, {
+      method: 'PATCH',
+      body: {
+        status: 'submitted',
+        submittedAt: new Date().toISOString(),
+      },
+    });
+
+    if (updateResult.success) {
+      navigateTo('/student/my-requests');
+    }
+    else {
+      error.value = (updateResult.error as string) || 'Failed to submit request';
+    }
+  }
+  catch (err: any) {
+    console.error('Error submitting request:', err);
+    error.value = err?.message || 'Failed to submit request';
+  }
+  finally {
+    isSaving.value = false;
+  }
+}
+
+const fillableFields = computed(() => {
+  return placedFields.value.filter((field: any) => field.isFillable !== false);
+});
+
+function triggerFileUpload() {
+  fileInputRef.value?.click();
+}
+
+async function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+
+  if (!file)
+    return;
+
+  const maxSize = 30 * 1024 * 1024; // 30MB
+  if (file.size > maxSize) {
+    error.value = 'File size must be less than 30MB';
+    if (target)
+      target.value = '';
+    return;
+  }
+
+  pendingAttachments.value.push({
+    id: crypto.randomUUID(),
+    file,
+    localUrl: URL.createObjectURL(file),
+    name: file.name,
+    size: file.size,
+  });
+
+  if (target)
+    target.value = '';
+}
+
+function removePendingAttachment(id: string) {
+  const idx = pendingAttachments.value.findIndex(a => a.id === id);
+  if (idx !== -1) {
+    const attachment = pendingAttachments.value[idx];
+    if (attachment)
+      URL.revokeObjectURL(attachment.localUrl);
+    pendingAttachments.value.splice(idx, 1);
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024)
+    return `${bytes} B`;
+  if (bytes < 1024 * 1024)
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(fileName: string | null) {
+  if (!fileName)
+    return 'i-heroicons-document';
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'pdf': return 'i-heroicons-document-text';
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif': return 'i-heroicons-photo';
+    case 'doc':
+    case 'docx': return 'i-heroicons-document-text';
+    case 'xls':
+    case 'xlsx': return 'i-heroicons-table-cells';
+    case 'zip':
+    case 'rar': return 'i-heroicons-archive-box';
+    default: return 'i-heroicons-document';
+  }
+}
+
+onMounted(() => {
+  fetchTemplateData();
+});
+</script>
+
+<template>
+  <div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="bg-white border-b">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <UBreadcrumb
+          :links="[
+            { label: 'My Requests', to: '/student/my-requests' },
+            { label: 'New Request', to: `/student/new-requests/${templateId}` },
+          ]"
+        />
+        <div class="mt-4 flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">
+              {{ templateData?.name || 'Fill Request Form' }}
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+              Complete the form below and submit your request
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex items-center justify-center h-96">
+        <div class="text-center">
+          <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
+          <p class="text-gray-500">
+            Loading template...
+          </p>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <UCard v-else-if="error && !templateData">
+        <div class="text-center py-8">
+          <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4" />
+          <p class="text-red-600 mb-4">
+            {{ error }}
+          </p>
+          <UButton @click="$router.push('/student/new-request')">
+            Back to Request Types
+          </UButton>
+        </div>
+      </UCard>
+
+      <!-- Form Content -->
+      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left: PDF Preview (Read-only) -->
+        <div class="lg:col-span-2">
+          <!-- Zoom Controls -->
+          <div class="mb-4 flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2">
+            <span class="text-sm text-gray-600">Zoom:</span>
+            <UButton
+              icon="i-heroicons-minus"
+              size="xs"
+              variant="ghost"
+              :disabled="scale <= 0.5"
+              @click="scale = Math.max(0.5, scale - 0.25)"
+            />
+            <span class="text-sm font-medium w-12 text-center">{{ Math.round(scale * 100) }}%</span>
+            <UButton
+              icon="i-heroicons-plus"
+              size="xs"
+              variant="ghost"
+              :disabled="scale >= 3"
+              @click="scale = Math.min(3, scale + 0.25)"
+            />
+            <UButton
+              size="xs"
+              variant="ghost"
+              @click="scale = 1"
+            >
+              Reset
+            </UButton>
+          </div>
+
+          <!-- PDF Viewer -->
+          <div v-if="pdfFile" style="min-height: 600px;">
+            <template-pdf-create
+              :pdf-file="pdfFile"
+              :placed-fields="placedFields"
+              :selected-field="undefined"
+              :ui-scale="scale"
+              :read-only="true"
+            />
+          </div>
+        </div>
+
+        <!-- Right: Form Fields -->
+        <div class="space-y-6">
+          <!-- Success Message -->
+          <UCard v-if="successMessage" class="bg-green-50 border-green-200">
+            <div class="flex items-center gap-2 text-green-800">
+              <i class="fas fa-check-circle" />
+              <span class="font-medium">{{ successMessage }}</span>
+            </div>
+          </UCard>
+
+          <!-- Error Message -->
+          <UCard v-if="error" class="bg-red-50 border-red-200">
+            <div class="flex items-center gap-2 text-red-800">
+              <i class="fas fa-exclamation-circle" />
+              <span class="font-medium">{{ error }}</span>
+            </div>
+          </UCard>
+
+          <!-- Form Fields Card -->
+          <UCard>
+            <template #header>
+              <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                Request Information
+              </h3>
+            </template>
+
+            <div class="space-y-4">
+              <div
+                v-for="field in fillableFields"
+                :key="field.instanceId"
+                class="field-group"
+              >
+                <form-field-input
+                  v-model="fieldValues[field.id]"
+                  :field="field"
+                  :disabled="isSaving"
+                />
+              </div>
+
+              <div v-if="fillableFields.length === 0" class="text-center py-8 text-gray-500">
+                <i class="fas fa-inbox text-3xl mb-2" />
+                <p class="text-sm">
+                  No fillable fields in this template
+                </p>
+              </div>
+            </div>
+          </UCard>
+
+          <!-- Attachments Card -->
+          <UCard>
+            <template #header>
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                  Attachments
+                </h3>
+                <UButton
+                  size="xs"
+                  color="primary"
+                  icon="i-heroicons-paper-clip"
+                  :loading="isUploadingAttachment"
+                  @click="triggerFileUpload"
+                >
+                  Add File
+                </UButton>
+              </div>
+            </template>
+
+            <div class="space-y-3">
+              <input
+                ref="fileInputRef"
+                type="file"
+                class="hidden"
+                accept="*/*"
+                @change="handleFileUpload"
+              >
+
+              <div
+                v-for="pending in pendingAttachments"
+                :key="pending.id"
+                class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100"
+              >
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <UIcon
+                    :name="getFileIcon(pending.name)"
+                    class="w-5 h-5 text-blue-600 shrink-0"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">
+                      {{ pending.name }}
+                    </p>
+                    <p class="text-xs text-gray-500">
+                      {{ formatFileSize(pending.size) }} · Will be uploaded on submit
+                    </p>
+                  </div>
+                </div>
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="error"
+                  icon="i-heroicons-trash"
+                  @click="removePendingAttachment(pending.id)"
+                />
+              </div>
+
+              <div v-if="pendingAttachments.length === 0" class="text-center py-8 text-gray-500">
+                <i class="fas fa-paperclip text-3xl mb-2" />
+                <p class="text-sm">
+                  No attachments yet
+                </p>
+                <p class="text-xs mt-1">
+                  Files will be uploaded when you submit
+                </p>
+              </div>
+            </div>
+          </UCard>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-col gap-3">
+            <UButton
+              block
+              color="success"
+              size="lg"
+              :loading="isSaving"
+              :disabled="fillableFields.length === 0"
+              @click="submitRequest"
+            >
+              <i class="fas fa-paper-plane mr-2" />
+              Submit Request
+            </UButton>
+
+            <UButton
+              block
+              variant="ghost"
+              color="neutral"
+              @click="$router.push('/student/new-request')"
+            >
+              <i class="fas fa-arrow-left mr-2" />
+              Back to Request Types
+            </UButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.field-group {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.field-group:last-child {
+  border-bottom: none;
+}
+</style>
