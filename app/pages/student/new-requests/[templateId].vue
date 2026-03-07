@@ -77,8 +77,12 @@ async function fetchTemplateData() {
       }
 
       if (templateData.value?.placedFieldsData) {
+        // Exclude signature fields: stored with snake_case `is_fillable: false` and type `Signature`
         placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
-          (field: any) => field.isFillable !== false,
+          (field: any) =>
+            field.isFillable !== false
+            && field.is_fillable !== false
+            && field.type !== 'Signature',
         );
       }
     }
@@ -159,13 +163,9 @@ async function submitRequest() {
       return;
     }
 
-    // 5. Update status to submitted
-    const updateResult: any = await $fetch(`/api/requests/${activeRequestId}`, {
-      method: 'PATCH',
-      body: {
-        status: 'submitted',
-        submittedAt: new Date().toISOString(),
-      },
+    // 5. Submit: initialize signing flow and update status
+    const updateResult: any = await $fetch(`/api/requests/${activeRequestId}/submit`, {
+      method: 'POST',
     });
 
     if (updateResult.success) {
@@ -185,7 +185,12 @@ async function submitRequest() {
 }
 
 const fillableFields = computed(() => {
-  return placedFields.value.filter((field: any) => field.isFillable !== false);
+  return placedFields.value.filter(
+    (field: any) =>
+      field.isFillable !== false
+      && field.is_fillable !== false
+      && field.type !== 'Signature',
+  );
 });
 
 function triggerFileUpload() {
