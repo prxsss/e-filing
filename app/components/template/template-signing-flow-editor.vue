@@ -49,31 +49,35 @@ async function fetchRoles(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  fetchRoles();
-});
-
 // Fetch users by role for person selection
 type UserRecord = { id: string; fullNameEn: string; fullNameTh: string; email: string };
 const usersByRole = ref<Record<number, UserRecord[]>>({});
 const loadingUsersByRole = ref<Record<number, boolean>>({});
 
-async function fetchUsersForRole(roleId: number): Promise<void> {
-  if (usersByRole.value[roleId])
-    return;
-  loadingUsersByRole.value[roleId] = true;
-  try {
-    const data = await $fetch<UserRecord[]>(`/api/users/by-role/${roleId}`);
-    usersByRole.value[roleId] = data;
-  }
-  catch (error) {
-    console.error(`Failed to fetch users for role ${roleId}:`, error);
-    usersByRole.value[roleId] = [];
-  }
-  finally {
-    loadingUsersByRole.value[roleId] = false;
-  }
+async function fetchAllUsersForRoles(): Promise<void> {
+  const roleIds = roles.value.map(r => r.id);
+  await Promise.all(roleIds.map(async (roleId) => {
+    if (usersByRole.value[roleId])
+      return;
+    loadingUsersByRole.value[roleId] = true;
+    try {
+      const data = await $fetch<UserRecord[]>(`/api/users/by-role/${roleId}`);
+      usersByRole.value[roleId] = data;
+    }
+    catch (error) {
+      console.error(`Failed to fetch users for role ${roleId}:`, error);
+      usersByRole.value[roleId] = [];
+    }
+    finally {
+      loadingUsersByRole.value[roleId] = false;
+    }
+  }));
 }
+
+onMounted(async () => {
+  await fetchRoles();
+  await fetchAllUsersForRoles();
+});
 
 function getUserItems(roleId: number | undefined) {
   if (!roleId)
@@ -109,15 +113,6 @@ function onUserSelected(stepId: string, userId: string | undefined): void {
   emit('update:signingSteps', updatedSteps);
 }
 
-// Pre-fetch users for all existing steps
-watch(() => props.signingSteps, (steps) => {
-  for (const step of steps) {
-    if (step.roleId) {
-      fetchUsersForRole(step.roleId);
-    }
-  }
-}, { immediate: true });
-
 // Roles formatted for USelect (filter out already-used roles)
 const roleItems = computed(() => {
   const usedRoleIds = props.signingSteps.map(s => s.roleId).filter(Boolean);
@@ -145,7 +140,11 @@ const selectedStep = computed<SigningStep | null>(() => {
 });
 
 const unassignedFields = computed<FieldInstance[]>(() => {
-  return props.placedFields.filter(f => !f.signerStepId);
+  return props.placedFields.filter(f => !f.signerStepId && !f.isAutoGenerate);
+});
+
+const autoGenerateFields = computed<FieldInstance[]>(() => {
+  return props.placedFields.filter(f => f.isAutoGenerate);
 });
 
 const assignedFieldsForSelectedStep = computed<FieldInstance[]>(() => {
@@ -168,12 +167,15 @@ function addStep(): void {
   if (!selectedNewRole.value)
     return;
 
+  // Capture role info before resetting form
+  const role = selectedNewRole.value;
+
   const newStep: SigningStep = {
     id: `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     order: props.signingSteps.length + 1,
-    roleId: selectedNewRole.value.id,
-    roleName: selectedNewRole.value.name,
-    description: getRoleDescription(selectedNewRole.value) || undefined,
+    roleId: role.id,
+    roleName: role.name,
+    description: getRoleDescription(role) || undefined,
     isRequired: newStepIsRequired.value,
     assignedFieldInstanceIds: [],
     color: getNextColor(),
@@ -189,11 +191,6 @@ function addStep(): void {
 
   // Auto-select the new step
   selectedStepId.value = newStep.id;
-
-  // Fetch users for this role
-  if (selectedNewRole.value.id) {
-    fetchUsersForRole(selectedNewRole.value.id);
-  }
 }
 
 // Remove a signing step
@@ -582,6 +579,27 @@ watch(() => props.signingSteps.length, (newLen) => {
         <p class="text-sm text-gray-400 text-center">
           {{ signingSteps.length > 0 ? t('clickFieldToAssign') : t('addFirstStep') }}
         </p>
+      </div>
+
+      <!-- System Auto-Fill Fields (always visible when auto-generate fields exist) -->
+      <div v-if="autoGenerateFields.length > 0" class="p-4 border-t border-gray-200">
+        <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block flex items-center gap-1">
+          <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5" />
+          ระบบเติมอัตโนมัติ ({{ autoGenerateFields.length }})
+        </label>
+        <div class="space-y-1.5">
+          <div
+            v-for="field in autoGenerateFields"
+            :key="field.instanceId"
+            class="flex items-center gap-2 p-2 rounded-md bg-blue-50 border border-blue-200"
+          >
+            <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span class="text-xs text-blue-700 truncate">{{ field.label || field.name }}</span>
+            <UBadge color="info" variant="subtle" size="xs" class="ml-auto shrink-0">
+              Auto
+            </UBadge>
+          </div>
+        </div>
       </div>
     </aside>
   </div>

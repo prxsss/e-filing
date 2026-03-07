@@ -51,7 +51,7 @@ const displayCoords = computed(() => {
   };
 });
 
-// Editable values that user can modify
+// Editable values that user can modify (Still keeping X, Y in state to preserve them when saving other properties)
 const editableX = ref(0);
 const editableY = ref(0);
 const editableWidth = ref(0);
@@ -123,6 +123,19 @@ function onPropertyChange() {
   });
 }
 
+function onAutoGenerateChange(event: Event) {
+  if (!props.selectedField)
+    return;
+  const checked = (event.target as HTMLInputElement).checked;
+  localField.value.isAutoGenerate = checked;
+  emit('fieldUpdated', {
+    instanceId: props.selectedField.instanceId,
+    updates: {
+      isAutoGenerate: checked,
+    },
+  });
+}
+
 function removeField() {
   if (!props.selectedField)
     return;
@@ -131,151 +144,217 @@ function removeField() {
 </script>
 
 <template>
-  <div class="field-toolbar-inline">
-    <!-- Identity -->
-    <div class="flex items-center gap-1.5">
-      <span class="text-xs font-semibold text-gray-900 truncate max-w-32">{{ selectedField.name }}</span>
-      <span v-if="selectedField.instanceNumber > 1" class="text-[11px] text-gray-400">#{{ selectedField.instanceNumber }}</span>
-    </div>
+  <div class="field-toolbar-wrapper bg-white shadow-sm border border-gray-200 rounded-lg px-3 py-1.5 mx-auto">
+    <div class="field-toolbar-inline">
+      <!-- Identity Section -->
+      <UTooltip text="ประเภทของช่องข้อมูล" :popper="{ placement: 'top' }">
+        <div class="flex items-center gap-1.5 bg-primary-50 px-2 py-1 rounded-md border border-primary-100">
+          <UIcon name="i-heroicons-tag" class="w-3.5 h-3.5 text-primary-500" />
+          <span class="text-xs font-semibold text-primary-700 truncate max-w-32">{{ selectedField.name }}</span>
+          <span v-if="selectedField.instanceNumber > 1" class="text-[10px] bg-white text-primary-600 px-1 rounded shadow-sm font-mono">
+            #{{ selectedField.instanceNumber }}
+          </span>
+        </div>
+      </UTooltip>
 
-    <div class="h-6 w-px bg-gray-200" />
+      <div class="h-5 w-px bg-gray-200" />
 
-    <!-- Position -->
-    <div class="flex items-center gap-2">
-      <label class="text-[11px] text-gray-500 font-medium">X</label>
-      <input v-model.number="editableX" type="number" class="toolbar-input" min="0" @input="onPropertyChange">
-      <label class="text-[11px] text-gray-500 font-medium">Y</label>
-      <input v-model.number="editableY" type="number" class="toolbar-input" min="0" @input="onPropertyChange">
-    </div>
+      <!-- Size Section (Width and Height) -->
+      <div class="flex items-center gap-1.5">
+        <UTooltip text="ความกว้าง (Width)" :popper="{ placement: 'top' }">
+          <div class="toolbar-input-group">
+            <span class="toolbar-prefix">W</span>
+            <input v-model.number="editableWidth" type="number" class="toolbar-input w-12" min="10" @input="onPropertyChange">
+          </div>
+        </UTooltip>
 
-    <div class="h-6 w-px bg-gray-200" />
-
-    <!-- Size -->
-    <div class="flex items-center gap-2">
-      <label class="text-[11px] text-gray-500 font-medium">W</label>
-      <input v-model.number="editableWidth" type="number" class="toolbar-input" min="10" @input="onPropertyChange">
-      <label class="text-[11px] text-gray-500 font-medium">H</label>
-      <input v-model.number="editableHeight" type="number" class="toolbar-input" min="10" @input="onPropertyChange">
-    </div>
-
-    <!-- Font (text fields only) -->
-    <template v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'">
-      <div class="h-6 w-px bg-gray-200" />
-      <div class="flex items-center gap-2">
-        <input
-          v-model.number="localField.fontSize"
-          type="number"
-          class="toolbar-input w-11"
-          min="8"
-          max="72"
-          placeholder="14"
-          title="Font size"
-          @input="onPropertyChange"
-        >
-        <select
-          v-model="localField.fontFamily"
-          class="toolbar-select"
-          title="Font family"
-          @change="onPropertyChange"
-        >
-          <option value="Arial">
-            Arial
-          </option>
-
-          <option value="Helvetica">
-            Helvetica
-          </option>
-
-          <option value="Times New Roman">
-            Times New Roman
-          </option>
-
-          <option value="Courier New">
-            Courier New
-          </option>
-
-          <option value="Georgia">
-            Georgia
-          </option>
-
-          <option value="Verdana">
-            Verdana
-          </option>
-
-          <option value="Tahoma">
-            Tahoma
-          </option>
-
-          <option value="Sarabun">
-            Sarabun (Thai)
-          </option>
-
-          <option value="Prompt">
-            Prompt (Thai)
-          </option>
-
-          <option value="Mitr">
-            Mitr (Thai)
-          </option>
-        </select>
+        <UTooltip text="ความสูง (Height)" :popper="{ placement: 'top' }">
+          <div class="toolbar-input-group">
+            <span class="toolbar-prefix">H</span>
+            <input v-model.number="editableHeight" type="number" class="toolbar-input w-12" min="10" @input="onPropertyChange">
+          </div>
+        </UTooltip>
       </div>
-    </template>
 
-    <div class="h-6 w-px bg-gray-200" />
+      <!-- Font (text fields only) -->
+      <template v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'">
+        <div class="h-5 w-px bg-gray-200" />
 
-    <!-- Delete -->
-    <button
-      class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-      title="Remove field"
-      @click="removeField"
-    >
-      <UIcon name="i-heroicons-trash-20-solid" class="w-4 h-4" />
-    </button>
+        <div class="flex items-center gap-1.5">
+          <UTooltip text="ขนาดตัวอักษร" :popper="{ placement: 'top' }">
+            <div class="toolbar-input-group">
+              <span class="toolbar-prefix text-gray-400">
+                <UIcon name="i-lucide-type" class="w-3.5 h-3.5" />
+              </span>
+              <input
+                v-model.number="localField.fontSize"
+                type="number"
+                class="toolbar-input w-10"
+                min="8"
+                max="72"
+                placeholder="14"
+                @input="onPropertyChange"
+              >
+            </div>
+          </UTooltip>
+
+          <UTooltip text="รูปแบบฟอนต์" :popper="{ placement: 'top' }">
+            <select
+              v-model="localField.fontFamily"
+              class="toolbar-select"
+              @change="onPropertyChange"
+            >
+              <optgroup label="ฟอนต์ภาษาไทย">
+                <option value="Sarabun">
+                  Sarabun (สารบรรณ)
+                </option>
+                <option value="Prompt">
+                  Prompt (พร้อม)
+                </option>
+                <option value="Mitr">
+                  Mitr (มิตร)
+                </option>
+              </optgroup>
+              <optgroup label="ฟอนต์ภาษาอังกฤษ">
+                <option value="Arial">
+                  Arial
+                </option>
+                <option value="Helvetica">
+                  Helvetica
+                </option>
+                <option value="Times New Roman">
+                  Times New Roman
+                </option>
+                <option value="Courier New">
+                  Courier New
+                </option>
+                <option value="Georgia">
+                  Georgia
+                </option>
+                <option value="Verdana">
+                  Verdana
+                </option>
+                <option value="Tahoma">
+                  Tahoma
+                </option>
+              </optgroup>
+            </select>
+          </UTooltip>
+        </div>
+      </template>
+
+      <!-- Auto-generate toggle (Date fields only) -->
+      <template v-if="selectedField.type === 'Date' || selectedField.fieldType === 'Date'">
+        <div class="h-5 w-px bg-gray-200" />
+        <UTooltip text="ระบบจะเติมวันที่ปัจจุบันให้อัตโนมัติ" :popper="{ placement: 'top' }">
+          <label
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-colors"
+            :class="localField.isAutoGenerate ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'"
+          >
+            <input
+              type="checkbox"
+              :checked="localField.isAutoGenerate"
+              class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              @change="onAutoGenerateChange"
+            >
+            <span class="text-xs font-medium" :class="localField.isAutoGenerate ? 'text-blue-700' : 'text-gray-600'">
+              เติมอัตโนมัติ
+            </span>
+          </label>
+        </UTooltip>
+      </template>
+
+      <div class="h-5 w-px bg-gray-200" />
+
+      <!-- Delete -->
+      <UTooltip text="ลบช่องข้อมูลนี้" :popper="{ placement: 'top' }">
+        <button
+          class="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+          @click="removeField"
+        >
+          <UIcon name="i-heroicons-trash-20-solid" class="w-4 h-4" />
+        </button>
+      </UTooltip>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.field-toolbar-wrapper {
+  display: inline-flex;
+  box-shadow:
+    0 2px 8px -2px rgba(0, 0, 0, 0.05),
+    0 4px 16px -4px rgba(0, 0, 0, 0.02);
+}
+
 .field-toolbar-inline {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.5rem;
   -webkit-user-select: none;
   user-select: none;
 }
 
-.toolbar-input {
-  width: 3.25rem;
-  padding: 3px 5px;
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  text-align: center;
-  -webkit-user-select: text;
-  user-select: text;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+/* Figma-style Input Group */
+.toolbar-input-group {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.15s ease-in-out;
 }
 
-.toolbar-input:focus {
-  outline: none;
+.toolbar-input-group:focus-within {
   border-color: #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
 }
 
-.toolbar-select {
-  padding: 3px 6px;
+.toolbar-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9fafb;
+  color: #6b7280;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0 6px;
+  height: 26px;
+  border-right: 1px solid #e5e7eb;
+}
+
+.toolbar-input {
+  width: 2.75rem;
+  height: 26px;
+  padding: 0 4px;
   font-size: 0.75rem;
-  line-height: 1.125rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  max-width: 7rem;
+  text-align: center;
+  color: #374151;
+  border: none;
+  background: transparent;
+  outline: none;
   -webkit-user-select: text;
   user-select: text;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+}
+
+.toolbar-input:focus {
+  outline: none;
+}
+
+.toolbar-select {
+  height: 26px;
+  padding: 0 24px 0 8px;
+  font-size: 0.75rem;
+  color: #374151;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  max-width: 9rem;
+  -webkit-user-select: text;
+  user-select: text;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
 }
 
 .toolbar-select:focus {
@@ -284,13 +363,15 @@ function removeField() {
   box-shadow: 0 0 0 1px #3b82f6;
 }
 
-/* Hide number spin buttons */
+/* Hide number spin buttons completely */
 .toolbar-input::-webkit-inner-spin-button,
 .toolbar-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 .toolbar-input[type='number'] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 </style>
