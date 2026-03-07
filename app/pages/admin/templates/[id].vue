@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { LazyBaseConfirmDialog } from '#components';
+
 definePageMeta({
   title: 'documentReview',
 });
@@ -46,10 +48,16 @@ type RequestData = {
 
 // --- State ---
 const route = useRoute();
+const router = useRouter();
+const overlay = useOverlay();
+const toast = useToast();
 const templateId = route.params.id;
 const template = ref<Template | null>(null);
 const isLoading = ref(true);
+const isDeleting = ref(false);
 const error = ref<string | null>(null);
+
+const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
 // Mock Data
 const _requestData = ref<RequestData>({
@@ -116,17 +124,44 @@ async function fetchTemplate() {
   }
 }
 
-// function handleReject() {
-//   console.warn('Reject request');
-// }
-
-// function handleApprove() {
-//   console.warn('Sign and Approve');
-// }
-
 function downloadPdf() {
   if (template.value?.documentUrl) {
     window.open(template.value.documentUrl, '_blank');
+  }
+}
+
+async function deleteTemplate() {
+  const instance = confirmDialog.open({
+    title: 'ลบ Template',
+    description: `คุณต้องการลบ "${template.value?.name}" หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`,
+    cancelButton: { label: 'ยกเลิก' },
+    confirmButton: { label: 'ลบ', color: 'error' },
+  });
+
+  const confirmed = await instance.result;
+  if (!confirmed)
+    return;
+
+  isDeleting.value = true;
+  try {
+    await $fetch(`/api/pdf-templates/${templateId}`, { method: 'DELETE' });
+    toast.add({
+      title: 'ลบสำเร็จ',
+      description: `Template "${template.value?.name}" ถูกลบแล้ว`,
+      color: 'success',
+    });
+    router.push('/admin/templates');
+  }
+  catch (err) {
+    console.error('Error deleting template:', err);
+    toast.add({
+      title: 'เกิดข้อผิดพลาด',
+      description: 'ไม่สามารถลบ Template ได้',
+      color: 'error',
+    });
+  }
+  finally {
+    isDeleting.value = false;
   }
 }
 
@@ -161,6 +196,13 @@ onMounted(() => {
               variant="ghost"
               color="neutral"
               @click="downloadPdf"
+            />
+            <UButton
+              icon="i-heroicons-trash"
+              variant="ghost"
+              color="error"
+              :loading="isDeleting"
+              @click="deleteTemplate"
             />
             <UButton
               :to="`/admin/templates/edit?id=${templateId}`"
