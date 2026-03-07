@@ -2,12 +2,12 @@ import { bigint, boolean, integer, pgTable, text, timestamp } from 'drizzle-orm/
 
 export const requestTemplateFields = pgTable('request_template_fields', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
   name: text('name').notNull(),
   type: text('type').notNull(),
   label: text('label').notNull(),
-  font: text('font'),
-  fontSize: integer('font_size'),
+  font: text('font').default('Prompt'),
+  fontSize: integer('font_size').default(14),
   isFillable: boolean('is_fillable').default(true),
   width: integer('width').notNull(),
   height: integer('height').notNull(),

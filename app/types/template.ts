@@ -130,6 +130,8 @@ export type SigningStep = {
   roleId?: number;
   roleName: string;
   description?: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
   isRequired: boolean;
   assignedFieldInstanceIds: string[];
   color: string;

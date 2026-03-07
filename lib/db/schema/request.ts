@@ -5,7 +5,9 @@ export const request = pgTable('request', {
   templateId: bigint('template_id', { mode: 'number' }),
   createdBy: bigint('created_by', { mode: 'number' }),
   status: text('status'),
-  submittedAt: timestamp('submitted_at', { withTimezone: false }),
-  filledDocumentUrl: text('filled_document_url'), // URL ของ PDF ที่กรอกข้อมูลแล้ว
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  submittedAt: timestamp('submitted_at', { mode: 'string' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  filledDocumentUrl: text('filled_document_url'),
+  userId: text('user_id'),
+  note: text('note'),
 });

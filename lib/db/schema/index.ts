@@ -8,5 +8,7 @@ export * from './request';
 export * from './request-template';
 export * from './request-template-fields';
 export * from './request-template-values';
+export * from './roles';
 export * from './signature-flow';
 export * from './signatures';
+export * from './user-roles';

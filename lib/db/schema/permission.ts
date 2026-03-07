@@ -1,37 +1,8 @@
-import { integer, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
-
-import { users } from './auth';
+import { pgTable, serial, text, varchar } from 'drizzle-orm/pg-core';
 
 export const permissions = pgTable('permissions', {
   id: serial('id').primaryKey(),
-  code: text('code').notNull().unique(),
-  description: text('description'),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  descriptionEn: text('description_en'),
+  descriptionTh: text('description_th'),
 });
-
-export const roles = pgTable('roles', {
-  id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-});
-
-export const rolePermissions = pgTable('role_permissions', {
-  roleId: integer('role_id')
-    .references(() => roles.id)
-    .notNull(),
-  permissionId: integer('permission_id')
-    .references(() => permissions.id)
-    .notNull(),
-}, t => [
-  primaryKey({ columns: [t.roleId, t.permissionId] }),
-]);
-
-export const userRoles = pgTable('user_roles', {
-  userId: text('user_id')
-    .references(() => users.id)
-    .notNull(),
-  roleId: integer('role_id')
-    .references(() => roles.id)
-    .notNull(),
-}, t => [
-  primaryKey({ columns: [t.userId, t.roleId] }),
-]);
