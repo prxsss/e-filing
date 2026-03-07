@@ -25,7 +25,7 @@ const columns: TableColumn<UserListItem>[] = [
 
   },
   {
-    accessorKey: 'fullNameEN',
+    accessorKey: 'fullNameEn',
     header: 'Full Name',
   },
   {

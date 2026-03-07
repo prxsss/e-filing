@@ -95,5 +95,7 @@
   "fieldCount": "จำนวนฟิลด์",
   "signingFlowOverview": "ภาพรวมลำดับการเซ็น",
   "fields": "ฟิลด์",
+  "selectPerson": "เลือกบุคคล (ไม่บังคับ)",
+  "noUsersWithRole": "ไม่มีผู้ใช้ที่มีบทบาทนี้",
   "confirmSave": "ยืนยันและบันทึกเทมเพลต"
 }

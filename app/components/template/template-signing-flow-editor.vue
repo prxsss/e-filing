@@ -16,7 +16,7 @@ const emit = defineEmits<{
   'update:placedFields': [fields: FieldInstance[]];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 // Local state
 const selectedStepId = ref<string | null>(null);
@@ -25,13 +25,20 @@ const newStepRoleId = ref<number | undefined>(undefined);
 const newStepIsRequired = ref(true);
 
 // Fetch roles from database
-const roles = ref<{ id: number; name: string; description: string | null }[]>([]);
+type RoleRecord = { id: number; name: string; descriptionEn: string | null; descriptionTh: string | null };
+const roles = ref<RoleRecord[]>([]);
 const isLoadingRoles = ref(false);
+
+function getRoleDescription(role: RoleRecord | null | undefined): string | undefined {
+  if (!role)
+    return undefined;
+  return (locale.value === 'th' ? role.descriptionTh : role.descriptionEn) ?? role.descriptionEn ?? undefined;
+}
 
 async function fetchRoles(): Promise<void> {
   isLoadingRoles.value = true;
   try {
-    const data = await $fetch<{ id: number; name: string; description: string | null }[]>('/api/roles');
+    const data = await $fetch<RoleRecord[]>('/api/roles');
     roles.value = data;
   }
   catch (error) {
@@ -46,6 +53,71 @@ onMounted(() => {
   fetchRoles();
 });
 
+// Fetch users by role for person selection
+type UserRecord = { id: string; fullNameEn: string; fullNameTh: string; email: string };
+const usersByRole = ref<Record<number, UserRecord[]>>({});
+const loadingUsersByRole = ref<Record<number, boolean>>({});
+
+async function fetchUsersForRole(roleId: number): Promise<void> {
+  if (usersByRole.value[roleId])
+    return;
+  loadingUsersByRole.value[roleId] = true;
+  try {
+    const data = await $fetch<UserRecord[]>(`/api/users/by-role/${roleId}`);
+    usersByRole.value[roleId] = data;
+  }
+  catch (error) {
+    console.error(`Failed to fetch users for role ${roleId}:`, error);
+    usersByRole.value[roleId] = [];
+  }
+  finally {
+    loadingUsersByRole.value[roleId] = false;
+  }
+}
+
+function getUserItems(roleId: number | undefined) {
+  if (!roleId)
+    return [];
+  const list = usersByRole.value[roleId] ?? [];
+  return list.map(u => ({
+    label: locale.value === 'th' ? u.fullNameTh : u.fullNameEn,
+    value: u.id,
+  }));
+}
+
+function getUserDisplayName(userId: string, roleId: number | undefined): string {
+  if (!roleId)
+    return '';
+  const list = usersByRole.value[roleId] ?? [];
+  const user = list.find(u => u.id === userId);
+  if (!user)
+    return '';
+  return locale.value === 'th' ? user.fullNameTh : user.fullNameEn;
+}
+
+function onUserSelected(stepId: string, userId: string | undefined): void {
+  const updatedSteps = props.signingSteps.map((s) => {
+    if (s.id === stepId) {
+      return {
+        ...s,
+        assignedUserId: userId || undefined,
+        assignedUserName: userId ? getUserDisplayName(userId, s.roleId) : undefined,
+      };
+    }
+    return s;
+  });
+  emit('update:signingSteps', updatedSteps);
+}
+
+// Pre-fetch users for all existing steps
+watch(() => props.signingSteps, (steps) => {
+  for (const step of steps) {
+    if (step.roleId) {
+      fetchUsersForRole(step.roleId);
+    }
+  }
+}, { immediate: true });
+
 // Roles formatted for USelect (filter out already-used roles)
 const roleItems = computed(() => {
   const usedRoleIds = props.signingSteps.map(s => s.roleId).filter(Boolean);
@@ -54,7 +126,7 @@ const roleItems = computed(() => {
     .map(r => ({
       label: r.name,
       value: r.id,
-      description: r.description ?? undefined,
+      description: getRoleDescription(r),
     }));
 });
 
@@ -101,7 +173,7 @@ function addStep(): void {
     order: props.signingSteps.length + 1,
     roleId: selectedNewRole.value.id,
     roleName: selectedNewRole.value.name,
-    description: selectedNewRole.value.description || undefined,
+    description: getRoleDescription(selectedNewRole.value) || undefined,
     isRequired: newStepIsRequired.value,
     assignedFieldInstanceIds: [],
     color: getNextColor(),
@@ -117,6 +189,11 @@ function addStep(): void {
 
   // Auto-select the new step
   selectedStepId.value = newStep.id;
+
+  // Fetch users for this role
+  if (selectedNewRole.value.id) {
+    fetchUsersForRole(selectedNewRole.value.id);
+  }
 }
 
 // Remove a signing step
@@ -305,9 +382,20 @@ watch(() => props.signingSteps.length, (newLen) => {
             </UBadge>
             <span>{{ step.assignedFieldInstanceIds.length }} {{ t('fields') }}</span>
           </div>
-          <p v-if="step.description" class="text-xs text-gray-400 mt-1 truncate">
-            {{ step.description }}
-          </p>
+          <div v-if="step.roleId" class="mt-2" @click.stop>
+            <USelect
+              :model-value="step.assignedUserId"
+              :items="getUserItems(step.roleId)"
+              :placeholder="t('selectPerson')"
+              value-key="value"
+              label-key="label"
+              size="xs"
+              :loading="loadingUsersByRole[step.roleId]"
+              icon="i-heroicons-user"
+              class="w-full"
+              @update:model-value="onUserSelected(step.id, $event as string | undefined)"
+            />
+          </div>
         </div>
 
         <!-- Empty State -->
@@ -334,8 +422,8 @@ watch(() => props.signingSteps.length, (newLen) => {
             icon="i-heroicons-user-circle"
           />
           <!-- Show selected role description -->
-          <p v-if="selectedNewRole?.description" class="text-xs text-gray-500 bg-white rounded px-2 py-1.5 border border-gray-200">
-            {{ selectedNewRole.description }}
+          <p v-if="getRoleDescription(selectedNewRole)" class="text-xs text-gray-500 bg-white rounded px-2 py-1.5 border border-gray-200">
+            {{ getRoleDescription(selectedNewRole) }}
           </p>
           <div class="flex items-center justify-between">
             <label class="flex items-center gap-2 text-xs">

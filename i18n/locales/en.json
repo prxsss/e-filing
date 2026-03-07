@@ -72,5 +72,7 @@
   "fieldCount": "Field Count",
   "signingFlowOverview": "Signing Flow Overview",
   "fields": "fields",
+  "selectPerson": "Select person (optional)",
+  "noUsersWithRole": "No users with this role",
   "confirmSave": "Confirm & Save Template"
 }

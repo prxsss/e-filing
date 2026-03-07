@@ -37,8 +37,8 @@ const { data: roles } = await useFetch('/api/roles', {
 const { data: userData } = await useFetch<UserDetail>(`/api/users/${userId}`);
 
 const updateUserSchema = z.object({
-  firstNameEN: z.string().min(1, 'First name is required'),
-  lastNameEN: z.string().min(1, 'Last name is required'),
+  firstNameEn: z.string().min(1, 'First name is required'),
+  lastNameEn: z.string().min(1, 'Last name is required'),
   facultyId: z.number().nullable(),
   roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
 });
@@ -46,16 +46,16 @@ const updateUserSchema = z.object({
 type UpdateUserSchema = z.output<typeof updateUserSchema>;
 
 const form = ref<Partial<UpdateUserSchema>>({
-  firstNameEN: '',
-  lastNameEN: '',
+  firstNameEn: '',
+  lastNameEn: '',
   facultyId: null,
   roles: [] as number[],
 });
 
 // const isDirty = computed(() => {
 //   return JSON.stringify(form.value) !== JSON.stringify({
-//     firstNameEN: userData.value?.firstNameEN,
-//     lastNameEN: userData.value?.lastNameEN,
+//     firstNameEn: userData.value?.firstNameEn,
+//     lastNameEn: userData.value?.lastNameEn,
 //     facultyId: userData.value?.facultyId,
 //     roles: userData.value?.roles?.map(r => r.id) || [],
 //   });
@@ -65,8 +65,8 @@ const form = ref<Partial<UpdateUserSchema>>({
 watch(userData, (newData) => {
   if (newData) {
     form.value = {
-      firstNameEN: newData.firstNameEN || '',
-      lastNameEN: newData.lastNameEN || '',
+      firstNameEn: newData.firstNameEn || '',
+      lastNameEn: newData.lastNameEn || '',
       facultyId: newData.facultyId,
       roles: newData.roles?.map(r => r.id) || [],
     };
@@ -77,8 +77,8 @@ watch(userData, (newData) => {
 // Detect form changes to set dirty state
 watch(form, (newData) => {
   isDirty.value = JSON.stringify(newData) !== JSON.stringify({
-    firstNameEN: userData.value?.firstNameEN,
-    lastNameEN: userData.value?.lastNameEN,
+    firstNameEn: userData.value?.firstNameEn,
+    lastNameEn: userData.value?.lastNameEn,
     facultyId: userData.value?.facultyId,
     roles: userData.value?.roles?.map(r => r.id) || [],
   });
@@ -95,8 +95,8 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
     await $fetch(`/api/users/${userId}`, {
       method: 'PUT',
       body: {
-        firstNameEN: event.data.firstNameEN,
-        lastNameEN: event.data.lastNameEN,
+        firstNameEn: event.data.firstNameEn,
+        lastNameEn: event.data.lastNameEn,
         facultyId: event.data.facultyId,
       },
     });
@@ -258,21 +258,21 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 <!-- First Name (EN) -->
                 <UFormField
                   label="First Name"
-                  name="firstNameEN"
+                  name="firstNameEn"
                   required
                 >
                   <UInput
-                    v-model="form.firstNameEN"
+                    v-model="form.firstNameEn"
                     class="w-full"
                   />
                 </UFormField>
                 <UFormField
                   label="Last Name (EN)"
-                  name="lastNameEN"
+                  name="lastNameEn"
                   required
                 >
                   <UInput
-                    v-model="form.lastNameEN"
+                    v-model="form.lastNameEn"
                     class="w-full"
                   />
                 </UFormField>

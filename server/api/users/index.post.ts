@@ -4,10 +4,10 @@ import * as zod from 'zod';
 
 const createUserSchema = zod.object({
   id: zod.string().min(1, 'ID is required'),
-  firstNameEN: zod.string().min(1, 'First name (EN) is required'),
-  lastNameEN: zod.string().min(1, 'Last name (EN) is required'),
-  firstNameTH: zod.string().optional(),
-  lastNameTH: zod.string().optional(),
+  firstNameEn: zod.string().min(1, 'First name (EN) is required'),
+  lastNameEn: zod.string().min(1, 'Last name (EN) is required'),
+  firstNameTh: zod.string().optional(),
+  lastNameTh: zod.string().optional(),
   email: zod.email(),
   password: zod.string().min(8, 'Password must be at least 8 characters long'),
   facultyId: zod.number().nullable(),
@@ -21,12 +21,12 @@ export default defineEventHandler(async (event) => {
 
   const [user] = await db.insert(users).values({
     id: body.id,
-    firstNameEN: body.firstNameEN,
-    lastNameEN: body.lastNameEN,
+    firstNameEn: body.firstNameEn,
+    lastNameEn: body.lastNameEn,
     email: body.email,
     passwordHash: hashedPassword,
-    firstNameTH: body.firstNameTH,
-    lastNameTH: body.lastNameTH,
+    firstNameTh: body.firstNameTh,
+    lastNameTh: body.lastNameTh,
     facultyId: body.facultyId,
     image: body.image,
   }).returning();
