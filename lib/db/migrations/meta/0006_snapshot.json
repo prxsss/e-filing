@@ -1,6 +1,6 @@
 {
-  "id": "8612453c-9d3d-43d0-85be-3c662a17d55b",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "80a8e5fd-5490-4c61-ab8d-260e51cefa1d",
+  "prevId": "5f30b0f5-12e7-448e-b6f3-4cd2919b49af",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -176,12 +176,18 @@
         },
         "code": {
           "name": "code",
-          "type": "text",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
+        "description_en": {
+          "name": "description_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description_th": {
+          "name": "description_th",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -275,12 +281,18 @@
         },
         "name": {
           "name": "name",
-          "type": "text",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
+        "description_en": {
+          "name": "description_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description_th": {
+          "name": "description_th",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -289,7 +301,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "roles_name_unique": {
+          "name": "roles_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -32,29 +32,27 @@ export default defineEventHandler(async (event) => {
     .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
     .where(eq(userRoles.userId, user.id));
 
-  const userRoleList = userAuth?.roles?.filter(Boolean) ?? [];
-  const userPermissionList = userAuth?.permissions?.filter(Boolean) ?? [];
-
   await setUserSession(event, {
     user: {
       id: user.id,
       fullName: `${user.firstNameEn} ${user.lastNameEn}`,
-      roles: userRoleList,
-      currentRole: userRoleList[0] ?? '',
-      permissions: userPermissionList,
+      roles: userAuth.roles,
+      currentRole: userAuth.roles[0],
+      permissions: userAuth.permissions,
     },
     lastLoggedIn: new Date(),
   });
 
   return {
     success: true,
-    user: {
+    user:
+    {
       id: user.id,
       email: user.email,
       fullName: `${user.firstNameEn} ${user.lastNameEn}`,
-      roles: userRoleList,
-      currentRole: userRoleList[0] ?? '',
-      permissions: userPermissionList,
+      roles: userAuth.roles,
+      currentRole: userAuth.roles[0],
+      permissions: userAuth.permissions,
     },
   };
 });

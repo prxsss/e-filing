@@ -6,6 +6,7 @@ import * as z from 'zod';
 definePageMeta({
   title: 'login',
   layout: false,
+  public: true,
 });
 
 const { t } = useI18n();

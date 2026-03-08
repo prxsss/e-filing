@@ -359,6 +359,10 @@ function removeField() {
 
 .toolbar-select:focus {
   outline: none;
+}
+
+.toolbar-select:focus {
+  outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
 }

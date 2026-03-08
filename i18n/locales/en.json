@@ -7,7 +7,6 @@
   "templates": "Templates",
   "requests": "Requests",
   "users": "Users",
-  "permissionGroups": "Permission Groups",
   "logout": "Logout",
   "untitled": "Untitled",
   "totalRequests": "Total Requests",
@@ -77,6 +76,7 @@
   "backToAccessControl": "Back to Access Control",
   "newRole": "New Role",
   "roleInformation": "Role Information",
+  "roleName": "Role Name",
   "roleNamePlaceholder": "e.g. Department Head",
   "descriptionEN": "Description (EN)",
   "descriptionTH": "Description (TH)",
@@ -98,6 +98,8 @@
   "roleDeleteFailed": "Failed to delete role. Please try again.",
   "error": "Error",
   "delete": "Delete",
+  "permissionGroups": "Permission Groups",
+  "createTemplate": "Create Template",
   "editTemplate": "Edit Template",
   "documentReview": "Document Review",
   "allTemplates": "All Templates",
@@ -109,7 +111,6 @@
   "previous": "Previous",
   "addSigningStep": "Add Step",
   "selectRole": "Select a role...",
-  "roleName": "Role Name",
   "assignedFields": "Assigned Fields",
   "unassignedFields": "Unassigned Fields",
   "signingStepRequired": "At least 1 signing step is required",
@@ -135,4 +136,5 @@
   "selectPerson": "Select person (optional)",
   "noUsersWithRole": "No users with this role",
   "confirmSave": "Confirm & Save Template"
+
 }

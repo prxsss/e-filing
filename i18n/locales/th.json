@@ -7,7 +7,6 @@
   "templates": "แม่แบบคำร้อง",
   "requests": "รายการคำร้อง",
   "users": "ผู้ใช้",
-  "permissionGroups": "กลุ่มสิทธิ์การใช้งาน",
   "logout": "ออกจากระบบ",
   "untitled": "ไม่มีชื่อ",
   "totalRequests": "จำนวนคำร้องทั้งหมด",
@@ -60,6 +59,8 @@
   "cancel": "ยกเลิก",
   "fullName": "ชื่อเต็ม",
   "confirm": "ยืนยัน",
+  "roleName": "ชื่อบทบาท",
+  "permissionGroups": "กลุ่มสิทธิ์การใช้งาน",
   "createTemplate": "สร้างแม่แบบคำร้อง",
   "editTemplate": "แก้ไขแม่แบบคำร้อง",
   "documentReview": "ตรวจสอบเอกสาร",
@@ -72,7 +73,6 @@
   "previous": "ย้อนกลับ",
   "addSigningStep": "เพิ่มลำดับ",
   "selectRole": "เลือกบทบาท...",
-  "roleName": "ชื่อตำแหน่ง",
   "assignedFields": "ฟิลด์ที่กำหนด",
   "unassignedFields": "ฟิลด์ที่ยังไม่ได้กำหนด",
   "signingStepRequired": "ต้องมีอย่างน้อย 1 ลำดับการเซ็น",
@@ -97,7 +97,6 @@
   "fields": "ฟิลด์",
   "selectPerson": "เลือกบุคคล (ไม่บังคับ)",
   "noUsersWithRole": "ไม่มีผู้ใช้ที่มีบทบาทนี้",
-  "confirmSave": "ยืนยันและบันทึกเทมเพลต",
   "accessControl": "การควบคุมสิทธิ์",
   "accessControlDescription": "จัดการบทบาทและสิทธิ์การเข้าถึงของระบบ",
   "createNewRole": "สร้างบทบาทใหม่",
@@ -135,5 +134,6 @@
   "roleDeletedSuccess": "ลบบทบาทสำเร็จแล้ว",
   "roleDeleteFailed": "ไม่สามารถลบบทบาทได้ กรุณาลองใหม่อีกครั้ง",
   "error": "ข้อผิดพลาด",
-  "delete": "ลบ"
+  "delete": "ลบ",
+  "confirmSave": "ยืนยันและบันทึกเทมเพลต"
 }
