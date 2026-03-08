@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   await setUserSession(event, {
     user: {
       id: user.id,
-      fullName: `${user.firstNameEN} ${user.lastNameEN}`,
+      fullName: `${user.firstNameEn} ${user.lastNameEn}`,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
     {
       id: user.id,
       email: user.email,
-      fullName: `${user.firstNameEN} ${user.lastNameEN}`,
+      fullName: `${user.firstNameEn} ${user.lastNameEn}`,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,

@@ -163,7 +163,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     onSelect: async () => {
       const instance = confirmDialogWithReason.open({
         title: 'Ban User',
-        description: `Are you sure you want to ban ${user.value?.fullNameEN}? This will prevent them from accessing their account.`,
+        description: `Are you sure you want to ban ${user.value?.fullNameEn}? This will prevent them from accessing their account.`,
         reasonRequired: true,
         reasonPlaceholder: 'Please provide a reason for banning this user',
         reasonErrorMessage: 'Ban reason is required',
@@ -187,7 +187,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
 
         toast.add({
           title: 'User Banned',
-          description: `User ${user.value?.fullNameEN} has been banned.`,
+          description: `User ${user.value?.fullNameEn} has been banned.`,
           color: 'success',
         });
 
@@ -207,7 +207,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
 
       toast.add({
         title: 'User Unbanned',
-        description: `User ${user.value?.fullNameEN} has been unbanned.`,
+        description: `User ${user.value?.fullNameEn} has been unbanned.`,
         color: 'success',
       });
 
@@ -237,15 +237,15 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
             <div class="relative">
               <UAvatar
                 :src="user.image || undefined"
-                :text="user.image ? '' : user.firstNameEN.charAt(0).toUpperCase() + user.lastNameEN.charAt(0).toUpperCase()"
-                :alt="user.fullNameEN"
+                :text="user.image ? '' : user.firstNameEn.charAt(0).toUpperCase() + user.lastNameEn.charAt(0).toUpperCase()"
+                :alt="user.fullNameEn"
                 size="3xl"
               />
             </div>
             <div>
               <div class="flex items-center gap-2">
                 <h1 class="text-2xl font-bold tracking-tight">
-                  {{ user.fullNameEN }}
+                  {{ user.fullNameEn }}
                 </h1>
                 <UBadge
                   :color="user.banned ? 'error' : 'success'"

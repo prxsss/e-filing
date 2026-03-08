@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FieldInstance, FileTypeValue, PdfRef } from '~/types/template';
+import type { FieldInstance, FileTypeValue, PdfRef, SigningStep, WizardStep } from '~/types/template';
 
 type Field = any;
 
@@ -16,6 +16,7 @@ definePageMeta({
 const router = useRouter();
 const route = useRoute();
 const toast = useToast();
+const { t } = useI18n();
 
 // ─── Template ID ──────────────────────────────────────────────────────────────
 
@@ -35,11 +36,11 @@ const isSaving = ref<boolean>(false);
 const templateData = ref<any>(null);
 const templateName = ref<string>('');
 const templateNameError = ref<string>('');
+const hasChanges = ref<boolean>(false);
+const fileWasReplaced = ref<boolean>(false);
 
 // File / PDF
 const uploadedFile = ref<File | null>(null);
-const pdfBytes = ref<Uint8Array | null>(null);
-const originalPdfBytes = ref<Uint8Array | null>(null);
 const fileType = ref<FileTypeValue>('pdf');
 const currentPdfPage = ref<number>(1);
 
@@ -56,12 +57,35 @@ const isEditFieldModalOpen = ref<boolean>(false);
 const editingField = ref<Field | null>(null);
 
 // Refs
-const templatePdfEditRef = ref<PdfRef | null>(null);
+const templatePdfRef = ref<PdfRef | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const isDragging = ref<boolean>(false);
 
 // Zoom
 const scale = ref<number>(1);
+
+// === WIZARD STATE ===
+const currentWizardStep = ref<WizardStep>(1);
+const signingSteps = ref<SigningStep[]>([]);
+
+const wizardSteps = computed(() => [
+  { step: 1 as WizardStep, label: t('placeFields'), icon: 'i-heroicons-document-text' },
+  { step: 2 as WizardStep, label: t('signingFlow'), icon: 'i-heroicons-queue-list' },
+  { step: 3 as WizardStep, label: t('reviewAndSave'), icon: 'i-heroicons-clipboard-document-check' },
+]);
+
+const canProceedToStep2 = computed<boolean>(() => {
+  const name = templateName.value.trim();
+  return !!(name && name.length >= 3 && name.length <= 100 && uploadedFile.value && placedFields.value.length > 0);
+});
+
+const canProceedToStep3 = computed<boolean>(() => {
+  if (signingSteps.value.length === 0)
+    return false;
+  const assignableFields = placedFields.value.filter(f => !f.isAutoGenerate);
+  const allAssigned = assignableFields.every(f => f.signerStepId);
+  return allAssigned;
+});
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 
@@ -82,9 +106,9 @@ const selectedField = computed<FieldInstance | null>(() => {
   if (!field)
     return null;
 
-  if (templatePdfEditRef.value && field.normalizedX !== undefined && field.normalizedY !== undefined) {
-    if (typeof templatePdfEditRef.value.normalizedToDisplay === 'function') {
-      const display = templatePdfEditRef.value.normalizedToDisplay(
+  if (templatePdfRef.value && field.normalizedX !== undefined && field.normalizedY !== undefined) {
+    if (typeof templatePdfRef.value.normalizedToDisplay === 'function') {
+      const display = templatePdfRef.value.normalizedToDisplay(
         field.normalizedX,
         field.normalizedY,
         field.normalizedWidth || 0,
@@ -101,6 +125,55 @@ const selectedField = computed<FieldInstance | null>(() => {
   }
   return { ...field, displayX: field.x, displayY: field.y, displayWidth: field.width, displayHeight: field.height } as FieldInstance;
 });
+
+// ─── Wizard Navigation ────────────────────────────────────────────────────────
+
+function goToStep(step: WizardStep): void {
+  if (step === 2 && !canProceedToStep2.value) {
+    if (!templateName.value.trim() || templateName.value.trim().length < 3) {
+      toast.add({ title: t('placeFields'), description: 'Template name must be at least 3 characters', color: 'error' });
+    }
+    else if (!uploadedFile.value) {
+      toast.add({ title: 'Please upload a file', color: 'error' });
+    }
+    else if (placedFields.value.length === 0) {
+      toast.add({ title: 'Please add at least one field', color: 'error' });
+    }
+    return;
+  }
+  if (step === 3 && !canProceedToStep3.value) {
+    if (signingSteps.value.length === 0) {
+      toast.add({ title: t('signingStepRequired'), color: 'error' });
+    }
+    else {
+      toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+    }
+    return;
+  }
+  currentWizardStep.value = step;
+}
+
+function goNext(): void {
+  if (currentWizardStep.value < 3) {
+    goToStep((currentWizardStep.value + 1) as WizardStep);
+  }
+}
+
+function goPrevious(): void {
+  if (currentWizardStep.value > 1) {
+    currentWizardStep.value = (currentWizardStep.value - 1) as WizardStep;
+  }
+}
+
+// ─── Signing Flow Handlers ────────────────────────────────────────────────────
+
+function handleSigningStepsUpdate(steps: SigningStep[]): void {
+  signingSteps.value = steps;
+}
+
+function handlePlacedFieldsUpdate(fields: FieldInstance[]): void {
+  placedFields.value = fields;
+}
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
 
@@ -123,14 +196,15 @@ async function fetchTemplate(): Promise<void> {
     if (result.data.documentUrl) {
       const file = await urlToFile(result.data.documentUrl, `template_${templateId.value}.pdf`);
       uploadedFile.value = file;
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      pdfBytes.value = bytes;
-      originalPdfBytes.value = bytes;
       fileType.value = 'pdf';
     }
 
     if (Array.isArray(result.data.placedFieldsData)) {
       placedFields.value = result.data.placedFieldsData as FieldInstance[];
+    }
+
+    if (Array.isArray(result.data.signingFlowData)) {
+      signingSteps.value = result.data.signingFlowData as SigningStep[];
     }
   }
   catch (error) {
@@ -193,15 +267,13 @@ async function processFile(file: File): Promise<void> {
   }
 
   uploadedFile.value = file;
+  fileWasReplaced.value = true;
   placedFields.value = [];
   selectedFieldInstanceId.value = null;
   currentPdfPage.value = 1;
 
   if (ext === 'pdf') {
     fileType.value = 'pdf';
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    pdfBytes.value = bytes;
-    originalPdfBytes.value = bytes;
   }
 }
 
@@ -331,26 +403,118 @@ function handleSaveTemplate(): void {
     toast.add({ title: 'Error', description: 'Please add at least one field', color: 'error' });
     return;
   }
-  if (templatePdfEditRef.value?.saveTemplate) {
-    isSaving.value = true;
-    templatePdfEditRef.value.saveTemplate();
-  }
-}
-
-function handleTemplateSaved(data: any): void {
-  isSaving.value = false;
-  if (!data || data.error) {
-    toast.add({ title: 'Save Failed', description: data?.message || 'Unable to save template', color: 'error' });
+  if (signingSteps.value.length === 0) {
+    toast.add({ title: t('signingStepRequired'), color: 'error' });
     return;
   }
-  toast.add({ title: 'Saved', description: `Template "${templateName.value}" updated successfully`, color: 'success' });
-  setTimeout(() => router.push('/admin/templates'), 500);
+  if (!placedFields.value.filter(f => !f.isAutoGenerate).every(f => f.signerStepId)) {
+    toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+    return;
+  }
+  performSave();
+}
+
+async function performSave(): Promise<void> {
+  isSaving.value = true;
+
+  try {
+    // Step 1: If file was replaced, upload the new PDF
+    let documentUrl = templateData.value?.documentUrl || '';
+    if (fileWasReplaced.value && uploadedFile.value) {
+      const formData = new FormData();
+      formData.append('file', uploadedFile.value);
+
+      const uploadResponse = await $fetch('/api/upload-template-file', {
+        method: 'POST',
+        body: formData,
+      }) as any;
+
+      if (!uploadResponse.success || !uploadResponse.url) {
+        throw new Error('Failed to upload PDF file');
+      }
+      documentUrl = uploadResponse.url;
+    }
+
+    // Step 2: Get PDF natural dimensions from child component
+    let docWidth = templateData.value?.documentWidth || 0;
+    let docHeight = templateData.value?.documentHeight || 0;
+    if (templatePdfRef.value) {
+      const ref = templatePdfRef.value as any;
+      if (ref.getPdfNaturalDimensions) {
+        const dims = ref.getPdfNaturalDimensions();
+        docWidth = Math.round(dims.width || 0);
+        docHeight = Math.round(dims.height || 0);
+      }
+    }
+
+    // Step 3: Normalize field coordinates
+    const normalizedFields = placedFields.value.map((field: FieldInstance) => ({
+      id: field.id,
+      instanceId: field.instanceId,
+      instanceNumber: field.instanceNumber,
+      type: field.fieldType || (field as any).type,
+      name: field.name,
+      label: field.label,
+      fontSize: field.fontSize || 14,
+      fontFamily: field.fontFamily || 'Arial',
+      normalizedX: field.normalizedX,
+      normalizedY: field.normalizedY,
+      normalizedWidth: field.normalizedWidth,
+      normalizedHeight: field.normalizedHeight,
+      groupId: field.groupId || null,
+      isGrouped: field.isGrouped || false,
+      groupSize: field.groupSize || 1,
+      groupPosition: field.groupPosition || 0,
+      pageNumber: field.pageNumber || 1,
+      signerStepId: field.signerStepId || null,
+      isAutoGenerate: field.isAutoGenerate || false,
+    }));
+
+    // Step 4: Prepare signing flow data
+    const signingFlowData = signingSteps.value.map(step => ({
+      id: step.id,
+      order: step.order,
+      roleName: step.roleName,
+      description: step.description || null,
+      isRequired: step.isRequired,
+      assignedFieldInstanceIds: step.assignedFieldInstanceIds,
+      color: step.color,
+    }));
+
+    // Step 5: Save template to database
+    const saveResponse = await $fetch(`/api/pdf-templates/${templateId.value}/save`, {
+      method: 'POST',
+      body: {
+        name: templateName.value.trim(),
+        originalCompositeUrl: documentUrl,
+        placedFieldsData: normalizedFields,
+        signingFlowData,
+        documentWidth: docWidth,
+        documentHeight: docHeight,
+      },
+    }) as any;
+
+    if (!saveResponse.success || !saveResponse.data) {
+      throw new Error('Failed to save template to database');
+    }
+
+    toast.add({ title: 'Saved', description: `Template "${templateName.value}" updated successfully`, color: 'success' });
+    hasChanges.value = false;
+    setTimeout(() => router.push('/admin/templates'), 500);
+  }
+  catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    toast.add({ title: 'Save Failed', description: errorMessage || 'Unable to save template', color: 'error' });
+  }
+  finally {
+    isSaving.value = false;
+  }
 }
 
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 
 function handleKeyDown(event: KeyboardEvent): void {
-  if (!selectedFieldInstanceId.value || !templatePdfEditRef.value)
+  if (!selectedFieldInstanceId.value || !templatePdfRef.value)
     return;
   const field = selectedField.value;
   if (!field)
@@ -361,7 +525,7 @@ function handleKeyDown(event: KeyboardEvent): void {
   const moveField = (axis: 'x' | 'y', delta: number) => {
     if (field.normalizedX === undefined)
       return;
-    const display = templatePdfEditRef.value!.normalizedToDisplay(
+    const display = templatePdfRef.value!.normalizedToDisplay(
       field.normalizedX || 0,
       field.normalizedY || 0,
       field.normalizedWidth || 0,
@@ -369,7 +533,7 @@ function handleKeyDown(event: KeyboardEvent): void {
     );
     const newX = axis === 'x' ? Math.max(0, display.x + delta) : display.x;
     const newY = axis === 'y' ? Math.max(0, display.y + delta) : display.y;
-    const normalized = templatePdfEditRef.value!.displayToNormalized(newX, newY, display.width, display.height);
+    const normalized = templatePdfRef.value!.displayToNormalized(newX, newY, display.width, display.height);
     if (axis === 'x')
       field.normalizedX = normalized.x;
     else field.normalizedY = normalized.y;
@@ -401,29 +565,42 @@ function handleKeyDown(event: KeyboardEvent): void {
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
+function handleBeforeUnload(e: BeforeUnloadEvent): void {
+  if (hasChanges.value) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+}
+
 onMounted(async () => {
   await Promise.all([fetchTemplate(), fetchTemplateFields()]);
   document.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+});
+
+watch([templateName, placedFields, uploadedFile, signingSteps], (): void => {
+  hasChanges.value = true;
 });
 </script>
 
 <template>
   <div class="h-screen flex flex-col overflow-hidden">
-    <!-- ═══════════════ TOP HEADER ═══════════════ -->
+    <!-- ═══════════════ TOP HEADER (Toolbar with Step Indicator) ═══════════════ -->
     <header class="h-16 flex items-center justify-between px-4 z-20 shadow-sm shrink-0 bg-white border-b border-gray-200">
       <div class="flex items-center gap-4">
         <UButton
           icon="i-heroicons-arrow-left"
           color="neutral"
           variant="ghost"
-          @click="router.back()"
+          @click="currentWizardStep > 1 ? goPrevious() : router.back()"
         />
 
-        <!-- Template Name -->
+        <!-- Template Name Input (visible across all steps) -->
         <div class="flex flex-col">
           <label class="text-[10px] uppercase font-bold tracking-wider text-gray-500">Template Name</label>
           <input
@@ -432,23 +609,64 @@ onUnmounted(() => {
             :class="templateNameError ? 'border border-red-500 bg-red-50' : 'border bg-transparent'"
             class="p-2 font-semibold focus:ring-1 focus:ring-blue-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors"
             placeholder="Enter template name..."
-            :disabled="isLoading"
+            :disabled="isLoading || currentWizardStep > 1"
             @input="validateTemplateName"
           >
-          <div v-if="templateNameError" class="flex items-center gap-2 mt-1 text-red-600 text-xs font-semibold">
+          <div v-if="templateNameError && currentWizardStep === 1" class="flex items-center gap-2 mt-1 text-red-600 text-xs font-semibold">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 shrink-0" />
             {{ templateNameError }}
           </div>
         </div>
+
+        <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
       </div>
 
+      <!-- Step Indicator (center) -->
+      <div class="flex items-center gap-1">
+        <template v-for="(ws, idx) in wizardSteps" :key="ws.step">
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+            :class="{
+              'bg-primary-100 text-primary-700': currentWizardStep === ws.step,
+              'bg-primary-50 text-primary-500': currentWizardStep > ws.step,
+              'bg-gray-100 text-gray-400': currentWizardStep < ws.step,
+            }"
+            @click="ws.step <= currentWizardStep ? goToStep(ws.step) : undefined"
+          >
+            <UIcon :name="ws.icon" class="w-4 h-4" />
+            <span class="hidden sm:inline">{{ ws.label }}</span>
+          </button>
+          <div v-if="idx < wizardSteps.length - 1" class="w-6 h-px" :class="currentWizardStep > ws.step ? 'bg-primary-400' : 'bg-gray-200'" />
+        </template>
+      </div>
+
+      <!-- Right actions -->
       <div class="flex items-center gap-3">
         <UButton
+          v-if="currentWizardStep > 1"
+          icon="i-heroicons-arrow-left"
+          color="neutral"
+          variant="ghost"
+          :label="t('previous')"
+          @click="goPrevious"
+        />
+        <UButton
+          v-if="currentWizardStep < 3"
+          icon="i-heroicons-arrow-right"
+          trailing
+          color="primary"
+          :label="t('next')"
+          size="xl"
+          class="px-6 font-bold"
+          @click="goNext"
+        />
+        <UButton
+          v-if="currentWizardStep === 3"
           :loading="isSaving"
           :disabled="isLoading"
           icon="i-heroicons-check"
-          color="neutral"
-          label="Save Changes"
+          color="primary"
+          :label="t('saveTemplate')"
           size="xl"
           class="px-6 font-bold"
           @click="handleSaveTemplate"
@@ -456,8 +674,8 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <!-- ═══════════════ WORKSPACE ═══════════════ -->
-    <div class="flex-1 flex overflow-hidden">
+    <!-- ═══════════════ STEP 1: Upload & Place Fields ═══════════════ -->
+    <div v-if="currentWizardStep === 1" class="flex-1 flex overflow-hidden">
       <!-- ─── LEFT SIDEBAR ─── -->
       <aside class="w-72 bg-white border-r border-gray-200 flex flex-col shrink-0 z-10">
         <div class="p-4 border-b">
@@ -621,7 +839,7 @@ onUnmounted(() => {
             <field-toolbar
               v-if="selectedField"
               :selected-field="selectedField"
-              :pdf-ref="templatePdfEditRef"
+              :pdf-ref="templatePdfRef"
               :scale="scale"
               @field-updated="handleFieldUpdate"
               @field-removed="handleFieldRemoval"
@@ -655,22 +873,19 @@ onUnmounted(() => {
           </div>
 
           <!-- PDF Editor -->
-          <template-pdf-edit
-            v-else-if="pdfBytes && uploadedFile"
-            ref="templatePdfEditRef"
-            :pdf-bytes="pdfBytes"
-            :original-pdf-bytes="originalPdfBytes"
+          <template-pdf-create
+            v-else-if="fileType === 'pdf' && uploadedFile"
+            ref="templatePdfRef"
+            :pdf-file="uploadedFile"
             :placed-fields="placedFields"
-            :selected-field="selectedField"
-            :template-name="templateName"
-            :template-id="templateId"
-            :original-composite-url="templateData?.compositeImageUrl"
+            :selected-field="selectedField || undefined"
+            :new-template-name="templateName"
+            :signing-steps="signingSteps"
             :ui-scale="scale"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
             @field-removed="handleFieldRemoval"
             @pdf-loaded="() => {}"
-            @template-saved="handleTemplateSaved"
             @current-page-changed="handlePdfPageChange"
           />
 
@@ -690,6 +905,31 @@ onUnmounted(() => {
         </div>
       </section>
     </div>
+
+    <!-- ═══════════════ STEP 2: Signing Flow ═══════════════ -->
+    <template-signing-flow-editor
+      v-else-if="currentWizardStep === 2"
+      :signing-steps="signingSteps"
+      :placed-fields="placedFields"
+      :pdf-file="uploadedFile"
+      :file-type="fileType"
+      :ui-scale="scale"
+      @update:signing-steps="handleSigningStepsUpdate"
+      @update:placed-fields="handlePlacedFieldsUpdate"
+    />
+
+    <!-- ═══════════════ STEP 3: Review & Save ═══════════════ -->
+    <template-review-summary
+      v-else-if="currentWizardStep === 3"
+      :template-name="templateName"
+      :uploaded-file="uploadedFile"
+      :file-type="fileType"
+      :placed-fields="placedFields"
+      :signing-steps="signingSteps"
+      :pdf-file="uploadedFile"
+      :ui-scale="scale"
+      @confirm="handleSaveTemplate"
+    />
 
     <!-- ─── Modals ─── -->
     <template-field-create-modal

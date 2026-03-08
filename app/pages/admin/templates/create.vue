@@ -50,7 +50,9 @@ const canProceedToStep2 = computed<boolean>(() => {
 const canProceedToStep3 = computed<boolean>(() => {
   if (signingSteps.value.length === 0)
     return false;
-  const allAssigned = placedFields.value.every(f => f.signerStepId);
+  // Auto-generate fields don't need signer assignment
+  const assignableFields = placedFields.value.filter(f => !f.isAutoGenerate);
+  const allAssigned = assignableFields.every(f => f.signerStepId);
   return allAssigned;
 });
 
@@ -605,7 +607,8 @@ function handleSaveTemplate(): void {
     return;
   }
 
-  if (!placedFields.value.every(f => f.signerStepId)) {
+  // Auto-generate fields don't need signer assignment
+  if (!placedFields.value.filter(f => !f.isAutoGenerate).every(f => f.signerStepId)) {
     toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
     return;
   }
@@ -662,6 +665,7 @@ async function performSave(): Promise<void> {
       groupPosition: field.groupPosition || 0,
       pageNumber: field.pageNumber || 1,
       signerStepId: field.signerStepId || null,
+      isAutoGenerate: field.isAutoGenerate || false,
     }));
 
     // Step 4: Prepare signing flow data
@@ -820,20 +824,6 @@ watch(
         </div>
 
         <div class="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
-
-        <!-- Contract Selector -->
-        <!-- <div class="flex flex-col">
-          <label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Contract</label>
-          <USelectMenu
-            v-model="selectedContractId"
-            :options="contracts"
-            value-attribute="id"
-            option-attribute="name"
-            placeholder="Choose Contract"
-            size="sm"
-            class="w-48"
-          />
-        </div> -->
       </div>
 
       <!-- Step Indicator (center) -->

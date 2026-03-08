@@ -5,5 +5,6 @@ export const auditLogs = pgTable('audit_logs', {
   requestId: bigint('request_id', { mode: 'number' }),
   performedBy: bigint('performed_by', { mode: 'number' }),
   action: text('action'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  authPerformedBy: text('auth_performed_by'),
 });

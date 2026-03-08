@@ -26,6 +26,8 @@
   "submitted": "Submitted",
   "pending": "Pending",
   "waiting": "Waiting",
+  "allStatuses": "All Statuses",
+  "requestId": "Request ID",
   "search": "Search",
   "searchByTitle": "Search by title...",
   "requestType": "Request Type",
@@ -102,8 +104,6 @@
   "documentReview": "Document Review",
   "allTemplates": "All Templates",
   "requestDetails": "Request Details",
-  "allStatuses": "All Statuses",
-  "requestId": "Request ID",
   "placeFields": "Place Fields",
   "signingFlow": "Signing Flow",
   "reviewAndSave": "Review & Save",
@@ -133,6 +133,8 @@
   "fieldCount": "Field Count",
   "signingFlowOverview": "Signing Flow Overview",
   "fields": "fields",
+  "selectPerson": "Select person (optional)",
+  "noUsersWithRole": "No users with this role",
   "confirmSave": "Confirm & Save Template"
 
 }

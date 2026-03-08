@@ -64,7 +64,6 @@ export async function updateRole(
 }
 
 export async function deleteRole(id: number) {
-  // Delete related role_permissions and user_roles first, then the role
   return db.transaction(async (tx) => {
     await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
     await tx.delete(userRoles).where(eq(userRoles.roleId, id));

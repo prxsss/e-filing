@@ -50,6 +50,8 @@ export type FieldInstance = Field & {
   fontFamily: string;
   // Signing step assignment
   signerStepId?: string;
+  // Auto-generate flag (system fills value automatically, skips signer assignment)
+  isAutoGenerate?: boolean;
 };
 
 /**
@@ -130,6 +132,8 @@ export type SigningStep = {
   roleId?: number;
   roleName: string;
   description?: string;
+  assignedUserId?: string;
+  assignedUserName?: string;
   isRequired: boolean;
   assignedFieldInstanceIds: string[];
   color: string;

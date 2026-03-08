@@ -16,7 +16,7 @@ const emit = defineEmits<{
   'update:placedFields': [fields: FieldInstance[]];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 // Local state
 const selectedStepId = ref<string | null>(null);
@@ -25,13 +25,20 @@ const newStepRoleId = ref<number | undefined>(undefined);
 const newStepIsRequired = ref(true);
 
 // Fetch roles from database
-const roles = ref<{ id: number; name: string; description: string | null }[]>([]);
+type RoleRecord = { id: number; name: string; descriptionEn: string | null; descriptionTh: string | null };
+const roles = ref<RoleRecord[]>([]);
 const isLoadingRoles = ref(false);
+
+function getRoleDescription(role: RoleRecord | null | undefined): string | undefined {
+  if (!role)
+    return undefined;
+  return (locale.value === 'th' ? role.descriptionTh : role.descriptionEn) ?? role.descriptionEn ?? undefined;
+}
 
 async function fetchRoles(): Promise<void> {
   isLoadingRoles.value = true;
   try {
-    const data = await $fetch<{ id: number; name: string; description: string | null }[]>('/api/roles');
+    const data = await $fetch<RoleRecord[]>('/api/roles');
     roles.value = data;
   }
   catch (error) {
@@ -42,9 +49,69 @@ async function fetchRoles(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  fetchRoles();
+// Fetch users by role for person selection
+type UserRecord = { id: string; fullNameEn: string; fullNameTh: string; email: string };
+const usersByRole = ref<Record<number, UserRecord[]>>({});
+const loadingUsersByRole = ref<Record<number, boolean>>({});
+
+async function fetchAllUsersForRoles(): Promise<void> {
+  const roleIds = roles.value.map(r => r.id);
+  await Promise.all(roleIds.map(async (roleId) => {
+    if (usersByRole.value[roleId])
+      return;
+    loadingUsersByRole.value[roleId] = true;
+    try {
+      const data = await $fetch<UserRecord[]>(`/api/users/by-role/${roleId}`);
+      usersByRole.value[roleId] = data;
+    }
+    catch (error) {
+      console.error(`Failed to fetch users for role ${roleId}:`, error);
+      usersByRole.value[roleId] = [];
+    }
+    finally {
+      loadingUsersByRole.value[roleId] = false;
+    }
+  }));
+}
+
+onMounted(async () => {
+  await fetchRoles();
+  await fetchAllUsersForRoles();
 });
+
+function getUserItems(roleId: number | undefined) {
+  if (!roleId)
+    return [];
+  const list = usersByRole.value[roleId] ?? [];
+  return list.map(u => ({
+    label: locale.value === 'th' ? u.fullNameTh : u.fullNameEn,
+    value: u.id,
+  }));
+}
+
+function getUserDisplayName(userId: string, roleId: number | undefined): string {
+  if (!roleId)
+    return '';
+  const list = usersByRole.value[roleId] ?? [];
+  const user = list.find(u => u.id === userId);
+  if (!user)
+    return '';
+  return locale.value === 'th' ? user.fullNameTh : user.fullNameEn;
+}
+
+function onUserSelected(stepId: string, userId: string | undefined): void {
+  const updatedSteps = props.signingSteps.map((s) => {
+    if (s.id === stepId) {
+      return {
+        ...s,
+        assignedUserId: userId || undefined,
+        assignedUserName: userId ? getUserDisplayName(userId, s.roleId) : undefined,
+      };
+    }
+    return s;
+  });
+  emit('update:signingSteps', updatedSteps);
+}
 
 // Roles formatted for USelect (filter out already-used roles)
 const roleItems = computed(() => {
@@ -54,7 +121,7 @@ const roleItems = computed(() => {
     .map(r => ({
       label: r.name,
       value: r.id,
-      description: r.description ?? undefined,
+      description: getRoleDescription(r),
     }));
 });
 
@@ -73,7 +140,11 @@ const selectedStep = computed<SigningStep | null>(() => {
 });
 
 const unassignedFields = computed<FieldInstance[]>(() => {
-  return props.placedFields.filter(f => !f.signerStepId);
+  return props.placedFields.filter(f => !f.signerStepId && !f.isAutoGenerate);
+});
+
+const autoGenerateFields = computed<FieldInstance[]>(() => {
+  return props.placedFields.filter(f => f.isAutoGenerate);
 });
 
 const assignedFieldsForSelectedStep = computed<FieldInstance[]>(() => {
@@ -96,12 +167,15 @@ function addStep(): void {
   if (!selectedNewRole.value)
     return;
 
+  // Capture role info before resetting form
+  const role = selectedNewRole.value;
+
   const newStep: SigningStep = {
     id: `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     order: props.signingSteps.length + 1,
-    roleId: selectedNewRole.value.id,
-    roleName: selectedNewRole.value.name,
-    description: selectedNewRole.value.description || undefined,
+    roleId: role.id,
+    roleName: role.name,
+    description: getRoleDescription(role) || undefined,
     isRequired: newStepIsRequired.value,
     assignedFieldInstanceIds: [],
     color: getNextColor(),
@@ -305,9 +379,20 @@ watch(() => props.signingSteps.length, (newLen) => {
             </UBadge>
             <span>{{ step.assignedFieldInstanceIds.length }} {{ t('fields') }}</span>
           </div>
-          <p v-if="step.description" class="text-xs text-gray-400 mt-1 truncate">
-            {{ step.description }}
-          </p>
+          <div v-if="step.roleId" class="mt-2" @click.stop>
+            <USelect
+              :model-value="step.assignedUserId"
+              :items="getUserItems(step.roleId)"
+              :placeholder="t('selectPerson')"
+              value-key="value"
+              label-key="label"
+              size="xs"
+              :loading="loadingUsersByRole[step.roleId]"
+              icon="i-heroicons-user"
+              class="w-full"
+              @update:model-value="onUserSelected(step.id, $event as string | undefined)"
+            />
+          </div>
         </div>
 
         <!-- Empty State -->
@@ -334,8 +419,8 @@ watch(() => props.signingSteps.length, (newLen) => {
             icon="i-heroicons-user-circle"
           />
           <!-- Show selected role description -->
-          <p v-if="selectedNewRole?.description" class="text-xs text-gray-500 bg-white rounded px-2 py-1.5 border border-gray-200">
-            {{ selectedNewRole.description }}
+          <p v-if="getRoleDescription(selectedNewRole)" class="text-xs text-gray-500 bg-white rounded px-2 py-1.5 border border-gray-200">
+            {{ getRoleDescription(selectedNewRole) }}
           </p>
           <div class="flex items-center justify-between">
             <label class="flex items-center gap-2 text-xs">
@@ -494,6 +579,27 @@ watch(() => props.signingSteps.length, (newLen) => {
         <p class="text-sm text-gray-400 text-center">
           {{ signingSteps.length > 0 ? t('clickFieldToAssign') : t('addFirstStep') }}
         </p>
+      </div>
+
+      <!-- System Auto-Fill Fields (always visible when auto-generate fields exist) -->
+      <div v-if="autoGenerateFields.length > 0" class="p-4 border-t border-gray-200">
+        <label class="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1">
+          <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5" />
+          ระบบเติมอัตโนมัติ ({{ autoGenerateFields.length }})
+        </label>
+        <div class="space-y-1.5">
+          <div
+            v-for="field in autoGenerateFields"
+            :key="field.instanceId"
+            class="flex items-center gap-2 p-2 rounded-md bg-blue-50 border border-blue-200"
+          >
+            <UIcon name="i-heroicons-clock" class="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span class="text-xs text-blue-700 truncate">{{ field.label || field.name }}</span>
+            <UBadge color="info" variant="subtle" size="xs" class="ml-auto shrink-0">
+              Auto
+            </UBadge>
+          </div>
+        </div>
       </div>
     </aside>
   </div>

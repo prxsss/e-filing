@@ -7,8 +7,8 @@ export async function getUsers() {
   return db
     .select({
       id: users.id,
-      fullNameEN: sql<string>`concat(${users.firstNameEN}, ' ', ${users.lastNameEN})`,
-      fullNameTH: sql<string>`concat(${users.firstNameTH}, ' ', ${users.lastNameTH})`,
+      fullNameEn: sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+      fullNameTh: sql<string>`concat(${users.firstNameTh}, ' ', ${users.lastNameTh})`,
       email: users.email,
       faculty: faculties.name,
       banned: users.banned,
@@ -24,12 +24,12 @@ export async function getUsers() {
 export async function getUserById(id: string) {
   return db.select({
     id: users.id,
-    firstNameEN: users.firstNameEN,
-    lastNameEN: users.lastNameEN,
-    fullNameEN: sql<string>`concat(${users.firstNameEN}, ' ', ${users.lastNameEN})`,
-    firstNameTH: users.firstNameTH,
-    lastNameTH: users.lastNameTH,
-    fullNameTH: sql<string>`concat(${users.firstNameTH}, ' ', ${users.lastNameTH})`,
+    firstNameEn: users.firstNameEn,
+    lastNameEn: users.lastNameEn,
+    fullNameEn: sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+    firstNameTh: users.firstNameTh,
+    lastNameTh: users.lastNameTh,
+    fullNameTh: sql<string>`concat(${users.firstNameTh}, ' ', ${users.lastNameTh})`,
     email: users.email,
     roles: sql<string[]>`array_agg(
       jsonb_build_object(

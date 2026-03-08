@@ -4,8 +4,8 @@ import { eq } from 'drizzle-orm';
 import * as z from 'zod';
 
 const updateUserSchema = z.object({
-  firstNameEN: z.string().min(1, 'First name (EN) is required'),
-  lastNameEN: z.string().min(1, 'Last name (EN) is required'),
+  firstNameEn: z.string().min(1, 'First name (EN) is required'),
+  lastNameEn: z.string().min(1, 'Last name (EN) is required'),
   facultyId: z.number().nullable(),
 });
 
@@ -20,15 +20,15 @@ export default defineEventHandler(async (event) => {
 
   const [updatedUser] = await db.update(users)
     .set({
-      firstNameEN: body.firstNameEN,
-      lastNameEN: body.lastNameEN,
+      firstNameEn: body.firstNameEn,
+      lastNameEn: body.lastNameEn,
       facultyId: body.facultyId,
     })
     .where(eq(users.id, id))
     .returning({
       id: users.id,
-      firstNameEN: users.firstNameEN,
-      lastNameEN: users.lastNameEN,
+      firstNameEn: users.firstNameEn,
+      lastNameEn: users.lastNameEn,
       facultyId: users.facultyId,
     });
 

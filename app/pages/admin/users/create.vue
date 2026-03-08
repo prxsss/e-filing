@@ -19,8 +19,8 @@ const isDirty = ref(false);
 
 const createUserSchema = z.object({
   id: z.string().min(1, 'ID is required'),
-  firstNameEN: z.string().min(1, 'First name is required'),
-  lastNameEN: z.string().min(1, 'Last name is required'),
+  firstNameEn: z.string().min(1, 'First name is required'),
+  lastNameEn: z.string().min(1, 'Last name is required'),
   email: z.email('Invalid email'),
   faculty: z.number().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -31,8 +31,8 @@ type CreateUserSchema = z.output<typeof createUserSchema>;
 
 const form = ref<Partial<CreateUserSchema>>({
   id: '',
-  firstNameEN: '',
-  lastNameEN: '',
+  firstNameEn: '',
+  lastNameEn: '',
   email: '',
   faculty: null,
   password: '',
@@ -70,8 +70,8 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
       method: 'POST',
       body: {
         id: event.data.id,
-        firstNameEN: event.data.firstNameEN,
-        lastNameEN: event.data.lastNameEN,
+        firstNameEn: event.data.firstNameEn,
+        lastNameEn: event.data.lastNameEn,
         email: event.data.email,
         facultyId: event.data.faculty,
         password: event.data.password,
@@ -112,8 +112,8 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 watch(form, (newData) => {
   isDirty.value = JSON.stringify(newData) !== JSON.stringify({
     id: '',
-    firstNameEN: '',
-    lastNameEN: '',
+    firstNameEn: '',
+    lastNameEn: '',
     email: '',
     faculty: null,
     password: '',
@@ -237,11 +237,11 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               <!-- First Name (EN) -->
               <UFormField
                 label="Full Name (EN)"
-                name="fullNameEN"
+                name="fullNameEn"
                 required
               >
                 <UInput
-                  v-model="form.firstNameEN"
+                  v-model="form.firstNameEn"
                   class="w-full"
                 />
               </UFormField>
@@ -249,11 +249,11 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               <!-- Last Name (EN) -->
               <UFormField
                 label="Last Name (EN)"
-                name="lastNameEN"
+                name="lastNameEn"
                 required
               >
                 <UInput
-                  v-model="form.lastNameEN"
+                  v-model="form.lastNameEn"
                   class="w-full"
                 />
               </UFormField>
