@@ -405,6 +405,7 @@ onUnmounted(() => {
               v-for="field in fieldsWithDisplayCoords"
               :key="field.instanceId"
               class="placed-field"
+              :class="{ 'signature-field': field.imageUrl || field.type === 'Signature' }"
               :style="{
                 left: `${field.displayX}px`,
                 top: `${field.displayY}px`,
@@ -415,9 +416,18 @@ onUnmounted(() => {
               }"
             >
               <div class="field-content">
-                <i v-if="field.name === 'Check Mark'" :class="field.icon" />
-                <span v-if="field.label">{{ field.label }}</span>
-                <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+                <!-- Signature image overlay when user has confirmed signature -->
+                <img
+                  v-if="field.imageUrl"
+                  :src="field.imageUrl"
+                  class="signature-img"
+                  alt="ลายเซ็น"
+                >
+                <template v-else>
+                  <i v-if="field.name === 'Check Mark'" :class="field.icon" />
+                  <span v-if="field.label">{{ field.label }}</span>
+                  <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+                </template>
               </div>
             </div>
           </div>
@@ -507,5 +517,17 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.8);
   padding: 1px 3px;
   border-radius: 2px;
+}
+
+.signature-field {
+  border: 1.5px dashed #22c55e;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.signature-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 </style>

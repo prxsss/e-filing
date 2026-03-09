@@ -14,6 +14,15 @@ type FlowStep = {
   signedAt: string | null;
 };
 
+type SignatureField = {
+  instanceId: string;
+  pageNumber: number;
+  normalizedX?: number;
+  normalizedY?: number;
+  normalizedWidth?: number;
+  normalizedHeight?: number;
+};
+
 type SigningStatus = {
   requestId: number;
   status: string;
@@ -21,6 +30,9 @@ type SigningStatus = {
   templateName: string | null;
   flowSteps: FlowStep[];
   pendingStep: FlowStep | null;
+  signatureFields: SignatureField[];
+  documentWidth?: number;
+  documentHeight?: number;
 };
 
 const route = useRoute();
@@ -34,6 +46,36 @@ const successMessage = ref('');
 const signingStatus = ref<SigningStatus | null>(null);
 const signatureDataUrl = ref<string | null>(null);
 const showSignaturePad = ref(false);
+
+// Compute aspect ratio (width / height) of the pending signature field so the canvas
+// matches the actual field box defined in the PDF template.
+const signatureFieldAspectRatio = computed<number | undefined>(() => {
+  const status = signingStatus.value;
+  if (!status?.pendingStep)
+    return undefined;
+  const assignedIds = status.pendingStep.assignedFieldInstanceIds;
+  const field = status.signatureFields.find(f => assignedIds.includes(f.instanceId))
+    ?? status.signatureFields[0];
+  if (!field)
+    return undefined;
+  const { normalizedWidth: nw, normalizedHeight: nh } = field;
+  const docW = status.documentWidth;
+  const docH = status.documentHeight;
+  if (!nw || !nh || !docW || !docH)
+    return undefined;
+  // width / height ratio in document coordinate space
+  return (nw * docW) / (nh * docH);
+});
+
+// Enriches signature fields with the confirmed signature image URL so TemplatePdfPreview can overlay it
+const signatureFieldsForDisplay = computed(() => {
+  const fields = signingStatus.value?.signatureFields ?? [];
+  return fields.map(f => ({
+    ...f,
+    type: 'Signature',
+    ...(signatureDataUrl.value ? { imageUrl: signatureDataUrl.value } : {}),
+  }));
+});
 
 async function fetchStatus() {
   isLoading.value = true;
@@ -227,14 +269,10 @@ onMounted(fetchStatus);
               </UButton>
             </div>
           </template>
-          <div class="rounded-lg overflow-hidden border border-slate-200">
-            <iframe
-              :src="signingStatus.filledDocumentUrl"
-              class="w-full"
-              style="height: 600px;"
-              title="เอกสาร"
-            />
-          </div>
+          <TemplatePdfPreview
+            :pdf-url="signingStatus.filledDocumentUrl!"
+            :placed-fields="signatureFieldsForDisplay"
+          />
         </UCard>
 
         <!-- Signature section — shown when it's the current user's turn -->
@@ -253,21 +291,9 @@ onMounted(fetchStatus);
           <div class="space-y-4">
             <SignatureCanvas
               :disabled="isSigning"
+              :aspect-ratio="signatureFieldAspectRatio"
               @confirm="handleSignatureConfirmed"
             />
-
-            <!-- Preview after confirming signature -->
-            <div v-if="signatureDataUrl" class="border rounded-lg p-3 bg-green-50">
-              <p class="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
-                <UIcon name="i-lucide-check-circle" />
-                ลายเซ็นพร้อมแล้ว — ตรวจสอบก่อนส่ง
-              </p>
-              <img
-                :src="signatureDataUrl"
-                alt="Signature preview"
-                class="max-h-24 border border-green-200 rounded bg-white"
-              >
-            </div>
 
             <div class="flex gap-3">
               <UButton

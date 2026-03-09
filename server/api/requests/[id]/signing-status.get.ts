@@ -35,7 +35,13 @@ export default defineEventHandler(async (event) => {
     }
 
     const [template] = await db
-      .select({ name: requestTemplate.name, signingFlowData: requestTemplate.signingFlowData })
+      .select({
+        name: requestTemplate.name,
+        signingFlowData: requestTemplate.signingFlowData,
+        placedFieldsData: requestTemplate.placedFieldsData,
+        documentWidth: requestTemplate.documentWidth,
+        documentHeight: requestTemplate.documentHeight,
+      })
       .from(requestTemplate)
       .where(eq(requestTemplate.id, Number(requestData.templateId)))
       .limit(1);
@@ -57,6 +63,25 @@ export default defineEventHandler(async (event) => {
     );
     const pendingStep = isCurrentUsersTurn ? overallPendingStep : null;
 
+    // Build the list of signature field positions for the pending step so the
+    // client can render a live preview of the signature on the actual document.
+    const allFields = (template?.placedFieldsData as any[]) ?? [];
+    const assignedIds = (pendingStep?.assignedFieldInstanceIds as string[]) ?? [];
+    const signatureFields = allFields
+      .filter((f: any) => assignedIds.includes(f.instanceId) && f.type === 'Signature')
+      .map((f: any) => ({
+        instanceId: f.instanceId as string,
+        pageNumber: (f.pageNumber ?? 1) as number,
+        normalizedX: f.normalizedX as number | undefined,
+        normalizedY: f.normalizedY as number | undefined,
+        normalizedWidth: f.normalizedWidth as number | undefined,
+        normalizedHeight: f.normalizedHeight as number | undefined,
+        x: f.x as number | undefined,
+        y: f.y as number | undefined,
+        width: f.width as number | undefined,
+        height: f.height as number | undefined,
+      }));
+
     return {
       success: true,
       data: {
@@ -66,6 +91,9 @@ export default defineEventHandler(async (event) => {
         templateName: template?.name ?? null,
         flowSteps,
         pendingStep,
+        signatureFields,
+        documentWidth: template?.documentWidth ?? 595,
+        documentHeight: template?.documentHeight ?? 842,
       },
     };
   }
