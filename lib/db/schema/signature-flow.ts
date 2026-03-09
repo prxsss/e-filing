@@ -8,6 +8,7 @@ export const signatureFlow = pgTable('signature_flow', {
   roleId: integer('role_id').notNull(),
   roleName: text('role_name').notNull(),
   assignedFieldInstanceIds: jsonb('assigned_field_instance_ids'),
+  assignedUserId: text('assigned_user_id'),
   // 'waiting' | 'pending' | 'signed'
   status: text('status').notNull().default('waiting'),
   signedBy: text('signed_by'),

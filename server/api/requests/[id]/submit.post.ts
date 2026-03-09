@@ -35,6 +35,12 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Template not found' };
     }
 
+    const body = await readBody(event);
+    // recipients: Array<{ stepId: string; userId: string }>
+    const recipientMap = new Map<string, string>(
+      (body?.recipients ?? []).map((r: { stepId: string; userId: string }) => [r.stepId, r.userId]),
+    );
+
     const signingSteps = (template.signingFlowData as any[]) || [];
 
     // Create signature_flow entries sorted by order
@@ -64,6 +70,7 @@ export default defineEventHandler(async (event) => {
           roleId: resolvedRoleId,
           roleName: step.roleName,
           assignedFieldInstanceIds: step.assignedFieldInstanceIds ?? [],
+          assignedUserId: recipientMap.get(step.id) ?? null,
           status: index === 0 ? 'pending' : 'waiting',
         };
       });
@@ -75,7 +82,7 @@ export default defineEventHandler(async (event) => {
 
     await db
       .update(request)
-      .set({ status: newStatus, submittedAt: new Date() })
+      .set({ status: newStatus, submittedAt: new Date().toISOString() })
       .where(eq(request.id, requestId));
 
     return { success: true, data: { status: newStatus } };

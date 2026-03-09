@@ -9,11 +9,27 @@ type FieldValue = {
   value: string;
 };
 
+type SigningStep = {
+  id: string;
+  order: number;
+  roleId?: number;
+  roleName: string;
+  color?: string;
+};
+
+type UserOption = {
+  id: string;
+  fullNameEn: string;
+  fullNameTh: string;
+  email: string;
+};
+
 type TemplateData = {
   id: number;
   name: string;
   documentUrl: string | null;
   placedFieldsData: any[] | null;
+  signingFlowData: SigningStep[] | null;
 };
 
 // Staged file for new-request mode (client-side only, not yet uploaded)
@@ -42,6 +58,77 @@ const scale = ref(1);
 const pendingAttachments = ref<PendingAttachment[]>([]);
 const isUploadingAttachment = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// --- Recipient selection ---
+const { locale } = useI18n();
+const { user } = useUserSession();
+const signingSteps = ref<SigningStep[]>([]);
+const roleNameToId = ref<Record<string, number>>({}); // roleName -> roleId
+const usersByRoleId = ref<Record<number, UserOption[]>>({});
+const loadingUsersByRoleId = ref<Record<number, boolean>>({});
+const selectedRecipients = ref<Record<string, string>>({}); // stepId -> userId
+
+const recipientSteps = computed(() => {
+  const steps = signingSteps.value;
+  if (!steps.length)
+    return [];
+  const sorted = [...steps].sort((a, b) => a.order - b.order);
+  const currentRoleName = user.value?.currentRole ?? '';
+  // Match by current role; if no match, treat the first step as the submitter's step
+  const submitterStep = sorted.find(s => s.roleName === currentRoleName) ?? sorted[0];
+  const submitterOrder = submitterStep?.order ?? sorted[0]!.order;
+  return sorted.filter(s => s.order > submitterOrder);
+});
+
+const allRecipientsSelected = computed(() =>
+  recipientSteps.value.every(step => !!selectedRecipients.value[step.id]),
+);
+
+function getResolvedRoleId(step: SigningStep): number | undefined {
+  return step.roleId ?? roleNameToId.value[step.roleName];
+}
+
+function getUserItems(step: SigningStep) {
+  const roleId = getResolvedRoleId(step);
+  if (!roleId)
+    return [];
+  return (usersByRoleId.value[roleId] ?? []).map(u => ({
+    label: (locale.value === 'th' && u.fullNameTh?.trim()) ? u.fullNameTh.trim() : u.fullNameEn,
+    value: u.id,
+  }));
+}
+
+async function fetchUsersForRecipientSteps() {
+  // Resolve any missing roleIds via roleName lookup
+  const needsLookup = recipientSteps.value.filter(s => !s.roleId && !roleNameToId.value[s.roleName]);
+  if (needsLookup.length > 0) {
+    type RoleRecord = { id: number; name: string };
+    const allRoles = await $fetch<RoleRecord[]>('/api/roles');
+    allRoles.forEach((r) => {
+      roleNameToId.value[r.name] = r.id;
+    });
+  }
+
+  await Promise.all(
+    recipientSteps.value.map(async (step) => {
+      const roleId = getResolvedRoleId(step);
+      if (!roleId || usersByRoleId.value[roleId])
+        return;
+      loadingUsersByRoleId.value[roleId] = true;
+      try {
+        const data = await $fetch<UserOption[]>(`/api/users/by-role/${roleId}`);
+        usersByRoleId.value[roleId] = data;
+      }
+      catch (err) {
+        console.error(`Failed to fetch users for role ${roleId}:`, err);
+        usersByRoleId.value[roleId] = [];
+      }
+      finally {
+        loadingUsersByRoleId.value[roleId] = false;
+      }
+    }),
+  );
+}
 
 // --- Methods ---
 async function urlToFile(url: string, filename: string) {
@@ -84,6 +171,11 @@ async function fetchTemplateData() {
             && field.is_fillable !== false
             && field.type !== 'Signature',
         );
+      }
+
+      if (templateData.value?.signingFlowData) {
+        signingSteps.value = templateData.value.signingFlowData;
+        // fetchUsersForRecipientSteps is triggered via watcher on recipientSteps
       }
     }
     else {
@@ -164,8 +256,13 @@ async function submitRequest() {
     }
 
     // 5. Submit: initialize signing flow and update status
+    const recipients = recipientSteps.value
+      .filter(step => selectedRecipients.value[step.id])
+      .map(step => ({ stepId: step.id, userId: selectedRecipients.value[step.id] }));
+
     const updateResult: any = await $fetch(`/api/requests/${activeRequestId}/submit`, {
       method: 'POST',
+      body: { recipients },
     });
 
     if (updateResult.success) {
@@ -265,6 +362,12 @@ function getFileIcon(fileName: string | null) {
 onMounted(() => {
   fetchTemplateData();
 });
+
+// Re-fetch users whenever recipientSteps changes (handles session hydration timing)
+watch(recipientSteps, (steps) => {
+  if (steps.length > 0)
+    fetchUsersForRecipientSteps();
+}, { immediate: true });
 </script>
 
 <template>
@@ -475,6 +578,46 @@ onMounted(() => {
             </div>
           </UCard>
 
+          <!-- Recipient Selection Card -->
+          <UCard v-if="recipientSteps.length > 0">
+            <template #header>
+              <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                {{ locale === 'th' ? 'เลือกผู้รับเอกสาร' : 'Select Recipients' }}
+              </h3>
+            </template>
+
+            <div class="space-y-4">
+              <div
+                v-for="step in recipientSteps"
+                :key="step.id"
+              >
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order}` : `Recipient for step ${step.order}` }}
+                  <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
+                  <span class="ml-1 text-red-500">*</span>
+                </label>
+                <USelectMenu
+                  v-model="selectedRecipients[step.id]"
+                  :items="getUserItems(step)"
+                  value-key="value"
+                  label-key="label"
+                  :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? (locale === 'th' ? 'กำลังโหลด...' : 'Loading...') : (locale === 'th' ? 'เลือกผู้รับ...' : 'Select recipient...')"
+                  :disabled="isSaving || !!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                  :loading="!!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                  :search-input="{ placeholder: locale === 'th' ? 'ค้นหา...' : 'Search...' }"
+                  icon="i-heroicons-user"
+                  class="w-full"
+                />
+                <p
+                  v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                  class="mt-1 text-xs text-gray-400"
+                >
+                  {{ locale === 'th' ? 'ไม่พบผู้ใช้ที่มีบทบาทนี้' : 'No users found with this role' }}
+                </p>
+              </div>
+            </div>
+          </UCard>
+
           <!-- Action Buttons -->
           <div class="flex flex-col gap-3">
             <UButton
@@ -482,7 +625,7 @@ onMounted(() => {
               color="success"
               size="lg"
               :loading="isSaving"
-              :disabled="fillableFields.length === 0"
+              :disabled="(fillableFields.length === 0 && recipientSteps.length === 0) || !allRecipientsSelected"
               @click="submitRequest"
             >
               <i class="fas fa-paper-plane mr-2" />
