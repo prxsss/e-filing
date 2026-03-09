@@ -89,6 +89,7 @@ export default defineEventHandler(async (event) => {
         status: requestData.status,
         filledDocumentUrl: requestData.filledDocumentUrl,
         templateName: template?.name ?? null,
+        note: requestData.note ?? null,
         flowSteps,
         pendingStep,
         signatureFields,

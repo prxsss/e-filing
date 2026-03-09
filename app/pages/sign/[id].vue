@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { LazyBaseConfirmDialogWithReason } from '#components';
+
 definePageMeta({ title: 'Sign Document' });
 
 type FlowStep = {
@@ -36,6 +38,7 @@ type SigningStatus = {
   status: string;
   filledDocumentUrl: string | null;
   templateName: string | null;
+  note: string | null;
   flowSteps: FlowStep[];
   pendingStep: FlowStep | null;
   signatureFields: SignatureField[];
@@ -46,8 +49,13 @@ type SigningStatus = {
 const route = useRoute();
 const requestId = Number(route.params.id);
 
+const overlay = useOverlay();
+const toast = useToast();
+const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
+
 const isLoading = ref(true);
 const isSigning = ref(false);
+const isRejecting = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref('');
 
@@ -142,6 +150,55 @@ function handleSignatureConfirmed(dataUrl: string) {
   signatureDataUrl.value = dataUrl;
 }
 
+async function rejectRequest() {
+  const instance = confirmDialogWithReason.open({
+    title: 'ปฏิเสธการลงนาม',
+    description: `ขั้นตอนที่ ${signingStatus.value?.pendingStep?.stepOrder} (${signingStatus.value?.pendingStep?.roleName}) — กรุณาระบุเหตุผลในการปฏิเสธ`,
+    reasonRequired: true,
+    reasonPlaceholder: 'ระบุเหตุผลในการปฏิเสธ เช่น ข้อมูลไม่ถูกต้อง / เอกสารไม่ครบ...',
+    reasonErrorMessage: 'กรุณาระบุเหตุผลในการปฏิเสธ',
+    cancelButton: { label: 'ยกเลิก' },
+    confirmButton: { label: 'ยืนยันการปฏิเสธ', color: 'error' },
+  });
+
+  const result = await instance.result;
+  if (!result.confirmed)
+    return;
+
+  isRejecting.value = true;
+  error.value = null;
+
+  try {
+    const res = await $fetch<{ success: boolean; data: any; error?: string }>(
+      `/api/requests/${requestId}/reject`,
+      {
+        method: 'POST',
+        body: { reason: result.confirmationReason },
+      },
+    );
+
+    if (res.success) {
+      toast.add({
+        title: 'ปฏิเสธการลงนามแล้ว',
+        description: 'คำร้องถูกปฏิเสธเรียบร้อย',
+        color: 'error',
+      });
+      signatureDataUrl.value = null;
+      showSignaturePad.value = false;
+      await fetchStatus();
+    }
+    else {
+      error.value = res.error ?? 'ไม่สามารถปฏิเสธคำร้องได้';
+    }
+  }
+  catch (err: any) {
+    error.value = err?.message ?? 'เกิดข้อผิดพลาด';
+  }
+  finally {
+    isRejecting.value = false;
+  }
+}
+
 async function submitSignature() {
   if (!signatureDataUrl.value) {
     error.value = 'กรุณาลงลายเซ็นให้เรียบร้อยก่อน';
@@ -188,12 +245,16 @@ const statusColor: Record<string, string> = {
   waiting: 'neutral',
   pending: 'warning',
   signed: 'success',
+  rejected: 'error',
+  cancelled: 'neutral',
 };
 
 const statusLabel: Record<string, string> = {
   waiting: 'รอดำเนินการ',
   pending: 'รอลงนาม',
   signed: 'ลงนามแล้ว',
+  rejected: 'ปฏิเสธ',
+  cancelled: 'ยกเลิก',
 };
 
 async function fetchAttachments() {
@@ -294,10 +355,12 @@ onMounted(() => {
                 :class="{
                   'bg-green-500': step.status === 'signed',
                   'bg-amber-500': step.status === 'pending',
-                  'bg-slate-300': step.status === 'waiting',
+                  'bg-slate-300': step.status === 'waiting' || step.status === 'cancelled',
+                  'bg-red-500': step.status === 'rejected',
                 }"
               >
                 <UIcon v-if="step.status === 'signed'" name="i-lucide-check" class="w-4 h-4" />
+                <UIcon v-else-if="step.status === 'rejected'" name="i-lucide-x" class="w-4 h-4" />
                 <template v-else>{{ step.stepOrder }}</template>
               </span>
               <span class="font-medium text-sm">{{ step.roleName }}</span>
@@ -451,18 +514,45 @@ onMounted(() => {
               @confirm="handleSignatureConfirmed"
             />
 
-            <div class="flex gap-3">
+            <div class="flex flex-wrap gap-3">
               <UButton
                 color="success"
                 size="lg"
                 icon="i-lucide-send"
                 :loading="isSigning"
-                :disabled="!signatureDataUrl"
+                :disabled="!signatureDataUrl || isRejecting"
                 @click="submitSignature"
               >
                 ส่งลายเซ็นและดำเนินการต่อ
               </UButton>
+              <UButton
+                color="error"
+                variant="soft"
+                size="lg"
+                icon="i-lucide-x-circle"
+                :loading="isRejecting"
+                :disabled="isSigning"
+                @click="rejectRequest"
+              >
+                ปฏิเสธการลงนาม
+              </UButton>
             </div>
+          </div>
+        </UCard>
+
+        <!-- Rejected state -->
+        <UCard v-else-if="signingStatus.status === 'rejected'">
+          <div class="text-center py-8">
+            <UIcon name="i-lucide-x-circle" class="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 class="text-xl font-bold text-slate-800 mb-2">
+              คำร้องถูกปฏิเสธ
+            </h3>
+            <p v-if="signingStatus.note" class="text-slate-500 mb-4 max-w-md mx-auto">
+              เหตุผล: {{ signingStatus.note }}
+            </p>
+            <p v-else class="text-slate-500 mb-4">
+              คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม
+            </p>
           </div>
         </UCard>
 
