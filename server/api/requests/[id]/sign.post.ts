@@ -24,6 +24,11 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Invalid signature data' };
     }
 
+    // Enforce a reasonable payload size limit (~1 MB base64 ≈ 750 KB image)
+    if (signatureDataUrl.length > 1_048_576) {
+      return { success: false, error: 'Signature image is too large (max 1 MB)' };
+    }
+
     // Get user's role IDs
     const userRoleRows = await db
       .select({ roleId: userRoles.roleId })
@@ -32,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
-    // Find current pending flow entry for this request that matches user's role
+    // Find current pending flow entry for this request
     const pendingFlows = await db
       .select()
       .from(signatureFlow)
@@ -49,7 +54,14 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'No pending signing step found for this request' };
     }
 
-    if (!userRoleIds.includes(flowEntry.roleId)) {
+    // Authorization: mirrors the same dual-pattern routing used in for-signing.get.ts
+    //   Pattern A — direct assignment: assignedUserId === me (role not required)
+    //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
+    const isAuthorized
+      = flowEntry.assignedUserId === session.user.id
+        || (flowEntry.assignedUserId === null && userRoleIds.includes(flowEntry.roleId));
+
+    if (!isAuthorized) {
       return { success: false, error: 'You are not authorized to sign this step' };
     }
 
@@ -79,14 +91,28 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Template not found' };
     }
 
-    // Find the signature fields assigned to this step
-    const assignedIds = (flowEntry.assignedFieldInstanceIds as string[]) ?? [];
-    const allFields = (template.placedFieldsData as any[]) ?? [];
-    const signatureFields = allFields.filter(
-      (f: any) => assignedIds.includes(f.instanceId) && f.type === 'Signature',
-    );
+    // ── Upload signature image to object storage (not base64 in DB) ──────────
+    const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
+    const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    const sigFilename = `signatures/request-${requestId}-step-${flowEntry.stepOrder}-${Date.now()}.png`;
 
-    // Fetch current filled PDF
+    const { error: sigUploadError } = await supabaseAdmin.storage
+      .from('filled-requests')
+      .upload(sigFilename, sigBytes, {
+        contentType: 'image/png',
+        cacheControl: '31536000',
+        upsert: false,
+      });
+
+    if (sigUploadError) {
+      return { success: false, error: `Signature upload failed: ${sigUploadError.message}` };
+    }
+
+    const { data: { publicUrl: signatureUrl } } = supabaseAdmin.storage
+      .from('filled-requests')
+      .getPublicUrl(sigFilename);
+
+    // ── Embed signature image into PDF ───────────────────────────────────────
     const pdfResponse = await fetch(requestData.filledDocumentUrl);
     if (!pdfResponse.ok) {
       return { success: false, error: 'Failed to fetch current PDF' };
@@ -97,13 +123,16 @@ export default defineEventHandler(async (event) => {
     const pdfDoc = await PDFLib.PDFDocument.load(new Uint8Array(pdfArrayBuffer));
     const pages = pdfDoc.getPages();
 
-    // Convert signature dataUrl to PNG bytes and embed
-    const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
-    const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
     const sigImage = await pdfDoc.embedPng(sigBytes);
 
     const templateWidth = template.documentWidth || 595;
     const templateHeight = template.documentHeight || 842;
+
+    const assignedIds = (flowEntry.assignedFieldInstanceIds as string[]) ?? [];
+    const allFields = (template.placedFieldsData as any[]) ?? [];
+    const signatureFields = allFields.filter(
+      (f: any) => assignedIds.includes(f.instanceId) && f.type === 'Signature',
+    );
 
     for (const field of signatureFields) {
       const pageIndex = (field.pageNumber || 1) - 1;
@@ -143,36 +172,40 @@ export default defineEventHandler(async (event) => {
 
     const signedPdfBytes = await pdfDoc.save();
 
-    // Upload (overwrite) the filled PDF
-    const filename = `request-${requestId}-filled.pdf`;
-    const { error: uploadError } = await supabaseAdmin.storage
+    // ── Upload versioned PDF snapshot (one file per signing step) ────────────
+    // Each step produces its own immutable snapshot so nothing is ever lost.
+    // The request record always points to the latest (most-signed) copy.
+    const pdfFilename = `request-${requestId}-step-${flowEntry.stepOrder}-${Date.now()}.pdf`;
+
+    const { error: pdfUploadError } = await supabaseAdmin.storage
       .from('filled-requests')
-      .upload(filename, signedPdfBytes, {
+      .upload(pdfFilename, signedPdfBytes, {
         contentType: 'application/pdf',
-        cacheControl: '3600',
-        upsert: true,
+        cacheControl: '31536000',
+        upsert: false,
       });
 
-    if (uploadError) {
-      return { success: false, error: `Upload failed: ${uploadError.message}` };
+    if (pdfUploadError) {
+      return { success: false, error: `PDF upload failed: ${pdfUploadError.message}` };
     }
 
-    const { data: { publicUrl } } = supabaseAdmin.storage
+    const { data: { publicUrl: signedPdfUrl } } = supabaseAdmin.storage
       .from('filled-requests')
-      .getPublicUrl(filename);
+      .getPublicUrl(pdfFilename);
 
-    // Persist updated PDF URL
+    // Persist updated PDF URL (points to latest signed snapshot)
     await db
       .update(request)
-      .set({ filledDocumentUrl: publicUrl })
+      .set({ filledDocumentUrl: signedPdfUrl })
       .where(eq(request.id, requestId));
 
-    // Save signature record
+    // ── Save audit-quality signature record ──────────────────────────────────
+    // Store the URL to object storage instead of the raw base64 blob
     await db.insert(signatures).values({
       requestId,
       signatureFlowId: flowEntry.id,
       userId: session.user.id,
-      dataUrl: signatureDataUrl,
+      dataUrl: signatureUrl, // URL to stored PNG, not raw base64
       fieldInstanceId: assignedIds[0] ?? null,
     });
 
@@ -182,7 +215,7 @@ export default defineEventHandler(async (event) => {
       .set({ status: 'signed', signedBy: session.user.id, signedAt: new Date() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
-    // Advance workflow: activate next waiting step or complete
+    // ── Advance workflow ─────────────────────────────────────────────────────
     const [nextStep] = await db
       .select()
       .from(signatureFlow)
@@ -209,7 +242,7 @@ export default defineEventHandler(async (event) => {
         data: {
           status: 'in_progress',
           nextRole: nextStep.roleName,
-          filledDocumentUrl: publicUrl,
+          filledDocumentUrl: signedPdfUrl,
         },
       };
     }
@@ -223,7 +256,7 @@ export default defineEventHandler(async (event) => {
         success: true,
         data: {
           status: 'completed',
-          filledDocumentUrl: publicUrl,
+          filledDocumentUrl: signedPdfUrl,
         },
       };
     }

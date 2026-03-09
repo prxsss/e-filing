@@ -5,6 +5,11 @@ import { request } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
     const body = await readBody(event);
 
@@ -13,6 +18,21 @@ export default defineEventHandler(async (event) => {
         success: false,
         error: 'Invalid request ID',
       };
+    }
+
+    // Ownership check — only the request owner may patch it
+    const [existing] = await db
+      .select({ userId: request.userId })
+      .from(request)
+      .where(eq(request.id, requestId))
+      .limit(1);
+
+    if (!existing) {
+      return { success: false, error: 'Request not found' };
+    }
+
+    if (existing.userId !== session.user.id) {
+      throw createError({ statusCode: 403, message: 'Forbidden' });
     }
 
     // Update request

@@ -1,10 +1,15 @@
 import { and, eq } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { requestTemplateValues } from '../../../../lib/db/schema';
+import { request, requestTemplateValues } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
     const body = await readBody(event);
 
@@ -13,6 +18,25 @@ export default defineEventHandler(async (event) => {
         success: false,
         error: 'Invalid request data',
       };
+    }
+
+    // Ownership check — only the request owner may write field values
+    const [requestRecord] = await db
+      .select({ userId: request.userId, status: request.status })
+      .from(request)
+      .where(eq(request.id, requestId))
+      .limit(1);
+
+    if (!requestRecord) {
+      return { success: false, error: 'Request not found' };
+    }
+
+    if (requestRecord.userId !== session.user.id) {
+      throw createError({ statusCode: 403, message: 'Forbidden' });
+    }
+
+    if (requestRecord.status !== 'draft') {
+      return { success: false, error: 'Field values can only be edited while the request is in draft' };
     }
 
     // Validate that fieldValues is an array

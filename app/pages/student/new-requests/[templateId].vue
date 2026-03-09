@@ -14,6 +14,7 @@ type SigningStep = {
   order: number;
   roleId?: number;
   roleName: string;
+  assignedUserId?: string;
   color?: string;
 };
 
@@ -72,12 +73,14 @@ const recipientSteps = computed(() => {
   const steps = signingSteps.value;
   if (!steps.length)
     return [];
-  const sorted = [...steps].sort((a, b) => a.order - b.order);
   const currentRoleName = user.value?.currentRole ?? '';
-  // Match by current role; if no match, treat the first step as the submitter's step
-  const submitterStep = sorted.find(s => s.roleName === currentRoleName) ?? sorted[0];
-  const submitterOrder = submitterStep?.order ?? sorted[0]!.order;
-  return sorted.filter(s => s.order > submitterOrder);
+  // Show a UI picker only for steps that are:
+  //   • NOT pre-assigned in the template (step.assignedUserId is empty/absent)
+  //   • NOT the submitter's own step (roleName ≠ submitter's currentRole)
+  // Steps that are pre-assigned (template creator locked a specific person) and
+  // steps that belong to the submitter (self-signed by role match on the server)
+  // are handled automatically — no user interaction needed.
+  return steps.filter(s => !s.assignedUserId && s.roleName !== currentRoleName);
 });
 
 const allRecipientsSelected = computed(() =>
@@ -625,7 +628,7 @@ watch(recipientSteps, (steps) => {
               color="success"
               size="lg"
               :loading="isSaving"
-              :disabled="(fillableFields.length === 0 && recipientSteps.length === 0) || !allRecipientsSelected"
+              :disabled="!allRecipientsSelected || isSaving"
               @click="submitRequest"
             >
               <i class="fas fa-paper-plane mr-2" />

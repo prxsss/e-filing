@@ -1,10 +1,15 @@
 import { eq } from 'drizzle-orm';
 
 import db from '../../../lib/db';
-import { request, requestTemplateValues } from '../../../lib/db/schema';
+import { request, requestTemplateValues, signatureFlow, userRoles } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
 
     if (!requestId) {
@@ -28,6 +33,30 @@ export default defineEventHandler(async (event) => {
       };
     }
 
+    const record = requestData[0];
+
+    // Access control: the requester must be the owner OR have a signing role in this request
+    const isOwner = record.userId === session.user.id;
+    if (!isOwner) {
+      const userRoleRows = await db
+        .select({ roleId: userRoles.roleId })
+        .from(userRoles)
+        .where(eq(userRoles.userId, session.user.id));
+      const userRoleIds = userRoleRows.map(r => r.roleId);
+
+      const hasSigningRole = userRoleIds.length > 0
+        ? (await db
+            .select({ roleId: signatureFlow.roleId })
+            .from(signatureFlow)
+            .where(eq(signatureFlow.requestId, requestId))
+            .then(rows => rows.some(r => userRoleIds.includes(r.roleId))))
+        : false;
+
+      if (!hasSigningRole) {
+        throw createError({ statusCode: 403, message: 'Forbidden' });
+      }
+    }
+
     // Get field values for this request
     const fieldValues = await db
       .select()
@@ -37,7 +66,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: true,
       data: {
-        request: requestData[0],
+        request: record,
         fieldValues,
       },
     };

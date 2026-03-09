@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, signatureFlow } from '../../../../lib/db/schema';
+import { request, requestTemplate, signatureFlow, userRoles } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
@@ -10,6 +10,19 @@ export default defineEventHandler(async (event) => {
     if (!requestId) {
       return { success: false, error: 'Invalid request ID' };
     }
+
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+
+    // Get the current user's role IDs to determine if it's their turn to sign
+    const userRoleRows = await db
+      .select({ roleId: userRoles.roleId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, session.user.id));
+
+    const userRoleIds = userRoleRows.map(r => r.roleId);
 
     const [requestData] = await db
       .select()
@@ -33,7 +46,16 @@ export default defineEventHandler(async (event) => {
       .where(eq(signatureFlow.requestId, requestId))
       .orderBy(asc(signatureFlow.stepOrder));
 
-    const pendingStep = flowSteps.find(s => s.status === 'pending') ?? null;
+    // Determine whether the current user may act on the pending step.
+    // Mirrors the same dual-pattern routing used in for-signing.get.ts:
+    //   Pattern A — direct assignment: assignedUserId === me (role not required)
+    //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
+    const overallPendingStep = flowSteps.find(s => s.status === 'pending') ?? null;
+    const isCurrentUsersTurn = overallPendingStep !== null && (
+      overallPendingStep.assignedUserId === session.user.id
+      || (overallPendingStep.assignedUserId === null && userRoleIds.includes(overallPendingStep.roleId))
+    );
+    const pendingStep = isCurrentUsersTurn ? overallPendingStep : null;
 
     return {
       success: true,
