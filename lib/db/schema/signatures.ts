@@ -9,10 +9,6 @@ export const signatures = pgTable('signatures', {
   fieldInstanceId: text('field_instance_id'),
   /** SHA-256 hex digest of the signed PDF bytes for tamper detection */
   pdfHash: text('pdf_hash'),
-  /** Originating IP address for audit trail */
-  ipAddress: text('ip_address'),
-  /** User-agent string for audit trail */
-  userAgent: text('user_agent'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 

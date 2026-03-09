@@ -176,10 +176,6 @@ export default defineEventHandler(async (event) => {
     // ── Compute SHA-256 integrity hash of the exactly-as-stored PDF ─────────
     const pdfHash = createHash('sha256').update(new Uint8Array(signedPdfBytes)).digest('hex');
 
-    // Collect audit metadata — IP + user-agent for non-repudiation evidence
-    const ipAddress = getRequestIP(event, { xForwardedFor: true }) ?? null;
-    const userAgent = getHeader(event, 'user-agent') ?? null;
-
     // ── Upload versioned PDF snapshot (one file per signing step) ────────────
     // Each step produces its own immutable snapshot so nothing is ever lost.
     // The request record always points to the latest (most-signed) copy.
@@ -216,8 +212,6 @@ export default defineEventHandler(async (event) => {
       dataUrl: signatureUrl, // URL to stored PNG, not raw base64
       fieldInstanceId: assignedIds[0] ?? null,
       pdfHash,
-      ipAddress,
-      userAgent,
     });
 
     // Mark current step as signed
