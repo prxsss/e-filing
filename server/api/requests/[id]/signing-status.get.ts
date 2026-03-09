@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
     const overallPendingStep = flowSteps.find(s => s.status === 'pending') ?? null;
     const isCurrentUsersTurn = overallPendingStep !== null && (
-      overallPendingStep.assignedUserId === session.user.id
+      overallPendingStep.assignedUserId === session.user?.id
       || (overallPendingStep.assignedUserId === null && userRoleIds.includes(overallPendingStep.roleId))
     );
     const pendingStep = isCurrentUsersTurn ? overallPendingStep : null;

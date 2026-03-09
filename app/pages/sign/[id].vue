@@ -23,6 +23,14 @@ type SignatureField = {
   normalizedHeight?: number;
 };
 
+type Attachment = {
+  id: number;
+  requestId: number;
+  fileName: string | null;
+  fileUrl: string | null;
+  createdAt: string;
+};
+
 type SigningStatus = {
   requestId: number;
   status: string;
@@ -46,6 +54,19 @@ const successMessage = ref('');
 const signingStatus = ref<SigningStatus | null>(null);
 const signatureDataUrl = ref<string | null>(null);
 const showSignaturePad = ref(false);
+const attachments = ref<Attachment[]>([]);
+const previewAttachment = ref<Attachment | null>(null);
+const isPreviewOpen = ref(false);
+
+function openPreview(att: Attachment) {
+  previewAttachment.value = att;
+  isPreviewOpen.value = true;
+}
+
+function closePreview() {
+  isPreviewOpen.value = false;
+  previewAttachment.value = null;
+}
 
 // Compute aspect ratio (width / height) of the pending signature field so the canvas
 // matches the actual field box defined in the PDF template.
@@ -65,6 +86,20 @@ const signatureFieldAspectRatio = computed<number | undefined>(() => {
     return undefined;
   // width / height ratio in document coordinate space
   return (nw * docW) / (nh * docH);
+});
+
+// Real field width in PDF points — lets the canvas calibrate stroke thickness
+// so lines appear identical in the PDF regardless of canvas CSS size.
+const signatureFieldWidthPt = computed<number | undefined>(() => {
+  const status = signingStatus.value;
+  if (!status?.pendingStep)
+    return undefined;
+  const assignedIds = status.pendingStep.assignedFieldInstanceIds;
+  const field = status.signatureFields.find(f => assignedIds.includes(f.instanceId))
+    ?? status.signatureFields[0];
+  if (!field?.normalizedWidth)
+    return undefined;
+  return field.normalizedWidth * (status.documentWidth ?? 595);
 });
 
 // Enriches signature fields with the confirmed signature image URL so TemplatePdfPreview can overlay it
@@ -161,7 +196,35 @@ const statusLabel: Record<string, string> = {
   signed: 'ลงนามแล้ว',
 };
 
-onMounted(fetchStatus);
+async function fetchAttachments() {
+  try {
+    const result = await $fetch<{ success: boolean; data: Attachment[] }>(
+      `/api/requests/${requestId}/attachments`,
+    );
+    if (result.success) {
+      attachments.value = result.data;
+    }
+  }
+  catch {}
+}
+
+function getFileIcon(fileName: string | null): string {
+  if (!fileName)
+    return 'i-lucide-file';
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf')
+    return 'i-lucide-file-text';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext ?? ''))
+    return 'i-lucide-image';
+  if (['doc', 'docx'].includes(ext ?? ''))
+    return 'i-lucide-file-type';
+  return 'i-lucide-file';
+}
+
+onMounted(() => {
+  fetchStatus();
+  fetchAttachments();
+});
 </script>
 
 <template>
@@ -249,6 +312,98 @@ onMounted(fetchStatus);
           </div>
         </UCard>
 
+        <!-- Attachments -->
+        <UCard>
+          <template #header>
+            <h2 class="font-semibold text-slate-800 flex items-center gap-2">
+              <UIcon name="i-lucide-paperclip" class="text-green-600" />
+              เอกสารแนบ
+              <UBadge v-if="attachments.length > 0" :label="String(attachments.length)" color="neutral" variant="soft" size="sm" />
+            </h2>
+          </template>
+          <!-- Empty state -->
+          <p v-if="attachments.length === 0" class="text-sm text-slate-400 py-2">
+            ไม่มีเอกสารแนบ
+          </p>
+          <div v-else class="divide-y divide-slate-100">
+            <div
+              v-for="att in attachments"
+              :key="att.id"
+              class="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+            >
+              <UIcon :name="getFileIcon(att.fileName)" class="w-5 h-5 text-slate-400 shrink-0" />
+              <span class="text-sm text-slate-700 truncate flex-1">{{ att.fileName ?? 'ไม่ระบุชื่อ' }}</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <UButton
+                  v-if="att.fileUrl"
+                  size="xs"
+                  variant="soft"
+                  color="primary"
+                  icon="i-lucide-eye"
+                  @click="openPreview(att)"
+                >
+                  ดูไฟล์
+                </UButton>
+                <UButton
+                  v-if="att.fileUrl"
+                  size="xs"
+                  variant="outline"
+                  color="neutral"
+                  icon="i-lucide-external-link"
+                  :to="att.fileUrl"
+                  target="_blank"
+                >
+                  เปิดใหม่
+                </UButton>
+              </div>
+            </div>
+          </div>
+        </UCard>
+        <UModal v-model:open="isPreviewOpen" class="max-w-4xl" @close="closePreview">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon :name="getFileIcon(previewAttachment?.fileName ?? null)" class="text-slate-500" />
+              <span class="font-semibold text-slate-800 truncate">{{ previewAttachment?.fileName ?? 'เอกสารแนบ' }}</span>
+            </div>
+          </template>
+          <template #body>
+            <div v-if="previewAttachment?.fileUrl" class="w-full">
+              <!-- PDF preview -->
+              <iframe
+                v-if="previewAttachment.fileName?.toLowerCase().endsWith('.pdf')"
+                :src="previewAttachment.fileUrl"
+                class="w-full rounded"
+                style="height: 70vh;"
+                frameborder="0"
+              />
+              <!-- Image preview -->
+              <img
+                v-else-if="/\.(jpe?g|png|gif|webp)$/i.test(previewAttachment.fileName ?? '')"
+                :src="previewAttachment.fileUrl"
+                :alt="previewAttachment.fileName ?? ''"
+                class="max-w-full mx-auto rounded"
+              >
+              <!-- Fallback -->
+              <div v-else class="text-center py-12 text-slate-500">
+                <UIcon name="i-lucide-file" class="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p class="text-sm">
+                  ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้
+                </p>
+                <UButton
+                  :to="previewAttachment.fileUrl"
+                  target="_blank"
+                  color="primary"
+                  variant="soft"
+                  icon="i-lucide-download"
+                  class="mt-3"
+                >
+                  ดาวน์โหลดไฟล์
+                </UButton>
+              </div>
+            </div>
+          </template>
+        </UModal>
+
         <!-- PDF viewer -->
         <UCard v-if="signingStatus.filledDocumentUrl">
           <template #header>
@@ -292,6 +447,7 @@ onMounted(fetchStatus);
             <SignatureCanvas
               :disabled="isSigning"
               :aspect-ratio="signatureFieldAspectRatio"
+              :pdf-field-width-pt="signatureFieldWidthPt"
               @confirm="handleSignatureConfirmed"
             />
 
