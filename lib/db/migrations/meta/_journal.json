@@ -22,6 +22,13 @@
       "when": 1772696400000,
       "tag": "0002_update_permissions_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772841600000,
+      "tag": "0009_signing_flow",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,11 @@ import { request } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+
     const body = await readBody(event);
 
     if (!body.templateId) {
@@ -12,12 +17,11 @@ export default defineEventHandler(async (event) => {
       };
     }
 
-    // Create new request
+    // Create new request, always associating it with the authenticated user
     const newRequest = await db.insert(request).values({
       templateId: body.templateId,
-      createdBy: body.createdBy || null,
-      status: body.status || 'draft',
-      submittedAt: body.submittedAt || null,
+      userId: session.user.id,
+      status: 'draft',
     }).returning();
 
     return {

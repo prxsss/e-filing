@@ -1,0 +1,188 @@
+import { eq, inArray } from 'drizzle-orm';
+
+import db from '../../../../lib/db';
+import { request, requestTemplate, roles, signatureFlow, userRoles } from '../../../../lib/db/schema';
+
+export default defineEventHandler(async (event) => {
+  try {
+    const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
+
+    if (!requestId) {
+      return { success: false, error: 'Invalid request ID' };
+    }
+
+    // Auth guard — must be logged in
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+    const submitterId = session.user.id;
+
+    const [requestData] = await db
+      .select()
+      .from(request)
+      .where(eq(request.id, requestId))
+      .limit(1);
+
+    if (!requestData) {
+      return { success: false, error: 'Request not found' };
+    }
+
+    // Ownership check — only the request owner may submit
+    if (requestData.userId !== submitterId) {
+      throw createError({ statusCode: 403, message: 'Forbidden: you do not own this request' });
+    }
+
+    if (requestData.status !== 'draft') {
+      return { success: false, error: 'Request is not in draft status' };
+    }
+
+    const [template] = await db
+      .select()
+      .from(requestTemplate)
+      .where(eq(requestTemplate.id, Number(requestData.templateId)))
+      .limit(1);
+
+    if (!template) {
+      return { success: false, error: 'Template not found' };
+    }
+
+    const body = await readBody(event);
+    // recipients: Array<{ stepId: string; userId: string }>
+    const recipientMap = new Map<string, string>(
+      (body?.recipients ?? []).map((r: { stepId: string; userId: string }) => [r.stepId, r.userId]),
+    );
+
+    const signingSteps = (template.signingFlowData as any[]) || [];
+
+    // Create signature_flow entries sorted by order
+    const sorted = [...signingSteps].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (sorted.length > 0) {
+      // Fetch the submitter's DB role IDs for self-assignment logic (see below)
+      const submitterRoleRows = await db
+        .select({ roleId: userRoles.roleId })
+        .from(userRoles)
+        .where(eq(userRoles.userId, submitterId));
+      const submitterRoleSet = new Set(submitterRoleRows.map(r => r.roleId));
+
+      // Resolve roleIds: prefer stored roleId, fallback to lookup by roleName
+      const needsLookup = sorted.filter(s => !s.roleId || Number.isNaN(Number(s.roleId)));
+      const roleNameMap = new Map<string, number>();
+      if (needsLookup.length > 0) {
+        const roleNames = [...new Set(needsLookup.map((s: any) => s.roleName))];
+        const foundRoles = await db
+          .select({ id: roles.id, name: roles.name })
+          .from(roles)
+          .where(inArray(roles.name, roleNames));
+        foundRoles.forEach(r => roleNameMap.set(r.name, r.id));
+      }
+
+      // ── Pass 1: resolve every step's assignedUserId and auto-sign flag ──────
+      // "auto-signed" = the submitter is the intended signer for this step (their
+      // role matches AND they end up directly assigned to it).  For these steps,
+      // the act of submitting the form counts as their signature — they must NOT
+      // be sent back to the signing page for their own submission.  This mirrors
+      // DocuSign's behaviour where a sender who also appears as a signer in an
+      // envelope is not required to re-sign through the signing portal.
+      type Draft = {
+        requestId: number;
+        stepId: string;
+        stepOrder: number;
+        roleId: number;
+        roleName: string;
+        assignedFieldInstanceIds: string[];
+        assignedUserId: string | null;
+        autoSigned: boolean;
+      };
+
+      const draftEntries: Draft[] = sorted.map((step: any, index: number) => {
+        const resolvedRoleId = (step.roleId && !Number.isNaN(Number(step.roleId)))
+          ? Number(step.roleId)
+          : (roleNameMap.get(step.roleName) ?? null);
+
+        if (!resolvedRoleId) {
+          throw createError({
+            statusCode: 422,
+            message: `Cannot resolve role for signing step "${step.roleName}". Ensure the role exists.`,
+          });
+        }
+
+        // Priority chain for assignedUserId:
+        //   1. Template pre-assignment (baked in by the template creator)
+        //   2. UI-selected recipient (submitter picked a specific person)
+        //   3. Self-assignment (submitter's role matches this step → their own step)
+        //   4. null → role-based queue (any user with matching role)
+        const templatePreAssigned: string | null = (step.assignedUserId as string | undefined) || null;
+        const uiSelected: string | null = recipientMap.get(step.id) || null;
+        const isSubmitterStep = submitterRoleSet.has(resolvedRoleId);
+        const selfAssigned: string | null = isSubmitterStep ? submitterId : null;
+        const resolvedAssignedUserId: string | null = templatePreAssigned ?? uiSelected ?? selfAssigned;
+
+        // Auto-sign when the submitter IS the signer (role match + direct assignment)
+        const autoSigned = isSubmitterStep && resolvedAssignedUserId === submitterId;
+
+        return {
+          requestId,
+          stepId: String(step.id ?? index),
+          stepOrder: step.order ?? index + 1,
+          roleId: resolvedRoleId,
+          roleName: step.roleName,
+          assignedFieldInstanceIds: step.assignedFieldInstanceIds ?? [],
+          assignedUserId: resolvedAssignedUserId,
+          autoSigned,
+        };
+      });
+
+      // ── Pass 2: assign flow status ───────────────────────────────────────
+      // auto-signed → 'signed' (submission = acknowledgement)
+      // first non-auto-signed step → 'pending'  (next person to act)
+      // rest → 'waiting'
+      const now = new Date();
+      let firstPendingAssigned = false;
+      const flowEntries = draftEntries.map(({ autoSigned, ...entry }) => {
+        if (autoSigned) {
+          return { ...entry, status: 'signed', signedBy: submitterId, signedAt: now };
+        }
+        if (!firstPendingAssigned) {
+          firstPendingAssigned = true;
+          return { ...entry, status: 'pending' };
+        }
+        return { ...entry, status: 'waiting' };
+      });
+
+      await db.insert(signatureFlow).values(flowEntries);
+
+      // Request status mirrors the flow state:
+      //   all auto-signed  → completed (no further signing needed)
+      //   some auto-signed → in_progress (first real signer is now pending)
+      //   none auto-signed → pending_signature (waiting for first signer)
+      const allAutoSigned = draftEntries.every(e => e.autoSigned);
+      const anyAutoSigned = draftEntries.some(e => e.autoSigned);
+      const newStatus = allAutoSigned
+        ? 'completed'
+        : anyAutoSigned
+          ? 'in_progress'
+          : 'pending_signature';
+
+      await db
+        .update(request)
+        .set({ status: newStatus, submittedAt: new Date().toISOString() })
+        .where(eq(request.id, requestId));
+
+      return { success: true, data: { status: newStatus } };
+    }
+
+    // No signing steps at all — request is immediately submitted
+    await db
+      .update(request)
+      .set({ status: 'submitted', submittedAt: new Date().toISOString() })
+      .where(eq(request.id, requestId));
+
+    return { success: true, data: { status: 'submitted' } };
+  }
+  catch (error: any) {
+    console.error('Error submitting request:', error);
+    return { success: false, error: error.message || 'Failed to submit request' };
+  }
+});

@@ -1,11 +1,14 @@
-import type { H3Event } from 'h3';
-
 import { desc } from 'drizzle-orm';
 
 import db from '../../../lib/db';
 import { requestTemplate } from '../../../lib/db/schema/request-template';
 
-export default defineEventHandler(async (_event: H3Event) => {
+export default defineEventHandler(async (event) => {
+  const session = await getUserSession(event);
+  if (!session?.user?.id) {
+    throw createError({ statusCode: 401, message: 'Unauthorized' });
+  }
+
   try {
     const templates = await db
       .select()

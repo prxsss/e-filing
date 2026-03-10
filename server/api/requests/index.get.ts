@@ -6,6 +6,12 @@ import { requestTemplate } from '../../../lib/db/schema/request-template';
 
 export default defineEventHandler(async (event) => {
   try {
+    // Auth required for all access
+    const session = await getUserSession(event);
+    if (!session?.user?.id) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' });
+    }
+
     const query = getQuery(event);
 
     const page = Math.max(1, Number(query.page) || 1);
@@ -13,13 +19,14 @@ export default defineEventHandler(async (event) => {
     const offset = (page - 1) * limit;
     const status = query.status as string | undefined;
     const search = query.search as string | undefined;
-    const createdBy = query.createdBy ? Number(query.createdBy) : undefined;
+    const mine = query.mine === 'true' || query.mine === '1';
 
     // Build WHERE conditions
     const conditions = [];
 
-    if (createdBy) {
-      conditions.push(eq(request.createdBy, createdBy));
+    if (mine) {
+      // Filter to only this user's requests
+      conditions.push(eq(request.userId, session.user.id));
     }
 
     if (status) {
