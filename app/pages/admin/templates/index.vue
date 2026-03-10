@@ -26,6 +26,7 @@ type ApiResponse<T> = {
 };
 
 // --- 2. State & Data ---
+const localePath = useLocalePath();
 const searchQuery = ref('');
 const statusFilter = ref('all');
 const isLoading = ref(true);
@@ -86,11 +87,11 @@ function formatDate(dateString: string) {
 }
 
 function navigateToCreate() {
-  navigateTo('/admin/templates/create');
+  navigateTo(localePath('/admin/templates/create'));
 }
 
 function navigateToDetails(id: number) {
-  navigateTo(`/admin/templates/${id}`);
+  navigateTo(localePath(`/admin/templates/${id}`));
 }
 
 onMounted(() => {
@@ -103,7 +104,7 @@ onMounted(() => {
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center h-96">
       <div class="text-center">
-        <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
+        <UIcon name="i-lucide-loader" class="text-4xl text-gray-400 mb-4 animate-spin" />
         <p class="text-gray-500">
           กำลังโหลด Templates...
         </p>
@@ -114,7 +115,7 @@ onMounted(() => {
     <UContainer v-else-if="error" class="py-8">
       <UCard>
         <div class="text-center py-8">
-          <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4" />
+          <UIcon name="i-lucide-triangle-alert" class="text-4xl text-red-400 mb-4" />
           <p class="text-red-600 mb-4">
             {{ error }}
           </p>

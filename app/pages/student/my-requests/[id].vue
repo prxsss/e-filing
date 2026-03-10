@@ -23,6 +23,7 @@ type TemplateData = {
   name: string;
   documentUrl: string | null;
   placedFieldsData: any[] | null;
+  signingFlowData: Array<{ id: string; roleName: string }> | null;
 };
 
 type Attachment = {
@@ -33,9 +34,26 @@ type Attachment = {
   createdAt: string;
 };
 
+type FlowStep = {
+  id: number;
+  stepOrder: number;
+  roleName: string;
+  status: string;
+  signedBy: string | null;
+  signedAt: string | null;
+};
+
+type SigningStatus = {
+  status: string;
+  note: string | null;
+  flowSteps: FlowStep[];
+};
+
 // --- State ---
 const route = useRoute();
 const requestId = route.params.id;
+const localePath = useLocalePath();
+const { user } = useUserSession();
 const isLoading = ref(true);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
@@ -48,6 +66,9 @@ const pdfFile = ref<File | null>(null);
 const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<number, string>>({});
 const scale = ref(1);
+
+// Signing flow
+const signingStatus = ref<SigningStatus | null>(null);
 
 // Attachments
 const attachments = ref<Attachment[]>([]);
@@ -101,10 +122,25 @@ async function fetchRequestData() {
             pdfFile.value = await urlToFile(templateData.value.documentUrl, filename);
           }
 
-          // Set placed fields
+          // Set placed fields — show only the student's own fields (by signerStepId) or unassigned fields
           if (templateData.value?.placedFieldsData) {
+            const currentRoleName = user.value?.currentRole ?? '';
+            const signingFlow = (templateData.value.signingFlowData ?? []) as Array<{ id: string; roleName: string }>;
+            const studentStep = signingFlow.find(s => s.roleName === currentRoleName);
+            const studentStepId = studentStep?.id ?? null;
+
             placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
-              (field: any) => field.isFillable !== false,
+              (field: any) => {
+                if (field.isFillable === false || field.is_fillable === false)
+                  return false;
+                if (field.type === 'Signature')
+                  return false;
+                if (studentStepId) {
+                  const stepId = field.signerStepId ?? field.signer_step_id ?? null;
+                  return !stepId || stepId === studentStepId;
+                }
+                return true;
+              },
             );
           }
         }
@@ -188,7 +224,7 @@ async function submitRequest() {
 
     // 3. Update request status to submitted
     const updateResult: any = await $fetch(`/api/requests/${requestId}`, {
-      method: 'PATCH',
+      method: 'PATCH' as any,
       body: {
         status: 'submitted',
         submittedAt: new Date().toISOString(),
@@ -196,8 +232,7 @@ async function submitRequest() {
     });
 
     if (updateResult.success) {
-      // Success! Navigate back to my requests
-      navigateTo('/student/my-requests');
+      navigateTo(localePath('/student/my-requests'));
     }
     else {
       error.value = (updateResult.error as string) || 'Failed to submit request';
@@ -216,6 +251,38 @@ async function submitRequest() {
 const fillableFields = computed(() => {
   return placedFields.value.filter((field: any) => field.isFillable !== false);
 });
+
+// Student-fillable fields: exclude Signature fields (those belong to signing roles, not the student)
+const studentFields = computed(() => {
+  return fillableFields.value.filter((f: any) => f.type?.toLowerCase() !== 'signature');
+});
+
+// Format a date string for Thai locale
+function formatDate(dateStr: string | null): string {
+  if (!dateStr)
+    return '—';
+  return new Date(dateStr).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+type BadgeColor = 'success' | 'error' | 'primary' | 'secondary' | 'info' | 'warning' | 'neutral';
+const _statusColorMap: Record<string, BadgeColor> = {
+  draft: 'neutral',
+  submitted: 'info',
+  pending: 'warning',
+  in_progress: 'warning',
+  rejected: 'error',
+  completed: 'success',
+};
+const _statusLabelMap: Record<string, string> = {
+  draft: 'ร่าง',
+  submitted: 'รอดำเนินการ',
+  pending: 'รอดำเนินการ',
+  in_progress: 'กำลังดำเนินการ',
+  rejected: 'ปฏิเสธ',
+  completed: 'สำเร็จแล้ว',
+};
+const statusColor = computed<BadgeColor>(() => _statusColorMap[requestData.value?.status ?? ''] ?? 'neutral');
+const statusLabel = computed(() => _statusLabelMap[requestData.value?.status ?? ''] ?? (requestData.value?.status ?? '—'));
 
 // Open PDF in new tab
 function openPdfInNewTab(url: string) {
@@ -253,9 +320,9 @@ async function handleFileUpload(event: Event) {
   }
 
   // Validate file size (max 30MB)
-  const maxSize = 30 * 1024 * 1024; // 30MB
+  const maxSize = 30 * 1024 * 1024;
   if (file.size > maxSize) {
-    error.value = 'File size must be less than 10MB';
+    error.value = 'ขนาดไฟล์ต้องไม่เกิน 30 MB';
     return;
   }
 
@@ -361,362 +428,423 @@ function getFileIcon(fileName: string | null) {
 }
 
 // Format file size
-function _formatFileSize(_url: string | null) {
-  // This is a placeholder - actual file size would need to be stored in DB
-  return 'Unknown size';
+function _formatFileSize(bytes: number): string {
+  if (bytes < 1024)
+    return `${bytes} B`;
+  if (bytes < 1024 * 1024)
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function fetchSigningStatus() {
+  try {
+    const result: any = await $fetch(`/api/requests/${requestId}/signing-status`);
+    if (result.success) {
+      signingStatus.value = {
+        status: result.data.status,
+        note: result.data.note ?? null,
+        flowSteps: result.data.flowSteps ?? [],
+      };
+    }
+  }
+  catch (err: any) {
+    console.error('Failed to load signing status:', err?.message);
+  }
+}
+
+const flowStepColor: Record<string, string> = {
+  waiting: 'bg-slate-300',
+  pending: 'bg-amber-500',
+  signed: 'bg-green-500',
+  rejected: 'bg-red-500',
+  cancelled: 'bg-slate-300',
+};
+
+const flowStepLabel: Record<string, string> = {
+  waiting: 'รอดำเนินการ',
+  pending: 'รอลงนาม',
+  signed: 'ลงนามแล้ว',
+  rejected: 'ปฏิเสธ',
+  cancelled: 'ยกเลิก',
+};
+
+function formatSignedAt(dateStr: string | null): string {
+  if (!dateStr)
+    return '';
+  return new Date(dateStr).toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 onMounted(() => {
   fetchRequestData();
   fetchAttachments();
+  fetchSigningStatus();
 });
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <div class="bg-white border-b">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+  <div class="min-h-screen pb-12">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+      <div>
         <UBreadcrumb
           :links="[
-            { label: 'My Requests', to: '/student/my-requests' },
-            { label: `Request #${requestId}`, to: `/student/my-requests/${requestId}` },
+            { label: 'คำร้องของฉัน', to: localePath('/student/my-requests') },
+            { label: templateData?.name || `#${requestId}` },
           ]"
+          class="mb-2"
         />
-        <div class="mt-4 flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900">
-              {{ templateData?.name || 'Fill Request Form' }}
-            </h1>
-            <p class="mt-1 text-sm text-gray-500">
-              Complete the form below and submit your request
+        <h1 class="text-2xl font-bold">
+          {{ templateData?.name || 'รายละเอียดคำร้อง' }}
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">
+          ติดตามสถานะและรายละเอียดคำร้อง
+        </p>
+      </div>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        icon="i-lucide-arrow-left"
+        :to="localePath('/student/my-requests')"
+      >
+        กลับ
+      </UButton>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="isLoading" class="flex items-center justify-center h-96">
+      <div class="text-center text-gray-400">
+        <UIcon name="i-lucide-loader" class="w-10 h-10 animate-spin mx-auto mb-3" />
+        <p class="text-sm">
+          กำลังโหลด...
+        </p>
+      </div>
+    </div>
+
+    <!-- Fatal Error -->
+    <UAlert
+      v-else-if="error && !requestData"
+      color="error"
+      icon="i-lucide-alert-triangle"
+      :title="error"
+      class="mb-4"
+    >
+      <template #description>
+        <UButton size="xs" :to="localePath('/student/my-requests')">
+          กลับ
+        </UButton>
+      </template>
+    </UAlert>
+
+    <!-- Main Content -->
+    <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- ── Left: PDF Preview ── -->
+      <div class="lg:col-span-2 space-y-4">
+        <!-- Zoom Controls -->
+        <div class="flex items-center gap-3 bg-white rounded-xl border px-4 py-2.5">
+          <span class="text-sm text-gray-500">Zoom:</span>
+          <UButton
+            icon="i-lucide-minus"
+            size="xs"
+            variant="ghost"
+            :disabled="scale <= 0.5"
+            @click="scale = Math.max(0.5, scale - 0.25)"
+          />
+          <span class="text-sm font-semibold w-12 text-center">{{ Math.round(scale * 100) }}%</span>
+          <UButton
+            icon="i-lucide-plus"
+            size="xs"
+            variant="ghost"
+            :disabled="scale >= 3"
+            @click="scale = Math.min(3, scale + 0.25)"
+          />
+          <UButton size="xs" variant="ghost" @click="scale = 1">
+            Reset
+          </UButton>
+        </div>
+
+        <!-- PDF Viewer -->
+        <div
+          v-if="pdfFile"
+          class="bg-gray-100/50 overflow-auto p-6 rounded-xl border"
+          style="min-height: 600px"
+        >
+          <template-pdf-create
+            :pdf-file="pdfFile"
+            :placed-fields="studentFields"
+            :selected-field="undefined"
+            :ui-scale="scale"
+            :read-only="true"
+          />
+        </div>
+        <div
+          v-else
+          class="flex items-center justify-center h-64 bg-white rounded-xl border text-gray-400"
+        >
+          <div class="text-center">
+            <UIcon name="i-lucide-file" class="w-12 h-12 mb-2 mx-auto opacity-40" />
+            <p class="text-sm">
+              ไม่พบไฟล์เอกสาร
             </p>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Loading State -->
-      <div v-if="isLoading" class="flex items-center justify-center h-96">
-        <div class="text-center">
-          <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
-          <p class="text-gray-500">
-            Loading request...
-          </p>
-        </div>
-      </div>
+      <!-- ── Right Column ── -->
+      <div class="space-y-4">
+        <!-- Inline alerts -->
+        <UAlert v-if="successMessage" color="success" icon="i-lucide-check-circle" :title="successMessage" />
+        <UAlert v-if="error" color="error" icon="i-lucide-alert-circle" :title="error" />
 
-      <!-- Error State -->
-      <UCard v-else-if="error && !requestData">
-        <div class="text-center py-8">
-          <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4" />
-          <p class="text-red-600 mb-4">
-            {{ error }}
-          </p>
-          <UButton @click="$router.push('/student/my-requests')">
-            Back to My Requests
-          </UButton>
-        </div>
-      </UCard>
-
-      <!-- Form Content -->
-      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left: PDF Preview (Read-only) -->
-        <div class="lg:col-span-2">
-          <!-- Zoom Controls -->
-          <div class="mb-4 flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2">
-            <span class="text-sm text-gray-600">Zoom:</span>
-            <UButton
-              icon="i-heroicons-minus"
-              size="xs"
-              variant="ghost"
-              :disabled="scale <= 0.5"
-              @click="scale = Math.max(0.5, scale - 0.25)"
-            />
-            <span class="text-sm font-medium w-12 text-center">{{ Math.round(scale * 100) }}%</span>
-            <UButton
-              icon="i-heroicons-plus"
-              size="xs"
-              variant="ghost"
-              :disabled="scale >= 3"
-              @click="scale = Math.min(3, scale + 0.25)"
-            />
-            <UButton
-              size="xs"
-              variant="ghost"
-              @click="scale = 1"
-            >
-              Reset
-            </UButton>
-          </div>
-
-          <!-- PDF Viewer (Read-only Display) -->
-          <div
-            v-if="pdfFile"
-            class="bg-gray-100/50 overflow-auto p-8 rounded-lg border border-gray-200"
-            style="min-height: 600px;"
-          >
-            <template-pdf-create
-              :pdf-file="pdfFile"
-              :placed-fields="placedFields"
-              :selected-field="undefined"
-              :ui-scale="scale"
-              :read-only="true"
-            />
-          </div>
-        </div>
-
-        <!-- Right: Form Fields -->
-        <div class="space-y-6">
-          <!-- Success Message -->
-          <UCard v-if="successMessage" class="bg-green-50 border-green-200">
-            <div class="flex items-center gap-2 text-green-800">
-              <i class="fas fa-check-circle" />
-              <span class="font-medium">{{ successMessage }}</span>
-            </div>
-          </UCard>
-
-          <!-- Error Message -->
-          <UCard v-if="error" class="bg-red-50 border-red-200">
-            <div class="flex items-center gap-2 text-red-800">
-              <i class="fas fa-exclamation-circle" />
-              <span class="font-medium">{{ error }}</span>
-            </div>
-          </UCard>
-
-          <!-- Form Fields Card -->
-          <UCard>
-            <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Request Information
-              </h3>
-            </template>
-
-            <div class="space-y-4">
-              <!-- Render field inputs -->
-              <div
-                v-for="field in fillableFields"
-                :key="field.instanceId"
-                class="field-group"
-              >
-                <form-field-input
-                  v-model="fieldValues[field.id]"
-                  :field="field"
-                  :disabled="isSaving"
-                />
-              </div>
-
-              <!-- Empty state -->
-              <div v-if="fillableFields.length === 0" class="text-center py-8 text-gray-500">
-                <i class="fas fa-inbox text-3xl mb-2" />
-                <p class="text-sm">
-                  No fillable fields in this template
-                </p>
-              </div>
-            </div>
-          </UCard>
-
-          <!-- Attachments Card -->
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  Attachments
-                </h3>
-                <UButton
-                  v-if="requestData?.status === 'draft' || !requestData?.status"
-                  size="xs"
-                  color="primary"
-                  icon="i-heroicons-paper-clip"
-                  :loading="isUploadingAttachment"
-                  @click="triggerFileUpload"
-                >
-                  Add File
-                </UButton>
-              </div>
-            </template>
-
-            <div class="space-y-3">
-              <!-- Hidden file input -->
-              <input
-                ref="fileInputRef"
-                type="file"
-                class="hidden"
-                accept="*/*"
-                @change="handleFileUpload"
-              >
-
-              <!-- Attachment list -->
-              <div
-                v-for="attachment in attachments"
-                :key="attachment.id"
-                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <UIcon
-                    :name="getFileIcon(attachment.fileName)"
-                    class="w-5 h-5 text-gray-600 shrink-0"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-900 truncate">
-                      {{ attachment.fileName }}
-                    </p>
-                    <p class="text-xs text-gray-500">
-                      {{ new Date(attachment.createdAt).toLocaleDateString() }}
-                    </p>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    icon="i-heroicons-book-open"
-                    @click="openPdfInNewTab(attachment.fileUrl!)"
-                  >
-                    View
-                  </UButton>
-                  <UButton
-                    v-if="requestData?.status === 'draft' || !requestData?.status"
-                    size="xs"
-                    variant="ghost"
-                    color="error"
-                    icon="i-heroicons-trash"
-                    :loading="isDeletingAttachment === attachment.id"
-                    @click="deleteAttachment(attachment.id)"
-                  >
-                    Delete
-                  </UButton>
-                </div>
-              </div>
-
-              <!-- Empty state -->
-              <div v-if="attachments.length === 0" class="text-center py-8 text-gray-500">
-                <i class="fas fa-paperclip text-3xl mb-2" />
-                <p class="text-sm">
-                  No attachments yet
-                </p>
-                <p class="text-xs mt-1">
-                  Add supporting documents for your request
-                </p>
-              </div>
-
-              <!-- Upload progress -->
-              <div
-                v-if="isUploadingAttachment"
-                class="flex items-center gap-2 p-3 bg-blue-50 rounded-lg"
-              >
-                <i class="fas fa-spinner fa-spin text-blue-600" />
-                <span class="text-sm text-blue-800">Uploading file...</span>
-              </div>
-            </div>
-          </UCard>
-
-          <!-- Action Buttons -->
-          <div class="flex flex-col gap-3">
-            <!-- Show download button if PDF is generated -->
-            <UButton
-              v-if="requestData?.filledDocumentUrl"
-              block
-              color="primary"
-              size="lg"
-              icon="i-heroicons-arrow-down-tray"
-              @click="openPdfInNewTab(requestData.filledDocumentUrl)"
-            >
-              Download Filled PDF
-            </UButton>
-
-            <!-- Show save/submit buttons only for draft status -->
-            <template v-if="requestData?.status === 'draft' || !requestData?.status">
-              <UButton
-                block
-                color="primary"
-                size="lg"
-                :loading="isSaving"
-                :disabled="fillableFields.length === 0"
-                @click="saveFieldValues"
-              >
-                <i class="fas fa-save mr-2" />
-                Save Progress
-              </UButton>
-
-              <UButton
-                block
-                color="success"
-                size="lg"
-                :loading="isSaving"
-                :disabled="fillableFields.length === 0"
-                @click="submitRequest"
-              >
-                <i class="fas fa-paper-plane mr-2" />
-                Submit Request
-              </UButton>
-            </template>
-
-            <UButton
-              block
-              variant="ghost"
-              color="neutral"
-              @click="$router.push('/student/my-requests')"
-            >
-              <i class="fas fa-arrow-left mr-2" />
-              Back to My Requests
-            </UButton>
-          </div>
-
-          <!-- Request Status -->
-          <UCard v-if="requestData">
-            <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Request Status
-              </h3>
-            </template>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-600">Status:</span>
-                <UBadge :color="requestData.status === 'draft' ? 'neutral' : requestData.status === 'submitted' ? 'success' : 'primary'">
-                  {{ requestData.status || 'Draft' }}
+        <!-- 1. REQUEST STATUS ─── top of right column -->
+        <UCard v-if="requestData">
+          <template #header>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              สถานะคำร้อง
+            </h3>
+          </template>
+          <dl class="space-y-2.5 text-sm">
+            <div class="flex justify-between items-center">
+              <dt class="text-gray-500">
+                สถานะ
+              </dt>
+              <dd>
+                <UBadge :color="statusColor" variant="subtle">
+                  {{ statusLabel }}
                 </UBadge>
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-gray-500">
+                สร้างเมื่อ
+              </dt>
+              <dd class="font-medium">
+                {{ formatDate(requestData.createdAt) }}
+              </dd>
+            </div>
+            <div v-if="requestData.submittedAt" class="flex justify-between">
+              <dt class="text-gray-500">
+                ยื่นเมื่อ
+              </dt>
+              <dd class="font-medium">
+                {{ formatDate(requestData.submittedAt) }}
+              </dd>
+            </div>
+          </dl>
+        </UCard>
+
+        <!-- 2. SIGNING TIMELINE ─── top of right column -->
+        <UCard v-if="signingStatus && signingStatus.flowSteps.length > 0">
+          <template #header>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+              <UIcon name="i-lucide-list-ordered" class="text-primary-500" />
+              ลำดับการลงนาม
+            </h3>
+          </template>
+
+          <UAlert
+            v-if="signingStatus.status === 'rejected' && signingStatus.note"
+            icon="i-lucide-x-circle"
+            color="error"
+            variant="soft"
+            :title="`ปฏิเสธ: ${signingStatus.note}`"
+            class="mb-3"
+          />
+
+          <div class="space-y-2">
+            <div
+              v-for="step in signingStatus.flowSteps"
+              :key="step.id"
+              class="flex items-start gap-3 p-2.5 rounded-lg"
+              :class="step.status === 'pending' ? 'bg-amber-50 border border-amber-200' : step.status === 'rejected' ? 'bg-red-50 border border-red-200' : 'bg-gray-50'"
+            >
+              <span
+                class="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                :class="flowStepColor[step.status] ?? 'bg-slate-300'"
+              >
+                <UIcon v-if="step.status === 'signed'" name="i-lucide-check" class="w-3 h-3" />
+                <UIcon v-else-if="step.status === 'rejected'" name="i-lucide-x" class="w-3 h-3" />
+                <template v-else>{{ step.stepOrder }}</template>
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-slate-800">
+                  {{ step.roleName }}
+                </p>
+                <p v-if="step.signedAt" class="text-xs text-slate-400 mt-0.5">
+                  {{ formatSignedAt(step.signedAt) }}
+                </p>
               </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">Created:</span>
-                <span class="font-medium">
-                  {{ new Date(requestData.createdAt).toLocaleDateString() }}
-                </span>
+              <UBadge
+                :color="step.status === 'signed' ? 'success' : step.status === 'pending' ? 'warning' : step.status === 'rejected' ? 'error' : 'neutral'"
+                :label="flowStepLabel[step.status] ?? step.status"
+                variant="soft"
+                size="xs"
+              />
+            </div>
+          </div>
+        </UCard>
+
+        <!-- 3. REQUEST INFORMATION ─── student-filled fields only, no Signature fields -->
+        <UCard>
+          <template #header>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              ข้อมูลคำร้อง
+            </h3>
+          </template>
+
+          <!-- DRAFT: editable inputs -->
+          <div v-if="requestData?.status === 'draft'" class="space-y-4">
+            <div v-for="field in studentFields" :key="field.instanceId">
+              <form-field-input
+                v-model="fieldValues[field.id]"
+                :field="field"
+                :disabled="isSaving"
+              />
+            </div>
+            <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              ไม่มีฟิลด์ที่ต้องกรอก
+            </div>
+          </div>
+
+          <!-- SUBMITTED / IN_PROGRESS / COMPLETED / REJECTED: read-only display -->
+          <div v-else class="space-y-3">
+            <div
+              v-for="field in studentFields"
+              :key="field.instanceId"
+              class="flex flex-col gap-0.5"
+            >
+              <span class="text-xs text-gray-400 font-medium">{{ field.label || field.name }}</span>
+              <span class="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 min-h-9 flex items-center">
+                {{ fieldValues[field.id] || '—' }}
+              </span>
+            </div>
+            <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              ไม่มีข้อมูลที่กรอก
+            </div>
+          </div>
+        </UCard>
+
+        <!-- 4. ATTACHMENTS -->
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                ไฟล์แนบ
+              </h3>
+              <UButton
+                v-if="requestData?.status === 'draft'"
+                size="xs"
+                color="primary"
+                variant="soft"
+                icon="i-lucide-paperclip"
+                :loading="isUploadingAttachment"
+                @click="triggerFileUpload"
+              >
+                เพิ่มไฟล์
+              </UButton>
+            </div>
+          </template>
+
+          <input
+            ref="fileInputRef"
+            type="file"
+            class="hidden"
+            accept="*/*"
+            @change="handleFileUpload"
+          >
+
+          <div class="space-y-2">
+            <div
+              v-for="attachment in attachments"
+              :key="attachment.id"
+              class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg border border-gray-100 group"
+            >
+              <UIcon :name="getFileIcon(attachment.fileName)" class="w-5 h-5 text-gray-400 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 truncate">
+                  {{ attachment.fileName }}
+                </p>
+                <p class="text-xs text-gray-400">
+                  {{ new Date(attachment.createdAt).toLocaleDateString('th-TH') }}
+                </p>
               </div>
-              <div v-if="requestData.submittedAt" class="flex justify-between">
-                <span class="text-gray-600">Submitted:</span>
-                <span class="font-medium">
-                  {{ new Date(requestData.submittedAt).toLocaleDateString() }}
-                </span>
-              </div>
-              <div v-if="requestData.filledDocumentUrl" class="flex justify-between items-center pt-2 mt-2 border-t">
-                <span class="text-gray-600">Filled PDF:</span>
+              <div class="flex items-center gap-1.5">
                 <UButton
                   size="xs"
                   variant="ghost"
-                  icon="i-heroicons-arrow-down-tray"
-                  @click="openPdfInNewTab(requestData.filledDocumentUrl)"
+                  icon="i-lucide-eye"
+                  @click="openPdfInNewTab(attachment.fileUrl!)"
                 >
-                  Download
+                  ดู
                 </UButton>
+                <UButton
+                  v-if="requestData?.status === 'draft'"
+                  size="xs"
+                  variant="ghost"
+                  color="error"
+                  icon="i-lucide-trash-2"
+                  :loading="isDeletingAttachment === attachment.id"
+                  @click="deleteAttachment(attachment.id)"
+                />
               </div>
             </div>
-          </UCard>
+
+            <div v-if="attachments.length === 0 && !isUploadingAttachment" class="text-center py-6 text-gray-400">
+              <UIcon name="i-lucide-paperclip" class="w-8 h-8 mx-auto mb-1.5 opacity-40" />
+              <p class="text-sm">
+                ยังไม่มีไฟล์แนบ
+              </p>
+            </div>
+
+            <div v-if="isUploadingAttachment" class="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+              <UIcon name="i-lucide-loader" class="animate-spin text-blue-500 w-4 h-4" />
+              <span class="text-sm text-blue-700">กำลังอัปโหลด...</span>
+            </div>
+          </div>
+        </UCard>
+
+        <!-- 5. ACTION BUTTONS -->
+        <div class="flex flex-col gap-2.5">
+          <template v-if="requestData?.status === 'draft'">
+            <UButton
+              block
+              color="primary"
+              size="lg"
+              icon="i-lucide-save"
+              :loading="isSaving"
+              :disabled="studentFields.length === 0"
+              @click="saveFieldValues"
+            >
+              บันทึก
+            </UButton>
+            <UButton
+              block
+              color="success"
+              size="lg"
+              icon="i-lucide-send"
+              :loading="isSaving"
+              :disabled="studentFields.length === 0"
+              @click="submitRequest"
+            >
+              ยืนยันการยื่นคำร้อง
+            </UButton>
+          </template>
+          <UButton
+            block
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-arrow-left"
+            :to="localePath('/student/my-requests')"
+          >
+            กลับไปยังคำร้องของฉัน
+          </UButton>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.field-group {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.field-group:last-child {
-  border-bottom: none;
-}
-</style>

@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { h, resolveComponent } from 'vue';
+
 definePageMeta({
   title: 'myRequests',
 });
@@ -8,18 +10,15 @@ const { t, locale } = useI18n();
 const router = useRouter();
 const localePath = useLocalePath();
 
-// TODO: Replace with real auth when implemented
-const TEST_USER_ID = 1;
-
 // === Type Definitions ===
-type RequestStatus = 'draft' | 'submitted' | 'pending' | 'approved' | 'rejected' | 'completed';
+type RequestStatus = 'draft' | 'submitted' | 'pending' | 'in_progress' | 'rejected' | 'completed';
 
 // === Status Helpers ===
 const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
   draft: 'neutral',
   submitted: 'info',
   pending: 'warning',
-  approved: 'success',
+  in_progress: 'warning',
   rejected: 'error',
   completed: 'success',
 };
@@ -34,7 +33,7 @@ function getStatusLabel(status: string): string {
     draft: t('draft'),
     submitted: t('submitted'),
     pending: t('pending'),
-    approved: t('approved'),
+    in_progress: 'กำลังดำเนินการ',
     rejected: t('rejected'),
     completed: t('completed'),
   };
@@ -53,11 +52,27 @@ function formatDate(dateStr: string | null): string {
 }
 
 // === Table Configuration ===
+const UButton = resolveComponent('UButton');
+const UBadge = resolveComponent('UBadge');
+
 const columns: any[] = [
   { accessorKey: 'id', header: t('requestId') || 'Request ID' },
   { accessorKey: 'templateName', header: t('requestTitle') || 'Topic' },
   { accessorKey: 'createdAt', header: t('submittedDate') || 'Date' },
   { accessorKey: 'status', header: t('status') || 'Status' },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }: any) =>
+      h(UButton, {
+        size: 'xs',
+        variant: 'ghost',
+        color: 'neutral',
+        icon: 'i-lucide-eye',
+        label: 'ดูรายละเอียด',
+        onClick: () => router.push(localePath(`/student/my-requests/${row.original.id}`)),
+      }),
+  },
 ];
 
 // === Filter Options ===
@@ -65,8 +80,7 @@ const statusOptions = [
   { label: t('allStatuses') || 'All Statuses', value: undefined },
   { label: t('draft'), value: 'draft' },
   { label: t('submitted'), value: 'submitted' },
-  { label: t('pending'), value: 'pending' },
-  { label: t('approved'), value: 'approved' },
+  { label: 'กำลังดำเนินการ', value: 'in_progress' },
   { label: t('rejected'), value: 'rejected' },
   { label: t('completed'), value: 'completed' },
 ];
@@ -86,7 +100,7 @@ watch([searchQuery, selectedStatus], () => {
 const queryParams = computed(() => ({
   page: page.value,
   limit: pageCount,
-  createdBy: TEST_USER_ID,
+  mine: 'true',
   ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
   ...(searchQuery.value ? { search: searchQuery.value } : {}),
 }));
