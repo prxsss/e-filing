@@ -1,6 +1,7 @@
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '../../../lib/db';
+import { users } from '../../../lib/db/schema/auth';
 import { request } from '../../../lib/db/schema/request';
 import { requestTemplate } from '../../../lib/db/schema/request-template';
 
@@ -49,11 +50,12 @@ export default defineEventHandler(async (event) => {
       .select({ count: count() })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
+      .leftJoin(users, eq(request.userId, users.id))
       .where(whereClause);
 
     const total = totalResult?.count ?? 0;
 
-    // Get paginated data with template name
+    // Get paginated data with template name and requester info
     const data = await db
       .select({
         id: request.id,
@@ -62,12 +64,14 @@ export default defineEventHandler(async (event) => {
         templateCategory: requestTemplate.category,
         status: request.status,
         createdBy: request.createdBy,
+        requesterName: sql<string>`CONCAT(${users.firstNameEn}, ' ', ${users.lastNameEn})`,
         submittedAt: request.submittedAt,
         filledDocumentUrl: request.filledDocumentUrl,
         createdAt: request.createdAt,
       })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
+      .leftJoin(users, eq(request.userId, users.id))
       .where(whereClause)
       .orderBy(desc(request.createdAt))
       .limit(limit)
