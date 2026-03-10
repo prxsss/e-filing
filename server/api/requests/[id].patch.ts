@@ -35,12 +35,23 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 403, message: 'Forbidden' });
     }
 
+    // Allowlist: only draft-stage fields may be patched by the owner
+    const allowedStatuses = ['draft', 'submitted'] as const;
+    type AllowedStatus = typeof allowedStatuses[number];
+    const newStatus: AllowedStatus | undefined = allowedStatuses.includes(body.status)
+      ? body.status as AllowedStatus
+      : undefined;
+
+    if (body.status !== undefined && !newStatus) {
+      return { success: false, error: 'Invalid status value' };
+    }
+
     // Update request
     await db
       .update(request)
       .set({
-        status: body.status,
-        submittedAt: body.submittedAt ? new Date(body.submittedAt) : null,
+        ...(newStatus ? { status: newStatus } : {}),
+        ...(body.submittedAt ? { submittedAt: new Date(body.submittedAt) } : {}),
       })
       .where(eq(request.id, requestId));
 

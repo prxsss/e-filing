@@ -166,19 +166,30 @@ async function fetchTemplateData() {
         pdfFile.value = await urlToFile(templateData.value.documentUrl, filename);
       }
 
-      if (templateData.value?.placedFieldsData) {
-        // Exclude signature fields: stored with snake_case `is_fillable: false` and type `Signature`
-        placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
-          (field: any) =>
-            field.isFillable !== false
-            && field.is_fillable !== false
-            && field.type !== 'Signature',
-        );
-      }
-
       if (templateData.value?.signingFlowData) {
         signingSteps.value = templateData.value.signingFlowData;
         // fetchUsersForRecipientSteps is triggered via watcher on recipientSteps
+      }
+
+      if (templateData.value?.placedFieldsData) {
+        // Show only the student's own fields (matched by signerStepId) or unassigned fields
+        const currentRoleName = user.value?.currentRole ?? '';
+        const studentStep = signingSteps.value.find(s => s.roleName === currentRoleName);
+        const studentStepId = studentStep?.id ?? null;
+
+        placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
+          (field: any) => {
+            if (field.isFillable === false || field.is_fillable === false)
+              return false;
+            if (field.type === 'Signature')
+              return false;
+            if (studentStepId) {
+              const stepId = field.signerStepId ?? field.signer_step_id ?? null;
+              return !stepId || stepId === studentStepId;
+            }
+            return true;
+          },
+        );
       }
     }
     else {
