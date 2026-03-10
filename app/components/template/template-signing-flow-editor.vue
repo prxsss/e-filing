@@ -113,16 +113,13 @@ function onUserSelected(stepId: string, userId: string | undefined): void {
   emit('update:signingSteps', updatedSteps);
 }
 
-// Roles formatted for USelect (filter out already-used roles)
+// Roles formatted for USelect
 const roleItems = computed(() => {
-  const usedRoleIds = props.signingSteps.map(s => s.roleId).filter(Boolean);
-  return roles.value
-    .filter(r => !usedRoleIds.includes(r.id))
-    .map(r => ({
-      label: r.name,
-      value: r.id,
-      description: getRoleDescription(r),
-    }));
+  return roles.value.map(r => ({
+    label: r.name,
+    value: r.id,
+    description: getRoleDescription(r),
+  }));
 });
 
 // Selected role object (for auto-filling description)
