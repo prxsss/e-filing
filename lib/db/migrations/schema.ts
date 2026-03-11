@@ -53,6 +53,7 @@ export const signatures = pgTable("signatures", {
 	userId: text("user_id").notNull(),
 	fieldInstanceId: text("field_instance_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	pdfHash: text("pdf_hash"),
 });
 
 export const signatureFlow = pgTable("signature_flow", {
@@ -69,7 +70,19 @@ export const signatureFlow = pgTable("signature_flow", {
 	signedBy: text("signed_by"),
 	signedAt: timestamp("signed_at", { withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
+	assignedUserId: text("assigned_user_id"),
+}, (table) => [
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [request.id],
+			name: "signature_flow_request_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [roles.id],
+			name: "signature_flow_role_id_fkey"
+		}),
+]);
 
 export const attachments = pgTable("attachments", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -130,18 +143,12 @@ export const requestTemplate = pgTable("request_template", {
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
 	name: text(),
 	description: text(),
-	tag: text(),
 	version: text(),
 	isActive: boolean("is_active"),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	createdBy: bigint("created_by", { mode: "number" }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	category: text(),
 	documentUrl: text("document_url"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	documentWidth: bigint("document_width", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	documentHeight: bigint("document_height", { mode: "number" }),
 	placedFieldsData: jsonb("placed_fields_data"),
 	signingFlowData: jsonb("signing_flow_data"),
 });
@@ -163,21 +170,6 @@ export const requestTemplateValues = pgTable("request_template_values", {
 		}),
 ]);
 
-export const signatureFlowOld = pgTable("signature_flow_old", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signature_flow_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	requestId: bigint("request_id", { mode: "number" }).notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	signerId: bigint("signer_id", { mode: "number" }).notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	order: bigint({ mode: "number" }),
-	status: text(),
-	signedAt: timestamp("signed_at", { mode: 'string' }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	signerUserId: text("signer_user_id"),
-});
-
 export const roles = pgTable("roles", {
 	id: serial().primaryKey().notNull(),
 	name: varchar({ length: 50 }).notNull(),
@@ -186,16 +178,6 @@ export const roles = pgTable("roles", {
 }, (table) => [
 	unique("roles_name_unique").on(table.name),
 ]);
-
-export const signaturesOld = pgTable("signatures_old", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signatures_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	userId: bigint("user_id", { mode: "number" }),
-	type: text(),
-	data: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
 
 export const requestTemplateFields = pgTable("request_template_fields", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

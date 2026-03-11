@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TableRow } from '@nuxt/ui';
+
 import { h, resolveComponent } from 'vue';
 
 definePageMeta({
@@ -46,30 +48,29 @@ function formatDate(dateStr: string | null): string {
 }
 
 // === Table Columns ===
-const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
+const UIcon = resolveComponent('UIcon');
 
 const columns: any[] = [
   { accessorKey: 'id', header: t('requestId'), size: 80 },
-  { accessorKey: 'templateName', header: t('requestTitle') },
-  { accessorKey: 'templateCategory', header: 'หมวดหมู่', size: 120 },
-  { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
+  { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
   { accessorKey: 'status', header: t('status'), size: 150 },
+  { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
   {
-    id: 'actions',
+    id: 'navigate',
     header: '',
-    size: 100,
-    cell: ({ row }: any) =>
-      h(UButton, {
-        size: 'xs',
-        variant: 'ghost',
-        color: 'neutral',
-        icon: 'i-lucide-eye',
-        label: 'ดูรายละเอียด',
-        onClick: () => router.push(localePath(`/admin/requests/${row.original.id}`)),
+    size: 40,
+    cell: () =>
+      h(UIcon, {
+        name: 'i-lucide-chevron-right',
+        class: 'w-5 h-5 text-gray-400',
       }),
   },
 ];
+
+function onRowSelect(_e: Event, row: TableRow<any>) {
+  router.push(localePath(`/admin/requests/${row.original.id}`));
+}
 
 // === Filter State ===
 const statusOptions = [
@@ -106,12 +107,12 @@ const total = computed(() => response.value?.meta?.total ?? 0);
 
 // === Stats ===
 const statsMap = computed(() => {
-  const list = requests.value;
+  const counts = response.value?.meta?.statusCounts;
   return {
     total: total.value,
-    in_progress: list.filter((r: any) => r.status === 'in_progress').length,
-    rejected: list.filter((r: any) => r.status === 'rejected').length,
-    completed: list.filter((r: any) => r.status === 'completed').length,
+    in_progress: counts?.in_progress ?? 0,
+    rejected: counts?.rejected ?? 0,
+    completed: counts?.completed ?? 0,
   };
 });
 
@@ -161,7 +162,7 @@ function clearFilters() {
           {{ statsMap.in_progress }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          กำลังดำเนินการ (หน้านี้)
+          กำลังดำเนินการ
         </div>
       </UCard>
       <UCard class="p-4">
@@ -169,7 +170,7 @@ function clearFilters() {
           {{ statsMap.rejected }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          ปฏิเสธ (หน้านี้)
+          ปฏิเสธ
         </div>
       </UCard>
       <UCard class="p-4">
@@ -177,7 +178,7 @@ function clearFilters() {
           {{ statsMap.completed }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          เสร็จสิ้น (หน้านี้)
+          เสร็จสิ้น
         </div>
       </UCard>
     </div>
@@ -219,7 +220,9 @@ function clearFilters() {
         :data="requests"
         :columns="columns"
         :loading="fetchStatus === 'pending'"
+        :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
+        @select="onRowSelect"
       >
         <template #createdAt-cell="{ row }">
           {{ formatDate(row.original.submittedAt || row.original.createdAt) }}
@@ -232,9 +235,6 @@ function clearFilters() {
           >
             {{ getStatusLabel(row.original.status ?? '') }}
           </UBadge>
-        </template>
-        <template #templateCategory-cell="{ row }">
-          <span class="text-sm text-gray-500">{{ row.original.templateCategory || '-' }}</span>
         </template>
       </UTable>
 

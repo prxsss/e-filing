@@ -33,7 +33,7 @@ const sidebarItems = computed(() => [{
 }, {
   label: t('toSign'),
   icon: 'i-lucide-pen-tool',
-  to: localePath('/student/to-sign'),
+  to: localePath('/teacher/to-sign'),
   onSelect: () => {
     open.value = false;
   },

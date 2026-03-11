@@ -45,15 +45,20 @@ export default defineEventHandler(async (event) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Get total count
-    const [totalResult] = await db
-      .select({ count: count() })
+    // Get total count + status counts in one query
+    const [countResult] = await db
+      .select({
+        total: count(),
+        inProgress: count(sql`CASE WHEN ${request.status} = 'in_progress' THEN 1 END`),
+        rejected: count(sql`CASE WHEN ${request.status} = 'rejected' THEN 1 END`),
+        completed: count(sql`CASE WHEN ${request.status} = 'completed' THEN 1 END`),
+      })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
       .leftJoin(users, eq(request.userId, users.id))
       .where(whereClause);
 
-    const total = totalResult?.count ?? 0;
+    const total = countResult?.total ?? 0;
 
     // Get paginated data with template name and requester info
     const data = await db
@@ -61,7 +66,6 @@ export default defineEventHandler(async (event) => {
         id: request.id,
         templateId: request.templateId,
         templateName: requestTemplate.name,
-        templateCategory: requestTemplate.category,
         status: request.status,
         createdBy: request.createdBy,
         requesterName: sql<string>`CONCAT(${users.firstNameEn}, ' ', ${users.lastNameEn})`,
@@ -85,6 +89,11 @@ export default defineEventHandler(async (event) => {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        statusCounts: {
+          in_progress: countResult?.inProgress ?? 0,
+          rejected: countResult?.rejected ?? 0,
+          completed: countResult?.completed ?? 0,
+        },
       },
     };
   }

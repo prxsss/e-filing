@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { faculties, users, request, attachments, requestTemplateValues, permissions, rolePermissions, roles, userRoles } from "./schema";
+import { faculties, users, request, signatureFlow, roles, attachments, requestTemplateValues, permissions, rolePermissions, userRoles } from "./schema";
 
 export const usersRelations = relations(users, ({one, many}) => ({
 	faculty: one(faculties, {
@@ -13,16 +13,34 @@ export const facultiesRelations = relations(faculties, ({many}) => ({
 	users: many(users),
 }));
 
+export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
+	request: one(request, {
+		fields: [signatureFlow.requestId],
+		references: [request.id]
+	}),
+	role: one(roles, {
+		fields: [signatureFlow.roleId],
+		references: [roles.id]
+	}),
+}));
+
+export const requestRelations = relations(request, ({many}) => ({
+	signatureFlows: many(signatureFlow),
+	attachments: many(attachments),
+	requestTemplateValues: many(requestTemplateValues),
+}));
+
+export const rolesRelations = relations(roles, ({many}) => ({
+	signatureFlows: many(signatureFlow),
+	rolePermissions: many(rolePermissions),
+	userRoles: many(userRoles),
+}));
+
 export const attachmentsRelations = relations(attachments, ({one}) => ({
 	request: one(request, {
 		fields: [attachments.requestId],
 		references: [request.id]
 	}),
-}));
-
-export const requestRelations = relations(request, ({many}) => ({
-	attachments: many(attachments),
-	requestTemplateValues: many(requestTemplateValues),
 }));
 
 export const requestTemplateValuesRelations = relations(requestTemplateValues, ({one}) => ({
@@ -45,11 +63,6 @@ export const rolePermissionsRelations = relations(rolePermissions, ({one}) => ({
 
 export const permissionsRelations = relations(permissions, ({many}) => ({
 	rolePermissions: many(rolePermissions),
-}));
-
-export const rolesRelations = relations(roles, ({many}) => ({
-	rolePermissions: many(rolePermissions),
-	userRoles: many(userRoles),
 }));
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({

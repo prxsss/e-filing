@@ -6,17 +6,6 @@ export const signatures = pgTable('signatures', {
   signatureFlowId: bigint('signature_flow_id', { mode: 'number' }),
   userId: text('user_id').notNull(),
   fieldInstanceId: text('field_instance_id'),
-  /** SHA-256 hex digest of the signed PDF bytes for tamper detection */
-  pdfHash: text('pdf_hash'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
-
-export const signaturesOld = pgTable('signatures_old', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
-  requestId: bigint('request_id', { mode: 'number' }).notNull(),
-  signatureFlowId: bigint('signature_flow_id', { mode: 'number' }),
-  userId: text('user_id').notNull(),
-  dataUrl: text('data_url').notNull(),
-  fieldInstanceId: text('field_instance_id'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  pdfHash: text('pdf_hash'),
 });
