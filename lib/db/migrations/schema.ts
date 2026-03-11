@@ -51,7 +51,6 @@ export const signatures = pgTable("signatures", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	signatureFlowId: bigint("signature_flow_id", { mode: "number" }),
 	userId: text("user_id").notNull(),
-	dataUrl: text("data_url").notNull(),
 	fieldInstanceId: text("field_instance_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
