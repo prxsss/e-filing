@@ -138,7 +138,7 @@ export default defineEventHandler(async (event) => {
       // auto-signed → 'signed' (submission = acknowledgement)
       // first non-auto-signed step → 'pending'  (next person to act)
       // rest → 'waiting'
-      const now = new Date();
+      const now = new Date().toISOString();
       let firstPendingAssigned = false;
       const flowEntries = draftEntries.map(({ autoSigned, ...entry }) => {
         if (autoSigned) {
