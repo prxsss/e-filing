@@ -297,7 +297,7 @@ onMounted(() => {
           icon="i-lucide-arrow-left"
           variant="ghost"
           color="neutral"
-          to="/student/to-sign"
+          to="/teacher/to-sign"
         />
         <div>
           <h1 class="text-xl font-bold text-slate-800">

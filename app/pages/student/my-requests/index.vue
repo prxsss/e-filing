@@ -58,7 +58,8 @@ const UBadge = resolveComponent('UBadge');
 const columns: any[] = [
   { accessorKey: 'id', header: t('requestId') || 'Request ID' },
   { accessorKey: 'templateName', header: t('requestTitle') || 'Topic' },
-  { accessorKey: 'createdAt', header: t('submittedDate') || 'Date' },
+  { accessorKey: 'createdAt', header: t('submittedDate') || 'Created Date' },
+  { accessorKey: 'submittedAt', header: t('updatedDate') || 'Updated Date' },
   { accessorKey: 'status', header: t('status') || 'Status' },
   {
     id: 'actions',
@@ -172,7 +173,10 @@ function handleNewRequest() {
         empty=" "
       >
         <template #createdAt-cell="{ row }">
-          {{ formatDate(row.original.submittedAt || row.original.createdAt) }}
+          {{ formatDate(row.original.createdAt) }}
+        </template>
+        <template #submittedAt-cell="{ row }">
+          {{ formatDate(row.original.submittedAt) }}
         </template>
         <template #status-cell="{ row }">
           <UBadge

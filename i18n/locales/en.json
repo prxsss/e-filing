@@ -110,7 +110,7 @@
   "next": "Next",
   "previous": "Previous",
   "addSigningStep": "Add Step",
-  "selectRole": "Select a role...",
+  "selectRole": "Select a signer",
   "assignedFields": "Assigned Fields",
   "unassignedFields": "Unassigned Fields",
   "signingStepRequired": "At least 1 signing step is required",
@@ -133,7 +133,7 @@
   "fieldCount": "Field Count",
   "signingFlowOverview": "Signing Flow Overview",
   "fields": "fields",
-  "selectPerson": "Select person (optional)",
+  "selectPerson": "Assign person (optional)",
   "noUsersWithRole": "No users with this role",
   "confirmSave": "Confirm & Save Template"
 

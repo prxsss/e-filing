@@ -414,6 +414,7 @@ watch(() => props.signingSteps.length, (newLen) => {
             size="sm"
             :loading="isLoadingRoles"
             icon="i-heroicons-user-circle"
+            class="w-full"
           />
           <!-- Show selected role description -->
           <p v-if="getRoleDescription(selectedNewRole)" class="text-xs text-gray-500 bg-white rounded px-2 py-1.5 border border-gray-200">

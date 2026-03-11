@@ -198,7 +198,7 @@ export default defineEventHandler(async (event) => {
     // Mark current step as signed
     await db
       .update(signatureFlow)
-      .set({ status: 'signed', signedBy: session.user.id, signedAt: new Date() })
+      .set({ status: 'signed', signedBy: session.user.id, signedAt: new Date().toISOString() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
     // ── Advance workflow ─────────────────────────────────────────────────────

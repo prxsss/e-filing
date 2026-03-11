@@ -40,7 +40,7 @@ const sidebarItems = computed(() => [{
 }, {
   label: t('completed'),
   icon: 'i-lucide-circle-check',
-  to: localePath('/student/completed'),
+  to: localePath('/teacher/completed'),
   onSelect: () => {
     open.value = false;
   },

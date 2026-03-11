@@ -236,8 +236,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- First Name (EN) -->
               <UFormField
-                label="Full Name (EN)"
-                name="fullNameEn"
+                label="First Name (EN)"
+                name="firstNameEn"
                 required
               >
                 <UInput
