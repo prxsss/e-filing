@@ -5,8 +5,8 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<{
     name: string;
-    descriptionEN?: string | null;
-    descriptionTH?: string | null;
+    descriptionEn?: string | null;
+    descriptionTh?: string | null;
     permissionIds?: number[];
   }>(event);
 
@@ -21,8 +21,8 @@ export default defineEventHandler(async (event) => {
   try {
     const role = await createRole({
       name: body.name.trim(),
-      descriptionEN: body.descriptionEN,
-      descriptionTH: body.descriptionTH,
+      descriptionEn: body.descriptionEn,
+      descriptionTh: body.descriptionTh,
       permissionIds: body.permissionIds,
     });
 

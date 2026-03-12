@@ -5,8 +5,8 @@ const props = defineProps<{
   role: {
     id: number;
     name: string;
-    descriptionEN: string | null;
-    descriptionTH: string | null;
+    descriptionEn: string | null;
+    descriptionTh: string | null;
   };
 }>();
 
@@ -18,16 +18,16 @@ const loading = ref(false);
 
 const editRoleSchema = z.object({
   name: z.string().min(1, 'Role name is required'),
-  descriptionEN: z.string().optional(),
-  descriptionTH: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  descriptionTh: z.string().optional(),
 });
 
 type EditRoleSchema = z.output<typeof editRoleSchema>;
 
 const form = ref<EditRoleSchema>({
   name: props.role.name,
-  descriptionEN: props.role.descriptionEN ?? '',
-  descriptionTH: props.role.descriptionTH ?? '',
+  descriptionEn: props.role.descriptionEn ?? '',
+  descriptionTh: props.role.descriptionTh ?? '',
 });
 
 async function handleSubmit(event: { data: EditRoleSchema }) {
@@ -37,8 +37,8 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
       method: 'PATCH',
       body: {
         name: event.data.name,
-        descriptionEN: event.data.descriptionEN || null,
-        descriptionTH: event.data.descriptionTH || null,
+        descriptionEn: event.data.descriptionEn || null,
+        descriptionTh: event.data.descriptionTh || null,
       },
     });
     toast.add({ title: t('editRole'), description: t('roleUpdatedSuccess'), color: 'success' });
@@ -62,12 +62,12 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
           <UInput v-model="form.name" :placeholder="t('roleNamePlaceholder')" class="w-full" />
         </UFormField>
 
-        <UFormField :label="t('descriptionEN')" name="descriptionEN">
-          <UTextarea v-model="form.descriptionEN" :placeholder="t('descriptionENPlaceholder')" class="w-full" :rows="3" />
+        <UFormField :label="t('descriptionEn')" name="descriptionEn">
+          <UTextarea v-model="form.descriptionEn" :placeholder="t('descriptionEnPlaceholder')" class="w-full" :rows="3" />
         </UFormField>
 
-        <UFormField :label="t('descriptionTH')" name="descriptionTH">
-          <UTextarea v-model="form.descriptionTH" :placeholder="t('descriptionTHPlaceholder')" class="w-full" :rows="3" />
+        <UFormField :label="t('descriptionTh')" name="descriptionTh">
+          <UTextarea v-model="form.descriptionTh" :placeholder="t('descriptionThPlaceholder')" class="w-full" :rows="3" />
         </UFormField>
 
         <div class="flex justify-end gap-3 pt-2">

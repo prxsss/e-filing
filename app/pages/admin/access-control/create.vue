@@ -21,8 +21,8 @@ const searchQuery = ref('');
 // ── Form Schema ──
 const createRoleSchema = z.object({
   name: z.string().min(1, 'Role name is required'),
-  descriptionEN: z.string().optional(),
-  descriptionTH: z.string().optional(),
+  descriptionEn: z.string().optional(),
+  descriptionTh: z.string().optional(),
   permissionIds: z.array(z.number()),
 });
 
@@ -30,8 +30,8 @@ type CreateRoleSchema = z.output<typeof createRoleSchema>;
 
 const form = ref<Partial<CreateRoleSchema>>({
   name: '',
-  descriptionEN: '',
-  descriptionTH: '',
+  descriptionEn: '',
+  descriptionTh: '',
   permissionIds: [],
 });
 
@@ -39,8 +39,8 @@ const form = ref<Partial<CreateRoleSchema>>({
 const { data: permissions } = await useFetch<{
   id: number;
   code: string;
-  descriptionEN: string | null;
-  descriptionTH: string | null;
+  descriptionEn: string | null;
+  descriptionTh: string | null;
 }[]>('/api/permissions');
 
 // ── Group permissions by module ──
@@ -81,8 +81,8 @@ const filteredModules = computed(() => {
       const filtered = mod.permissions.filter(
         p =>
           p.code.toLowerCase().includes(query)
-          || p.descriptionEN?.toLowerCase().includes(query)
-          || p.descriptionTH?.toLowerCase().includes(query),
+          || p.descriptionEn?.toLowerCase().includes(query)
+          || p.descriptionTh?.toLowerCase().includes(query),
       );
       return { ...mod, permissions: filtered };
     })
@@ -109,8 +109,8 @@ const selectedCount = computed(() => form.value.permissionIds?.length ?? 0);
 watch(form, () => {
   isDirty.value = !!(
     form.value.name
-    || form.value.descriptionEN
-    || form.value.descriptionTH
+    || form.value.descriptionEn
+    || form.value.descriptionTh
     || (form.value.permissionIds && form.value.permissionIds.length > 0)
   );
 }, { deep: true });
@@ -123,8 +123,8 @@ async function handleCreateRole(event: FormSubmitEvent<CreateRoleSchema>) {
       method: 'POST',
       body: {
         name: event.data.name,
-        descriptionEN: event.data.descriptionEN || null,
-        descriptionTH: event.data.descriptionTH || null,
+        descriptionEn: event.data.descriptionEn || null,
+        descriptionTh: event.data.descriptionTh || null,
         permissionIds: event.data.permissionIds,
       },
     });
@@ -223,20 +223,20 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
           <div class="hidden md:block" />
 
           <!-- Description EN -->
-          <UFormField :label="t('descriptionEN')" name="descriptionEN">
+          <UFormField :label="t('descriptionEn')" name="descriptionEn">
             <UTextarea
-              v-model="form.descriptionEN"
-              :placeholder="t('descriptionENPlaceholder')"
+              v-model="form.descriptionEn"
+              :placeholder="t('descriptionEnPlaceholder')"
               class="w-full"
               :rows="3"
             />
           </UFormField>
 
           <!-- Description TH -->
-          <UFormField :label="t('descriptionTH')" name="descriptionTH">
+          <UFormField :label="t('descriptionTh')" name="descriptionTh">
             <UTextarea
-              v-model="form.descriptionTH"
-              :placeholder="t('descriptionTHPlaceholder')"
+              v-model="form.descriptionTh"
+              :placeholder="t('descriptionThPlaceholder')"
               class="w-full"
               :rows="3"
             />
@@ -309,7 +309,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 <div class="ml-3">
                   <span class="block text-sm font-semibold">{{ perm.code }}</span>
                   <span class="block text-xs text-dimmed italic mt-0.5">
-                    {{ locale === 'en' ? perm.descriptionEN : perm.descriptionTH }}
+                    {{ locale === 'en' ? perm.descriptionEn : perm.descriptionTh }}
                   </span>
                 </div>
               </label>
