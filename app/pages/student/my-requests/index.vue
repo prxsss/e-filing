@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import type { TableRow } from '@nuxt/ui';
+
 import { h, resolveComponent } from 'vue';
 
 definePageMeta({
@@ -48,33 +50,36 @@ function formatDate(dateStr: string | null): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
 // === Table Configuration ===
-const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
+const UIcon = resolveComponent('UIcon');
 
 const columns: any[] = [
   { accessorKey: 'id', header: t('requestId') || 'Request ID' },
   { accessorKey: 'templateName', header: t('requestTitle') || 'Topic' },
   { accessorKey: 'createdAt', header: t('submittedDate') || 'Created Date' },
-  { accessorKey: 'submittedAt', header: t('updatedDate') || 'Updated Date' },
+  { accessorKey: 'submittedAt', header: t('lastUpdated') || 'Last Updated' },
   { accessorKey: 'status', header: t('status') || 'Status' },
   {
-    id: 'actions',
+    id: 'navigate',
     header: '',
-    cell: ({ row }: any) =>
-      h(UButton, {
-        size: 'xs',
-        variant: 'ghost',
-        color: 'neutral',
-        icon: 'i-lucide-eye',
-        label: 'ดูรายละเอียด',
-        onClick: () => router.push(localePath(`/student/my-requests/${row.original.id}`)),
+    size: 40,
+    cell: () =>
+      h(UIcon, {
+        name: 'i-lucide-chevron-right',
+        class: 'w-5 h-5 text-gray-400',
       }),
   },
 ];
+
+function onRowSelect(_e: Event, row: TableRow<any>) {
+  router.push(localePath(`/student/my-requests/${row.original.id}`));
+}
 
 // === Filter Options ===
 const statusOptions = [
@@ -125,11 +130,11 @@ function handleNewRequest() {
     <!-- 1. Page Header -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-bold  flex items-center gap-2">
+        <h2 class="text-2xl font-bold flex items-center gap-2">
           <UIcon name="i-heroicons-folder-open" class="text-primary-500" />
           {{ t('myRequests') || 'รายการคำร้องของฉัน' }}
         </h2>
-        <p class="text-sm  mt-1">
+        <p class="text-sm mt-1">
           ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด
         </p>
       </div>
@@ -170,7 +175,9 @@ function handleNewRequest() {
         :data="requests"
         :columns="columns"
         :loading="fetchStatus === 'pending'"
+        :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
+        @select="onRowSelect"
       >
         <template #createdAt-cell="{ row }">
           {{ formatDate(row.original.createdAt) }}

@@ -14,7 +14,7 @@ type Template = {
 const router = useRouter();
 const searchQuery = ref('');
 
-const { data: templatesData, status, error } = await useFetch<{ success: boolean; data: Template[] }>('/api/templates');
+const { data: templatesData, status, error } = await useFetch<{ success: boolean; data: Template[] }>('/api/pdf-templates');
 
 const activeTemplates = computed<Template[]>(() => {
   if (!templatesData.value?.data)
@@ -34,7 +34,7 @@ const filteredRequests = computed(() => {
 });
 
 function handleSelectRequest(templateId: number) {
-  router.push(`/student/new-requests/${templateId}`);
+  router.push(`/student/new-request/${templateId}`);
 }
 </script>
 

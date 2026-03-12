@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableRow } from '@nuxt/ui';
 
+// import { access } from 'node:fs';
 import { h, resolveComponent } from 'vue';
 
 definePageMeta({
@@ -56,6 +57,7 @@ const columns: any[] = [
   { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
   { accessorKey: 'status', header: t('status'), size: 150 },
   { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
+  { accessorKey: 'submittedAt', header: t('lastUpdated'), size: 165 },
   {
     id: 'navigate',
     header: '',
@@ -225,7 +227,10 @@ function clearFilters() {
         @select="onRowSelect"
       >
         <template #createdAt-cell="{ row }">
-          {{ formatDate(row.original.submittedAt || row.original.createdAt) }}
+          {{ formatDate(row.original.createdAt) }}
+        </template>
+        <template #submittedAt-cell="{ row }">
+          {{ formatDate(row.original.submittedAt) }}
         </template>
         <template #status-cell="{ row }">
           <UBadge

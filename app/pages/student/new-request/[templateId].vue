@@ -156,7 +156,7 @@ async function fetchTemplateData() {
       return;
     }
 
-    const templateResult: any = await $fetch(`/api/templates/${templateId}`);
+    const templateResult: any = await $fetch(`/api/pdf-templates/${templateId}`);
 
     if (templateResult.success && templateResult.data) {
       templateData.value = templateResult.data as TemplateData;
@@ -428,7 +428,7 @@ watch(recipientSteps, (steps) => {
             {{ error }}
           </p>
           <UButton @click="$router.push('/student/new-request')">
-            Back to Request Types
+            Back to Request
           </UButton>
         </div>
       </UCard>
@@ -653,7 +653,7 @@ watch(recipientSteps, (steps) => {
               @click="$router.push('/student/new-request')"
             >
               <i class="fas fa-arrow-left mr-2" />
-              Back to Request Types
+              Back to Request
             </UButton>
           </div>
         </div>
