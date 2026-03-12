@@ -1,3 +1,5 @@
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+
 import { boolean, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 import { faculties } from './faculties';
@@ -11,7 +13,7 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').default(false).notNull(),
   passwordHash: text('password_hash').notNull(),
-  facultyId: integer('faculty_id').references(() => faculties.id),
+  facultyId: integer('faculty_id').references((): AnyPgColumn => faculties.id),
   image: text('image'),
   banned: boolean('banned').default(false).notNull(),
   banReason: text('ban_reason'),
