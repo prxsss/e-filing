@@ -13,13 +13,9 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Invalid request ID' };
     }
 
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
-
     const body = await readBody(event);
     const { signatureDataUrl } = body as { signatureDataUrl: string };
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     if (!signatureDataUrl || !signatureDataUrl.startsWith('data:image/')) {
       return { success: false, error: 'Invalid signature data' };
@@ -34,7 +30,7 @@ export default defineEventHandler(async (event) => {
     const userRoleRows = await db
       .select({ roleId: userRoles.roleId })
       .from(userRoles)
-      .where(eq(userRoles.userId, session.user.id));
+      .where(eq(userRoles.userId, userId));
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
@@ -59,7 +55,7 @@ export default defineEventHandler(async (event) => {
     //   Pattern A — direct assignment: assignedUserId === me (role not required)
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
     const isAuthorized
-      = flowEntry.assignedUserId === session.user.id
+      = flowEntry.assignedUserId === userId
         || (flowEntry.assignedUserId === null && userRoleIds.includes(flowEntry.roleId));
 
     if (!isAuthorized) {
@@ -208,7 +204,7 @@ export default defineEventHandler(async (event) => {
     await db.insert(signatures).values({
       requestId,
       signatureFlowId: flowEntry.id,
-      userId: session.user.id,
+      userId,
       dataUrl: signatureUrl, // URL to stored PNG, not raw base64
       fieldInstanceId: assignedIds[0] ?? null,
       pdfHash,
@@ -217,7 +213,7 @@ export default defineEventHandler(async (event) => {
     // Mark current step as signed
     await db
       .update(signatureFlow)
-      .set({ status: 'signed', signedBy: session.user.id, signedAt: new Date() })
+      .set({ status: 'signed', signedBy: userId, signedAt: new Date() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
     // ── Advance workflow ─────────────────────────────────────────────────────

@@ -11,13 +11,9 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Invalid request ID' };
     }
 
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
-
     const body = await readBody(event);
     const reason = (body?.reason as string | undefined)?.trim() ?? '';
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     if (!reason) {
       return { success: false, error: 'กรุณาระบุเหตุผลในการปฏิเสธ' };
@@ -31,7 +27,7 @@ export default defineEventHandler(async (event) => {
     const userRoleRows = await db
       .select({ roleId: userRoles.roleId })
       .from(userRoles)
-      .where(eq(userRoles.userId, session.user.id));
+      .where(eq(userRoles.userId, userId));
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
@@ -54,7 +50,7 @@ export default defineEventHandler(async (event) => {
 
     // Authorization: same dual-pattern as sign.post.ts
     const isAuthorized
-      = flowEntry.assignedUserId === session.user.id
+      = flowEntry.assignedUserId === userId
         || (flowEntry.assignedUserId === null && userRoleIds.includes(flowEntry.roleId));
 
     if (!isAuthorized) {
@@ -78,7 +74,7 @@ export default defineEventHandler(async (event) => {
     // Mark the current step as rejected
     await db
       .update(signatureFlow)
-      .set({ status: 'rejected', signedBy: session.user.id, signedAt: new Date() })
+      .set({ status: 'rejected', signedBy: userId, signedAt: new Date() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
     // Cancel all remaining waiting steps

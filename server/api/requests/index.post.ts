@@ -3,11 +3,7 @@ import { request } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
-
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
     const body = await readBody(event);
 
     if (!body.templateId) {
@@ -20,7 +16,7 @@ export default defineEventHandler(async (event) => {
     // Create new request, always associating it with the authenticated user
     const newRequest = await db.insert(request).values({
       templateId: body.templateId,
-      userId: session.user.id,
+      userId,
       status: 'draft',
     }).returning();
 

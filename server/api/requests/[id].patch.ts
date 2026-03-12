@@ -5,12 +5,8 @@ import { request } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
-
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
     const body = await readBody(event);
 
     if (!requestId) {
@@ -31,7 +27,7 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Request not found' };
     }
 
-    if (existing.userId !== session.user.id) {
+    if (existing.userId !== userId) {
       throw createError({ statusCode: 403, message: 'Forbidden' });
     }
 

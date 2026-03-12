@@ -5,12 +5,8 @@ import { request, requestTemplateValues, signatureFlow, userRoles } from '../../
 
 export default defineEventHandler(async (event) => {
   try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
-
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     if (!requestId) {
       return {
@@ -36,12 +32,12 @@ export default defineEventHandler(async (event) => {
     const record = requestData[0];
 
     // Access control: the requester must be the owner OR have a signing role in this request
-    const isOwner = record.userId === session.user.id;
+    const isOwner = record.userId === userId;
     if (!isOwner) {
       const userRoleRows = await db
         .select({ roleId: userRoles.roleId })
         .from(userRoles)
-        .where(eq(userRoles.userId, session.user.id));
+        .where(eq(userRoles.userId, userId));
       const userRoleIds = userRoleRows.map(r => r.roleId);
 
       const hasSigningRole = userRoleIds.length > 0
