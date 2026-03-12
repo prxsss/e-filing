@@ -1,8 +1,7 @@
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '../../../lib/db';
-import { request } from '../../../lib/db/schema/request';
-import { requestTemplate } from '../../../lib/db/schema/request-template';
+import { request, requestTemplate } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
