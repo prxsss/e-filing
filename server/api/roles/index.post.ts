@@ -1,6 +1,8 @@
 import { createRole } from '~~/lib/db/queries/role';
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'role.create');
+
   const body = await readBody<{
     name: string;
     descriptionEN?: string | null;

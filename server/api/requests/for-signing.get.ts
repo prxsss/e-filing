@@ -4,6 +4,8 @@ import db from '../../../lib/db';
 import { request, requestTemplate, signatureFlow, userRoles, users } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 

@@ -5,6 +5,8 @@ import { request } from '../../../lib/db/schema/request';
 import { requestTemplate } from '../../../lib/db/schema/request-template';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     // Auth required for all access
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware

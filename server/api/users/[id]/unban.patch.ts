@@ -3,6 +3,8 @@ import { users } from '~~/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'user.status');
+
   const id = getRouterParam(event, 'id') as string;
 
   const [user] = await db.select().from (users).where(eq(users.id, id));

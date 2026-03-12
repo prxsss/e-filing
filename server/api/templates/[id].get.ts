@@ -6,6 +6,8 @@ import db from '../../../lib/db';
 import { requestTemplate } from '../../../lib/db/schema/request-template';
 
 export default defineEventHandler(async (event: H3Event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const id = getRouterParam(event, 'id');
 

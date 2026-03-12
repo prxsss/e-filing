@@ -4,6 +4,8 @@ import db from '../../../../lib/db';
 import { request, signatureFlow, userRoles } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
 

@@ -3,6 +3,8 @@ import type { H3Event } from 'h3';
 import { supabaseAdmin } from '../../lib/supabase/client';
 
 export default defineEventHandler(async (event: H3Event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const formData = await readMultipartFormData(event);
 

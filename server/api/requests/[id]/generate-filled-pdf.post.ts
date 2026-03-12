@@ -5,6 +5,8 @@ import { request, requestTemplate, requestTemplateValues } from '../../../../lib
 import { supabaseAdmin } from '../../../../lib/supabase/client';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware

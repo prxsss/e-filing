@@ -8,6 +8,8 @@ const updateRoleSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'role.edit');
+
   const id = Number(getRouterParam(event, 'id'));
   if (Number.isNaN(id)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid role ID' });

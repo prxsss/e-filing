@@ -6,6 +6,8 @@ import { request, requestTemplate, signatureFlow, signatures, userRoles } from '
 import { supabaseAdmin } from '../../../../lib/supabase/client';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
 

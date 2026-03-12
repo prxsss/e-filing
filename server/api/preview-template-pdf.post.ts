@@ -1,6 +1,8 @@
 import { Buffer } from 'node:buffer';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const formData = await readMultipartFormData(event);
 
