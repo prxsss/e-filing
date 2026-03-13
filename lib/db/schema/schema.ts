@@ -1,4 +1,4 @@
-import { pgTable, type AnyPgColumn, foreignKey, unique, text, boolean, integer, timestamp, serial, varchar, bigint, jsonb, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, unique, text, boolean, integer, timestamp, serial, varchar, bigint, jsonb, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const users = pgTable("users", {
@@ -10,7 +10,7 @@ export const users = pgTable("users", {
 	email: text().notNull(),
 	emailVerified: boolean("email_verified").default(false).notNull(),
 	passwordHash: text("password_hash").notNull(),
-	departmentId: integer("department_id").references((): AnyPgColumn => departments.id, { onDelete: "set null" }),
+	departmentId: integer("department_id"),
 	image: text(),
 	banned: boolean().default(false).notNull(),
 	banReason: text("ban_reason"),
@@ -19,6 +19,11 @@ export const users = pgTable("users", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
+	foreignKey({
+			columns: [table.departmentId],
+			foreignColumns: [departments.id],
+			name: "users_department_id_fkey"
+		}).onDelete("set null"),
 	unique("users_email_unique").on(table.email),
 ]);
 
@@ -36,16 +41,40 @@ export const faculties = pgTable("faculties", {
 	facultyCode: varchar("faculty_code", { length: 20 }).notNull(),
 	nameEn: varchar("name_en", { length: 255 }).notNull(),
 	nameTh: varchar("name_th", { length: 255 }).notNull(),
-	deanUserId: text("dean_user_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
-	foreignKey({
-			columns: [table.deanUserId],
-			foreignColumns: [users.id],
-			name: "faculties_dean_user_id_fkey"
-		}),
 	unique("faculties_faculty_code_key").on(table.facultyCode),
+]);
+
+export const userRoles = pgTable("user_roles", {
+	id: serial().primaryKey().notNull(),
+	userId: text("user_id").notNull(),
+	roleId: integer("role_id").notNull(),
+	facultyId: integer("faculty_id"),
+	departmentId: integer("department_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+	foreignKey({
+			columns: [table.departmentId],
+			foreignColumns: [departments.id],
+			name: "user_roles_department_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.facultyId],
+			foreignColumns: [faculties.id],
+			name: "user_roles_faculty_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.roleId],
+			foreignColumns: [roles.id],
+			name: "user_roles_role_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "user_roles_user_id_fkey"
+		}),
 ]);
 
 export const signatures = pgTable("signatures", {
@@ -211,14 +240,8 @@ export const departments = pgTable("departments", {
 	nameEn: varchar("name_en", { length: 255 }).notNull(),
 	nameTh: varchar("name_th", { length: 255 }).notNull(),
 	facultyId: integer("faculty_id").notNull(),
-	headUserId: text("head_user_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
-	foreignKey({
-			columns: [table.headUserId],
-			foreignColumns: [users.id],
-			name: "departments_head_user_id_fkey"
-		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.facultyId],
 			foreignColumns: [faculties.id],
@@ -242,21 +265,4 @@ export const rolePermissions = pgTable("role_permissions", {
 			name: "role_permissions_role_id_roles_id_fk"
 		}),
 	primaryKey({ columns: [table.roleId, table.permissionId], name: "role_permissions_role_id_permission_id_pk"}),
-]);
-
-export const userRoles = pgTable("user_roles", {
-	userId: text("user_id").notNull(),
-	roleId: integer("role_id").notNull(),
-}, (table) => [
-	foreignKey({
-			columns: [table.roleId],
-			foreignColumns: [roles.id],
-			name: "user_roles_role_id_roles_id_fk"
-		}),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "user_roles_user_id_users_id_fk"
-		}),
-	primaryKey({ columns: [table.userId, table.roleId], name: "user_roles_user_id_role_id_pk"}),
 ]);
