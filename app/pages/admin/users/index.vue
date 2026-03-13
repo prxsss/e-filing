@@ -14,6 +14,7 @@ const UBadge = resolveComponent('UBadge');
 
 const router = useRouter();
 const localPath = useLocalePath();
+const { locale } = useI18n();
 
 const authStore = useAuthStore();
 
@@ -35,37 +36,40 @@ const columns: TableColumn<UserListItem>[] = [
     accessorKey: 'fullNameEn',
     header: 'Full Name',
   },
-  // {
-  //   accessorKey: 'email',
-  //   header: 'Email',
-  // },
+  {
+    accessorKey: 'email',
+    header: 'Email',
+  },
   {
     accessorKey: 'roles',
     header: 'Roles',
     cell: ({ row }) => {
-      const roles = row.getValue('roles') as string[];
+      const roles = row.getValue('roles') as { name: string; count: number }[];
       if (roles.length === 0) {
         return h('div', { class: 'text-slate-500' }, 'No roles');
       }
-      return h('div', { class: 'flex flex-wrap gap-1 capitalize' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, role)));
+      return h('div', { class: 'flex flex-wrap gap-1 capitalize' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, `${role.name} ${role.count > 1 ? `(${role.count})` : ''}`)));
     },
   },
   {
-    accessorKey: 'facultyNameEn',
+    accessorKey: 'faculties',
     header: 'Faculty',
     cell: ({ row }) => {
-      const faculty = row.getValue('facultyNameEn') as string | null;
-      return faculty || h('div', '-');
+      const faculties = row.getValue('faculties') as { nameEn: string; nameTh: string }[];
+      if (faculties.length === 0) {
+        return h('div', { class: 'text-slate-500' }, 'No faculties');
+      }
+      return h('div', { class: 'flex flex-wrap gap-1' }, faculties.map(faculty => h('span', null, locale.value === 'en' ? faculty.nameEn : faculty.nameTh)));
     },
   },
-  {
-    accessorKey: 'departmentNameEn',
-    header: 'Department',
-    cell: ({ row }) => {
-      const department = row.getValue('departmentNameEn') as string | null;
-      return department || h('div', '-');
-    },
-  },
+  // {
+  //   accessorKey: 'departmentNameEn',
+  //   header: 'Department',
+  //   cell: ({ row }) => {
+  //     const department = row.getValue('departmentNameEn') as string | null;
+  //     return department || h('div', '-');
+  //   },
+  // },
   {
     accessorKey: 'banned',
     header: 'Status',

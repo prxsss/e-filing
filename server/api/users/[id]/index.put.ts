@@ -6,7 +6,6 @@ import * as z from 'zod';
 const updateUserSchema = z.object({
   firstNameEn: z.string().min(1, 'First name (EN) is required'),
   lastNameEn: z.string().min(1, 'Last name (EN) is required'),
-  facultyId: z.number().nullable(),
 });
 
 export default defineEventHandler(async (event) => {
@@ -24,14 +23,12 @@ export default defineEventHandler(async (event) => {
     .set({
       firstNameEn: body.firstNameEn,
       lastNameEn: body.lastNameEn,
-      facultyId: body.facultyId,
     })
     .where(eq(users.id, id))
     .returning({
       id: users.id,
       firstNameEn: users.firstNameEn,
       lastNameEn: users.lastNameEn,
-      facultyId: users.facultyId,
     });
 
   return {
