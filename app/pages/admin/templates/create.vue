@@ -618,10 +618,17 @@ function removeSelectedField(): void {
 }
 
 function handleKeyDown(event: KeyboardEvent): void {
+  // Prevent moving fields when typing in inputs/textareas
+  const activeTag = document.activeElement?.tagName.toLowerCase();
+  if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+    return;
+  }
+
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
     return;
 
-  const field = selectedField.value;
+  // Find original field instead of computed clone
+  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
   if (!field)
     return;
 
