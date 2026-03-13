@@ -230,25 +230,39 @@ const selectedFieldPreviewValue = computed<string>({
     }
     else {
       delete previewFieldValues.value[key];
+      delete previewSyncedFieldValues.value[key];
     }
   },
 });
+
+function handlePreviewInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  // กรองให้รับแค่ตัวอักษรภาษาไทย ภาษาอังกฤษ ตัวเลข และช่องว่าง (ไม่รับสัญลักษณ์อื่นๆ)
+  // ใช้ \p{L} สำหรับตัวอักษรทุกภาษา, \d สำหรับตัวเลข และ \s สำหรับช่องว่าง
+  const filteredValue = input.value.replace(/[^\p{L}\d\s]/gu, '');
+  if (input.value !== filteredValue) {
+    input.value = filteredValue;
+  }
+  selectedFieldPreviewValue.value = filteredValue;
+}
 
 const previewOverlayFieldValues = computed<Record<string, string>>(() => {
   const values: Record<string, string> = {};
 
   for (const field of placedFields.value) {
     const key = getPreviewFieldKey(field);
-    if (!key)
+    if (!key) {
       continue;
+    }
 
     const currentValue = previewFieldValues.value[key] || '';
     const normalizedCurrent = normalizeFieldValue(currentValue);
-    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
-
-    if (normalizedCurrent.length > 0 && normalizedCurrent !== normalizedSynced) {
-      values[key] = currentValue;
+    if (!normalizedCurrent.length) {
+      continue;
     }
+
+    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
+    values[key] = normalizedCurrent === normalizedSynced ? '' : currentValue;
   }
 
   return values;
@@ -469,29 +483,27 @@ async function processFile(file: File): Promise<void> {
 }
 
 async function refreshPreviewPdf(): Promise<void> {
-  if (fileType.value !== 'pdf' || !uploadedFile.value) {
+  if (!uploadedFile.value || fileType.value !== 'pdf' || !hasPreviewInputs.value) {
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
     return;
   }
 
   const requestToken = ++previewRequestToken;
-  const fieldValueSnapshot = { ...previewFieldValues.value };
-
-  // Prepare placed fields with values for the preview.
-  const previewFields = placedFields.value.map((field) => {
-    const key = getPreviewFieldKey(field);
-    return {
-      ...field,
-      value: key ? fieldValueSnapshot[key] : '',
-      sampleValue: key ? fieldValueSnapshot[key] : '',
-      showFieldHighlight: false, // optional highlight toggle
-    };
-  });
+  const fieldValueSnapshot = Object.fromEntries(
+    placedFields.value.map(field => [getPreviewFieldKey(field), previewFieldValues.value[getPreviewFieldKey(field)] || '']),
+  );
 
   const formData = new FormData();
   formData.append('pdfFile', uploadedFile.value, uploadedFile.value.name);
-  formData.append('fields', JSON.stringify(previewFields));
+  formData.append('fields', JSON.stringify(
+    placedFields.value.map((field: FieldInstance) => ({
+      ...field,
+      sampleValue: fieldValueSnapshot[getPreviewFieldKey(field)] || '',
+      useFallbackLabel: false,
+      showFieldHighlight: false,
+    })),
+  ));
 
   isRefreshingPreview.value = true;
 
@@ -513,11 +525,11 @@ async function refreshPreviewPdf(): Promise<void> {
 
     previewPdfFile.value = new File([
       previewBytes,
-    ], `template-preview-${uploadedFile.value.name}`, { type: 'application/pdf' });
+    ], `template-preview-${Date.now()}.pdf`, { type: 'application/pdf' });
     previewSyncedFieldValues.value = fieldValueSnapshot;
   }
-  catch (err) {
-    console.error('Failed to refresh preview PDF:', err);
+  catch (error) {
+    console.error('Failed to refresh template preview PDF:', error);
   }
   finally {
     if (requestToken === previewRequestToken) {
@@ -529,7 +541,7 @@ async function refreshPreviewPdf(): Promise<void> {
 function schedulePreviewRefresh() {
   clearPreviewRefreshTimer();
 
-  if (fileType.value !== 'pdf' || !uploadedFile.value) {
+  if (!uploadedFile.value || fileType.value !== 'pdf' || !hasPreviewInputs.value) {
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
     return;
@@ -537,7 +549,7 @@ function schedulePreviewRefresh() {
 
   previewRefreshTimer = setTimeout(() => {
     void refreshPreviewPdf();
-  }, 180);
+  }, 220);
 }
 
 function addFieldToPreview(fieldToAdd: Field): void {
@@ -1238,10 +1250,11 @@ watch(
           <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">Preview Output</span>
           <span class="text-xs text-gray-400 truncate max-w-40 shrink-0">{{ selectedField.label || selectedField.name }}</span>
           <input
-            v-model="selectedFieldPreviewValue"
+            :value="selectedFieldPreviewValue"
             type="text"
             class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
             placeholder="พิมพ์ข้อความตัวอย่างเพื่อดูผลลัพธ์จริงบน PDF"
+            @input="handlePreviewInput"
           >
           <UButton
             size="xs"
