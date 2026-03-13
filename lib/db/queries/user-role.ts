@@ -3,10 +3,12 @@ import { and, eq } from 'drizzle-orm';
 import db from '..';
 import { userRoles } from '../schema';
 
-export async function addUserRole(userId: string, roleId: number) {
+export async function addUserRole(userId: string, roleId: number, facultyId?: number | null, departmentId?: number | null) {
   return db.insert(userRoles).values({
     roleId,
     userId,
+    facultyId,
+    departmentId,
   });
 }
 

@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     passwordHash: hashedPassword,
     firstNameTh: body.firstNameTh,
     lastNameTh: body.lastNameTh,
-    facultyId: body.facultyId,
+    // facultyId: body.facultyId,
     image: body.image,
   }).returning();
 

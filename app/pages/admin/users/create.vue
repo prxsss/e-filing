@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import type { FormSubmitEvent } from '@nuxt/ui';
+import type { FormSubmitEvent, TableColumn } from '@nuxt/ui';
 
 import { LazyBaseConfirmDialog } from '#components';
-import { ref } from 'vue';
+import { h, ref, resolveComponent } from 'vue';
 import * as z from 'zod';
 
 import type { Role } from '~/types/user';
+
+const UButton = resolveComponent('UButton');
+// const UBadge = resolveComponent('UBadge');
 
 const localPath = useLocalePath();
 const toast = useToast();
@@ -13,9 +16,12 @@ const overlay = useOverlay();
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
+const open = ref(false);
 const show = ref(false);
 const loading = ref(false);
 const isDirty = ref(false);
+
+const formRef = ref<any>(null);
 
 const createUserSchema = z.object({
   id: z.string().min(1, 'ID is required'),
@@ -24,10 +30,16 @@ const createUserSchema = z.object({
   email: z.email('Invalid email'),
   faculty: z.number().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
+  // roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
 });
 
 type CreateUserSchema = z.output<typeof createUserSchema>;
+
+type RoleAssignment = {
+  roleId: number | null;
+  facultyId: number | null;
+  departmentId: number | null;
+};
 
 const form = ref<Partial<CreateUserSchema>>({
   id: '',
@@ -36,17 +48,18 @@ const form = ref<Partial<CreateUserSchema>>({
   email: '',
   faculty: null,
   password: '',
-  roles: [] as number[],
 });
+
+const roleAssignments = ref<RoleAssignment[]>([]);
 
 type Faculty = {
   id: number;
-  name: string;
+  nameEn: string;
 };
 
 // Faculty options
 const { data: faculties } = await useFetch('/api/faculties', {
-  transform: res => res.map((f: Faculty) => ({ label: f.name, value: f.id })),
+  transform: res => res.map((f: Faculty) => ({ label: f.nameEn, value: f.id })),
   lazy: true,
 });
 
@@ -56,6 +69,108 @@ const { data: roles } = await useFetch('/api/roles', {
   lazy: true,
 });
 
+type Department = {
+  id: number;
+  nameEn: string;
+  facultyId: number;
+};
+
+// Department options
+const { data: departments } = await useFetch('/api/departments', {
+  transform: (res: any[]) => res.map((d: Department) => ({ label: d.nameEn, value: d.id, facultyId: d.facultyId })),
+  lazy: true,
+});
+
+const columns = computed<TableColumn<RoleAssignment>[]>(() => [
+  {
+    accessorKey: 'roleId',
+    header: 'Role',
+    cell: ({ row }) => {
+      const roleId = row.original.roleId;
+      if (!roleId)
+        return '-';
+      const role = roles.value?.find(r => r.value === roleId);
+      return role ? role.label : String(roleId);
+    },
+  },
+  {
+    accessorKey: 'facultyId',
+    header: 'Faculty',
+    cell: ({ row }) => {
+      const facultyId = row.original.facultyId;
+      if (!facultyId)
+        return '-';
+      const faculty = faculties.value?.find(f => f.value === facultyId);
+      return faculty ? faculty.label : String(facultyId);
+    },
+  },
+  {
+    accessorKey: 'departmentId',
+    header: 'Department',
+    cell: ({ row }) => {
+      const departmentId = row.original.departmentId;
+      if (!departmentId)
+        return '-';
+      const department = departments.value?.find(d => d.value === departmentId);
+      return department ? department.label : String(departmentId);
+    },
+  },
+  {
+    id: 'actions',
+    meta: {
+      class: {
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => {
+      return h('div', { class: 'flex items-center justify-end gap-2' }, [
+        h(
+          UButton,
+          {
+            'color': 'error',
+            'variant': 'soft',
+            'aria-label': 'Delete role assignment',
+            onClick() {
+              roleAssignments.value = roleAssignments.value.filter(
+                r => r !== row.original,
+              );
+            },
+          },
+          () => 'Delete',
+        ),
+      ]);
+    },
+  },
+]);
+
+const newRoleAssignment = ref<RoleAssignment>({
+  roleId: null,
+  facultyId: null,
+  departmentId: null,
+});
+
+const filteredDepartments = computed(() => {
+  if (!departments.value)
+    return [];
+  if (!newRoleAssignment.value.facultyId)
+    return departments.value;
+  return departments.value.filter(d => d.facultyId === newRoleAssignment.value.facultyId);
+});
+
+const showRoleError = ref(false);
+
+function addRoleAssignment() {
+  if (!newRoleAssignment.value.roleId || !newRoleAssignment.value.facultyId) {
+    toast.add({ title: 'Error', description: 'Role and Faculty are required', color: 'error' });
+    return;
+  }
+
+  roleAssignments.value.push({ ...newRoleAssignment.value });
+  showRoleError.value = false;
+  newRoleAssignment.value = { roleId: null, facultyId: null, departmentId: null };
+  open.value = false;
+}
+
 function handleCancel() {
   // Navigate back to users list
   navigateTo(localPath('/admin/users'));
@@ -63,6 +178,21 @@ function handleCancel() {
 
 async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
   try {
+    let hasRoleError = false;
+
+    if (roleAssignments.value.length === 0) {
+      showRoleError.value = true;
+      hasRoleError = true;
+    }
+    else {
+      showRoleError.value = false;
+    }
+
+    // We already have validated form data in event.data from UForm's @submit
+    if (hasRoleError) {
+      return;
+    }
+
     loading.value = true;
 
     // Create the user
@@ -82,11 +212,13 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
     }
 
     // Assign roles to the user
-    for (const roleId of event.data.roles) {
-      await $fetch('/api/user-role', {
-        method: 'POST',
-        body: { userId: response.user.id, roleId },
-      });
+    for (const role of roleAssignments.value) {
+      if (role.roleId) {
+        await $fetch('/api/user-role', {
+          method: 'POST',
+          body: { userId: response.user.id, roleId: role.roleId, facultyId: role.facultyId, departmentId: role.departmentId },
+        });
+      }
     }
 
     isDirty.value = false;
@@ -100,6 +232,19 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
   }
   finally {
     loading.value = false;
+  }
+}
+
+async function handleSubmit() {
+  if (roleAssignments.value.length === 0) {
+    showRoleError.value = true;
+  }
+  else {
+    showRoleError.value = false;
+  }
+
+  if (formRef.value) {
+    formRef.value.submit();
   }
 }
 
@@ -149,7 +294,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 <template>
   <div class="flex flex-col relative">
     <!-- Main Content -->
-    <UForm :schema="createUserSchema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleCreateUser">
+    <UForm ref="formRef" :schema="createUserSchema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleCreateUser">
       <UButton
         type="button"
         icon="i-lucide-arrow-left"
@@ -236,8 +381,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- First Name (EN) -->
               <UFormField
-                label="Full Name (EN)"
-                name="fullNameEn"
+                label="First Name (EN)"
+                name="firstNameEn"
                 required
               >
                 <UInput
@@ -272,12 +417,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               </UFormField>
 
               <!-- Faculty -->
-              <UFormField
+              <!-- <UFormField
                 label="Faculty"
                 name="faculty"
               >
                 <BaseSelect v-model="form.faculty" :items="faculties" value-key="value" placeholder="Select Faculty" :clear="true" />
-              </UFormField>
+              </UFormField> -->
 
               <UFormField label="Password" name="password" required>
                 <UInput
@@ -292,20 +437,72 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
           <!-- Roles Card -->
           <UCard>
             <template #header>
-              <div class="flex items-center gap-3">
-                <UIcon
-                  name="i-heroicons-shield-check-20-solid"
-                  class="text-gray-400"
-                />
-                <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
-                  Roles
-                </h2>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <UIcon
+                    name="i-heroicons-shield-check-20-solid"
+                    class="text-gray-400"
+                  />
+                  <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
+                    Role Assignments
+                  </h2>
+                </div>
+                <UModal v-model:open="open" title="Add Role Assignment" :ui="{ footer: 'justify-end' }">
+                  <UButton icon="i-lucide-plus" label="Add Role Assignment" variant="soft" />
+
+                  <template #body>
+                    <div class="space-y-4">
+                      <!-- Role -->
+                      <UFormField
+                        label="Role"
+                        name="role"
+                        required
+                      >
+                        <BaseSelect v-model="newRoleAssignment.roleId" :items="roles || []" value-key="value" placeholder="Select Role" :clear="true" size="xl" />
+                      </UFormField>
+                      <!-- Faculty -->
+                      <UFormField
+                        label="Faculty"
+                        name="faculty"
+                        required
+                      >
+                        <BaseSelect v-model="newRoleAssignment.facultyId" :items="faculties || []" value-key="value" placeholder="Select Faculty" :clear="true" size="xl" />
+                      </UFormField>
+                      <!-- Department -->
+                      <UFormField
+                        label="Department"
+                        name="department"
+                      >
+                        <BaseSelect v-model="newRoleAssignment.departmentId" :items="filteredDepartments" value-key="value" placeholder="Select Department" :clear="true" size="xl" />
+                      </UFormField>
+                    </div>
+                  </template>
+
+                  <template #footer="{ close }">
+                    <UButton label="Cancel" color="neutral" variant="outline" @click="close" />
+                    <UButton label="Submit" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId" @click="addRoleAssignment" />
+                  </template>
+                </UModal>
               </div>
             </template>
 
-            <UFormField name="roles">
+            <!-- <UFormField name="roles">
               <UInputMenu v-model="form.roles" multiple :items="roles" value-key="value" open-on-click placeholder="Assign Roles" class="w-full" />
-            </UFormField>
+            </UFormField> -->
+
+            <UAlert
+              v-if="showRoleError"
+              color="error"
+              variant="subtle"
+              title="Role assignment required"
+              description="Please assign at least one role to the user before continuing."
+              icon="i-heroicons-exclamation-triangle-20-solid"
+              class="mb-4"
+            />
+
+            <UTable
+              :data="roleAssignments" :columns="columns" class=""
+            />
           </UCard>
 
           <!-- Initial Signature Setup Card -->
@@ -354,11 +551,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
           @click="handleCancel"
         />
         <UButton
-          type="submit"
+          type="button"
           color="primary"
           label="Create User"
           icon="i-heroicons-check-20-solid"
           :loading
+          @click="handleSubmit"
         />
       </div>
     </UForm>
