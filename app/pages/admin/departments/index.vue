@@ -46,13 +46,6 @@ function getFacultyName(row: DepartmentListItem) {
   return locale.value === 'en' ? row.faculty.nameEn : row.faculty.nameTh;
 }
 
-function getHeadOfDeptName(row: DepartmentListItem) {
-  if (locale.value === 'en')
-    return row.headOfDeptEn ?? row.headOfDeptTh ?? '-';
-
-  return row.headOfDeptTh ?? row.headOfDeptEn ?? '-';
-}
-
 const filteredRows = computed(() => {
   const rows = departmentsData.value ?? [];
   const term = searchTerm.value.trim().toLowerCase();
@@ -161,9 +154,12 @@ const columns: TableColumn<DepartmentListItem>[] = [
     },
   },
   {
-    id: 'head',
+    accessorKey: 'headOfDeptEn',
     header: 'Head of Dept.',
-    cell: ({ row }) => h('div', { class: 'text-muted' }, getHeadOfDeptName(row.original)),
+    cell: ({ row }) => {
+      return h('div', null, row.original.headOfDeptEn ?? '-');
+    },
+
   },
   {
     id: 'actions',
