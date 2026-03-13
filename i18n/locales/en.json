@@ -135,6 +135,6 @@
   "fields": "fields",
   "selectPerson": "Select person (optional)",
   "noUsersWithRole": "No users with this role",
-  "confirmSave": "Confirm & Save Template"
-
+  "confirmSave": "Confirm & Save Template",
+  "faculties": "Faculties"
 }

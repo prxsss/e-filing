@@ -72,6 +72,13 @@ const sidebarItems = computed(() => [{
   onSelect: () => {
     open.value = false;
   },
+}, {
+  label: t('faculties'),
+  icon: 'i-lucide-building',
+  to: localePath('/admin/faculties'),
+  onSelect: () => {
+    open.value = false;
+  },
 }] satisfies NavigationMenuItem[]);
 
 const languageItems = computed(() =>
