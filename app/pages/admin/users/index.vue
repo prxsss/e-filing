@@ -24,7 +24,7 @@ const authStore = useAuthStore();
 //   })),
 // });
 
-const { rows: data, isLoading: status, page, pageSize, total } = useUsers();
+const { rows: data, isLoading, page, pageSize, total } = useUsers();
 
 const columns: TableColumn<UserListItem>[] = [
   {
@@ -140,7 +140,7 @@ const columns: TableColumn<UserListItem>[] = [
       <UTable
         :data="data"
         :columns
-        :loading="status"
+        :loading="isLoading"
         class="flex-1"
       />
       <div class="flex justify-center gap-2 border-t border-default pt-4 px-4">
