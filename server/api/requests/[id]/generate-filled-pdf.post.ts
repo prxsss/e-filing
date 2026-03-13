@@ -169,7 +169,7 @@ export default defineEventHandler(async (event) => {
 });
 
 // Generate filled PDF with field values
-async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], template: any) {
+async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template: any) {
   try {
     // Dynamic import of pdf-lib for server-side
     const PDFLib = await import('pdf-lib');
@@ -192,8 +192,7 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], template: 
     }
 
     const pages = pdfDoc.getPages();
-    const firstPage = pages[0];
-    const { height: pageHeight } = firstPage.getSize();
+    const CSS_PX_TO_PT = 72 / 96;
 
     // Process each field
     for (const field of fields) {
@@ -207,35 +206,151 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], template: 
         if (!targetPage)
           continue;
 
-        // Convert normalized coordinates to PDF coordinates
-        let x = field.x || 0;
-        let y = field.y || 0;
-        let width = field.width || 100;
-        let height = field.height || 30;
+        const { width: pageWidth, height: pageHeight } = targetPage.getSize();
 
-        // If using normalized coordinates
+        // ── Coordinate conversion ──────────────────────────────────────────
+        let fieldX: number;
+        let fieldYTop: number;
+        let fieldW: number;
+        let fieldH: number;
+
         if (field.normalizedX !== undefined) {
-          const templateWidth = template.documentWidth || 595;
-          const templateHeight = template.documentHeight || 842;
-
-          x = field.normalizedX * templateWidth;
-          y = field.normalizedY * templateHeight;
-          width = field.normalizedWidth * templateWidth;
-          height = field.normalizedHeight * templateHeight;
+          fieldX = field.normalizedX * pageWidth;
+          fieldYTop = field.normalizedY * pageHeight;
+          fieldW = field.normalizedWidth * pageWidth;
+          fieldH = field.normalizedHeight * pageHeight;
+        }
+        else {
+          fieldX = field.x || 0;
+          fieldYTop = field.y || 0;
+          fieldW = field.width || 100;
+          fieldH = field.height || 30;
         }
 
-        // Calculate font size (fit to height)
-        const fontSize = Math.min(height * 0.6, 12);
+        const fieldYBottom = pageHeight - fieldYTop - fieldH;
 
-        // Draw text on PDF
-        targetPage.drawText(field.value, {
-          x,
-          y: pageHeight - y - height + (height * 0.3), // Adjust for baseline
-          size: fontSize,
-          font: field.type === 'text' ? font : font,
-          color: PDFLib.rgb(0, 0, 0),
-          maxWidth: width - 4,
-        });
+        // ── Font size ──────────────────────────────────────────────────────
+        const requestedFontSizePx = Number(field.fontSize || 12);
+        const fontSize = Math.max(4, Math.min(requestedFontSizePx * CSS_PX_TO_PT, fieldH * 0.9));
+
+        // ── Top-aligned Vertical Positioning ───────────────────────────────
+        let textY = fieldYBottom + fieldH - fontSize;
+        try {
+          const ascenderHeight = Number(font.heightAtSize(fontSize, { descender: false }));
+          if (ascenderHeight > 0) {
+            textY = fieldYBottom + fieldH - ascenderHeight - (fontSize * 0.1);
+          }
+        }
+        catch {}
+
+        // ── Horizontal alignment ───────────────────────────────────────────
+        let text = String(field.value).trim();
+
+        // --- CUSTOM WRAP LOGIC ---
+        // Pre-process text to wrap unbreakable strings that exceed field width
+        const lines: string[] = [];
+        const paragraphs = text.split('\n');
+        for (const paragraph of paragraphs) {
+          const words = paragraph.split(/(\s+)/); // keep spaces
+          let currentLine = '';
+          for (const word of words) {
+            if (word.trim() === '') {
+              currentLine += word;
+              continue;
+            }
+            try {
+              const testWidth = font.widthOfTextAtSize(currentLine + word, fontSize);
+              if (testWidth > fieldW && currentLine !== '') {
+                lines.push(currentLine);
+                currentLine = word;
+              }
+              else if (testWidth > fieldW && currentLine === '') {
+                // Word itself is too long, we need to character break it!
+                let tempWord = '';
+                for (const char of word) {
+                  const charTestWidth = font.widthOfTextAtSize(tempWord + char, fontSize);
+                  if (charTestWidth > fieldW && tempWord !== '') {
+                    lines.push(tempWord);
+                    tempWord = char;
+                  }
+                  else {
+                    tempWord += char;
+                  }
+                }
+                currentLine = tempWord;
+              }
+              else {
+                currentLine += word;
+              }
+            }
+            catch {
+              currentLine += word;
+            }
+          }
+          if (currentLine) {
+            lines.push(currentLine);
+          }
+        }
+        text = lines.join('\n');
+
+        let textX = fieldX;
+
+        if (field.textAlign === 'center' || field.textAlign === 'right') {
+          try {
+            const spacing = Number(field.letterSpacing ?? 0) || 0;
+            const spacingExtra = spacing !== 0 ? Math.max(0, text.length - 1) * spacing * CSS_PX_TO_PT : 0;
+            const textW = font.widthOfTextAtSize(text.split('\n')[0], fontSize) + spacingExtra;
+            textX = field.textAlign === 'center'
+              ? fieldX + (fieldW - textW) / 2
+              : fieldX + fieldW - textW;
+          }
+          catch { /* keep left */ }
+        }
+
+        textX = Math.max(fieldX, textX);
+
+        // ── Letter spacing ─────────────────────────────────────────────────
+        const letterSpacing = (Number(field.letterSpacing ?? 0) || 0) * CSS_PX_TO_PT;
+
+        if (letterSpacing !== 0 && text.length > 0) {
+          let cursorX = textX;
+          for (const char of text) {
+            if (char === '\n') {
+              textY -= (Number(field.lineHeight) || 1.5) * fontSize;
+              cursorX = textX;
+              continue;
+            }
+            if (cursorX >= fieldX + fieldW) {
+              textY -= (Number(field.lineHeight) || 1.5) * fontSize;
+              cursorX = textX;
+            }
+            targetPage.drawText(char, {
+              x: cursorX,
+              y: textY,
+              size: fontSize,
+              font,
+              color: PDFLib.rgb(0, 0, 0),
+            });
+            try {
+              cursorX += font.widthOfTextAtSize(char, fontSize) + letterSpacing;
+            }
+            catch {
+              cursorX += fontSize * 0.6 + letterSpacing;
+            }
+          }
+        }
+        else {
+          const customLineHeight = (Number(field.lineHeight) || 1.5) * fontSize;
+          targetPage.drawText(text, {
+            x: textX,
+            y: textY,
+            size: fontSize,
+            font,
+            color: PDFLib.rgb(0, 0, 0),
+            maxWidth: fieldW,
+            lineHeight: customLineHeight,
+          });
+        }
       }
       catch (error) {
         console.error('Error processing field:', field, error);

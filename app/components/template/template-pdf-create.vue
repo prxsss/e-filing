@@ -1089,6 +1089,7 @@ defineExpose<{
                 fontKerning: 'none',
                 justifyContent: field.textAlign === 'right' ? 'flex-end' : field.textAlign === 'center' ? 'center' : 'flex-start',
                 letterSpacing: field.letterSpacing ? `${field.letterSpacing * fitScale}px` : undefined,
+                lineHeight: field.lineHeight ?? 1.5,
                 cursor: props.readOnly ? (props.signingSteps.length > 0 ? 'pointer' : 'default') : 'grab',
                 borderColor: getFieldSignerColor(field) || undefined,
                 borderWidth: getFieldSignerColor(field) ? '2px' : undefined,
@@ -1214,8 +1215,8 @@ defineExpose<{
   position: absolute;
   cursor: grab;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   background: rgba(255, 255, 255, 0.3);
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -1281,20 +1282,22 @@ defineExpose<{
 
 .field-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25rem;
   overflow: hidden;
   pointer-events: none;
   user-select: none;
   width: 100%; /* required for text-align / justifyContent to work */
+  height: 100%;
 }
 
 .field-content span {
   /* font-size and font-weight are inherited from .placed-field via :style binding */
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Fill-mode: field boxes look like soft input zones (student fill page) */
@@ -1311,9 +1314,10 @@ defineExpose<{
 .field-value-text {
   display: block;
   width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
 }
 
 /* Empty-field placeholder text — faded italic, no decoration */
@@ -1322,9 +1326,12 @@ defineExpose<{
   font-style: italic !important;
   font-weight: normal !important;
   text-decoration: none !important;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
   display: block;
   width: 100%;
+  min-width: 0;
 }
 
 .instance-num {

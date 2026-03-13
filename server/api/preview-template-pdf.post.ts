@@ -48,7 +48,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
 
     // Field styles are stored in CSS px in the editor.
     const CSS_PX_TO_PT = 72 / 96;
-    const BASELINE_FROM_CENTER_FACTOR = 0.33;
+    const _BASELINE_FROM_CENTER_FACTOR = 0.33;
 
     const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
     pdfDoc.registerFontkit(fontkit);
@@ -79,21 +79,23 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
       return font;
     }
 
-    function computeBaselineY(fieldYBottom: number, fieldH: number, font: any, fontSize: number): number {
+    function computeBaselineY(fieldYTop: number, fieldH: number, font: any, fontSize: number): number {
       try {
-        const fullHeight = Number(font.heightAtSize(fontSize, { descender: true }));
         const ascenderHeight = Number(font.heightAtSize(fontSize, { descender: false }));
-
-        if (Number.isFinite(fullHeight) && Number.isFinite(ascenderHeight) && fullHeight > 0 && ascenderHeight > 0) {
-          const descenderHeight = Math.max(0, fullHeight - ascenderHeight);
-          return fieldYBottom + (fieldH - fullHeight) / 2 + descenderHeight;
+        if (Number.isFinite(ascenderHeight) && ascenderHeight > 0) {
+          // Instead of centering vertically, align to the TOP.
+          // PDF coordinates Y goes from bottom (0) to top (pageHeight).
+          // fieldYTop is the Y coordinate at the top edge of the box (from bottom of page).
+          // We just need to subtract the ascender height so the text fits inside from the top.
+          return fieldYTop - ascenderHeight - (fontSize * 0.1); // add a slight top padding
         }
       }
       catch {
         // Fall back to constant offset when metrics are unavailable.
       }
 
-      return fieldYBottom + fieldH / 2 - fontSize * BASELINE_FROM_CENTER_FACTOR;
+      // Top alignment fallback: Y top edge minus rough font height
+      return fieldYTop - fontSize;
     }
 
     for (const field of fields) {
@@ -143,8 +145,10 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         const requestedFontSizePx = Number(field.fontSize || 12);
         const fontSize = Math.max(4, Math.min(requestedFontSizePx * CSS_PX_TO_PT, fieldH * 0.9));
 
-        // ── Vertical centering ─────────────────────────────────────────────
-        const textY = computeBaselineY(fieldYBottom, fieldH, font, fontSize);
+        // ── Top-aligned Vertical Positioning ───────────────────────────────
+        // In pdf-lib, page coordinates are (0,0) at bottom-left.
+        // fieldYTop is pageHeight - (normalizedY * pageHeight).
+        let textY = computeBaselineY(pageHeight - fieldYTop, fieldH, font, fontSize);
 
         // ── Background highlight for preview ──────────────────────────────
         if (field.showFieldHighlight !== false) {
@@ -161,14 +165,62 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         }
 
         // ── Horizontal alignment ───────────────────────────────────────────
-        const text = String(sampleValue).trim();
+        let text = String(sampleValue).trim();
+
+        // --- CUSTOM WRAP LOGIC ---
+        // Pre-process text to wrap unbreakable strings that exceed field width
+        const lines: string[] = [];
+        const paragraphs = text.split('\n');
+        for (const paragraph of paragraphs) {
+          const words = paragraph.split(/(\s+)/); // keep spaces
+          let currentLine = '';
+          for (const word of words) {
+            if (word.trim() === '') {
+              currentLine += word;
+              continue;
+            }
+            try {
+              const testWidth = font.widthOfTextAtSize(currentLine + word, fontSize);
+              if (testWidth > fieldW && currentLine !== '') {
+                lines.push(currentLine);
+                currentLine = word;
+              }
+              else if (testWidth > fieldW && currentLine === '') {
+                // Word itself is too long, we need to character break it!
+                let tempWord = '';
+                for (const char of word) {
+                  const charTestWidth = font.widthOfTextAtSize(tempWord + char, fontSize);
+                  if (charTestWidth > fieldW && tempWord !== '') {
+                    lines.push(tempWord);
+                    tempWord = char;
+                  }
+                  else {
+                    tempWord += char;
+                  }
+                }
+                currentLine = tempWord;
+              }
+              else {
+                currentLine += word;
+              }
+            }
+            catch {
+              currentLine += word;
+            }
+          }
+          if (currentLine) {
+            lines.push(currentLine);
+          }
+        }
+        text = lines.join('\n');
+
         let textX = fieldX;
 
         if (field.textAlign === 'center' || field.textAlign === 'right') {
           try {
             const spacing = Number(field.letterSpacing ?? 0) || 0;
             const spacingExtra = spacing !== 0 ? Math.max(0, text.length - 1) * spacing * CSS_PX_TO_PT : 0;
-            const textW = font.widthOfTextAtSize(text, fontSize) + spacingExtra;
+            const textW = font.widthOfTextAtSize(text.split('\n')[0], fontSize) + spacingExtra;
             textX = field.textAlign === 'center'
               ? fieldX + (fieldW - textW) / 2
               : fieldX + fieldW - textW;
@@ -184,8 +236,15 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         if (letterSpacing !== 0 && text.length > 0) {
           let cursorX = textX;
           for (const char of text) {
-            if (cursorX >= fieldX + fieldW)
-              break;
+            if (char === '\n') {
+              textY -= (Number(field.lineHeight) || 1.5) * fontSize;
+              cursorX = textX;
+              continue;
+            }
+            if (cursorX >= fieldX + fieldW) {
+              textY -= (Number(field.lineHeight) || 1.5) * fontSize;
+              cursorX = textX;
+            }
             targetPage.drawText(char, {
               x: cursorX,
               y: textY,
@@ -202,6 +261,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
           }
         }
         else {
+          const customLineHeight = (Number(field.lineHeight) || 1.5) * fontSize;
           targetPage.drawText(text, {
             x: textX,
             y: textY,
@@ -209,6 +269,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
             font,
             color: PDFLib.rgb(0.1, 0.3, 0.7),
             maxWidth: fieldW,
+            lineHeight: customLineHeight,
           });
         }
 

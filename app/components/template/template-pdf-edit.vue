@@ -752,6 +752,13 @@ defineExpose({
                 height: `${field.displayHeight}px`,
                 fontSize: `${field.fontSize || 14}px`,
                 fontFamily: field.fontFamily || 'Arial',
+                fontWeight: field.fontWeight || 'normal',
+                fontStyle: field.fontStyle || 'normal',
+                textDecoration: field.textDecoration || 'none',
+                fontKerning: 'none',
+                justifyContent: field.textAlign === 'right' ? 'flex-end' : field.textAlign === 'center' ? 'center' : 'flex-start',
+                letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
+                lineHeight: field.lineHeight ?? 1.5,
                 zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
               }"
               @mousedown="startDrag($event, field)"
@@ -852,8 +859,8 @@ defineExpose({
   position: absolute;
   cursor: grab;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   background: rgba(255, 255, 255, 0.3);
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -884,21 +891,24 @@ defineExpose({
 
 .field-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25rem;
   overflow: hidden;
   pointer-events: none;
   user-select: none;
   width: 100%;
+  height: 100%;
   padding: 2px 5px;
 }
 
 .field-content span {
   font-size: 0.75rem;
   font-weight: bold;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .instance-num {

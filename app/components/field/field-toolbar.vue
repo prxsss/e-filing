@@ -77,6 +77,7 @@ watch(
         textDecoration: newField.textDecoration || 'none',
         textAlign: newField.textAlign || 'left',
         letterSpacing: newField.letterSpacing ?? 0,
+        lineHeight: newField.lineHeight ?? 1.5,
       };
     }
     else {
@@ -115,6 +116,7 @@ function onPropertyChange() {
           textDecoration: localField.value.textDecoration || 'none',
           textAlign: localField.value.textAlign || 'left',
           letterSpacing: localField.value.letterSpacing ?? 0,
+          lineHeight: localField.value.lineHeight ?? 1.5,
         },
       });
       return;
@@ -136,6 +138,7 @@ function onPropertyChange() {
       textDecoration: localField.value.textDecoration || 'none',
       textAlign: localField.value.textAlign || 'left',
       letterSpacing: localField.value.letterSpacing ?? 0,
+      lineHeight: localField.value.lineHeight ?? 1.5,
     },
   });
 }
@@ -340,6 +343,27 @@ function removeField() {
                 max="20"
                 step="0.5"
                 placeholder="0"
+                @input="onPropertyChange"
+              >
+            </div>
+          </UTooltip>
+
+          <div class="h-5 w-px bg-gray-200" />
+
+          <!-- Line Height -->
+          <UTooltip text="ความห่างบรรทัด (Line Height)" :popper="{ placement: 'top' }">
+            <div class="toolbar-input-group">
+              <span class="toolbar-prefix text-gray-400">
+                <UIcon name="i-heroicons-arrows-up-down" class="w-3.5 h-3.5" />
+              </span>
+              <input
+                v-model.number="localField.lineHeight"
+                type="number"
+                class="toolbar-input w-12"
+                min="0.5"
+                max="5"
+                step="0.1"
+                placeholder="1.5"
                 @input="onPropertyChange"
               >
             </div>
