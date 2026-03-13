@@ -4,6 +4,8 @@ import db from '../../../../lib/db';
 import { request, requestTemplate, signatureFlow, userRoles } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
 
@@ -11,16 +13,13 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Invalid request ID' };
     }
 
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     // Get the current user's role IDs to determine if it's their turn to sign
     const userRoleRows = await db
       .select({ roleId: userRoles.roleId })
       .from(userRoles)
-      .where(eq(userRoles.userId, session.user.id));
+      .where(eq(userRoles.userId, userId));
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
@@ -58,7 +57,7 @@ export default defineEventHandler(async (event) => {
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
     const overallPendingStep = flowSteps.find(s => s.status === 'pending') ?? null;
     const isCurrentUsersTurn = overallPendingStep !== null && (
-      overallPendingStep.assignedUserId === session.user?.id
+      overallPendingStep.assignedUserId === userId
       || (overallPendingStep.assignedUserId === null && userRoleIds.includes(overallPendingStep.roleId))
     );
     const pendingStep = isCurrentUsersTurn ? overallPendingStep : null;

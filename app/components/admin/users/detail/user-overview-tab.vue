@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui';
+
 import type { UserDetail } from '~/types/user';
 
 import { formatDate } from '~/utils/formatters';
@@ -11,6 +13,26 @@ defineProps<{
     approved: number;
   };
 }>();
+
+type UserAssignment = UserDetail['assignments'][number];
+
+const columns: TableColumn<UserAssignment>[] = [
+  {
+    accessorKey: 'role',
+    header: 'Role',
+    cell: ({ row }) => row.original.role || '-',
+  },
+  {
+    accessorKey: 'faculty',
+    header: 'Faculty',
+    cell: ({ row }) => row.original.faculty?.nameEn || row.original.faculty?.nameTh || '-',
+  },
+  {
+    accessorKey: 'department',
+    header: 'Department',
+    cell: ({ row }) => row.original.department?.nameEn || row.original.department?.nameTh || '-',
+  },
+];
 </script>
 
 <template>
@@ -18,7 +40,7 @@ defineProps<{
     <!-- Sidebar -->
     <div class="lg:col-span-4 space-y-6">
       <!-- Basic Details Card -->
-      <UCard>
+      <UCard :ui="{ body: 'p-2!' }">
         <template #header>
           <div class="flex items-center gap-3">
             <UIcon name="i-heroicons-user-20-solid" class="text-gray-400" />
@@ -37,14 +59,14 @@ defineProps<{
               {{ user.id }}
             </p>
           </div>
-          <div class="p-5">
+          <!-- <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
               Faculty
             </p>
             <p class="text-sm font-medium">
               {{ user.facultyName || '-' }}
             </p>
-          </div>
+          </div> -->
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
               Created At
@@ -122,7 +144,7 @@ defineProps<{
           </div>
         </template>
 
-        <div class="space-y-4">
+        <!-- <div class="space-y-4">
           <div class="flex flex-wrap gap-2">
             <UBadge
               v-for="role in user.roles"
@@ -134,7 +156,8 @@ defineProps<{
               {{ role.name }}
             </UBadge>
           </div>
-        </div>
+        </div> -->
+        <UTable :data="user.assignments" :columns="columns" />
       </UCard>
 
       <!-- Digital Signature Card -->

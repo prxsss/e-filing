@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { FormSubmitEvent } from '@nuxt/ui';
+import type { FormSubmitEvent, TableColumn } from '@nuxt/ui';
 
 import { LazyBaseConfirmDialog } from '#components';
-import { ref } from 'vue';
+import { computed, h, ref, resolveComponent } from 'vue';
 import * as z from 'zod';
 
 import type { Role, UserDetail } from '~/types/user';
+
+const UButton = resolveComponent('UButton');
 
 const localPath = useLocalePath();
 const toast = useToast();
@@ -17,15 +19,27 @@ const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const userId = route.params.id as string;
 const loading = ref(true);
 const isDirty = ref(false);
+const open = ref(false);
+const formRef = ref<any>(null);
+
+type RoleAssignment = {
+  roleId: number | null;
+  facultyId: number | null;
+  departmentId: number | null;
+};
+
+type UserAssignment = UserDetail['assignments'][number];
+
+const roleAssignments = ref<RoleAssignment[]>([]);
 
 type Faculty = {
   id: number;
-  name: string;
+  nameEn: string;
 };
 
 // Faculty options
 const { data: faculties } = await useFetch('/api/faculties', {
-  transform: res => res.map((f: Faculty) => ({ label: f.name, value: f.id })),
+  transform: res => res.map((f: Faculty) => ({ label: f.nameEn, value: f.id })),
 });
 
 // Role options
@@ -33,14 +47,135 @@ const { data: roles } = await useFetch('/api/roles', {
   transform: res => res.map((r: Role) => ({ label: r.name, value: r.id })),
 });
 
+type Department = {
+  id: number;
+  nameEn: string;
+  facultyId: number;
+};
+
+// Department options
+const { data: departments } = await useFetch('/api/departments', {
+  transform: (res: any[]) => res.map((d: Department) => ({ label: d.nameEn, value: d.id, facultyId: d.facultyId })),
+  lazy: true,
+});
+
+const columns = computed<TableColumn<RoleAssignment>[]>(() => [
+  {
+    accessorKey: 'roleId',
+    header: 'Role',
+    cell: ({ row }) => {
+      const roleId = row.original.roleId;
+      if (!roleId)
+        return '-';
+      const role = roles.value?.find(r => r.value === roleId);
+      return role ? role.label : String(roleId);
+    },
+  },
+  {
+    accessorKey: 'facultyId',
+    header: 'Faculty',
+    cell: ({ row }) => {
+      const facultyId = row.original.facultyId;
+      if (!facultyId)
+        return '-';
+      const faculty = faculties.value?.find(f => f.value === facultyId);
+      return faculty ? faculty.label : String(facultyId);
+    },
+  },
+  {
+    accessorKey: 'departmentId',
+    header: 'Department',
+    cell: ({ row }) => {
+      const departmentId = row.original.departmentId;
+      if (!departmentId)
+        return '-';
+      const department = departments.value?.find(d => d.value === departmentId);
+      return department ? department.label : String(departmentId);
+    },
+  },
+  {
+    id: 'actions',
+    meta: {
+      class: {
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => {
+      return h('div', { class: 'flex items-center justify-end gap-2' }, [
+        h(
+          UButton,
+          {
+            'color': 'error',
+            'variant': 'soft',
+            'aria-label': 'Delete role assignment',
+            onClick() {
+              roleAssignments.value = roleAssignments.value.filter(
+                r => r !== row.original,
+              );
+            },
+          },
+          () => 'Delete',
+        ),
+      ]);
+    },
+  },
+]);
+
+const newRoleAssignment = ref<RoleAssignment>({
+  roleId: null,
+  facultyId: null,
+  departmentId: null,
+});
+
+const filteredDepartments = computed(() => {
+  if (!departments.value)
+    return [];
+  if (!newRoleAssignment.value.facultyId)
+    return departments.value;
+  return departments.value.filter(d => d.facultyId === newRoleAssignment.value.facultyId);
+});
+
+const showRoleError = ref(false);
+
+function toNumberId(value: string | number | null | undefined) {
+  if (value === null || value === undefined)
+    return null;
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function mapAssignmentsToRoleAssignments(assignments: UserAssignment[] = []): RoleAssignment[] {
+  return assignments.map((assignment) => {
+    const mappedRole = roles.value?.find(role => role.label === assignment.role);
+
+    return {
+      roleId: mappedRole?.value ?? null,
+      facultyId: toNumberId(assignment.faculty?.id),
+      departmentId: toNumberId(assignment.department?.id),
+    };
+  });
+}
+
+function addRoleAssignment() {
+  if (!newRoleAssignment.value.roleId || !newRoleAssignment.value.facultyId) {
+    toast.add({ title: 'Error', description: 'Role and Faculty are required', color: 'error' });
+    return;
+  }
+
+  roleAssignments.value.push({ ...newRoleAssignment.value });
+  showRoleError.value = false;
+  newRoleAssignment.value = { roleId: null, facultyId: null, departmentId: null };
+  open.value = false;
+}
+
 // User details
 const { data: userData } = await useFetch<UserDetail>(`/api/users/${userId}`);
 
 const updateUserSchema = z.object({
   firstNameEn: z.string().min(1, 'First name is required'),
   lastNameEn: z.string().min(1, 'Last name is required'),
-  facultyId: z.number().nullable(),
-  roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
+  // roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
 });
 
 type UpdateUserSchema = z.output<typeof updateUserSchema>;
@@ -48,8 +183,7 @@ type UpdateUserSchema = z.output<typeof updateUserSchema>;
 const form = ref<Partial<UpdateUserSchema>>({
   firstNameEn: '',
   lastNameEn: '',
-  facultyId: null,
-  roles: [] as number[],
+  // roles: [] as number[],
 });
 
 // const isDirty = computed(() => {
@@ -62,26 +196,30 @@ const form = ref<Partial<UpdateUserSchema>>({
 // });
 
 // Initialize form with user data once it's loaded
-watch(userData, (newData) => {
+watch([userData, roles], ([newData]) => {
   if (newData) {
     form.value = {
       firstNameEn: newData.firstNameEn || '',
       lastNameEn: newData.lastNameEn || '',
-      facultyId: newData.facultyId,
-      roles: newData.roles?.map(r => r.id) || [],
     };
+
+    roleAssignments.value = mapAssignmentsToRoleAssignments(newData.assignments || []);
   }
   loading.value = false;
 }, { immediate: true });
 
 // Detect form changes to set dirty state
-watch(form, (newData) => {
-  isDirty.value = JSON.stringify(newData) !== JSON.stringify({
+watch([form, roleAssignments], ([newForm, newRoles]) => {
+  const initialRoles = mapAssignmentsToRoleAssignments(userData.value?.assignments || []);
+
+  const formDirty = JSON.stringify(newForm) !== JSON.stringify({
     firstNameEn: userData.value?.firstNameEn,
     lastNameEn: userData.value?.lastNameEn,
-    facultyId: userData.value?.facultyId,
-    roles: userData.value?.roles?.map(r => r.id) || [],
   });
+
+  const rolesDirty = JSON.stringify(newRoles) !== JSON.stringify(initialRoles);
+
+  isDirty.value = formDirty || rolesDirty;
 }, { deep: true });
 
 function handleCancel() {
@@ -91,37 +229,55 @@ function handleCancel() {
 
 async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
   try {
+    let hasRoleError = false;
+
+    if (roleAssignments.value.length === 0) {
+      showRoleError.value = true;
+      hasRoleError = true;
+    }
+    else {
+      showRoleError.value = false;
+    }
+
+    // We already have validated form data in event.data from UForm's @submit
+    if (hasRoleError) {
+      return;
+    }
+
+    loading.value = true;
+
     // Update user basic information
     await $fetch(`/api/users/${userId}`, {
       method: 'PUT',
       body: {
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
-        facultyId: event.data.facultyId,
       },
     });
 
-    // Get current roles and update if changed
-    if (userData.value?.roles) {
-      const currentRoleIds = userData.value.roles.map(r => r.id);
-      const newRoleIds = event.data.roles;
+    // Handle role assignments logic completely (replace or update)
+    if (userData.value?.assignments) {
+      const currentRoleAssignments = mapAssignmentsToRoleAssignments(userData.value.assignments);
 
-      // Remove roles that are no longer assigned
-      for (const roleId of currentRoleIds) {
-        if (!newRoleIds.includes(roleId)) {
-          await $fetch('/api/user-role', {
-            method: 'DELETE',
-            body: { userId, roleId },
-          });
-        }
+      const newRoleAssignments = roleAssignments.value;
+
+      // TODO: This could be optimized to only delete what's removed and add what's new.
+      // For now, doing a simpler approach: delete old ones and insert new ones.
+
+      // Delete old roles
+      for (const role of currentRoleAssignments) {
+        await $fetch('/api/user-role', {
+          method: 'DELETE',
+          body: { userId, roleId: role.roleId },
+        });
       }
 
       // Add new roles
-      for (const roleId of newRoleIds) {
-        if (!currentRoleIds.includes(roleId)) {
+      for (const role of newRoleAssignments) {
+        if (role.roleId) {
           await $fetch('/api/user-role', {
             method: 'POST',
-            body: { userId, roleId },
+            body: { userId, roleId: role.roleId, facultyId: role.facultyId, departmentId: role.departmentId },
           });
         }
       }
@@ -135,6 +291,22 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
   catch (error) {
     console.error('Error updating user:', error);
     toast.add({ title: 'Error', description: 'Failed to update user. Please try again.', color: 'error' });
+  }
+  finally {
+    loading.value = false;
+  }
+}
+
+async function handleSubmit() {
+  if (roleAssignments.value.length === 0) {
+    showRoleError.value = true;
+  }
+  else {
+    showRoleError.value = false;
+  }
+
+  if (formRef.value) {
+    formRef.value.submit();
   }
 }
 
@@ -183,7 +355,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
     <div v-if="userData">
       <!-- Main Content -->
-      <UForm :schema="updateUserSchema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleUpdateUser">
+      <UForm ref="formRef" :schema="updateUserSchema" :state="form" class="flex-1 max-w-360 mx-auto w-full space-y-6" @submit.prevent="handleUpdateUser">
         <!-- Page Header -->
         <div>
           <h1 class="text-2xl font-bold mb-4">
@@ -290,31 +462,73 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                     class="w-full"
                   />
                 </UFormField>
-                <!-- Faculty -->
-                <UFormField
-                  label="Faculty"
-                  name="facultyId"
-                >
-                  <BaseSelect v-model="form.facultyId" :items="faculties" value-key="value" placeholder="Select Faculty" :clear="true" />
-                </UFormField>
               </div>
             </UCard>
             <!-- Roles Card -->
             <UCard>
               <template #header>
-                <div class="flex items-center gap-3">
-                  <UIcon
-                    name="i-heroicons-shield-check-20-solid"
-                    class="text-gray-400"
-                  />
-                  <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
-                    Roles
-                  </h2>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <UIcon
+                      name="i-heroicons-shield-check-20-solid"
+                      class="text-gray-400"
+                    />
+                    <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
+                      Role Assignments
+                    </h2>
+                  </div>
+                  <UModal v-model:open="open" title="Add Role Assignment" :ui="{ footer: 'justify-end' }">
+                    <UButton icon="i-lucide-plus" label="Add Role Assignment" variant="soft" />
+
+                    <template #body>
+                      <div class="space-y-4">
+                        <!-- Role -->
+                        <UFormField
+                          label="Role"
+                          name="role"
+                          required
+                        >
+                          <BaseSelect v-model="newRoleAssignment.roleId" :items="roles || []" value-key="value" placeholder="Select Role" :clear="true" size="xl" />
+                        </UFormField>
+                        <!-- Faculty -->
+                        <UFormField
+                          label="Faculty"
+                          name="faculty"
+                          required
+                        >
+                          <BaseSelect v-model="newRoleAssignment.facultyId" :items="faculties || []" value-key="value" placeholder="Select Faculty" :clear="true" size="xl" />
+                        </UFormField>
+                        <!-- Department -->
+                        <UFormField
+                          label="Department"
+                          name="department"
+                        >
+                          <BaseSelect v-model="newRoleAssignment.departmentId" :items="filteredDepartments" value-key="value" placeholder="Select Department" :clear="true" size="xl" />
+                        </UFormField>
+                      </div>
+                    </template>
+
+                    <template #footer="{ close }">
+                      <UButton label="Cancel" color="neutral" variant="outline" @click="close" />
+                      <UButton label="Submit" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId" @click="addRoleAssignment" />
+                    </template>
+                  </UModal>
                 </div>
               </template>
-              <UFormField name="roles">
-                <UInputMenu v-model="form.roles" multiple :items="roles" value-key="value" open-on-click placeholder="Assign Roles" class="w-full" />
-              </UFormField>
+
+              <UAlert
+                v-if="showRoleError"
+                color="error"
+                variant="subtle"
+                title="Role assignment required"
+                description="Please assign at least one role to the user before continuing."
+                icon="i-heroicons-exclamation-triangle-20-solid"
+                class="mb-4"
+              />
+
+              <UTable
+                :data="roleAssignments" :columns="columns" class=""
+              />
             </UCard>
             <!-- Initial Signature Setup Card -->
             <UCard>
@@ -361,10 +575,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
             @click="handleCancel"
           />
           <UButton
-            type="submit"
+            type="button"
             color="primary"
             label="Update User"
             icon="i-heroicons-check-20-solid"
+            :loading="loading"
+            @click="handleSubmit"
           />
         </div>
       </UForm>

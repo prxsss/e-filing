@@ -28,8 +28,8 @@ const searchQuery = ref('');
 const { data: roles, refresh: refreshRoles } = await useFetch<{
   id: number;
   name: string;
-  descriptionEN: string | null;
-  descriptionTH: string | null;
+  descriptionEn: string | null;
+  descriptionTh: string | null;
   userCount: number;
 }[]>('/api/roles');
 
@@ -40,8 +40,8 @@ const selectedRoleId = ref<number | null>(null);
 const { data: permissions } = await useFetch<{
   id: number;
   code: string;
-  descriptionEN: string | null;
-  descriptionTH: string | null;
+  descriptionEn: string | null;
+  descriptionTh: string | null;
 }[]>('/api/permissions');
 
 // ── Fetch role permissions (reactive to selected role) ──
@@ -52,7 +52,7 @@ const { data: rolePermissionIds, refresh: refreshRolePermissions } = useFetch<nu
 // ── Edit Role ──
 const editRoleModal = overlay.create(LazyAdminEditRoleModal);
 
-async function handleEditRole(role: { id: number; name: string; descriptionEN: string | null; descriptionTH: string | null }) {
+async function handleEditRole(role: { id: number; name: string; descriptionEn: string | null; descriptionTh: string | null }) {
   const instance = editRoleModal.open({ role });
   const result = await instance.result;
   if (result) {
@@ -146,8 +146,8 @@ const filteredModules = computed(() => {
       const filtered = mod.permissions.filter(
         p =>
           p.code.toLowerCase().includes(query)
-          || p.descriptionEN?.toLowerCase().includes(query)
-          || p.descriptionTH?.toLowerCase().includes(query),
+          || p.descriptionEn?.toLowerCase().includes(query)
+          || p.descriptionTh?.toLowerCase().includes(query),
       );
       return { ...mod, permissions: filtered };
     })
@@ -355,7 +355,7 @@ function selectRole(roleId: number) {
                 <div class="ml-3">
                   <span class="block text-sm font-semibold">{{ perm.code }}</span>
                   <span class="block text-xs text-dimmed italic mt-0.5">
-                    {{ locale === 'en' ? perm.descriptionEN : perm.descriptionTH }}
+                    {{ locale === 'en' ? perm.descriptionEn : perm.descriptionTh }}
                   </span>
                 </div>
               </label>

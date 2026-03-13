@@ -3,9 +3,11 @@ import type { H3Event } from 'h3';
 import { eq } from 'drizzle-orm';
 
 import db from '../../../lib/db';
-import { requestTemplate } from '../../../lib/db/schema/request-template';
+import { requestTemplate } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event: H3Event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const id = getRouterParam(event, 'id');
 

@@ -1,16 +1,14 @@
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '../../../lib/db';
-import { request } from '../../../lib/db/schema/request';
-import { requestTemplate } from '../../../lib/db/schema/request-template';
+import { request, requestTemplate } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     // Auth required for all access
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     const query = getQuery(event);
 
@@ -26,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
     if (mine) {
       // Filter to only this user's requests
-      conditions.push(eq(request.userId, session.user.id));
+      conditions.push(eq(request.userId, userId));
     }
 
     if (status) {

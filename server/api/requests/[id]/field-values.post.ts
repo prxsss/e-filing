@@ -4,14 +4,12 @@ import db from '../../../../lib/db';
 import { request, requestTemplateValues } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
-  try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+  // await requirePermission(event, '<permission>', '<permission>', ...);
 
+  try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
     const body = await readBody(event);
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     if (!requestId || !body.fieldValues) {
       return {
@@ -31,7 +29,7 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Request not found' };
     }
 
-    if (requestRecord.userId !== session.user.id) {
+    if (requestRecord.userId !== userId) {
       throw createError({ statusCode: 403, message: 'Forbidden' });
     }
 

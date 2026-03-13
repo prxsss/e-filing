@@ -7,6 +7,8 @@ import { attachments, request } from '../../../../../lib/db/schema';
 import { supabaseAdmin } from '../../../../../lib/supabase/client';
 
 export default defineEventHandler(async (event: H3Event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = event.context.params?.id;
 

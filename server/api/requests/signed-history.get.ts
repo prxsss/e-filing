@@ -4,18 +4,17 @@ import db from '../../../lib/db';
 import { request, requestTemplate, signatureFlow } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     // Find all flow entries where this user was the signer (signed or rejected)
     // nullsLast ensures entries without a signedAt date don't float to the top
     const myFlows = await db
       .select()
       .from(signatureFlow)
-      .where(eq(signatureFlow.signedBy, session.user.id))
+      .where(eq(signatureFlow.signedBy, userId))
       .orderBy(desc(signatureFlow.signedAt));
 
     if (myFlows.length === 0) {
