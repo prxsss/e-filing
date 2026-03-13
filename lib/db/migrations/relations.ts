@@ -1,16 +1,51 @@
 import { relations } from "drizzle-orm/relations";
-import { faculties, users, request, signatureFlow, roles, attachments, requestTemplateValues, permissions, rolePermissions, userRoles } from "./schema";
+import { departments, users, userRoles, faculties, roles, request, signatureFlow, attachments, requestTemplateValues, permissions, rolePermissions } from "./schema";
 
 export const usersRelations = relations(users, ({one, many}) => ({
-	faculty: one(faculties, {
-		fields: [users.facultyId],
-		references: [faculties.id]
+	department: one(departments, {
+		fields: [users.departmentId],
+		references: [departments.id]
 	}),
 	userRoles: many(userRoles),
 }));
 
-export const facultiesRelations = relations(faculties, ({many}) => ({
+export const departmentsRelations = relations(departments, ({one, many}) => ({
 	users: many(users),
+	userRoles: many(userRoles),
+	faculty: one(faculties, {
+		fields: [departments.facultyId],
+		references: [faculties.id]
+	}),
+}));
+
+export const userRolesRelations = relations(userRoles, ({one}) => ({
+	department: one(departments, {
+		fields: [userRoles.departmentId],
+		references: [departments.id]
+	}),
+	faculty: one(faculties, {
+		fields: [userRoles.facultyId],
+		references: [faculties.id]
+	}),
+	role: one(roles, {
+		fields: [userRoles.roleId],
+		references: [roles.id]
+	}),
+	user: one(users, {
+		fields: [userRoles.userId],
+		references: [users.id]
+	}),
+}));
+
+export const facultiesRelations = relations(faculties, ({many}) => ({
+	userRoles: many(userRoles),
+	departments: many(departments),
+}));
+
+export const rolesRelations = relations(roles, ({many}) => ({
+	userRoles: many(userRoles),
+	signatureFlows: many(signatureFlow),
+	rolePermissions: many(rolePermissions),
 }));
 
 export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
@@ -28,12 +63,6 @@ export const requestRelations = relations(request, ({many}) => ({
 	signatureFlows: many(signatureFlow),
 	attachments: many(attachments),
 	requestTemplateValues: many(requestTemplateValues),
-}));
-
-export const rolesRelations = relations(roles, ({many}) => ({
-	signatureFlows: many(signatureFlow),
-	rolePermissions: many(rolePermissions),
-	userRoles: many(userRoles),
 }));
 
 export const attachmentsRelations = relations(attachments, ({one}) => ({
@@ -63,15 +92,4 @@ export const rolePermissionsRelations = relations(rolePermissions, ({one}) => ({
 
 export const permissionsRelations = relations(permissions, ({many}) => ({
 	rolePermissions: many(rolePermissions),
-}));
-
-export const userRolesRelations = relations(userRoles, ({one}) => ({
-	role: one(roles, {
-		fields: [userRoles.roleId],
-		references: [roles.id]
-	}),
-	user: one(users, {
-		fields: [userRoles.userId],
-		references: [users.id]
-	}),
 }));
