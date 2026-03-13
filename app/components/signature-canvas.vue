@@ -50,8 +50,23 @@ function initCanvas() {
 }
 
 function getPos(e: PointerEvent): { x: number; y: number } {
-  const rect = canvasRef.value!.getBoundingClientRect();
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  const canvas = canvasRef.value;
+  if (!canvas)
+    return { x: 0, y: 0 };
+
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+
+  // Map client coordinates into canvas CSS-space (after HiDPI scaling).
+  const scaleX = canvas.width / (rect.width * dpr);
+  const scaleY = canvas.height / (rect.height * dpr);
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+
+  return {
+    x: Math.min(Math.max(x, 0), rect.width),
+    y: Math.min(Math.max(y, 0), rect.height),
+  };
 }
 
 function calcTargetWidth(velocity: number): number {

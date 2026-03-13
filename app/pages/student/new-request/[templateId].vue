@@ -256,7 +256,7 @@ function schedulePreviewRefresh() {
 
   previewRefreshTimer = setTimeout(() => {
     void refreshPreviewPdf();
-  }, 180);
+  }, 1000);
 }
 
 async function fetchTemplateData() {

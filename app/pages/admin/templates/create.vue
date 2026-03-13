@@ -549,7 +549,7 @@ function schedulePreviewRefresh() {
 
   previewRefreshTimer = setTimeout(() => {
     void refreshPreviewPdf();
-  }, 220);
+  }, 1000);
 }
 
 function addFieldToPreview(fieldToAdd: Field): void {
@@ -837,6 +837,12 @@ async function performSave(): Promise<void> {
       label: field.label,
       fontSize: field.fontSize || 14,
       fontFamily: field.fontFamily || 'Arial',
+      fontWeight: field.fontWeight || 'normal',
+      fontStyle: field.fontStyle || 'normal',
+      textDecoration: field.textDecoration || 'none',
+      textAlign: field.textAlign || 'left',
+      letterSpacing: field.letterSpacing ?? 0,
+      lineHeight: field.lineHeight ?? 1.5,
       normalizedX: field.normalizedX,
       normalizedY: field.normalizedY,
       normalizedWidth: field.normalizedWidth,
