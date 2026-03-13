@@ -29,10 +29,7 @@ export async function getUsers({ pageSize, offset }: { pageSize: number; offset:
       .orderBy(desc(users.createdAt))
       .limit(pageSize)
       .offset(offset),
-    db
-      .select({ total: sql<number>`count(*)` })
-      .from(users)
-      .then(results => results[0]?.total ?? 0),
+    db.$count(users),
   ]);
 
   return { rows, total };
