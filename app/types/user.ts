@@ -1,6 +1,8 @@
 export type Role = {
   id: number;
   name: string;
+  facultyId?: number | null;
+  departmentId?: number | null;
 };
 
 export type UserListItem = {
@@ -8,7 +10,12 @@ export type UserListItem = {
   fullNameEn: string;
   fullNameTh: string;
   email: string;
-  faculty: string | null;
+  facultyId: number | null;
+  facultyNameEn: string | null;
+  facultyNameTh: string | null;
+  departmentId: number | null;
+  departmentNameEn: string | null;
+  departmentNameTh: string | null;
   banned: boolean;
   roles?: string[];
 };

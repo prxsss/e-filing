@@ -4,13 +4,11 @@ import db from '../../../lib/db';
 import { request, requestTemplateValues, signatureFlow, userRoles } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
-  try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+  // await requirePermission(event, '<permission>', '<permission>', ...);
 
+  try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     if (!requestId) {
       return {
@@ -35,18 +33,13 @@ export default defineEventHandler(async (event) => {
 
     const record = requestData[0];
 
-    // Access control:
-    //   1) Owner can always see their own request
-    //   2) Admin/staff (anyone with at least one real permission) can see all requests
-    //   3) Anyone with a signing role in this specific request can see it
-    const isOwner = record.userId === session.user.id;
-    const isAdmin = (session.user.permissions ?? []).some((p: string | null) => p != null);
-
-    if (!isOwner && !isAdmin) {
+    // Access control: the requester must be the owner OR have a signing role in this request
+    const isOwner = record.userId === userId;
+    if (!isOwner) {
       const userRoleRows = await db
         .select({ roleId: userRoles.roleId })
         .from(userRoles)
-        .where(eq(userRoles.userId, session.user.id));
+        .where(eq(userRoles.userId, userId));
       const userRoleIds = userRoleRows.map(r => r.roleId);
 
       const hasSigningRole = userRoleIds.length > 0

@@ -1,17 +1,14 @@
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '../../../lib/db';
-import { users } from '../../../lib/db/schema/auth';
-import { request } from '../../../lib/db/schema/request';
-import { requestTemplate } from '../../../lib/db/schema/request-template';
+import { request, requestTemplate } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     // Auth required for all access
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     const query = getQuery(event);
 
@@ -27,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
     if (mine) {
       // Filter to only this user's requests
-      conditions.push(eq(request.userId, session.user.id));
+      conditions.push(eq(request.userId, userId));
     }
 
     if (status) {
@@ -45,22 +42,16 @@ export default defineEventHandler(async (event) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Get total count + status counts in one query
-    const [countResult] = await db
-      .select({
-        total: count(),
-        inProgress: count(sql`CASE WHEN ${request.status} = 'in_progress' THEN 1 END`),
-        rejected: count(sql`CASE WHEN ${request.status} = 'rejected' THEN 1 END`),
-        completed: count(sql`CASE WHEN ${request.status} = 'completed' THEN 1 END`),
-      })
+    // Get total count
+    const [totalResult] = await db
+      .select({ count: count() })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
-      .leftJoin(users, eq(request.userId, users.id))
       .where(whereClause);
 
-    const total = countResult?.total ?? 0;
+    const total = totalResult?.count ?? 0;
 
-    // Get paginated data with template name and requester info
+    // Get paginated data with template name
     const data = await db
       .select({
         id: request.id,
@@ -68,14 +59,12 @@ export default defineEventHandler(async (event) => {
         templateName: requestTemplate.name,
         status: request.status,
         createdBy: request.createdBy,
-        requesterName: sql<string>`CONCAT(${users.firstNameEn}, ' ', ${users.lastNameEn})`,
         submittedAt: request.submittedAt,
         filledDocumentUrl: request.filledDocumentUrl,
         createdAt: request.createdAt,
       })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
-      .leftJoin(users, eq(request.userId, users.id))
       .where(whereClause)
       .orderBy(desc(request.createdAt))
       .limit(limit)
@@ -89,11 +78,6 @@ export default defineEventHandler(async (event) => {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
-        statusCounts: {
-          in_progress: countResult?.inProgress ?? 0,
-          rejected: countResult?.rejected ?? 0,
-          completed: countResult?.completed ?? 0,
-        },
       },
     };
   }

@@ -1,9 +1,11 @@
+import type { H3Event } from 'h3';
+
 import { desc } from 'drizzle-orm';
 
 import db from '../../../lib/db';
 import { requestTemplate } from '../../../lib/db/schema';
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (_event: H3Event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
 
   try {

@@ -1,7 +1,9 @@
 import { addUserRole } from '~~/lib/db/queries/user-role';
 
 export default defineEventHandler(async (event) => {
-  const { userId, roleId } = await readBody(event);
+  await requirePermission(event, 'user.edit');
 
-  await addUserRole(userId, roleId);
+  const { userId, roleId, facultyId, departmentId } = await readBody(event);
+
+  await addUserRole(userId, roleId, facultyId, departmentId);
 });

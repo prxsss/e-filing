@@ -4,6 +4,8 @@ import db from '../../../../lib/db';
 import { request, requestTemplate, roles, signatureFlow, userRoles } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
 
@@ -12,11 +14,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // Auth guard — must be logged in
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
-    const submitterId = session.user.id;
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
+    const submitterId = userId;
 
     const [requestData] = await db
       .select()

@@ -8,6 +8,8 @@ const banSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'user.status');
+
   const id = getRouterParam(event, 'id') as string;
 
   const body = await readValidatedBody(event, banSchema.parse);

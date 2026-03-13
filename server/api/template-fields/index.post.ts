@@ -4,6 +4,8 @@ import db from '../../../lib/db/index';
 import { requestTemplateFields } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event: H3Event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const body = await readBody(event);
 

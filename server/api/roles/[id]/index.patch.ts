@@ -3,11 +3,13 @@ import * as z from 'zod';
 
 const updateRoleSchema = z.object({
   name: z.string().min(1, 'Role name is required').optional(),
-  descriptionEN: z.string().nullable().optional(),
-  descriptionTH: z.string().nullable().optional(),
+  descriptionEn: z.string().nullable().optional(),
+  descriptionTh: z.string().nullable().optional(),
 });
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'role.edit');
+
   const id = Number(getRouterParam(event, 'id'));
   if (Number.isNaN(id)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid role ID' });

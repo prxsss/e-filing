@@ -10,6 +10,8 @@ const updateUserSchema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'user.edit');
+
   const id = getRouterParam(event, 'id') as string;
   const body = await readValidatedBody(event, updateUserSchema.parse);
 

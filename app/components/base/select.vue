@@ -7,6 +7,7 @@ const props = withDefaults(defineProps<{
   placeholder?: string;
   searchInput?: boolean;
   clear?: boolean;
+  size: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 }>(), {
   searchInput: false,
 });
@@ -23,5 +24,6 @@ const modelValue = defineModel<string | number | null>();
     :search-input="props.searchInput"
     :clear="props.clear"
     class="w-full"
+    :size="props.size"
   />
 </template>
