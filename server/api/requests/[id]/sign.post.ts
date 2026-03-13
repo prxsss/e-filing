@@ -90,9 +90,26 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Template not found' };
     }
 
-    // ── Decode signature and embed into PDF ────────────────────────────────
+    // ── Upload signature image to object storage (not base64 in DB) ──────────
     const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
     const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    const sigFilename = `signatures/request-${requestId}-step-${flowEntry.stepOrder}-${Date.now()}.png`;
+
+    const { error: sigUploadError } = await supabaseAdmin.storage
+      .from('filled-requests')
+      .upload(sigFilename, sigBytes, {
+        contentType: 'image/png',
+        cacheControl: '31536000',
+        upsert: false,
+      });
+
+    if (sigUploadError) {
+      return { success: false, error: `Signature upload failed: ${sigUploadError.message}` };
+    }
+
+    const { data: { publicUrl: signatureUrl } } = supabaseAdmin.storage
+      .from('filled-requests')
+      .getPublicUrl(sigFilename);
 
     // ── Embed signature image into PDF ───────────────────────────────────────
     const pdfResponse = await fetch(requestData.filledDocumentUrl);
@@ -185,6 +202,7 @@ export default defineEventHandler(async (event) => {
       .where(eq(request.id, requestId));
 
     // ── Save audit-quality signature record ──────────────────────────────────
+    // Store the URL to object storage instead of the raw base64 blob
     await db.insert(signatures).values({
       requestId,
       signatureFlowId: flowEntry.id,
@@ -197,7 +215,7 @@ export default defineEventHandler(async (event) => {
     // Mark current step as signed
     await db
       .update(signatureFlow)
-      .set({ status: 'signed', signedBy: userId, signedAt: new Date() })
+      .set({ status: 'signed', signedBy: userId, signedAt: new Date().toISOString() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
     // ── Advance workflow ─────────────────────────────────────────────────────
