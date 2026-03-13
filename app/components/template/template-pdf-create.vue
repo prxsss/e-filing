@@ -13,6 +13,8 @@ const props = defineProps({
   uiScale: { type: Number, default: 1 }, // UI zoom scale from parent
   readOnly: { type: Boolean, default: false }, // Read-only mode (no editing)
   signingSteps: { type: Array as () => { id: string; color: string; roleName: string }[], default: () => [] }, // Signing steps for color-coding fields
+  fieldValues: { type: Object as () => Record<string, string>, default: () => ({}) }, // Live typed values or overlay values for WYSIWYG preview
+  fillMode: { type: Boolean, default: false }, // Show typed values in field boxes for WYSIWYG
 });
 
 const emit = defineEmits<{
@@ -39,6 +41,43 @@ function getFieldSignerRole(field: Field): string | null {
     return null;
   const step = props.signingSteps.find((s: any) => s.id === field.signerStepId);
   return step ? step.roleName : null;
+}
+
+function resolveDisplayFontFamily(fontFamily?: string): string {
+  const value = (fontFamily || '').trim();
+  return value || 'Sarabun';
+}
+
+function resolveFieldValueEntry(field: Field): { hasEntry: boolean; value: string } {
+  const instanceKey = field?.instanceId ? String(field.instanceId) : '';
+  const idKey = field?.id !== undefined && field?.id !== null ? String(field.id) : '';
+
+  if (instanceKey && Object.prototype.hasOwnProperty.call(props.fieldValues, instanceKey)) {
+    return {
+      hasEntry: true,
+      value: props.fieldValues[instanceKey] || '',
+    };
+  }
+
+  if (idKey && Object.prototype.hasOwnProperty.call(props.fieldValues, idKey)) {
+    return {
+      hasEntry: true,
+      value: props.fieldValues[idKey] || '',
+    };
+  }
+
+  return {
+    hasEntry: false,
+    value: '',
+  };
+}
+
+function hasFieldTextOverride(field: Field): boolean {
+  return resolveFieldValueEntry(field).hasEntry;
+}
+
+function getFieldTextOverride(field: Field): string {
+  return resolveFieldValueEntry(field).value;
 }
 
 const viewerArea = ref<HTMLDivElement | null>(null);
@@ -981,8 +1020,14 @@ defineExpose<{
                 width: `${field.displayWidth}px`,
                 height: `${field.displayHeight}px`,
                 zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 100,
-                fontSize: `${field.fontSize || 14}px`,
-                fontFamily: field.fontFamily || 'Arial',
+                fontSize: `${(field.fontSize || 14) * fitScale}px`,
+                fontFamily: resolveDisplayFontFamily(field.fontFamily),
+                fontWeight: field.fontWeight || 'normal',
+                fontStyle: field.fontStyle || 'normal',
+                textDecoration: field.textDecoration || 'none',
+                fontKerning: 'none',
+                justifyContent: field.textAlign === 'right' ? 'flex-end' : field.textAlign === 'center' ? 'center' : 'flex-start',
+                letterSpacing: field.letterSpacing ? `${field.letterSpacing * fitScale}px` : undefined,
                 cursor: props.readOnly ? (props.signingSteps.length > 0 ? 'pointer' : 'default') : 'grab',
                 borderColor: getFieldSignerColor(field) || undefined,
                 borderWidth: getFieldSignerColor(field) ? '2px' : undefined,
@@ -995,7 +1040,13 @@ defineExpose<{
             >
               <div class="field-content">
                 <i v-if="field.name === 'Check Mark'" :class="field.icon" />
-                <span v-if="field.label">{{ field.label }}</span>
+                <template v-else>
+                  <template v-if="hasFieldTextOverride(field)">
+                    <span v-if="getFieldTextOverride(field)" class="field-value-text">{{ getFieldTextOverride(field) }}</span>
+                  </template>
+                  <span v-else-if="props.fillMode" class="field-label-placeholder is-placeholder">{{ field.label || field.name }}</span>
+                  <span v-else class="field-value-text">{{ field.label }}</span>
+                </template>
                 <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
               </div>
               <!-- Signer role tag (visible in read-only mode with signing steps) -->
@@ -1174,6 +1225,24 @@ defineExpose<{
   overflow: hidden;
   pointer-events: none;
   user-select: none;
+}
+
+/* Actual typed value — inherits all styling from .placed-field */
+.field-value-text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-label-placeholder {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9ca3af;
 }
 
 .field-content span {

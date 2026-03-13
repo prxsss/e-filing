@@ -1,4 +1,6 @@
 import { eq } from 'drizzle-orm';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import db from '../../../../lib/db';
 import { request, requestTemplate, requestTemplateValues } from '../../../../lib/db/schema';
@@ -171,10 +173,23 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], template: 
   try {
     // Dynamic import of pdf-lib for server-side
     const PDFLib = await import('pdf-lib');
+    const fontkitModule = await import('@pdf-lib/fontkit');
+    const fontkit = (fontkitModule as any).default ?? fontkitModule;
+
     const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+    pdfDoc.registerFontkit(fontkit);
 
     // Get font
-    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    let font: any;
+    try {
+      const fontPath = join(process.cwd(), 'public', 'fonts', 'Sarabun-Regular.ttf');
+      const fontBytes = new Uint8Array(await readFile(fontPath));
+      font = await pdfDoc.embedFont(fontBytes, { subset: true });
+    }
+    catch (e) {
+      console.warn('Failed to load local font:', e);
+      font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    }
 
     const pages = pdfDoc.getPages();
     const firstPage = pages[0];
