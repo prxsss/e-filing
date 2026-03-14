@@ -65,6 +65,7 @@
   "createTemplate": "สร้างแม่แบบคำร้อง",
   "editTemplate": "แก้ไขแม่แบบคำร้อง",
   "documentReview": "ตรวจสอบเอกสาร",
+  "signDocument": "เซ็นเอกสาร",
   "allTemplates": "แม่แบบคำร้องทั้งหมด",
   "requestDetails": "รายละเอียดคำร้อง",
   "placeFields": "วางฟิลด์",

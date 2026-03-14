@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { TableRow } from '@nuxt/ui';
 
-import { h, resolveComponent } from 'vue';
-
 definePageMeta({
   title: 'dashboard',
 });

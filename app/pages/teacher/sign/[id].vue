@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LazyBaseConfirmDialogWithReason } from '#components';
 
-definePageMeta({ title: 'Sign Document' });
+definePageMeta({ title: 'signDocument' });
 
 type FlowStep = {
   id: number;
