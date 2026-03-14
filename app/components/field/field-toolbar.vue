@@ -24,7 +24,7 @@ function normalizeMaxLength(value: unknown): number | null {
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
 
 const supportsMaxLength = computed(() => {
-  return selectedFieldType.value !== 'signature' && selectedFieldType.value !== 'icon' && selectedFieldType.value !== 'date';
+  return selectedFieldType.value !== 'signature' && selectedFieldType.value !== 'icon' && selectedFieldType.value !== 'date' && selectedFieldType.value !== 'time';
 });
 
 // Use computed for display coordinates to ensure they recalculate when scale changes
@@ -151,19 +151,6 @@ function onPropertyChange() {
       width: editableWidth.value,
       height: editableHeight.value,
       ...commonStyleUpdates,
-    },
-  });
-}
-
-function onAutoGenerateChange(event: Event) {
-  if (!props.selectedField)
-    return;
-  const checked = (event.target as HTMLInputElement).checked;
-  localField.value.isAutoGenerate = checked;
-  emit('fieldUpdated', {
-    instanceId: props.selectedField.instanceId,
-    updates: {
-      isAutoGenerate: checked,
     },
   });
 }
@@ -403,27 +390,6 @@ function removeField() {
             </UTooltip>
           </template>
         </div>
-      </template>
-
-      <!-- Auto-generate toggle (Date fields only) -->
-      <template v-if="selectedField.type === 'Date' || selectedField.fieldType === 'Date'">
-        <div class="h-5 w-px bg-gray-200" />
-        <UTooltip text="ระบบจะเติมวันที่ปัจจุบันให้อัตโนมัติ" :popper="{ placement: 'top' }">
-          <label
-            class="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-colors"
-            :class="localField.isAutoGenerate ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'"
-          >
-            <input
-              type="checkbox"
-              :checked="localField.isAutoGenerate"
-              class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              @change="onAutoGenerateChange"
-            >
-            <span class="text-xs font-medium" :class="localField.isAutoGenerate ? 'text-blue-700' : 'text-gray-600'">
-              เติมอัตโนมัติ
-            </span>
-          </label>
-        </UTooltip>
       </template>
 
       <div class="h-5 w-px bg-gray-200" />

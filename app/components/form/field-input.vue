@@ -17,6 +17,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
+const isNumericField = computed(() => fieldType.value === 'number');
 
 const maxLength = computed(() => {
   const rawValue = props.field?.maxLength ?? props.field?.max_length;
@@ -28,8 +29,15 @@ const maxLength = computed(() => {
 });
 
 function normalizeInputValue(value) {
-  const normalizedValue = String(value ?? '');
-  if (!maxLength.value || fieldType.value === 'date') {
+  let normalizedValue = String(value ?? '');
+
+  // Number fields are rendered as text with numeric input mode so maxlength
+  // can block extra typing in real-time.
+  if (isNumericField.value) {
+    normalizedValue = normalizedValue.replace(/\D/g, '');
+  }
+
+  if (!maxLength.value || fieldType.value === 'date' || fieldType.value === 'time') {
     return normalizedValue;
   }
   if (normalizedValue.length <= maxLength.value) {
@@ -58,8 +66,10 @@ const inputType = computed(() => {
   switch (fieldType.value) {
     case 'date':
       return 'date';
+    case 'time':
+      return 'time';
     case 'number':
-      return 'number';
+      return 'text';
     case 'email':
       return 'email';
     case 'phone':
@@ -67,6 +77,14 @@ const inputType = computed(() => {
     default:
       return 'text';
   }
+});
+
+const inputMode = computed(() => {
+  if (isNumericField.value) {
+    return 'numeric';
+  }
+
+  return undefined;
 });
 
 // Get placeholder text
@@ -90,6 +108,7 @@ const currentLength = computed(() => localValue.value.length);
     <input
       v-model="localValue"
       :type="inputType"
+      :inputmode="inputMode"
       :placeholder="placeholder"
       :disabled="disabled"
       :maxlength="maxLength || undefined"
