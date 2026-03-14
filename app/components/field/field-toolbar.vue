@@ -1,15 +1,19 @@
 <script setup lang="ts">
 type Field = any;
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   selectedField?: Field;
   pdfRef?: any;
   scale?: number;
-}>();
+  isSavingDefaults?: boolean;
+}>(), {
+  isSavingDefaults: false,
+});
 
 const emit = defineEmits<{
   fieldUpdated: [data: { instanceId: string; updates: any }];
   fieldRemoved: [instanceId: string];
+  saveDefaults: [data: { fieldId: number | string; defaults: any }];
 }>();
 
 const localField = ref<any>({});
@@ -151,6 +155,30 @@ function onPropertyChange() {
       width: editableWidth.value,
       height: editableHeight.value,
       ...commonStyleUpdates,
+    },
+  });
+}
+
+function saveDefaults() {
+  const fieldId = props.selectedField?.id;
+  if (fieldId === undefined || fieldId === null) {
+    return;
+  }
+
+  emit('saveDefaults', {
+    fieldId,
+    defaults: {
+      width: editableWidth.value,
+      height: editableHeight.value,
+      font: localField.value.fontFamily || localField.value.font || 'Arial',
+      fontSize: localField.value.fontSize || 14,
+      fontWeight: localField.value.fontWeight || 'normal',
+      fontStyle: localField.value.fontStyle || 'normal',
+      textDecoration: localField.value.textDecoration || 'none',
+      textAlign: localField.value.textAlign || 'left',
+      letterSpacing: localField.value.letterSpacing ?? 0,
+      lineHeight: localField.value.lineHeight ?? 1.5,
+      maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
     },
   });
 }
@@ -391,6 +419,19 @@ function removeField() {
           </template>
         </div>
       </template>
+
+      <div class="h-5 w-px bg-gray-200" />
+
+      <!-- Save as default -->
+      <UTooltip text="บันทึกค่าช่องนี้เป็นค่าเริ่มต้นของ Field" :popper="{ placement: 'top' }">
+        <button
+          class="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!selectedField?.id || isSavingDefaults"
+          @click="saveDefaults"
+        >
+          <UIcon :name="isSavingDefaults ? 'i-heroicons-arrow-path' : 'i-heroicons-bookmark-square'" class="w-4 h-4" :class="{ 'animate-spin': isSavingDefaults }" />
+        </button>
+      </UTooltip>
 
       <div class="h-5 w-px bg-gray-200" />
 

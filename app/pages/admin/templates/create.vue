@@ -114,17 +114,28 @@ function handlePlacedFieldsUpdate(fields: FieldInstance[]): void {
 // Available fields for the template - load from database
 const availableFields = ref<Field[]>([]);
 const isLoadingFields = ref<boolean>(false);
+const isSavingFieldDefaults = ref<boolean>(false);
 const isCreateFieldModalOpen = ref<boolean>(false);
 const isEditFieldModalOpen = ref<boolean>(false);
 const editingField = ref<Field | null>(null);
 
 // Computed property for filtered fields based on search
 const filteredFields = computed<Field[]>(() => {
-  if (!searchQuery.value)
-    return availableFields.value;
-  return availableFields.value.filter(f =>
-    f.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
-  );
+  const query = searchQuery.value.trim().toLowerCase();
+  const source = !query
+    ? availableFields.value
+    : availableFields.value.filter(f => f.name.toLowerCase().includes(query));
+
+  return [...source].sort((a, b) => {
+    const aNumericId = Number(a.id);
+    const bNumericId = Number(b.id);
+
+    if (Number.isFinite(aNumericId) && Number.isFinite(bNumericId)) {
+      return aNumericId - bNumericId;
+    }
+
+    return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+  });
 });
 
 // Computed property for selected field
@@ -193,6 +204,22 @@ function parsePositiveInteger(value: unknown): number | null {
     return null;
   }
   return parsed;
+}
+
+function parseFiniteNumber(value: unknown, fallback: number): number {
+  const parsed = Number.parseFloat(String(value ?? ''));
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function normalizeEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  const normalized = String(value ?? '').trim() as T;
+  if (allowed.includes(normalized)) {
+    return normalized;
+  }
+  return fallback;
 }
 
 function getFieldType(field?: any): string {
@@ -407,17 +434,115 @@ function openEditField(field: Field): void {
   isEditFieldModalOpen.value = true;
 }
 
+function updateAvailableFieldCache(updatedField: Field): void {
+  const index = availableFields.value.findIndex(f => String(f.id) === String(updatedField.id));
+  if (index !== -1) {
+    const existingField = availableFields.value[index] || {};
+    availableFields.value.splice(index, 1, {
+      ...existingField,
+      ...updatedField,
+    });
+  }
+}
+
 function handleFieldUpdated(updatedField: Field): void {
   // อัพเดท field ใน list
-  const index = availableFields.value.findIndex(f => f.id === updatedField.id);
-  if (index !== -1) {
-    availableFields.value[index] = updatedField;
-  }
+  updateAvailableFieldCache(updatedField);
   toast.add({
     title: 'อัพเดท Field สำเร็จ',
     description: `Field "${updatedField.name}" ถูกอัพเดทแล้ว`,
     color: 'success',
   });
+}
+
+async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | string; defaults: any }): Promise<void> {
+  const fieldDefinition = availableFields.value.find(f => String(f.id) === String(payload.fieldId));
+  const selectedFieldData = selectedField.value;
+
+  if (!fieldDefinition) {
+    toast.add({
+      title: 'ไม่พบ Field ที่ต้องการบันทึก',
+      color: 'error',
+    });
+    return;
+  }
+
+  const type = String(fieldDefinition.type || fieldDefinition.fieldType || selectedFieldData?.type || 'Text');
+  const typeLower = type.toLowerCase();
+
+  const width = parsePositiveInteger(payload.defaults?.width ?? (fieldDefinition as any).default_width ?? (fieldDefinition as any).width) ?? 150;
+  const height = parsePositiveInteger(payload.defaults?.height ?? (fieldDefinition as any).default_height ?? (fieldDefinition as any).height) ?? 40;
+  const fontSize = parsePositiveInteger(payload.defaults?.fontSize ?? fieldDefinition.fontSize) ?? 14;
+  const maxLength = !['signature', 'icon', 'date', 'time'].includes(typeLower)
+    ? parsePositiveInteger(payload.defaults?.maxLength ?? (fieldDefinition as any).maxLength ?? (fieldDefinition as any).max_length)
+    : null;
+
+  const requestBody = {
+    name: fieldDefinition.name || selectedFieldData?.name,
+    label: fieldDefinition.label || selectedFieldData?.label,
+    type,
+    icon: fieldDefinition.icon || selectedFieldData?.icon || 'i-heroicons-document',
+    amount: parsePositiveInteger((fieldDefinition as any).amount) ?? 1,
+    width,
+    height,
+    font: String(payload.defaults?.font ?? payload.defaults?.fontFamily ?? fieldDefinition.font ?? selectedFieldData?.fontFamily ?? 'Sarabun'),
+    fontSize,
+    fontWeight: normalizeEnum(payload.defaults?.fontWeight ?? (fieldDefinition as any).fontWeight, ['normal', 'bold'], 'normal'),
+    fontStyle: normalizeEnum(payload.defaults?.fontStyle ?? (fieldDefinition as any).fontStyle, ['normal', 'italic'], 'normal'),
+    textDecoration: normalizeEnum(payload.defaults?.textDecoration ?? (fieldDefinition as any).textDecoration, ['none', 'underline'], 'none'),
+    textAlign: normalizeEnum(payload.defaults?.textAlign ?? (fieldDefinition as any).textAlign, ['left', 'center', 'right'], 'left'),
+    letterSpacing: parseFiniteNumber(payload.defaults?.letterSpacing ?? (fieldDefinition as any).letterSpacing, 0),
+    lineHeight: parseFiniteNumber(payload.defaults?.lineHeight ?? (fieldDefinition as any).lineHeight, 1.5),
+    maxLength,
+    isFillable: fieldDefinition.isFillable ?? true,
+    isAutoGenerated: typeLower === 'time'
+      ? true
+      : Boolean(fieldDefinition.isAutoGenerated ?? (fieldDefinition as any).is_auto_generated ?? false),
+  };
+
+  if (!requestBody.name || !requestBody.label) {
+    toast.add({
+      title: 'ข้อมูล Field ไม่ครบถ้วน',
+      color: 'error',
+    });
+    return;
+  }
+
+  isSavingFieldDefaults.value = true;
+  try {
+    const response = await $fetch<{ success: boolean; data?: Field; error?: string }>(`/api/template-fields/${fieldDefinition.id}`, {
+      method: 'PUT',
+      body: requestBody,
+    });
+
+    if (response.success && response.data) {
+      updateAvailableFieldCache(response.data);
+      toast.add({
+        title: 'บันทึกค่าเริ่มต้นสำเร็จ',
+        description: `Field "${response.data.name}" ถูกอัปเดตแล้ว`,
+        color: 'success',
+      });
+    }
+    else {
+      toast.add({
+        title: 'ไม่สามารถบันทึกค่าเริ่มต้นได้',
+        description: response.error || 'เกิดข้อผิดพลาด',
+        color: 'error',
+      });
+    }
+  }
+  catch (error) {
+    console.error('Error saving field defaults from toolbar:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    toast.add({
+      title: 'ไม่สามารถบันทึกค่าเริ่มต้นได้',
+      description: errorMessage,
+      color: 'error',
+    });
+  }
+  finally {
+    isSavingFieldDefaults.value = false;
+  }
 }
 
 function handleFieldDeleted(fieldId: number | string): void {
@@ -632,6 +757,17 @@ function addFieldToPreview(fieldToAdd: Field): void {
 
   const amount = fieldToAdd.amount || 1;
   const groupId = amount > 1 ? `group_${fieldToAdd.id}_${Date.now()}` : null;
+  const defaultWidth = parsePositiveInteger((fieldToAdd as any).default_width ?? (fieldToAdd as any).width) ?? 150;
+  const defaultHeight = parsePositiveInteger((fieldToAdd as any).default_height ?? (fieldToAdd as any).height) ?? 40;
+  const defaultFontSize = parsePositiveInteger((fieldToAdd as any).fontSize) ?? 14;
+  const defaultFontFamily = String((fieldToAdd as any).font ?? (fieldToAdd as any).fontFamily ?? 'Arial');
+  const defaultFontWeight = normalizeEnum((fieldToAdd as any).fontWeight, ['normal', 'bold'], 'normal');
+  const defaultFontStyle = normalizeEnum((fieldToAdd as any).fontStyle, ['normal', 'italic'], 'normal');
+  const defaultTextDecoration = normalizeEnum((fieldToAdd as any).textDecoration, ['none', 'underline'], 'none');
+  const defaultTextAlign = normalizeEnum((fieldToAdd as any).textAlign, ['left', 'center', 'right'], 'left');
+  const defaultLetterSpacing = parseFiniteNumber((fieldToAdd as any).letterSpacing, 0);
+  const defaultLineHeight = parseFiniteNumber((fieldToAdd as any).lineHeight, 1.5);
+  const defaultMaxLength = parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length);
 
   for (let i = 0; i < amount; i++) {
     const newFieldInstance = {
@@ -646,16 +782,22 @@ function addFieldToPreview(fieldToAdd: Field): void {
       // This ensures fields don't stack on top of each other
       x: 50 + (i * 40),
       y: 50 + (i * 40),
-      width: 150,
-      height: 40,
+      width: defaultWidth,
+      height: defaultHeight,
       // Normalized coordinates will be auto-calculated by component when PDF loads
       label: fieldToAdd.name === 'Check Mark' ? '' : fieldToAdd.label,
       pageNumber: currentPdfPage.value,
-      fontSize: fieldToAdd.fontSize || 14,
-      fontFamily: fieldToAdd.font || 'Arial',
+      fontSize: defaultFontSize,
+      fontFamily: defaultFontFamily,
+      fontWeight: defaultFontWeight,
+      fontStyle: defaultFontStyle,
+      textDecoration: defaultTextDecoration,
+      textAlign: defaultTextAlign,
+      letterSpacing: defaultLetterSpacing,
+      lineHeight: defaultLineHeight,
       isAutoGenerate: getFieldType(fieldToAdd) === 'time'
         || Boolean((fieldToAdd as any).isAutoGenerated ?? (fieldToAdd as any).is_auto_generated),
-      maxLength: parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length),
+      maxLength: defaultMaxLength,
     };
 
     placedFields.value.push(newFieldInstance);
@@ -1313,8 +1455,10 @@ watch(
               :selected-field="selectedField"
               :pdf-ref="fileType === 'pdf' ? templatePdfRef : undefined"
               :scale="scale"
+              :is-saving-defaults="isSavingFieldDefaults"
               @field-updated="handleFieldUpdate"
               @field-removed="handleFieldRemoval"
+              @save-defaults="handleSaveFieldDefaultsFromToolbar"
             />
           </div>
 
