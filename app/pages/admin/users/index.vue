@@ -7,6 +7,8 @@ import type { UserListItem } from '~/types/user';
 
 definePageMeta({
   title: 'users',
+  middleware: ['permission'],
+  permission: 'user.view',
 });
 
 const UButton = resolveComponent('UButton');
@@ -87,36 +89,43 @@ const columns: TableColumn<UserListItem>[] = [
       },
     },
     cell: ({ row }) => {
-      return h('div', { class: 'flex items-center justify-end gap-2' }, [
+      const actionButtons = [
+        // For view button, the permission middleware will handle access control at the route level,
+        // so we show the button regardless of permissions
         h(
           UButton,
           {
             'color': 'neutral',
-            'variant': 'soft',
+            'variant': 'ghost',
+            'icon': 'i-lucide-eye',
             'aria-label': 'View user details',
             onClick() {
             // Navigate to user details page
               router.push(localPath(`/admin/users/${row.original.id}?tab=overview`));
             },
           },
-          () => 'View',
         ),
-        h(
-          UButton,
-          {
-            'color': 'neutral',
-            'variant': 'soft',
-            'aria-label': 'Edit user details',
-            onClick() {
-            // Navigate to user details page
-              router.push(localPath(`/admin/users/${row.original.id}/edit`));
-            },
-          },
-          () => 'Edit',
-        ),
-      ])
+      ];
 
-      ;
+      if (authStore.can('user.edit')) {
+        actionButtons.push(
+          h(
+            UButton,
+            {
+              'color': 'primary',
+              'variant': 'ghost',
+              'icon': 'i-lucide-pencil',
+              'aria-label': 'Edit user details',
+              onClick() {
+                // Navigate to user edit page
+                router.push(localPath(`/admin/users/${row.original.id}/edit`));
+              },
+            },
+          ),
+        );
+      }
+
+      return h('div', { class: 'flex items-center justify-end gap-2' }, actionButtons);
     },
   },
 ];

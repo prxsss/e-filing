@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({
   title: 'toSign',
+  middleware: ['permission'],
+  permission: 'request.to_sign.view',
 });
 
 type SigningTask = {
@@ -18,6 +20,8 @@ type SigningTask = {
     templateName: string | null;
   } | null;
 };
+
+const authStore = useAuthStore();
 
 const { data, status, refresh } = await useFetch<{ success: boolean; data: SigningTask[] }>(
   '/api/requests/for-signing',
@@ -101,6 +105,7 @@ function formatDate(dateStr: string | null) {
               </div>
             </div>
             <UButton
+              v-if="authStore.can('request.sign')"
               color="success"
               size="sm"
               icon="i-lucide-pen-line"

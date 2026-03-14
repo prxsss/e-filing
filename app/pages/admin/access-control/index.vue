@@ -3,6 +3,8 @@ import { LazyAdminEditRoleModal, LazyBaseConfirmDialog } from '#components';
 
 definePageMeta({
   title: 'accessControl',
+  middleware: ['permission'],
+  permission: 'role.view',
 });
 
 const { t, locale } = useI18n();
@@ -263,7 +265,7 @@ function selectRole(roleId: number) {
                 </span>
               </div>
               <UDropdownMenu
-                v-if="authStore.can('role.edit') || authStore.can('role.delete')"
+                v-if="authStore.canAny(['role.edit', 'role.delete'])"
                 :items="[
                   {
                     label: t('editRole'),
@@ -321,7 +323,7 @@ function selectRole(roleId: number) {
         </div>
 
         <!-- Scrollable Content -->
-        <div v-if="selectedRole && authStore.can('role.view') && authStore.can('permission.view')" class="p-6 space-y-8 pb-32">
+        <div v-if="selectedRole" class="p-6 space-y-8 pb-32">
           <!-- No results -->
           <div v-if="filteredModules.length === 0" class="text-center py-12">
             <UIcon name="i-lucide-search-x" class="size-12 text-muted mx-auto mb-3" />
@@ -343,11 +345,17 @@ function selectRole(roleId: number) {
               <label
                 v-for="perm in mod.permissions"
                 :key="perm.id"
-                class="flex items-start p-4 border border-default rounded-xl hover:bg-elevated/50 transition-all cursor-pointer group"
-                :class="{ 'bg-elevated/30': localPermissionIds.has(perm.id) }"
+                class="flex p-4 border border-default rounded-xl hover:bg-elevated/50 transition-all group"
+                :class="{
+                  'bg-elevated/30': localPermissionIds.has(perm.id),
+                  'items-start': authStore.can('role.assign_permission'),
+                  'items-center': !authStore.can('role.assign_permission'),
+                  'justify-between': !authStore.can('role.assign_permission'),
+                  'cursor-pointer': authStore.can('role.assign_permission'),
+                }"
               >
                 <UCheckbox
-                  :disabled="!authStore.can('role.assign_permission')"
+                  v-if="authStore.can('role.assign_permission')"
                   :model-value="localPermissionIds.has(perm.id)"
                   class="mt-0.5"
                   @update:model-value="togglePermission(perm.id)"
@@ -358,20 +366,10 @@ function selectRole(roleId: number) {
                     {{ locale === 'en' ? perm.descriptionEn : perm.descriptionTh }}
                   </span>
                 </div>
+                <UBadge v-if="!authStore.can('role.assign_permission') && localPermissionIds.has(perm.id)" icon="i-lucide-dot" color="primary" variant="soft" class="rounded-full">Granted</UBadge>
               </label>
             </div>
           </section>
-        </div>
-
-        <div v-else-if="!authStore.can('role.view') || !authStore.can('permission.view')">
-          <div class="flex items-center justify-center py-24">
-            <div class="text-center">
-              <UIcon name="i-lucide-lock" class="size-12 text-muted mx-auto mb-3" />
-              <p class="text-sm text-muted">
-                {{ !authStore.can('role.view') ? t('noRolesPermission') : t('noPermissionView') }}
-              </p>
-            </div>
-          </div>
         </div>
 
         <!-- Empty State -->

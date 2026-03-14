@@ -1,7 +1,7 @@
 import { getDepartmentById } from '~~/lib/db/queries/department';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'department.read');
+  await requirePermission(event, 'department.view');
 
   const idParam = getRouterParam(event, 'id');
   const id = Number(idParam);

@@ -41,7 +41,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function can(permissionCode: string) {
-    return session.user.value?.permissions.includes(permissionCode);
+    return session.user.value?.permissions.includes(permissionCode) ?? false;
+  }
+
+  function canAny(permissionCodes: string[]) {
+    const userPermissions = session.user.value?.permissions ?? [];
+    return permissionCodes.some(code => userPermissions.includes(code));
   }
 
   function hasRole(roleName: string) {
@@ -56,6 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     clearError,
     can,
+    canAny,
     hasRole,
   };
 });

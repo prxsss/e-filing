@@ -4,7 +4,7 @@ import { LazyBaseConfirmDialogWithReason } from '#components';
 definePageMeta({
   title: 'Sign Document',
   middleware: ['permission'],
-  permission: 'request.sign',
+  permission: 'request.sign_history.view',
 });
 
 type FlowStep = {
@@ -318,7 +318,7 @@ onMounted(() => {
           icon="i-lucide-arrow-left"
           variant="ghost"
           color="neutral"
-          to="/teacher/to-sign"
+          to="/teacher/signed-history"
         />
         <div>
           <h1 class="text-xl font-bold text-slate-800">

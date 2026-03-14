@@ -7,6 +7,12 @@ import * as z from 'zod';
 
 import type { Role } from '~/types/user';
 
+definePageMeta({
+  title: 'create-user',
+  middleware: ['permission'],
+  permission: 'user.create',
+});
+
 const UButton = resolveComponent('UButton');
 // const UBadge = resolveComponent('UBadge');
 

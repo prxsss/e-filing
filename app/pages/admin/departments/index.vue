@@ -6,6 +6,8 @@ import { h, resolveComponent, watch } from 'vue';
 
 definePageMeta({
   title: 'departments',
+  middleware: ['permission'],
+  permission: 'department.view',
 });
 
 type DepartmentListItem = {
@@ -28,6 +30,8 @@ const localPath = useLocalePath();
 const { locale } = useI18n();
 const toast = useToast();
 const overlay = useOverlay();
+
+const authStore = useAuthStore();
 
 const searchTerm = ref('');
 const selectedFacultyId = ref<number | 'all'>('all');
@@ -163,32 +167,43 @@ const columns: TableColumn<DepartmentListItem>[] = [
   },
   {
     id: 'actions',
-    header: 'Actions',
     meta: {
       class: {
-        th: 'text-right',
         td: 'text-right',
       },
     },
     cell: ({ row }) => {
       const departmentName = locale.value === 'en' ? row.original.nameEn : row.original.nameTh;
+      const canEditDepartment = authStore.can('department.edit');
+      const canDeleteDepartment = authStore.can('department.delete');
 
-      return h('div', { class: 'flex items-center justify-end gap-1' }, [
-        h(UButton, {
-          color: 'primary',
-          variant: 'ghost',
-          icon: 'i-lucide-pencil',
-          onClick: () => handleEditDepartment(row.original.id),
-        }),
-        h(UButton, {
-          color: 'error',
-          variant: 'ghost',
-          icon: 'i-lucide-trash-2',
-          loading: deletingDepartmentId.value === row.original.id,
-          disabled: deletingDepartmentId.value === row.original.id,
-          onClick: async () => await handleDeleteDepartment(row.original.id, departmentName),
-        }),
-      ]);
+      const actionButtons = [];
+
+      if (canEditDepartment) {
+        actionButtons.push(
+          h(UButton, {
+            color: 'primary',
+            variant: 'ghost',
+            icon: 'i-lucide-pencil',
+            onClick: () => handleEditDepartment(row.original.id),
+          }),
+        );
+      }
+
+      if (canDeleteDepartment) {
+        actionButtons.push(
+          h(UButton, {
+            color: 'error',
+            variant: 'ghost',
+            icon: 'i-lucide-trash-2',
+            loading: deletingDepartmentId.value === row.original.id,
+            disabled: deletingDepartmentId.value === row.original.id,
+            onClick: async () => await handleDeleteDepartment(row.original.id, departmentName),
+          }),
+        );
+      }
+
+      return h('div', { class: 'flex items-center justify-end gap-1' }, actionButtons);
     },
   },
 ];
@@ -205,7 +220,7 @@ const columns: TableColumn<DepartmentListItem>[] = [
           Manage and organize university academic departments.
         </p>
       </div>
-      <UButton icon="i-lucide-plus" @click="handleAddDepartment">
+      <UButton v-if="authStore.can('department.create')" icon="i-lucide-plus" @click="handleAddDepartment">
         Add Department
       </UButton>
     </div>
