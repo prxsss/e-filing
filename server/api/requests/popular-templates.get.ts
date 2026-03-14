@@ -1,8 +1,6 @@
+import db from '~~/lib/db';
+import { request, requestTemplate } from '~~/lib/db/schema';
 import { count, desc, eq } from 'drizzle-orm';
-
-import db from '../../../lib/db';
-import { request } from '../../../lib/db/schema/request';
-import { requestTemplate } from '../../../lib/db/schema/request-template';
 
 export default defineEventHandler(async (event) => {
   const session = await getUserSession(event);

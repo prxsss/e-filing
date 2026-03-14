@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ title: 'completed' });
+definePageMeta({ title: 'signedHistory' });
 
 type HistoryEntry = {
   flowId: number;

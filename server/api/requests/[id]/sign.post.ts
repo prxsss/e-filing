@@ -1,9 +1,8 @@
+import db from '~~/lib/db';
+import { request, requestTemplate, signatureFlow, signatures, userRoles } from '~~/lib/db/schema';
+import { supabaseAdmin } from '~~/lib/supabase/client';
 import { and, asc, eq } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-
-import db from '../../../../lib/db';
-import { request, requestTemplate, signatureFlow, signatures, userRoles } from '../../../../lib/db/schema';
-import { supabaseAdmin } from '../../../../lib/supabase/client';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -189,7 +188,6 @@ export default defineEventHandler(async (event) => {
       requestId,
       signatureFlowId: flowEntry.id,
       userId,
-      dataUrl: signatureUrl, // URL to stored PNG, not raw base64
       fieldInstanceId: assignedIds[0] ?? null,
       pdfHash,
     });
@@ -197,7 +195,7 @@ export default defineEventHandler(async (event) => {
     // Mark current step as signed
     await db
       .update(signatureFlow)
-      .set({ status: 'signed', signedBy: userId, signedAt: new Date() })
+      .set({ status: 'signed', signedBy: userId, signedAt: new Date().toISOString() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
     // ── Advance workflow ─────────────────────────────────────────────────────

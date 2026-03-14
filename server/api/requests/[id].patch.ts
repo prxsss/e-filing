@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
       .update(request)
       .set({
         ...(newStatus ? { status: newStatus } : {}),
-        ...(body.submittedAt ? { submittedAt: new Date(body.submittedAt) } : {}),
+        ...(body.submittedAt ? { submittedAt: new Date(body.submittedAt).toISOString() } : {}),
       })
       .where(eq(request.id, requestId));
 
