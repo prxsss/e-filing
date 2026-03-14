@@ -158,7 +158,7 @@ const selectedLanguageIcon = computed(() =>
             <USelect :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
 
             <!-- Color Mode Button -->
-            <UColorModeButton />
+            <!-- <UColorModeButton /> -->
 
             <!-- Notifications Button -->
             <UButton
