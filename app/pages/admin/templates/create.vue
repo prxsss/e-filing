@@ -187,6 +187,32 @@ function normalizeFieldValue(value: unknown): string {
   return String(value ?? '').trim();
 }
 
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function getFieldMaxLength(field?: { maxLength?: unknown; max_length?: unknown } | null): number | null {
+  if (!field) {
+    return null;
+  }
+  return parsePositiveInteger((field as any).maxLength ?? (field as any).max_length);
+}
+
+function applyFieldMaxLength(value: string, field?: { maxLength?: unknown; max_length?: unknown } | null): string {
+  const maxLength = getFieldMaxLength(field);
+  if (!maxLength) {
+    return value;
+  }
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength);
+}
+
 function clearPreviewRefreshTimer() {
   if (previewRefreshTimer) {
     clearTimeout(previewRefreshTimer);
@@ -225,8 +251,10 @@ const selectedFieldPreviewValue = computed<string>({
       return;
     }
 
-    if (value) {
-      previewFieldValues.value[key] = value;
+    const limitedValue = applyFieldMaxLength(String(value ?? ''), selectedField.value);
+
+    if (limitedValue) {
+      previewFieldValues.value[key] = limitedValue;
     }
     else {
       delete previewFieldValues.value[key];
@@ -235,15 +263,22 @@ const selectedFieldPreviewValue = computed<string>({
   },
 });
 
+const selectedFieldMaxLength = computed<number | null>(() => getFieldMaxLength(selectedField.value));
+
+const selectedFieldPreviewCharacterCount = computed<number>(() => {
+  return selectedFieldPreviewValue.value.length;
+});
+
 function handlePreviewInput(event: Event) {
   const input = event.target as HTMLInputElement;
-  // กรองให้รับแค่ตัวอักษรภาษาไทย ภาษาอังกฤษ ตัวเลข และช่องว่าง (ไม่รับสัญลักษณ์อื่นๆ)
-  // ใช้ \p{L} สำหรับตัวอักษรทุกภาษา, \d สำหรับตัวเลข และ \s สำหรับช่องว่าง
-  const filteredValue = input.value.replace(/[^\p{L}\d\s]/gu, '');
-  if (input.value !== filteredValue) {
-    input.value = filteredValue;
+  // กรองให้รับแค่ตัวอักษร ตัวประกอบอักษร (เช่น สระ/วรรณยุกต์ไทย) ตัวเลข และช่องว่าง
+  // ใช้ \p{L} สำหรับตัวอักษรทุกภาษา, \p{M} สำหรับ combining marks, \d สำหรับตัวเลข และ \s สำหรับช่องว่าง
+  const filteredValue = input.value.replace(/[^\p{L}\p{M}\d\s]/gu, '');
+  const limitedValue = applyFieldMaxLength(filteredValue, selectedField.value);
+  if (input.value !== limitedValue) {
+    input.value = limitedValue;
   }
-  selectedFieldPreviewValue.value = filteredValue;
+  selectedFieldPreviewValue.value = limitedValue;
 }
 
 const previewOverlayFieldValues = computed<Record<string, string>>(() => {
@@ -584,6 +619,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
       pageNumber: currentPdfPage.value,
       fontSize: fieldToAdd.fontSize || 14,
       fontFamily: fieldToAdd.font || 'Arial',
+      maxLength: parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length),
     };
 
     placedFields.value.push(newFieldInstance);
@@ -843,6 +879,7 @@ async function performSave(): Promise<void> {
       textAlign: field.textAlign || 'left',
       letterSpacing: field.letterSpacing ?? 0,
       lineHeight: field.lineHeight ?? 1.5,
+      maxLength: parsePositiveInteger((field as any).maxLength ?? (field as any).max_length),
       normalizedX: field.normalizedX,
       normalizedY: field.normalizedY,
       normalizedWidth: field.normalizedWidth,
@@ -1264,6 +1301,7 @@ watch(
           <span class="text-xs text-gray-400 truncate max-w-40 shrink-0">{{ selectedField.label || selectedField.name }}</span>
           <input
             :value="selectedFieldPreviewValue"
+            :maxlength="selectedFieldMaxLength || undefined"
             type="text"
             class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
             placeholder="พิมพ์ข้อความตัวอย่างเพื่อดูผลลัพธ์จริงบน PDF"
@@ -1278,6 +1316,7 @@ watch(
           >
             Clear
           </UButton>
+          <span v-if="selectedFieldMaxLength" class="text-[11px] text-gray-400 shrink-0">{{ selectedFieldPreviewCharacterCount }}/{{ selectedFieldMaxLength }}</span>
           <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? 'Syncing preview...' : 'Preview only · not saved' }}</span>
         </div>
 

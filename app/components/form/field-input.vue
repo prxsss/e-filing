@@ -16,14 +16,46 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const localValue = computed({
-  get: () => props.modelValue,
-  set: value => emit('update:modelValue', value),
+const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
+
+const maxLength = computed(() => {
+  const rawValue = props.field?.maxLength ?? props.field?.max_length;
+  const parsed = Number.parseInt(String(rawValue ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 });
+
+function normalizeInputValue(value) {
+  const normalizedValue = String(value ?? '');
+  if (!maxLength.value || fieldType.value === 'date') {
+    return normalizedValue;
+  }
+  if (normalizedValue.length <= maxLength.value) {
+    return normalizedValue;
+  }
+  return normalizedValue.slice(0, maxLength.value);
+}
+
+const localValue = computed({
+  get: () => normalizeInputValue(props.modelValue),
+  set: value => emit('update:modelValue', normalizeInputValue(value)),
+});
+
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    const normalizedValue = normalizeInputValue(newValue);
+    if (normalizedValue !== String(newValue ?? '')) {
+      emit('update:modelValue', normalizedValue);
+    }
+  },
+);
 
 // Get appropriate input type based on field type
 const inputType = computed(() => {
-  switch (props.field.type?.toLowerCase()) {
+  switch (fieldType.value) {
     case 'date':
       return 'date';
     case 'number':
@@ -44,6 +76,8 @@ const placeholder = computed(() => {
   }
   return `Enter ${props.field.name || 'value'}`;
 });
+
+const currentLength = computed(() => localValue.value.length);
 </script>
 
 <template>
@@ -58,8 +92,12 @@ const placeholder = computed(() => {
       :type="inputType"
       :placeholder="placeholder"
       :disabled="disabled"
+      :maxlength="maxLength || undefined"
       class="form-input"
     >
+    <p v-if="maxLength" class="field-helper">
+      {{ currentLength }}/{{ maxLength }} characters
+    </p>
   </div>
 </template>
 
@@ -94,5 +132,12 @@ const placeholder = computed(() => {
 .form-input:disabled {
   background-color: #f3f4f6;
   cursor: not-allowed;
+}
+
+.field-helper {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: right;
 }
 </style>

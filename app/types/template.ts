@@ -11,6 +11,7 @@ export type Field = {
   name: string;
   label?: string;
   fieldType: string;
+  maxLength?: number | null;
   amount?: number;
   fontSize?: number;
   fontFamily?: string;

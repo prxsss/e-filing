@@ -126,6 +126,14 @@ const selectedField = computed<FieldInstance | null>(() => {
   return { ...field, displayX: field.x, displayY: field.y, displayWidth: field.width, displayHeight: field.height } as FieldInstance;
 });
 
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
 // ─── Wizard Navigation ────────────────────────────────────────────────────────
 
 function goToStep(step: WizardStep): void {
@@ -307,6 +315,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
       pageNumber: currentPdfPage.value,
       fontSize: fieldToAdd.fontSize || 14,
       fontFamily: fieldToAdd.font || 'Arial',
+      maxLength: parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length),
     };
     placedFields.value.push(instance);
     if (i === amount - 1)
@@ -463,6 +472,7 @@ async function performSave(): Promise<void> {
       textAlign: field.textAlign || 'left',
       letterSpacing: field.letterSpacing ?? 0,
       lineHeight: field.lineHeight ?? 1.5,
+      maxLength: parsePositiveInteger((field as any).maxLength ?? (field as any).max_length),
       normalizedX: field.normalizedX,
       normalizedY: field.normalizedY,
       normalizedWidth: field.normalizedWidth,

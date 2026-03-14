@@ -14,6 +14,19 @@ const emit = defineEmits<{
 
 const localField = ref<any>({});
 
+function normalizeMaxLength(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0)
+    return null;
+  return parsed;
+}
+
+const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
+
+const supportsMaxLength = computed(() => {
+  return selectedFieldType.value !== 'signature' && selectedFieldType.value !== 'icon' && selectedFieldType.value !== 'date';
+});
+
 // Use computed for display coordinates to ensure they recalculate when scale changes
 const displayCoords = computed(() => {
   const field = props.selectedField;
@@ -78,6 +91,7 @@ watch(
         textAlign: newField.textAlign || 'left',
         letterSpacing: newField.letterSpacing ?? 0,
         lineHeight: newField.lineHeight ?? 1.5,
+        maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
       };
     }
     else {
@@ -90,6 +104,18 @@ watch(
 function onPropertyChange() {
   if (!localField.value || !props.selectedField)
     return;
+
+  const commonStyleUpdates = {
+    fontSize: localField.value.fontSize || 14,
+    fontFamily: localField.value.fontFamily || 'Arial',
+    fontWeight: localField.value.fontWeight || 'normal',
+    fontStyle: localField.value.fontStyle || 'normal',
+    textDecoration: localField.value.textDecoration || 'none',
+    textAlign: localField.value.textAlign || 'left',
+    letterSpacing: localField.value.letterSpacing ?? 0,
+    lineHeight: localField.value.lineHeight ?? 1.5,
+    maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+  };
 
   // For PDF with normalized coordinates, convert display back to normalized
   if (props.pdfRef && props.selectedField.normalizedX !== undefined) {
@@ -109,14 +135,7 @@ function onPropertyChange() {
           normalizedY: normalized.y,
           normalizedWidth: normalized.width,
           normalizedHeight: normalized.height,
-          fontSize: localField.value.fontSize || 14,
-          fontFamily: localField.value.fontFamily || 'Arial',
-          fontWeight: localField.value.fontWeight || 'normal',
-          fontStyle: localField.value.fontStyle || 'normal',
-          textDecoration: localField.value.textDecoration || 'none',
-          textAlign: localField.value.textAlign || 'left',
-          letterSpacing: localField.value.letterSpacing ?? 0,
-          lineHeight: localField.value.lineHeight ?? 1.5,
+          ...commonStyleUpdates,
         },
       });
       return;
@@ -131,14 +150,7 @@ function onPropertyChange() {
       y: editableY.value,
       width: editableWidth.value,
       height: editableHeight.value,
-      fontSize: localField.value.fontSize || 14,
-      fontFamily: localField.value.fontFamily || 'Arial',
-      fontWeight: localField.value.fontWeight || 'normal',
-      fontStyle: localField.value.fontStyle || 'normal',
-      textDecoration: localField.value.textDecoration || 'none',
-      textAlign: localField.value.textAlign || 'left',
-      letterSpacing: localField.value.letterSpacing ?? 0,
-      lineHeight: localField.value.lineHeight ?? 1.5,
+      ...commonStyleUpdates,
     },
   });
 }
@@ -368,6 +380,28 @@ function removeField() {
               >
             </div>
           </UTooltip>
+
+          <template v-if="supportsMaxLength">
+            <div class="h-5 w-px bg-gray-200" />
+
+            <UTooltip text="จำนวนตัวอักษรสูงสุด (เว้นว่าง = ไม่จำกัด)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix text-gray-400">
+                  <UIcon name="i-heroicons-hashtag" class="w-3.5 h-3.5" />
+                </span>
+                <input
+                  v-model.number="localField.maxLength"
+                  type="number"
+                  class="toolbar-input w-14"
+                  min="1"
+                  max="5000"
+                  step="1"
+                  placeholder="∞"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+          </template>
         </div>
       </template>
 

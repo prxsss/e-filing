@@ -42,6 +42,26 @@ export default defineEventHandler(async (event) => {
   }
 });
 
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function applyFieldCharacterLimit(value: unknown, field: any): string {
+  const normalizedValue = String(value ?? '');
+  const maxLength = parsePositiveInteger(field?.maxLength ?? field?.max_length);
+  if (!maxLength) {
+    return normalizedValue;
+  }
+  if (normalizedValue.length <= maxLength) {
+    return normalizedValue;
+  }
+  return normalizedValue.slice(0, maxLength);
+}
+
 async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
   try {
     const PDFLib = await import('pdf-lib');
@@ -102,7 +122,8 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
 
     for (const field of fields) {
       const rawPreviewValue = field.sampleValue ?? field.value ?? '';
-      const trimmedPreviewValue = String(rawPreviewValue || '').trim();
+      const limitedPreviewValue = applyFieldCharacterLimit(rawPreviewValue, field);
+      const trimmedPreviewValue = limitedPreviewValue.trim();
       const fallbackValue = field.label || field.name || `[${field.type || 'field'}]`;
       const sampleValue = trimmedPreviewValue || (field.useFallbackLabel === false ? '' : fallbackValue);
       if (!sampleValue?.trim())
@@ -167,7 +188,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         }
 
         // ── Horizontal alignment ───────────────────────────────────────────
-        let text = String(sampleValue).trim();
+        let text = applyFieldCharacterLimit(sampleValue, field).trim();
 
         // --- CUSTOM WRAP LOGIC ---
         // Pre-process text to wrap unbreakable strings that exceed field width

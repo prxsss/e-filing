@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
 
     // Map field values to placed fields
     const fieldsWithValues = placedFields.map((field: any) => {
-      const fieldValue = fieldValuesMap[field.id] || '';
+      const fieldValue = applyFieldCharacterLimit(fieldValuesMap[field.id] || '', field);
       return {
         ...field,
         label: fieldValue, // Use filed value as label to render on PDF
@@ -166,6 +166,26 @@ export default defineEventHandler(async (event) => {
   }
 });
 
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function applyFieldCharacterLimit(value: unknown, field: any): string {
+  const normalizedValue = String(value ?? '');
+  const maxLength = parsePositiveInteger(field?.maxLength ?? field?.max_length);
+  if (!maxLength) {
+    return normalizedValue;
+  }
+  if (normalizedValue.length <= maxLength) {
+    return normalizedValue;
+  }
+  return normalizedValue.slice(0, maxLength);
+}
+
 // Generate filled PDF with field values
 async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template: any) {
   try {
@@ -194,7 +214,8 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
 
     // Process each field
     for (const field of fields) {
-      if (!field.value || !field.value.trim())
+      const normalizedFieldValue = applyFieldCharacterLimit(field.value, field);
+      if (!normalizedFieldValue.trim())
         continue;
 
       try {
@@ -242,7 +263,7 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
         catch {}
 
         // ── Horizontal alignment ───────────────────────────────────────────
-        let text = String(field.value).trim();
+        let text = normalizedFieldValue.trim();
 
         // --- CUSTOM WRAP LOGIC ---
         // Pre-process text to wrap unbreakable strings that exceed field width
