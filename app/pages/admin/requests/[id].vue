@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ title: 'requestDetails' });
+definePageMeta({
+  title: 'requestDetails',
+  middleware: ['permission'],
+  permission: 'request.view',
+});
 
 // --- Types ---
 type RequestData = {

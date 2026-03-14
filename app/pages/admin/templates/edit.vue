@@ -11,6 +11,8 @@ type ApiResponse<T> = {
 
 definePageMeta({
   title: 'editTemplate',
+  middleware: ['permission'],
+  permission: 'template.edit',
 });
 
 const router = useRouter();

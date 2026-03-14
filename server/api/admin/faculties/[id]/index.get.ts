@@ -1,7 +1,7 @@
 import { getFacultyById } from '~~/lib/db/queries/faculty';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'faculty.read');
+  await requirePermission(event, 'faculty.view');
 
   const idParam = getRouterParam(event, 'id');
   const id = Number(idParam);

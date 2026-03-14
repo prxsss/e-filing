@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ title: 'signedHistory' });
+definePageMeta({
+  title: 'signedHistory',
+  middleware: ['permission'],
+  permission: 'request.sign_history.view',
+});
 
 type HistoryEntry = {
   flowId: number;
@@ -179,7 +183,7 @@ const requestStatusLabel: Record<string, string> = {
                 variant="ghost"
                 color="neutral"
                 icon="i-lucide-eye"
-                :to="`/teacher/sign/${entry.requestId}`"
+                :to="`/teacher/signed-history/${entry.requestId}`"
               >
                 รายละเอียด
               </UButton>

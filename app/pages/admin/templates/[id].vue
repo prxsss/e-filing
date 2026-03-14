@@ -3,6 +3,8 @@ import { LazyBaseConfirmDialog } from '#components';
 
 definePageMeta({
   title: 'documentReview',
+  middleware: ['permission'],
+  permission: 'template.view',
 });
 
 // --- Types ---
@@ -56,6 +58,8 @@ const template = ref<Template | null>(null);
 const isLoading = ref(true);
 const isDeleting = ref(false);
 const error = ref<string | null>(null);
+
+const authStore = useAuthStore();
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
@@ -198,6 +202,7 @@ onMounted(() => {
               @click="downloadPdf"
             />
             <UButton
+              v-if="authStore.can('template.delete')"
               icon="i-heroicons-trash"
               variant="ghost"
               color="error"
@@ -205,6 +210,7 @@ onMounted(() => {
               @click="deleteTemplate"
             />
             <UButton
+              v-if="authStore.can('template.edit')"
               :to="`/admin/templates/edit?id=${templateId}`"
               icon="i-heroicons-pencil-square"
               variant="solid"
