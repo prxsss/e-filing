@@ -8,8 +8,8 @@ export async function getRoles() {
     .select({
       id: roles.id,
       name: roles.name,
-      descriptionEN: roles.descriptionEN,
-      descriptionTH: roles.descriptionTH,
+      descriptionEn: roles.descriptionEn,
+      descriptionTh: roles.descriptionTh,
       userCount: sql<number>`cast(count(${userRoles.userId}) as int)`,
     })
     .from(roles)
@@ -19,8 +19,8 @@ export async function getRoles() {
 
 export async function createRole(data: {
   name: string;
-  descriptionEN?: string | null;
-  descriptionTH?: string | null;
+  descriptionEn?: string | null;
+  descriptionTh?: string | null;
   permissionIds?: number[];
 }) {
   return db.transaction(async (tx) => {
@@ -28,8 +28,8 @@ export async function createRole(data: {
       .insert(roles)
       .values({
         name: data.name,
-        descriptionEN: data.descriptionEN ?? null,
-        descriptionTH: data.descriptionTH ?? null,
+        descriptionEn: data.descriptionEn ?? null,
+        descriptionTh: data.descriptionTh ?? null,
       })
       .returning();
 
@@ -50,8 +50,8 @@ export async function updateRole(
   id: number,
   data: {
     name?: string;
-    descriptionEN?: string | null;
-    descriptionTH?: string | null;
+    descriptionEn?: string | null;
+    descriptionTh?: string | null;
   },
 ) {
   const [updated] = await db

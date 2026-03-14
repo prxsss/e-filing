@@ -14,7 +14,7 @@ export default withNuxt(
       semi: true,
       quotes: 'single',
     },
-    ignores: ['**/migrations/*'],
+    ignores: ['**/migrations/*', '**/schema/*'],
   }, {
     rules: {
       'ts/no-redeclare': 'off',

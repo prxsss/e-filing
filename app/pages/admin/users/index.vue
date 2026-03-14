@@ -13,18 +13,24 @@ const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
 
 const router = useRouter();
-
 const localPath = useLocalePath();
+const { locale } = useI18n();
 
 const authStore = useAuthStore();
 
-const { data, status } = await useFetch<UserListItem[]>('/api/users');
+// const { data, status } = await useFetch<UserListItem[]>('/api/users', {
+//   query: computed(() => ({
+//     page: page.value,
+//     pageSize: pageSize.value,
+//   })),
+// });
+
+const { rows: data, isLoading, page, pageSize, total } = useUsers();
 
 const columns: TableColumn<UserListItem>[] = [
   {
     accessorKey: 'id',
     header: 'ID',
-
   },
   {
     accessorKey: 'fullNameEn',
@@ -35,13 +41,35 @@ const columns: TableColumn<UserListItem>[] = [
     header: 'Email',
   },
   {
-    accessorKey: 'faculty',
-    header: 'Faculty',
+    accessorKey: 'roles',
+    header: 'Roles',
     cell: ({ row }) => {
-      const faculty = row.getValue('faculty') as string | null;
-      return faculty || h('div', '-');
+      const roles = row.getValue('roles') as { name: string; count: number }[];
+      if (roles.length === 0) {
+        return h('div', { class: 'text-slate-500' }, 'No roles');
+      }
+      return h('div', { class: 'flex flex-wrap gap-1 capitalize' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, `${role.name} ${role.count > 1 ? `(${role.count})` : ''}`)));
     },
   },
+  {
+    accessorKey: 'faculties',
+    header: 'Faculty',
+    cell: ({ row }) => {
+      const faculties = row.getValue('faculties') as { nameEn: string; nameTh: string }[];
+      if (faculties.length === 0) {
+        return h('div', { class: 'text-slate-500' }, 'No faculties');
+      }
+      return h('div', { class: 'flex flex-wrap gap-1' }, faculties.map(faculty => h('span', null, locale.value === 'en' ? faculty.nameEn : faculty.nameTh)));
+    },
+  },
+  // {
+  //   accessorKey: 'departmentNameEn',
+  //   header: 'Department',
+  //   cell: ({ row }) => {
+  //     const department = row.getValue('departmentNameEn') as string | null;
+  //     return department || h('div', '-');
+  //   },
+  // },
   {
     accessorKey: 'banned',
     header: 'Status',
@@ -49,17 +77,6 @@ const columns: TableColumn<UserListItem>[] = [
       const color = row.getValue('banned') ? 'error' : 'success';
       const statusText = row.getValue('banned') ? 'Banned' : 'Active';
       return h(UBadge, { class: 'capitalize', variant: 'soft', color }, statusText);
-    },
-  },
-  {
-    accessorKey: 'roles',
-    header: 'Roles',
-    cell: ({ row }) => {
-      const roles = row.getValue('roles') as string[];
-      if (roles.length === 0) {
-        return h('div', { class: 'text-slate-500' }, 'No roles');
-      }
-      return h('div', { class: 'flex flex-wrap gap-1' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, role)));
     },
   },
   {
@@ -127,9 +144,18 @@ const columns: TableColumn<UserListItem>[] = [
       <UTable
         :data="data"
         :columns
-        :loading="status === 'pending'"
+        :loading="isLoading"
         class="flex-1"
       />
+      <div class="flex justify-center gap-2 border-t border-default pt-4 px-4">
+        <UPagination
+          v-model:page="page"
+          :items-per-page="pageSize"
+          :total="total"
+          show-edges
+        />
+        <USelect v-model="pageSize" :items="[5, 10, 20, 50]" />
+      </div>
     </UCard>
   </div>
 </template>

@@ -15,6 +15,8 @@ const createUserSchema = zod.object({
 });
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'user.create');
+
   const body = await readValidatedBody(event, createUserSchema.parse);
 
   const hashedPassword = await hashPassword(body.password);
@@ -27,7 +29,7 @@ export default defineEventHandler(async (event) => {
     passwordHash: hashedPassword,
     firstNameTh: body.firstNameTh,
     lastNameTh: body.lastNameTh,
-    facultyId: body.facultyId,
+    // facultyId: body.facultyId,
     image: body.image,
   }).returning();
 

@@ -1,6 +1,8 @@
 import { updateRolePermissions } from '~~/lib/db/queries/permission';
 
 export default defineEventHandler(async (event) => {
+  await requirePermission(event, 'role.assign_permission');
+
   const id = Number(getRouterParam(event, 'id'));
 
   if (Number.isNaN(id)) {

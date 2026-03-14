@@ -1,16 +1,17 @@
 export type Role = {
   id: number;
   name: string;
+  facultyId?: number | null;
+  departmentId?: number | null;
 };
 
 export type UserListItem = {
   id: string;
   fullNameEn: string;
-  fullNameTh: string;
   email: string;
-  faculty: string | null;
+  faculties: { nameEn: string; nameTh: string }[];
+  roles: { name: string; count: number }[];
   banned: boolean;
-  roles?: string[];
 };
 
 export type UserDetail = {
@@ -22,11 +23,21 @@ export type UserDetail = {
   lastNameTh: string;
   fullNameTh: string;
   email: string;
-  roles: Role[];
-  facultyId: number | null;
-  facultyName: string | null;
   image: string | null;
   banned: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
+  assignments: {
+    role: string;
+    faculty: {
+      id: string;
+      nameEn: string;
+      nameTh: string;
+    } | null;
+    department: {
+      id: string;
+      nameEn: string;
+      nameTh: string;
+    } | null;
+  }[];
 };

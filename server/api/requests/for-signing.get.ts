@@ -4,17 +4,16 @@ import db from '../../../lib/db';
 import { request, requestTemplate, signatureFlow, userRoles, users } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
-    const session = await getUserSession(event);
-    if (!session?.user?.id) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' });
-    }
+    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     // Resolve the current user's role IDs for role-based routing
     const userRoleRows = await db
       .select({ roleId: userRoles.roleId })
       .from(userRoles)
-      .where(eq(userRoles.userId, session.user.id));
+      .where(eq(userRoles.userId, userId));
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
@@ -29,13 +28,13 @@ export default defineEventHandler(async (event) => {
     // roles; Pattern B is only evaluated when the user has at least one role.
     const routingCondition = userRoleIds.length > 0
       ? or(
-          eq(signatureFlow.assignedUserId, session.user.id),
+          eq(signatureFlow.assignedUserId, userId),
           and(
             isNull(signatureFlow.assignedUserId),
             inArray(signatureFlow.roleId, userRoleIds),
           ),
         )
-      : eq(signatureFlow.assignedUserId, session.user.id);
+      : eq(signatureFlow.assignedUserId, userId);
 
     const allPendingFlows = await db
       .select()

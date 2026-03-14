@@ -6,6 +6,8 @@ import db from '../../../../../lib/db';
 import { attachments } from '../../../../../lib/db/schema';
 
 export default defineEventHandler(async (event: H3Event) => {
+  // await requirePermission(event, '<permission>', '<permission>', ...);
+
   try {
     const requestId = event.context.params?.id;
 

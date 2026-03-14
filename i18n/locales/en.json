@@ -79,10 +79,10 @@
   "roleInformation": "Role Information",
   "roleName": "Role Name",
   "roleNamePlaceholder": "e.g. Department Head",
-  "descriptionEN": "Description (EN)",
-  "descriptionTH": "Description (TH)",
-  "descriptionENPlaceholder": "Brief description of this role in English",
-  "descriptionTHPlaceholder": "คำอธิบายบทบาทนี้เป็นภาษาไทย",
+  "descriptionEn": "Description (EN)",
+  "descriptionTh": "Description (TH)",
+  "descriptionEnPlaceholder": "Brief description of this role in English",
+  "descriptionThPlaceholder": "คำอธิบายบทบาทนี้เป็นภาษาไทย",
   "assignPermissions": "Assign Permissions",
   "assignPermissionsDescription": "Select the permissions this role should have.",
   "selectedCount": "{count} selected",
@@ -136,6 +136,7 @@
   "fields": "fields",
   "selectPerson": "Assign person (optional)",
   "noUsersWithRole": "No users with this role",
-  "confirmSave": "Confirm & Save Template"
-
+  "confirmSave": "Confirm & Save Template",
+  "faculties": "Faculties",
+  "departments": "Departments"
 }
