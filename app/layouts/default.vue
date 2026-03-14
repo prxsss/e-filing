@@ -38,9 +38,9 @@ const sidebarItems = computed(() => [{
     open.value = false;
   },
 }, {
-  label: t('completed'),
+  label: t('signedHistory'),
   icon: 'i-lucide-circle-check',
-  to: localePath('/teacher/completed'),
+  to: localePath('/teacher/signed-history'),
   onSelect: () => {
     open.value = false;
   },
@@ -69,6 +69,20 @@ const sidebarItems = computed(() => [{
   label: t('accessControl'),
   icon: 'i-lucide-shield-check',
   to: localePath('/admin/access-control'),
+  onSelect: () => {
+    open.value = false;
+  },
+}, {
+  label: t('faculties'),
+  icon: 'i-lucide-building',
+  to: localePath('/admin/faculties'),
+  onSelect: () => {
+    open.value = false;
+  },
+}, {
+  label: t('departments'),
+  icon: 'i-lucide-building-2',
+  to: localePath('/admin/departments'),
   onSelect: () => {
     open.value = false;
   },
@@ -144,7 +158,7 @@ const selectedLanguageIcon = computed(() =>
             <USelect :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
 
             <!-- Color Mode Button -->
-            <UColorModeButton />
+            <!-- <UColorModeButton /> -->
 
             <!-- Notifications Button -->
             <UButton

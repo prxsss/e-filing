@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Get total count + status counts in one query
+    // Get total count
     const [countResult] = await db
       .select({
         total: count(),

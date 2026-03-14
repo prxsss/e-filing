@@ -13,6 +13,8 @@ const props = defineProps({
   uiScale: { type: Number, default: 1 }, // UI zoom scale from parent
   readOnly: { type: Boolean, default: false }, // Read-only mode (no editing)
   signingSteps: { type: Array as () => { id: string; color: string; roleName: string }[], default: () => [] }, // Signing steps for color-coding fields
+  fieldValues: { type: Object as () => Record<string, string>, default: () => ({}) }, // Live typed values or overlay values for WYSIWYG preview
+  fillMode: { type: Boolean, default: false }, // Show typed values in field boxes for WYSIWYG
 });
 
 const emit = defineEmits<{
@@ -39,6 +41,43 @@ function getFieldSignerRole(field: Field): string | null {
     return null;
   const step = props.signingSteps.find((s: any) => s.id === field.signerStepId);
   return step ? step.roleName : null;
+}
+
+function resolveDisplayFontFamily(fontFamily?: string): string {
+  const value = (fontFamily || '').trim();
+  return value || 'Sarabun';
+}
+
+function resolveFieldValueEntry(field: Field): { hasEntry: boolean; value: string } {
+  const instanceKey = field?.instanceId ? String(field.instanceId) : '';
+  const idKey = field?.id !== undefined && field?.id !== null ? String(field.id) : '';
+
+  if (instanceKey && Object.prototype.hasOwnProperty.call(props.fieldValues, instanceKey)) {
+    return {
+      hasEntry: true,
+      value: props.fieldValues[instanceKey] || '',
+    };
+  }
+
+  if (idKey && Object.prototype.hasOwnProperty.call(props.fieldValues, idKey)) {
+    return {
+      hasEntry: true,
+      value: props.fieldValues[idKey] || '',
+    };
+  }
+
+  return {
+    hasEntry: false,
+    value: '',
+  };
+}
+
+function hasFieldTextOverride(field: Field): boolean {
+  return resolveFieldValueEntry(field).hasEntry;
+}
+
+function getFieldTextOverride(field: Field): string {
+  return resolveFieldValueEntry(field).value;
 }
 
 const viewerArea = ref<HTMLDivElement | null>(null);
@@ -94,6 +133,18 @@ const activeResize = ref<{
 // Pan scrolling state
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
+// Local position override used during drag/resize for real-time visual feedback
+// Avoids direct prop mutation — parent receives the final update only via emit('fieldUpdated')
+const fieldPositionOverride = ref<{
+  instanceId: string;
+  normalizedX?: number;
+  normalizedY?: number;
+  normalizedWidth?: number;
+  normalizedHeight?: number;
+  x?: number;
+  y?: number;
+} | null>(null);
 
 // --- Fit-to-width ---
 // Scale factor to make the PDF fill the container width
@@ -365,12 +416,12 @@ function startDrag(event: any, field: Field): void {
   const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
   const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
 
-  // Find the original field in placedFields to track which one we're dragging
-  const originalField = (props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId);
+  // Snapshot the field state — does NOT keep a reference to the prop object
+  const fieldSnapshot = { ...((props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId) || field) };
 
   activeDrag.value = {
     isDragging: true,
-    field: originalField || field,
+    field: fieldSnapshot,
     offsetX: mouseCanvasX - fieldDisplayX,
     offsetY: mouseCanvasY - fieldDisplayY,
     displayWidth: (field as any).displayWidth ?? field.width ?? 150,
@@ -427,31 +478,48 @@ function drag(event: any): void {
   // Convert display coordinates back to normalized for storage
   if (field!.normalizedX !== undefined && field!.normalizedWidth !== undefined) {
     const normalized = displayToNorm(newDisplayX, newDisplayY, fieldDisplayWidth, fieldDisplayHeight);
-    field!.normalizedX = normalized.x;
-    field!.normalizedY = normalized.y;
-    field!.normalizedWidth = normalized.width;
-    field!.normalizedHeight = normalized.height;
+    // Update position override for reactive display — does NOT mutate the prop
+    fieldPositionOverride.value = {
+      instanceId: field!.instanceId,
+      normalizedX: normalized.x,
+      normalizedY: normalized.y,
+      normalizedWidth: normalized.width,
+      normalizedHeight: normalized.height,
+    };
   }
   else {
-    field!.x = Math.round(newDisplayX);
-    field!.y = Math.round(newDisplayY);
+    // Image fields: update override with pixel coords
+    fieldPositionOverride.value = {
+      instanceId: field!.instanceId,
+      x: Math.round(newDisplayX),
+      y: Math.round(newDisplayY),
+    };
   }
 }
 
 function stopDrag(): void {
   if (activeDrag.value.isDragging) {
-    const field = activeDrag.value.field;
-    // Emit final position to parent for synchronization
-    if (field && field.normalizedX !== undefined) {
-      emit('fieldUpdated', {
-        instanceId: field.instanceId,
-        updates: {
-          normalizedX: field.normalizedX,
-          normalizedY: field.normalizedY,
-          normalizedWidth: field.normalizedWidth,
-          normalizedHeight: field.normalizedHeight,
-        },
-      });
+    // Emit final position from override to parent — this is the only place we write to parent state
+    if (fieldPositionOverride.value) {
+      const ov = fieldPositionOverride.value;
+      if (ov.normalizedX !== undefined) {
+        emit('fieldUpdated', {
+          instanceId: ov.instanceId,
+          updates: {
+            normalizedX: ov.normalizedX,
+            normalizedY: ov.normalizedY,
+            normalizedWidth: ov.normalizedWidth,
+            normalizedHeight: ov.normalizedHeight,
+          },
+        });
+      }
+      else if (ov.x !== undefined) {
+        emit('fieldUpdated', {
+          instanceId: ov.instanceId,
+          updates: { x: ov.x, y: ov.y },
+        });
+      }
+      fieldPositionOverride.value = null;
     }
 
     activeDrag.value.isDragging = false;
@@ -476,12 +544,12 @@ function startResize(event: any, field: Field, direction: string): void {
     ? normToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight)
     : { width: 150, height: 40 };
 
-  // Find the original field in placedFields for direct mutation
-  const originalField = (props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId);
+  // Snapshot the field state — does NOT keep a reference to the prop object
+  const fieldSnapshot = { ...((props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId) || field) };
 
   activeResize.value = {
     isResizing: true,
-    field: originalField || field,
+    field: fieldSnapshot,
     direction,
     startX: event.clientX,
     startY: event.clientY,
@@ -520,16 +588,24 @@ function handleResize(event: any): void {
     newHeight = Math.max(20, activeResize.value.startHeight + deltaY);
   }
 
-  // Convert display coords back to normalized and directly mutate the field
+  // Convert display coords back to normalized and update override — does NOT mutate the prop
   if (field.normalizedX !== undefined) {
     const currentDisplay = normToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight);
     const normalized = displayToNorm(currentDisplay.x, currentDisplay.y, newWidth, newHeight);
-    field.normalizedX = normalized.x;
-    field.normalizedY = normalized.y;
-    field.normalizedWidth = normalized.width;
-    field.normalizedHeight = normalized.height;
+    fieldPositionOverride.value = {
+      instanceId: field.instanceId,
+      normalizedX: normalized.x,
+      normalizedY: normalized.y,
+      normalizedWidth: normalized.width,
+      normalizedHeight: normalized.height,
+    };
   }
   else {
+    fieldPositionOverride.value = {
+      instanceId: field.instanceId,
+      x: field.x,
+      y: field.y,
+    };
     field.width = Math.round(newWidth);
     field.height = Math.round(newHeight);
   }
@@ -537,18 +613,31 @@ function handleResize(event: any): void {
 
 function stopResize(): void {
   if (activeResize.value.isResizing) {
-    const field = activeResize.value.field;
-    // Emit final size to parent for synchronization
-    if (field && field.normalizedX !== undefined) {
-      emit('fieldUpdated', {
-        instanceId: field.instanceId,
-        updates: {
-          normalizedX: field.normalizedX,
-          normalizedY: field.normalizedY,
-          normalizedWidth: field.normalizedWidth,
-          normalizedHeight: field.normalizedHeight,
-        },
-      });
+    // Emit final size from override to parent — this is the only place we write to parent state
+    if (fieldPositionOverride.value) {
+      const ov = fieldPositionOverride.value;
+      if (ov.normalizedX !== undefined) {
+        emit('fieldUpdated', {
+          instanceId: ov.instanceId,
+          updates: {
+            normalizedX: ov.normalizedX,
+            normalizedY: ov.normalizedY,
+            normalizedWidth: ov.normalizedWidth,
+            normalizedHeight: ov.normalizedHeight,
+          },
+        });
+      }
+      else if (activeResize.value.field) {
+        // Image field: emit pixel width/height
+        emit('fieldUpdated', {
+          instanceId: activeResize.value.field.instanceId,
+          updates: {
+            width: activeResize.value.field.width,
+            height: activeResize.value.field.height,
+          },
+        });
+      }
+      fieldPositionOverride.value = null;
     }
 
     activeResize.value.isResizing = false;
@@ -742,12 +831,17 @@ const fieldsWithDisplayCoords = computed(() => {
   return props.placedFields
     .filter((field: Field) => !field.pageNumber || field.pageNumber === currentPage.value)
     .map((field: Field) => {
-      if (field.normalizedX !== undefined) {
+      // Merge position override during active drag/resize (no prop mutation)
+      const activeField = fieldPositionOverride.value?.instanceId === field.instanceId
+        ? { ...field, ...fieldPositionOverride.value }
+        : field;
+
+      if (activeField.normalizedX !== undefined) {
         const display = normToDisplay(
-          field.normalizedX,
-          field.normalizedY,
-          field.normalizedWidth,
-          field.normalizedHeight,
+          activeField.normalizedX,
+          activeField.normalizedY,
+          activeField.normalizedWidth,
+          activeField.normalizedHeight,
         );
         return {
           ...field,
@@ -759,8 +853,8 @@ const fieldsWithDisplayCoords = computed(() => {
       }
       return {
         ...field,
-        displayX: field.x || 50,
-        displayY: field.y || 50,
+        displayX: activeField.x || 50,
+        displayY: activeField.y || 50,
         displayWidth: field.width || 150,
         displayHeight: field.height || 40,
       };
@@ -793,7 +887,7 @@ watch(
     if (!pdfLoaded.value || !pdfNaturalDimensions.value.width)
       return;
 
-    // Auto-calculate normalized coordinates for new fields (direct mutation like edit version)
+    // Emit normalized coords for new fields instead of mutating the prop directly
     (props.placedFields as Field[]).forEach((field) => {
       if (field.normalizedX === undefined || field.normalizedY === undefined) {
         const normalized = displayToNorm(
@@ -802,10 +896,15 @@ watch(
           field.width || 150,
           field.height || 40,
         );
-        field.normalizedX = normalized.x;
-        field.normalizedY = normalized.y;
-        field.normalizedWidth = normalized.width;
-        field.normalizedHeight = normalized.height;
+        emit('fieldUpdated', {
+          instanceId: field.instanceId,
+          updates: {
+            normalizedX: normalized.x,
+            normalizedY: normalized.y,
+            normalizedWidth: normalized.width,
+            normalizedHeight: normalized.height,
+          },
+        });
       }
     });
   },
@@ -971,7 +1070,8 @@ defineExpose<{
               class="placed-field"
               :class="{
                 'field-selected': selectedField?.instanceId === field.instanceId && !props.readOnly,
-                'read-only': props.readOnly && !props.signingSteps.length,
+                'fill-mode': props.readOnly && props.fillMode,
+                'read-only': props.readOnly && !props.fillMode && !props.signingSteps.length,
                 'field-unassigned': props.signingSteps.length > 0 && !field.signerStepId,
                 'field-clickable': props.readOnly && props.signingSteps.length > 0,
               }"
@@ -981,8 +1081,15 @@ defineExpose<{
                 width: `${field.displayWidth}px`,
                 height: `${field.displayHeight}px`,
                 zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 100,
-                fontSize: `${field.fontSize || 14}px`,
-                fontFamily: field.fontFamily || 'Arial',
+                fontSize: `${(field.fontSize || 14) * fitScale}px`,
+                fontFamily: resolveDisplayFontFamily(field.fontFamily),
+                fontWeight: field.fontWeight || 'normal',
+                fontStyle: field.fontStyle || 'normal',
+                textDecoration: field.textDecoration || 'none',
+                fontKerning: 'none',
+                justifyContent: field.textAlign === 'right' ? 'flex-end' : field.textAlign === 'center' ? 'center' : 'flex-start',
+                letterSpacing: field.letterSpacing ? `${field.letterSpacing * fitScale}px` : undefined,
+                lineHeight: field.lineHeight ?? 1.5,
                 cursor: props.readOnly ? (props.signingSteps.length > 0 ? 'pointer' : 'default') : 'grab',
                 borderColor: getFieldSignerColor(field) || undefined,
                 borderWidth: getFieldSignerColor(field) ? '2px' : undefined,
@@ -995,7 +1102,13 @@ defineExpose<{
             >
               <div class="field-content">
                 <i v-if="field.name === 'Check Mark'" :class="field.icon" />
-                <span v-if="field.label">{{ field.label }}</span>
+                <template v-else>
+                  <template v-if="hasFieldTextOverride(field)">
+                    <span v-if="getFieldTextOverride(field)" class="field-value-text">{{ getFieldTextOverride(field) }}</span>
+                  </template>
+                  <span v-else-if="props.fillMode" class="field-label-placeholder is-placeholder">{{ field.label || field.name }}</span>
+                  <span v-else class="field-value-text">{{ field.label }}</span>
+                </template>
                 <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
               </div>
               <!-- Signer role tag (visible in read-only mode with signing steps) -->
@@ -1102,8 +1215,8 @@ defineExpose<{
   position: absolute;
   cursor: grab;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   background: rgba(255, 255, 255, 0.3);
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -1169,19 +1282,56 @@ defineExpose<{
 
 .field-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25rem;
   overflow: hidden;
   pointer-events: none;
   user-select: none;
+  width: 100%; /* required for text-align / justifyContent to work */
+  height: 100%;
 }
 
 .field-content span {
-  font-size: 0.75rem;
-  font-weight: bold;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* font-size and font-weight are inherited from .placed-field via :style binding */
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Fill-mode: field boxes look like soft input zones (student fill page) */
+.placed-field.fill-mode {
+  cursor: default !important;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: none !important;
+  outline: 1px dashed rgba(59, 130, 246, 0.35) !important;
+  outline-offset: 0;
+}
+
+/* Actual typed value — inherits all styling from .placed-field */
+.field-value-text {
+  display: block;
+  width: 100%;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
+}
+
+/* Empty-field placeholder text — faded italic, no decoration */
+.field-label-placeholder.is-placeholder {
+  opacity: 0.35;
+  font-style: italic !important;
+  font-weight: normal !important;
+  text-decoration: none !important;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 
 .instance-num {

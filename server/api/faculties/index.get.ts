@@ -1,7 +1,11 @@
-import { getFaculties } from '~~/lib/db/queries/faculty';
+import db from '~~/lib/db';
+import { faculties } from '~~/lib/db/schema';
 
 export default defineEventHandler(async () => {
-  // await requirePermission(event, 'faculty.read');
-
-  return await getFaculties();
+  return await db.select({
+    id: faculties.id,
+    facultyCode: faculties.facultyCode,
+    nameEn: faculties.nameEn,
+    nameTh: faculties.nameTh,
+  }).from(faculties).orderBy(faculties.id);
 });

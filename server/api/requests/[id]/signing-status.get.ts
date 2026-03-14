@@ -38,6 +38,8 @@ export default defineEventHandler(async (event) => {
         name: requestTemplate.name,
         signingFlowData: requestTemplate.signingFlowData,
         placedFieldsData: requestTemplate.placedFieldsData,
+        documentWidth: requestTemplate.documentWidth,
+        documentHeight: requestTemplate.documentHeight,
       })
       .from(requestTemplate)
       .where(eq(requestTemplate.id, Number(requestData.templateId)))
@@ -90,6 +92,8 @@ export default defineEventHandler(async (event) => {
         flowSteps,
         pendingStep,
         signatureFields,
+        documentWidth: template?.documentWidth ?? undefined,
+        documentHeight: template?.documentHeight ?? undefined,
       },
     };
   }

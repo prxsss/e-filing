@@ -28,6 +28,8 @@ type RoleAssignment = {
   departmentId: number | null;
 };
 
+type UserAssignment = UserDetail['assignments'][number];
+
 const roleAssignments = ref<RoleAssignment[]>([]);
 
 type Faculty = {
@@ -135,6 +137,26 @@ const filteredDepartments = computed(() => {
 
 const showRoleError = ref(false);
 
+function toNumberId(value: string | number | null | undefined) {
+  if (value === null || value === undefined)
+    return null;
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function mapAssignmentsToRoleAssignments(assignments: UserAssignment[] = []): RoleAssignment[] {
+  return assignments.map((assignment) => {
+    const mappedRole = roles.value?.find(role => role.label === assignment.role);
+
+    return {
+      roleId: mappedRole?.value ?? null,
+      facultyId: toNumberId(assignment.faculty?.id),
+      departmentId: toNumberId(assignment.department?.id),
+    };
+  });
+}
+
 function addRoleAssignment() {
   if (!newRoleAssignment.value.roleId || !newRoleAssignment.value.facultyId) {
     toast.add({ title: 'Error', description: 'Role and Faculty are required', color: 'error' });
@@ -153,7 +175,6 @@ const { data: userData } = await useFetch<UserDetail>(`/api/users/${userId}`);
 const updateUserSchema = z.object({
   firstNameEn: z.string().min(1, 'First name is required'),
   lastNameEn: z.string().min(1, 'Last name is required'),
-  facultyId: z.number().nullable(),
   // roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
 });
 
@@ -162,7 +183,6 @@ type UpdateUserSchema = z.output<typeof updateUserSchema>;
 const form = ref<Partial<UpdateUserSchema>>({
   firstNameEn: '',
   lastNameEn: '',
-  facultyId: null,
   // roles: [] as number[],
 });
 
@@ -176,36 +196,25 @@ const form = ref<Partial<UpdateUserSchema>>({
 // });
 
 // Initialize form with user data once it's loaded
-watch(userData, (newData) => {
+watch([userData, roles], ([newData]) => {
   if (newData) {
     form.value = {
       firstNameEn: newData.firstNameEn || '',
       lastNameEn: newData.lastNameEn || '',
-      facultyId: newData.facultyId,
     };
-    if (newData.roles) {
-      roleAssignments.value = newData.roles.map(r => ({
-        roleId: r.id,
-        facultyId: r.facultyId || null,
-        departmentId: r.departmentId || null,
-      }));
-    }
+
+    roleAssignments.value = mapAssignmentsToRoleAssignments(newData.assignments || []);
   }
   loading.value = false;
 }, { immediate: true });
 
 // Detect form changes to set dirty state
 watch([form, roleAssignments], ([newForm, newRoles]) => {
-  const initialRoles = userData.value?.roles?.map(r => ({
-    roleId: r.id,
-    facultyId: r.facultyId || null,
-    departmentId: r.departmentId || null,
-  })) || [];
+  const initialRoles = mapAssignmentsToRoleAssignments(userData.value?.assignments || []);
 
   const formDirty = JSON.stringify(newForm) !== JSON.stringify({
     firstNameEn: userData.value?.firstNameEn,
     lastNameEn: userData.value?.lastNameEn,
-    facultyId: userData.value?.facultyId,
   });
 
   const rolesDirty = JSON.stringify(newRoles) !== JSON.stringify(initialRoles);
@@ -243,17 +252,12 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
       body: {
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
-        facultyId: event.data.facultyId,
       },
     });
 
     // Handle role assignments logic completely (replace or update)
-    if (userData.value?.roles) {
-      const currentRoleAssignments = userData.value.roles.map(r => ({
-        roleId: r.id,
-        facultyId: r.facultyId || null,
-        departmentId: r.departmentId || null,
-      }));
+    if (userData.value?.assignments) {
+      const currentRoleAssignments = mapAssignmentsToRoleAssignments(userData.value.assignments);
 
       const newRoleAssignments = roleAssignments.value;
 

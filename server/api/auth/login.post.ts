@@ -11,7 +11,16 @@ const loginSchema = zod.object({
 export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, loginSchema.parse);
 
-  const [user] = await db.select().from(users).where(eq(users.email, body.email));
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      passwordHash: users.passwordHash,
+      firstNameEn: users.firstNameEn,
+      lastNameEn: users.lastNameEn,
+    })
+    .from(users)
+    .where(eq(users.email, body.email));
   if (!user) {
     throw createError({ statusCode: 401, message: 'Invalid email or password' });
   }

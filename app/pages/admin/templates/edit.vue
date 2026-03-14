@@ -457,6 +457,12 @@ async function performSave(): Promise<void> {
       label: field.label,
       fontSize: field.fontSize || 14,
       fontFamily: field.fontFamily || 'Arial',
+      fontWeight: field.fontWeight || 'normal',
+      fontStyle: field.fontStyle || 'normal',
+      textDecoration: field.textDecoration || 'none',
+      textAlign: field.textAlign || 'left',
+      letterSpacing: field.letterSpacing ?? 0,
+      lineHeight: field.lineHeight ?? 1.5,
       normalizedX: field.normalizedX,
       normalizedY: field.normalizedY,
       normalizedWidth: field.normalizedWidth,
@@ -514,9 +520,17 @@ async function performSave(): Promise<void> {
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 
 function handleKeyDown(event: KeyboardEvent): void {
+  // Prevent moving fields when typing in inputs/textareas
+  const activeTag = document.activeElement?.tagName.toLowerCase();
+  if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+    return;
+  }
+
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
     return;
-  const field = selectedField.value;
+
+  // Find original field instead of computed clone
+  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
   if (!field)
     return;
 

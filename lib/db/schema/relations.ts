@@ -1,22 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { departments, users, userRoles, faculties, roles, request, signatureFlow, attachments, requestTemplateValues, permissions, rolePermissions } from "./schema";
-
-export const usersRelations = relations(users, ({one, many}) => ({
-	department: one(departments, {
-		fields: [users.departmentId],
-		references: [departments.id]
-	}),
-	userRoles: many(userRoles),
-}));
-
-export const departmentsRelations = relations(departments, ({one, many}) => ({
-	users: many(users),
-	userRoles: many(userRoles),
-	faculty: one(faculties, {
-		fields: [departments.facultyId],
-		references: [faculties.id]
-	}),
-}));
+import { departments, userRoles, faculties, roles, users, request, signatureFlow, attachments, requestTemplateValues, permissions, rolePermissions } from "../migrations/schema";
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({
 	department: one(departments, {
@@ -37,6 +20,14 @@ export const userRolesRelations = relations(userRoles, ({one}) => ({
 	}),
 }));
 
+export const departmentsRelations = relations(departments, ({one, many}) => ({
+	userRoles: many(userRoles),
+	faculty: one(faculties, {
+		fields: [departments.facultyId],
+		references: [faculties.id]
+	}),
+}));
+
 export const facultiesRelations = relations(faculties, ({many}) => ({
 	userRoles: many(userRoles),
 	departments: many(departments),
@@ -46,6 +37,10 @@ export const rolesRelations = relations(roles, ({many}) => ({
 	userRoles: many(userRoles),
 	signatureFlows: many(signatureFlow),
 	rolePermissions: many(rolePermissions),
+}));
+
+export const usersRelations = relations(users, ({many}) => ({
+	userRoles: many(userRoles),
 }));
 
 export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
