@@ -1,7 +1,7 @@
 import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '../../../lib/db';
-import { request, requestTemplate } from '../../../lib/db/schema';
+import { request, requestTemplate, users } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -43,13 +43,19 @@ export default defineEventHandler(async (event) => {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Get total count
-    const [totalResult] = await db
-      .select({ count: count() })
+    const [countResult] = await db
+      .select({
+        total: count(),
+        inProgress: count(sql`CASE WHEN ${request.status} = 'in_progress' THEN 1 END`),
+        rejected: count(sql`CASE WHEN ${request.status} = 'rejected' THEN 1 END`),
+        completed: count(sql`CASE WHEN ${request.status} = 'completed' THEN 1 END`),
+      })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
+      .leftJoin(users, eq(request.userId, users.id))
       .where(whereClause);
 
-    const total = totalResult?.count ?? 0;
+    const total = countResult?.total ?? 0;
 
     // Get paginated data with template name
     const data = await db
@@ -57,7 +63,6 @@ export default defineEventHandler(async (event) => {
         id: request.id,
         templateId: request.templateId,
         templateName: requestTemplate.name,
-        templateCategory: requestTemplate.category,
         status: request.status,
         createdBy: request.createdBy,
         submittedAt: request.submittedAt,
@@ -79,6 +84,11 @@ export default defineEventHandler(async (event) => {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        statusCounts: {
+          in_progress: countResult?.inProgress ?? 0,
+          rejected: countResult?.rejected ?? 0,
+          completed: countResult?.completed ?? 0,
+        },
       },
     };
   }

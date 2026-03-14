@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ title: 'completed' });
+definePageMeta({ title: 'signedHistory' });
 
 type HistoryEntry = {
   flowId: number;
@@ -179,7 +179,7 @@ const requestStatusLabel: Record<string, string> = {
                 variant="ghost"
                 color="neutral"
                 icon="i-lucide-eye"
-                :to="`/sign/${entry.requestId}`"
+                :to="`/teacher/sign/${entry.requestId}`"
               >
                 รายละเอียด
               </UButton>

@@ -19,6 +19,7 @@ const templatePdfRef = ref<PdfRef | null>(null);
 const newTemplateName = ref<string>('');
 const templateNameError = ref<string>('');
 const previewImageUrl = ref<string | null>(null);
+const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<FieldInstance[]>([]);
 const selectedFieldInstanceId = ref<string | null>(null); // Store instanceId instead of field object
 const scale = ref<number>(1); // Zoom level
@@ -28,6 +29,12 @@ const uploadedFile = ref<File | null>(null);
 const fileType = ref<FileTypeValue>(null);
 const currentPdfPage = ref<number>(1);
 const searchQuery = ref<string>('');
+const previewFieldValues = ref<Record<string, string>>({});
+const previewSyncedFieldValues = ref<Record<string, string>>({});
+const isRefreshingPreview = ref<boolean>(false);
+
+let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let previewRequestToken = 0;
 
 // === WIZARD STATE ===
 const currentWizardStep = ref<WizardStep>(1);
@@ -161,6 +168,104 @@ const selectedField = computed<FieldInstance | null>(() => {
     displayWidth: field.width,
     displayHeight: field.height,
   } as FieldInstance;
+});
+
+function getPreviewFieldKey(field?: { instanceId?: string; id?: string | number } | null): string {
+  if (!field) {
+    return '';
+  }
+  if (field.instanceId) {
+    return String(field.instanceId);
+  }
+  if (field.id !== undefined && field.id !== null) {
+    return String(field.id);
+  }
+  return '';
+}
+
+function normalizeFieldValue(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function clearPreviewRefreshTimer() {
+  if (previewRefreshTimer) {
+    clearTimeout(previewRefreshTimer);
+    previewRefreshTimer = null;
+  }
+}
+
+const canTypePreviewValue = computed<boolean>(() => {
+  if (!selectedField.value || fileType.value !== 'pdf') {
+    return false;
+  }
+
+  const fieldType = String(selectedField.value.type || selectedField.value.fieldType || '').toLowerCase();
+  return fieldType !== 'signature' && fieldType !== 'icon';
+});
+
+const hasPreviewInputs = computed<boolean>(() => {
+  return Object.values(previewFieldValues.value).some(value => normalizeFieldValue(value).length > 0);
+});
+
+const previewDisplayFile = computed<File | null>(() => {
+  if (fileType.value !== 'pdf') {
+    return uploadedFile.value;
+  }
+  return previewPdfFile.value || uploadedFile.value;
+});
+
+const selectedFieldPreviewValue = computed<string>({
+  get: () => {
+    const key = getPreviewFieldKey(selectedField.value);
+    return key ? (previewFieldValues.value[key] || '') : '';
+  },
+  set: (value) => {
+    const key = getPreviewFieldKey(selectedField.value);
+    if (!key) {
+      return;
+    }
+
+    if (value) {
+      previewFieldValues.value[key] = value;
+    }
+    else {
+      delete previewFieldValues.value[key];
+      delete previewSyncedFieldValues.value[key];
+    }
+  },
+});
+
+function handlePreviewInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  // กรองให้รับแค่ตัวอักษรภาษาไทย ภาษาอังกฤษ ตัวเลข และช่องว่าง (ไม่รับสัญลักษณ์อื่นๆ)
+  // ใช้ \p{L} สำหรับตัวอักษรทุกภาษา, \d สำหรับตัวเลข และ \s สำหรับช่องว่าง
+  const filteredValue = input.value.replace(/[^\p{L}\d\s]/gu, '');
+  if (input.value !== filteredValue) {
+    input.value = filteredValue;
+  }
+  selectedFieldPreviewValue.value = filteredValue;
+}
+
+const previewOverlayFieldValues = computed<Record<string, string>>(() => {
+  const values: Record<string, string> = {};
+
+  for (const field of placedFields.value) {
+    const key = getPreviewFieldKey(field);
+    if (!key) {
+      continue;
+    }
+
+    const currentValue = previewFieldValues.value[key] || '';
+    const normalizedCurrent = normalizeFieldValue(currentValue);
+    if (!normalizedCurrent.length) {
+      continue;
+    }
+
+    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
+    values[key] = normalizedCurrent === normalizedSynced ? '' : currentValue;
+  }
+
+  return values;
 });
 
 async function _fetchContracts(): Promise<void> {
@@ -377,6 +482,76 @@ async function processFile(file: File): Promise<void> {
   }
 }
 
+async function refreshPreviewPdf(): Promise<void> {
+  if (!uploadedFile.value || fileType.value !== 'pdf' || !hasPreviewInputs.value) {
+    previewPdfFile.value = null;
+    previewSyncedFieldValues.value = {};
+    return;
+  }
+
+  const requestToken = ++previewRequestToken;
+  const fieldValueSnapshot = Object.fromEntries(
+    placedFields.value.map(field => [getPreviewFieldKey(field), previewFieldValues.value[getPreviewFieldKey(field)] || '']),
+  );
+
+  const formData = new FormData();
+  formData.append('pdfFile', uploadedFile.value, uploadedFile.value.name);
+  formData.append('fields', JSON.stringify(
+    placedFields.value.map((field: FieldInstance) => ({
+      ...field,
+      sampleValue: fieldValueSnapshot[getPreviewFieldKey(field)] || '',
+      useFallbackLabel: false,
+      showFieldHighlight: false,
+    })),
+  ));
+
+  isRefreshingPreview.value = true;
+
+  try {
+    const response = await fetch('/api/preview-template-pdf', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Preview request failed with status ${response.status}`);
+    }
+
+    const previewBytes = await response.arrayBuffer();
+
+    if (requestToken !== previewRequestToken) {
+      return;
+    }
+
+    previewPdfFile.value = new File([
+      previewBytes,
+    ], `template-preview-${Date.now()}.pdf`, { type: 'application/pdf' });
+    previewSyncedFieldValues.value = fieldValueSnapshot;
+  }
+  catch (error) {
+    console.error('Failed to refresh template preview PDF:', error);
+  }
+  finally {
+    if (requestToken === previewRequestToken) {
+      isRefreshingPreview.value = false;
+    }
+  }
+}
+
+function schedulePreviewRefresh() {
+  clearPreviewRefreshTimer();
+
+  if (!uploadedFile.value || fileType.value !== 'pdf' || !hasPreviewInputs.value) {
+    previewPdfFile.value = null;
+    previewSyncedFieldValues.value = {};
+    return;
+  }
+
+  previewRefreshTimer = setTimeout(() => {
+    void refreshPreviewPdf();
+  }, 1000);
+}
+
 function addFieldToPreview(fieldToAdd: Field): void {
   if (!fieldToAdd)
     return;
@@ -443,10 +618,17 @@ function removeSelectedField(): void {
 }
 
 function handleKeyDown(event: KeyboardEvent): void {
+  // Prevent moving fields when typing in inputs/textareas
+  const activeTag = document.activeElement?.tagName.toLowerCase();
+  if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+    return;
+  }
+
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
     return;
 
-  const field = selectedField.value;
+  // Find original field instead of computed clone
+  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
   if (!field)
     return;
 
@@ -655,6 +837,12 @@ async function performSave(): Promise<void> {
       label: field.label,
       fontSize: field.fontSize || 14,
       fontFamily: field.fontFamily || 'Arial',
+      fontWeight: field.fontWeight || 'normal',
+      fontStyle: field.fontStyle || 'normal',
+      textDecoration: field.textDecoration || 'none',
+      textAlign: field.textAlign || 'left',
+      letterSpacing: field.letterSpacing ?? 0,
+      lineHeight: field.lineHeight ?? 1.5,
       normalizedX: field.normalizedX,
       normalizedY: field.normalizedY,
       normalizedWidth: field.normalizedWidth,
@@ -777,6 +965,10 @@ onUnmounted(() => {
 watch([newTemplateName, placedFields, uploadedFile], (): void => {
   hasChanges.value = true;
 });
+
+watch([uploadedFile, fileType, placedFields, previewFieldValues], () => {
+  schedulePreviewRefresh();
+}, { deep: true, immediate: true });
 
 watch(
   selectedField,
@@ -1067,6 +1259,28 @@ watch(
           </div>
         </div>
 
+        <div v-if="uploadedFile && fileType === 'pdf' && selectedField && canTypePreviewValue" class="h-12 bg-white border-b border-gray-200 px-4 flex items-center shrink-0 gap-3">
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">Preview Output</span>
+          <span class="text-xs text-gray-400 truncate max-w-40 shrink-0">{{ selectedField.label || selectedField.name }}</span>
+          <input
+            :value="selectedFieldPreviewValue"
+            type="text"
+            class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            placeholder="พิมพ์ข้อความตัวอย่างเพื่อดูผลลัพธ์จริงบน PDF"
+            @input="handlePreviewInput"
+          >
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            :disabled="!selectedFieldPreviewValue"
+            @click="selectedFieldPreviewValue = ''"
+          >
+            Clear
+          </UButton>
+          <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? 'Syncing preview...' : 'Preview only · not saved' }}</span>
+        </div>
+
         <!-- Scrollable Canvas Container -->
         <div class="flex-1 overflow-auto p-8 flex justify-center items-start">
           <template-image-create
@@ -1084,14 +1298,16 @@ watch(
           />
 
           <template-pdf-create
-            v-else-if="fileType === 'pdf' && uploadedFile"
+            v-else-if="fileType === 'pdf' && previewDisplayFile"
             ref="templatePdfRef"
-            :pdf-file="uploadedFile"
+            :pdf-file="previewDisplayFile"
             :placed-fields="placedFields"
             :selected-field="selectedField || undefined"
             :new-template-name="newTemplateName"
             :selected-contract-id="(selectedContractId as string | number | undefined)"
             :ui-scale="scale"
+            :field-values="previewOverlayFieldValues"
+            :fill-mode="hasPreviewInputs"
             @field-selected="selectField"
             @field-updated="handleFieldUpdate"
             @field-removed="handleFieldRemoval"

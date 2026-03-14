@@ -261,7 +261,7 @@ const studentFields = computed(() => {
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '—';
-  return new Date(dateStr).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(dateStr).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 type BadgeColor = 'success' | 'error' | 'primary' | 'secondary' | 'info' | 'warning' | 'neutral';
@@ -621,7 +621,7 @@ onMounted(() => {
             </div>
             <div class="flex justify-between">
               <dt class="text-gray-500">
-                สร้างเมื่อ
+                ยื่นเมื่อ
               </dt>
               <dd class="font-medium">
                 {{ formatDate(requestData.createdAt) }}
@@ -629,7 +629,7 @@ onMounted(() => {
             </div>
             <div v-if="requestData.submittedAt" class="flex justify-between">
               <dt class="text-gray-500">
-                ยื่นเมื่อ
+                อัปเดตเมื่อ
               </dt>
               <dd class="font-medium">
                 {{ formatDate(requestData.submittedAt) }}

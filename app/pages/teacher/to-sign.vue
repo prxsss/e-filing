@@ -104,7 +104,7 @@ function formatDate(dateStr: string | null) {
               color="success"
               size="sm"
               icon="i-lucide-pen-line"
-              :to="`/sign/${task.requestId}`"
+              :to="`/teacher/sign/${task.requestId}`"
               class="shrink-0"
             >
               ลงนาม

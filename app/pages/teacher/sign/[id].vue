@@ -23,6 +23,10 @@ type SignatureField = {
   normalizedY?: number;
   normalizedWidth?: number;
   normalizedHeight?: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 };
 
 type Attachment = {
@@ -78,38 +82,51 @@ function closePreview() {
 
 // Compute aspect ratio (width / height) of the pending signature field so the canvas
 // matches the actual field box defined in the PDF template.
-const signatureFieldAspectRatio = computed<number | undefined>(() => {
+const pendingSignatureField = computed<SignatureField | undefined>(() => {
   const status = signingStatus.value;
   if (!status?.pendingStep)
     return undefined;
   const assignedIds = status.pendingStep.assignedFieldInstanceIds;
-  const field = status.signatureFields.find(f => assignedIds.includes(f.instanceId))
+  return status.signatureFields.find(f => assignedIds.includes(f.instanceId))
     ?? status.signatureFields[0];
-  if (!field)
+});
+
+const signatureFieldAspectRatio = computed<number | undefined>(() => {
+  const status = signingStatus.value;
+  const field = pendingSignatureField.value;
+  if (!status || !field)
     return undefined;
+
   const { normalizedWidth: nw, normalizedHeight: nh } = field;
-  const docW = status.documentWidth;
-  const docH = status.documentHeight;
-  if (!nw || !nh || !docW || !docH)
-    return undefined;
-  // width / height ratio in document coordinate space
-  return (nw * docW) / (nh * docH);
+  const docW = status.documentWidth ?? 595;
+  const docH = status.documentHeight ?? 842;
+
+  // Prefer normalized dimensions (template-relative), then fall back to absolute values.
+  if (nw && nh) {
+    return (nw * docW) / (nh * docH);
+  }
+
+  if (field.width && field.height) {
+    return field.width / field.height;
+  }
+
+  return undefined;
 });
 
 // Real field width in PDF points — lets the canvas calibrate stroke thickness
 // so lines appear identical in the PDF regardless of canvas CSS size.
 const signatureFieldWidthPt = computed<number | undefined>(() => {
   const status = signingStatus.value;
-  if (!status?.pendingStep)
+  const field = pendingSignatureField.value;
+  if (!status || !field)
     return undefined;
-  const assignedIds = status.pendingStep.assignedFieldInstanceIds;
-  const field = status.signatureFields.find(f => assignedIds.includes(f.instanceId))
-    ?? status.signatureFields[0];
-  if (!field?.normalizedWidth)
-    return undefined;
-  return field.normalizedWidth * (status.documentWidth ?? 595);
-});
 
+  if (field.normalizedWidth) {
+    return field.normalizedWidth * (status.documentWidth ?? 595);
+  }
+
+  return field.width;
+});
 // Enriches signature fields with the confirmed signature image URL so TemplatePdfPreview can overlay it
 const signatureFieldsForDisplay = computed(() => {
   const fields = signingStatus.value?.signatureFields ?? [];
@@ -297,7 +314,7 @@ onMounted(() => {
           icon="i-lucide-arrow-left"
           variant="ghost"
           color="neutral"
-          to="/student/to-sign"
+          to="/teacher/to-sign"
         />
         <div>
           <h1 class="text-xl font-bold text-slate-800">

@@ -92,8 +92,8 @@ export default defineEventHandler(async (event) => {
         flowSteps,
         pendingStep,
         signatureFields,
-        documentWidth: template?.documentWidth ?? 595,
-        documentHeight: template?.documentHeight ?? 842,
+        documentWidth: template?.documentWidth ?? undefined,
+        documentHeight: template?.documentHeight ?? undefined,
       },
     };
   }

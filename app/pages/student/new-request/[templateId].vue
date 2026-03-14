@@ -52,13 +52,19 @@ const successMessage = ref('');
 
 const templateData = ref<TemplateData | null>(null);
 const pdfFile = ref<File | null>(null);
+const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<number, string>>({});
+const previewSyncedFieldValues = ref<Record<number, string>>({});
 const scale = ref(1);
+const isRefreshingPreview = ref(false);
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
 const isUploadingAttachment = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let previewRequestToken = 0;
 
 // --- Recipient selection ---
 const { locale } = useI18n();
@@ -146,6 +152,113 @@ async function urlToFile(url: string, filename: string) {
   }
 }
 
+function normalizeFieldValue(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function clearPreviewRefreshTimer() {
+  if (previewRefreshTimer) {
+    clearTimeout(previewRefreshTimer);
+    previewRefreshTimer = null;
+  }
+}
+
+const previewDisplayFile = computed(() => previewPdfFile.value || pdfFile.value);
+
+const previewOverlayFields = computed(() => {
+  return placedFields.value.filter((field: any) => {
+    const currentValue = normalizeFieldValue(fieldValues.value[field.id]);
+    const syncedValue = normalizeFieldValue(previewSyncedFieldValues.value[field.id]);
+    return currentValue.length === 0 || currentValue !== syncedValue;
+  });
+});
+
+const previewOverlayFieldValues = computed<Record<number, string>>(() => {
+  const values: Record<number, string> = {};
+
+  for (const field of previewOverlayFields.value) {
+    const currentValue = fieldValues.value[field.id] || '';
+    const normalizedCurrent = normalizeFieldValue(currentValue);
+    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[field.id]);
+
+    if (normalizedCurrent.length > 0 && normalizedCurrent !== normalizedSynced) {
+      values[field.id] = currentValue;
+    }
+  }
+
+  return values;
+});
+
+async function refreshPreviewPdf() {
+  if (!pdfFile.value) {
+    previewPdfFile.value = null;
+    previewSyncedFieldValues.value = {};
+    return;
+  }
+
+  const requestToken = ++previewRequestToken;
+  const fieldValueSnapshot = Object.fromEntries(
+    placedFields.value.map((field: any) => [field.id, fieldValues.value[field.id] || '']),
+  );
+
+  const formData = new FormData();
+  formData.append('pdfFile', pdfFile.value, pdfFile.value.name);
+  formData.append('fields', JSON.stringify(
+    placedFields.value.map((field: any) => ({
+      ...field,
+      sampleValue: fieldValueSnapshot[field.id] || '',
+      useFallbackLabel: false,
+      showFieldHighlight: false,
+    })),
+  ));
+
+  isRefreshingPreview.value = true;
+
+  try {
+    const response = await fetch('/api/preview-template-pdf', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Preview request failed with status ${response.status}`);
+    }
+
+    const previewBytes = await response.arrayBuffer();
+
+    if (requestToken !== previewRequestToken) {
+      return;
+    }
+
+    previewPdfFile.value = new File([
+      previewBytes,
+    ], `template-preview-${templateId}.pdf`, { type: 'application/pdf' });
+    previewSyncedFieldValues.value = fieldValueSnapshot;
+  }
+  catch (err) {
+    console.error('Failed to refresh preview PDF:', err);
+  }
+  finally {
+    if (requestToken === previewRequestToken) {
+      isRefreshingPreview.value = false;
+    }
+  }
+}
+
+function schedulePreviewRefresh() {
+  clearPreviewRefreshTimer();
+
+  if (!pdfFile.value) {
+    previewPdfFile.value = null;
+    previewSyncedFieldValues.value = {};
+    return;
+  }
+
+  previewRefreshTimer = setTimeout(() => {
+    void refreshPreviewPdf();
+  }, 1000);
+}
+
 async function fetchTemplateData() {
   isLoading.value = true;
   error.value = null;
@@ -156,7 +269,7 @@ async function fetchTemplateData() {
       return;
     }
 
-    const templateResult: any = await $fetch(`/api/templates/${templateId}`);
+    const templateResult: any = await $fetch(`/api/pdf-templates/${templateId}`);
 
     if (templateResult.success && templateResult.data) {
       templateData.value = templateResult.data as TemplateData;
@@ -377,11 +490,22 @@ onMounted(() => {
   fetchTemplateData();
 });
 
+onUnmounted(() => {
+  clearPreviewRefreshTimer();
+  for (const pending of pendingAttachments.value) {
+    URL.revokeObjectURL(pending.localUrl);
+  }
+});
+
 // Re-fetch users whenever recipientSteps changes (handles session hydration timing)
 watch(recipientSteps, (steps) => {
   if (steps.length > 0)
     fetchUsersForRecipientSteps();
 }, { immediate: true });
+
+watch([pdfFile, placedFields, fieldValues], () => {
+  schedulePreviewRefresh();
+}, { deep: true, immediate: true });
 </script>
 
 <template>
@@ -428,7 +552,7 @@ watch(recipientSteps, (steps) => {
             {{ error }}
           </p>
           <UButton @click="$router.push('/student/new-request')">
-            Back to Request Types
+            Back to Request
           </UButton>
         </div>
       </UCard>
@@ -465,14 +589,19 @@ watch(recipientSteps, (steps) => {
           </div>
 
           <!-- PDF Viewer -->
-          <div v-if="pdfFile" style="min-height: 600px;">
+          <div v-if="previewDisplayFile" style="min-height: 600px;">
             <template-pdf-create
-              :pdf-file="pdfFile"
-              :placed-fields="placedFields"
+              :pdf-file="previewDisplayFile"
+              :placed-fields="previewOverlayFields"
               :selected-field="undefined"
               :ui-scale="scale"
               :read-only="true"
+              :fill-mode="true"
+              :field-values="previewOverlayFieldValues"
             />
+            <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
+              Syncing preview...
+            </div>
           </div>
         </div>
 
@@ -653,7 +782,7 @@ watch(recipientSteps, (steps) => {
               @click="$router.push('/student/new-request')"
             >
               <i class="fas fa-arrow-left mr-2" />
-              Back to Request Types
+              Back to Request
             </UButton>
           </div>
         </div>

@@ -70,7 +70,15 @@ watch(
   () => props.selectedField,
   (newField) => {
     if (newField) {
-      localField.value = { ...newField };
+      localField.value = {
+        ...newField,
+        fontWeight: newField.fontWeight || 'normal',
+        fontStyle: newField.fontStyle || 'normal',
+        textDecoration: newField.textDecoration || 'none',
+        textAlign: newField.textAlign || 'left',
+        letterSpacing: newField.letterSpacing ?? 0,
+        lineHeight: newField.lineHeight ?? 1.5,
+      };
     }
     else {
       localField.value = {};
@@ -103,6 +111,12 @@ function onPropertyChange() {
           normalizedHeight: normalized.height,
           fontSize: localField.value.fontSize || 14,
           fontFamily: localField.value.fontFamily || 'Arial',
+          fontWeight: localField.value.fontWeight || 'normal',
+          fontStyle: localField.value.fontStyle || 'normal',
+          textDecoration: localField.value.textDecoration || 'none',
+          textAlign: localField.value.textAlign || 'left',
+          letterSpacing: localField.value.letterSpacing ?? 0,
+          lineHeight: localField.value.lineHeight ?? 1.5,
         },
       });
       return;
@@ -119,6 +133,12 @@ function onPropertyChange() {
       height: editableHeight.value,
       fontSize: localField.value.fontSize || 14,
       fontFamily: localField.value.fontFamily || 'Arial',
+      fontWeight: localField.value.fontWeight || 'normal',
+      fontStyle: localField.value.fontStyle || 'normal',
+      textDecoration: localField.value.textDecoration || 'none',
+      textAlign: localField.value.textAlign || 'left',
+      letterSpacing: localField.value.letterSpacing ?? 0,
+      lineHeight: localField.value.lineHeight ?? 1.5,
     },
   });
 }
@@ -239,6 +259,114 @@ function removeField() {
                 </option>
               </optgroup>
             </select>
+          </UTooltip>
+
+          <div class="h-5 w-px bg-gray-200" />
+
+          <!-- Bold / Italic / Underline -->
+          <div class="flex items-center gap-0.5">
+            <UTooltip text="ตัวหนา (Bold)" :popper="{ placement: 'top' }">
+              <button
+                class="toolbar-fmt-btn"
+                :class="{ active: localField.fontWeight === 'bold' }"
+                @click="localField.fontWeight = localField.fontWeight === 'bold' ? 'normal' : 'bold'; onPropertyChange()"
+              >
+                <strong>B</strong>
+              </button>
+            </UTooltip>
+            <UTooltip text="ตัวเอียง (Italic)" :popper="{ placement: 'top' }">
+              <button
+                class="toolbar-fmt-btn"
+                :class="{ active: localField.fontStyle === 'italic' }"
+                @click="localField.fontStyle = localField.fontStyle === 'italic' ? 'normal' : 'italic'; onPropertyChange()"
+              >
+                <em>I</em>
+              </button>
+            </UTooltip>
+            <UTooltip text="ขีดเส้นใต้ (Underline)" :popper="{ placement: 'top' }">
+              <button
+                class="toolbar-fmt-btn"
+                :class="{ active: localField.textDecoration === 'underline' }"
+                @click="localField.textDecoration = localField.textDecoration === 'underline' ? 'none' : 'underline'; onPropertyChange()"
+              >
+                <span style="text-decoration: underline;">U</span>
+              </button>
+            </UTooltip>
+          </div>
+
+          <div class="h-5 w-px bg-gray-200" />
+
+          <!-- Text alignment -->
+          <div class="flex items-center gap-0.5">
+            <UTooltip text="ชิดซ้าย" :popper="{ placement: 'top' }">
+              <button
+                class="toolbar-fmt-btn"
+                :class="{ active: !localField.textAlign || localField.textAlign === 'left' }"
+                @click="localField.textAlign = 'left'; onPropertyChange()"
+              >
+                <UIcon name="i-heroicons-bars-3-bottom-left" class="w-3.5 h-3.5" />
+              </button>
+            </UTooltip>
+            <UTooltip text="กึ่งกลาง" :popper="{ placement: 'top' }">
+              <button
+                class="toolbar-fmt-btn"
+                :class="{ active: localField.textAlign === 'center' }"
+                @click="localField.textAlign = 'center'; onPropertyChange()"
+              >
+                <UIcon name="i-heroicons-bars-3" class="w-3.5 h-3.5" />
+              </button>
+            </UTooltip>
+            <UTooltip text="ชิดขวา" :popper="{ placement: 'top' }">
+              <button
+                class="toolbar-fmt-btn"
+                :class="{ active: localField.textAlign === 'right' }"
+                @click="localField.textAlign = 'right'; onPropertyChange()"
+              >
+                <UIcon name="i-heroicons-bars-3-bottom-right" class="w-3.5 h-3.5" />
+              </button>
+            </UTooltip>
+          </div>
+
+          <div class="h-5 w-px bg-gray-200" />
+
+          <!-- Letter spacing -->
+          <UTooltip text="ระยะห่างตัวอักษร (Letter Spacing)" :popper="{ placement: 'top' }">
+            <div class="toolbar-input-group">
+              <span class="toolbar-prefix text-gray-400">
+                <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
+              </span>
+              <input
+                v-model.number="localField.letterSpacing"
+                type="number"
+                class="toolbar-input w-12"
+                min="-5"
+                max="20"
+                step="0.5"
+                placeholder="0"
+                @input="onPropertyChange"
+              >
+            </div>
+          </UTooltip>
+
+          <div class="h-5 w-px bg-gray-200" />
+
+          <!-- Line Height -->
+          <UTooltip text="ความห่างบรรทัด (Line Height)" :popper="{ placement: 'top' }">
+            <div class="toolbar-input-group">
+              <span class="toolbar-prefix text-gray-400">
+                <UIcon name="i-heroicons-arrows-up-down" class="w-3.5 h-3.5" />
+              </span>
+              <input
+                v-model.number="localField.lineHeight"
+                type="number"
+                class="toolbar-input w-12"
+                min="0.5"
+                max="5"
+                step="0.1"
+                placeholder="1.5"
+                @input="onPropertyChange"
+              >
+            </div>
           </UTooltip>
         </div>
       </template>
@@ -377,5 +505,35 @@ function removeField() {
 .toolbar-input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Format toggle buttons (Bold / Italic / Underline / Alignment) */
+.toolbar-fmt-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: #6b7280;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  padding: 0;
+  line-height: 1;
+}
+
+.toolbar-fmt-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.toolbar-fmt-btn.active {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 </style>
