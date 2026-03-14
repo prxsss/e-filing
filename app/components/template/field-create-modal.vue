@@ -520,7 +520,7 @@ async function handleDelete() {
                   min="1"
                   max="5000"
                   step="1"
-                  placeholder="เว้นว่าง = ไม่จำกัด"
+                  placeholder="∞"
                   size="md"
                 />
               </div>
