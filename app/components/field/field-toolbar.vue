@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getAutoDateTimeFormatConfig } from '../../../shared/auto-date-time-format';
+
 type Field = any;
 
 const props = withDefaults(defineProps<{
@@ -26,6 +28,8 @@ function normalizeMaxLength(value: unknown): number | null {
 }
 
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
+const isDateField = computed(() => selectedFieldType.value === 'date');
+const isTimeField = computed(() => selectedFieldType.value === 'time');
 
 const supportsMaxLength = computed(() => {
   return selectedFieldType.value !== 'signature' && selectedFieldType.value !== 'icon' && selectedFieldType.value !== 'date' && selectedFieldType.value !== 'time';
@@ -87,8 +91,10 @@ watch(
   () => props.selectedField,
   (newField) => {
     if (newField) {
+      const autoDateTimeConfig = getAutoDateTimeFormatConfig(newField);
       localField.value = {
         ...newField,
+        ...autoDateTimeConfig,
         fontWeight: newField.fontWeight || 'normal',
         fontStyle: newField.fontStyle || 'normal',
         textDecoration: newField.textDecoration || 'none',
@@ -109,6 +115,23 @@ function onPropertyChange() {
   if (!localField.value || !props.selectedField)
     return;
 
+  const autoDateTimeConfig = getAutoDateTimeFormatConfig(localField.value);
+
+  const dateTimeFormatUpdates = isDateField.value
+    ? {
+        dateSeparator: autoDateTimeConfig.dateSeparator,
+        dateShowDay: autoDateTimeConfig.dateShowDay,
+        dateShowMonth: autoDateTimeConfig.dateShowMonth,
+        dateShowYear: autoDateTimeConfig.dateShowYear,
+      }
+    : isTimeField.value
+      ? {
+          timeSeparator: autoDateTimeConfig.timeSeparator,
+          timeShowHour: autoDateTimeConfig.timeShowHour,
+          timeShowMinute: autoDateTimeConfig.timeShowMinute,
+        }
+      : {};
+
   const commonStyleUpdates = {
     fontSize: localField.value.fontSize || 14,
     fontFamily: localField.value.fontFamily || 'Arial',
@@ -119,6 +142,7 @@ function onPropertyChange() {
     letterSpacing: localField.value.letterSpacing ?? 0,
     lineHeight: localField.value.lineHeight ?? 1.5,
     maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+    ...dateTimeFormatUpdates,
   };
 
   // For PDF with normalized coordinates, convert display back to normalized
@@ -165,6 +189,23 @@ function saveDefaults() {
     return;
   }
 
+  const autoDateTimeConfig = getAutoDateTimeFormatConfig(localField.value);
+
+  const dateTimeDefaults = isDateField.value
+    ? {
+        dateSeparator: autoDateTimeConfig.dateSeparator,
+        dateShowDay: autoDateTimeConfig.dateShowDay,
+        dateShowMonth: autoDateTimeConfig.dateShowMonth,
+        dateShowYear: autoDateTimeConfig.dateShowYear,
+      }
+    : isTimeField.value
+      ? {
+          timeSeparator: autoDateTimeConfig.timeSeparator,
+          timeShowHour: autoDateTimeConfig.timeShowHour,
+          timeShowMinute: autoDateTimeConfig.timeShowMinute,
+        }
+      : {};
+
   emit('saveDefaults', {
     fieldId,
     defaults: {
@@ -179,8 +220,35 @@ function saveDefaults() {
       letterSpacing: localField.value.letterSpacing ?? 0,
       lineHeight: localField.value.lineHeight ?? 1.5,
       maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+      ...dateTimeDefaults,
     },
   });
+}
+
+function toggleDatePart(partKey: 'dateShowDay' | 'dateShowMonth' | 'dateShowYear') {
+  const parts: Array<'dateShowDay' | 'dateShowMonth' | 'dateShowYear'> = ['dateShowDay', 'dateShowMonth', 'dateShowYear'];
+  const activeCount = parts.filter(key => localField.value[key] !== false).length;
+  const isActive = localField.value[partKey] !== false;
+
+  if (isActive && activeCount <= 1) {
+    return;
+  }
+
+  localField.value[partKey] = !isActive;
+  onPropertyChange();
+}
+
+function toggleTimePart(partKey: 'timeShowHour' | 'timeShowMinute') {
+  const parts: Array<'timeShowHour' | 'timeShowMinute'> = ['timeShowHour', 'timeShowMinute'];
+  const activeCount = parts.filter(key => localField.value[key] !== false).length;
+  const isActive = localField.value[partKey] !== false;
+
+  if (isActive && activeCount <= 1) {
+    return;
+  }
+
+  localField.value[partKey] = !isActive;
+  onPropertyChange();
 }
 
 function removeField() {
@@ -416,6 +484,93 @@ function removeField() {
                 >
               </div>
             </UTooltip>
+          </template>
+
+          <template v-if="isDateField">
+            <div class="h-5 w-px bg-gray-200" />
+
+            <UTooltip text="ตัวคั่นวันที่ (เว้นว่าง = ไม่คั่น)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">/</span>
+                <input
+                  v-model="localField.dateSeparator"
+                  type="text"
+                  class="toolbar-input w-10"
+                  maxlength="3"
+                  placeholder="/"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <div class="flex items-center gap-0.5">
+              <UTooltip text="แสดงวัน" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.dateShowDay !== false }"
+                  @click="toggleDatePart('dateShowDay')"
+                >
+                  D
+                </button>
+              </UTooltip>
+              <UTooltip text="แสดงเดือน" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.dateShowMonth !== false }"
+                  @click="toggleDatePart('dateShowMonth')"
+                >
+                  M
+                </button>
+              </UTooltip>
+              <UTooltip text="แสดงปี" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.dateShowYear !== false }"
+                  @click="toggleDatePart('dateShowYear')"
+                >
+                  Y
+                </button>
+              </UTooltip>
+            </div>
+          </template>
+
+          <template v-if="isTimeField">
+            <div class="h-5 w-px bg-gray-200" />
+
+            <UTooltip text="ตัวคั่นเวลา (เว้นว่าง = ไม่คั่น)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">:</span>
+                <input
+                  v-model="localField.timeSeparator"
+                  type="text"
+                  class="toolbar-input w-10"
+                  maxlength="3"
+                  placeholder=":"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <div class="flex items-center gap-0.5">
+              <UTooltip text="แสดงชั่วโมง" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.timeShowHour !== false }"
+                  @click="toggleTimePart('timeShowHour')"
+                >
+                  H
+                </button>
+              </UTooltip>
+              <UTooltip text="แสดงนาที" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.timeShowMinute !== false }"
+                  @click="toggleTimePart('timeShowMinute')"
+                >
+                  M
+                </button>
+              </UTooltip>
+            </div>
           </template>
         </div>
       </template>

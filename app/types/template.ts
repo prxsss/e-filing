@@ -53,6 +53,14 @@ export type FieldInstance = Field & {
   signerStepId?: string;
   // Auto-generate flag (system fills value automatically, skips signer assignment)
   isAutoGenerate?: boolean;
+  // Auto-generated date/time format controls
+  dateSeparator?: string;
+  dateShowDay?: boolean;
+  dateShowMonth?: boolean;
+  dateShowYear?: boolean;
+  timeSeparator?: string;
+  timeShowHour?: boolean;
+  timeShowMinute?: boolean;
 };
 
 /**
