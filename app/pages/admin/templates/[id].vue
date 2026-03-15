@@ -10,7 +10,6 @@ type Template = {
   id: number;
   name: string | null;
   description: string | null;
-  category: string | null;
   version: string | null;
   isActive: boolean | null;
   createdBy: number | null;
@@ -18,7 +17,8 @@ type Template = {
   documentUrl: string | null;
   documentWidth: number | null;
   documentHeight: number | null;
-  placedFieldsData: any;
+  placedFieldsData: unknown;
+  signingFlowData: unknown;
 };
 
 type ApiResponse<T> = {
@@ -27,89 +27,184 @@ type ApiResponse<T> = {
   error?: string;
 };
 
-type WorkflowStep = {
+type RequestDetailUpdateData = {
   id: number;
-  title: string;
-  status: 'completed' | 'in-progress' | 'pending';
-  icon: string;
+  description: string | null;
 };
 
-type RequestData = {
+type SigningStepSummary = {
   id: string;
-  submittedAt: string;
-  studentName: string;
-  studentId: string;
-  faculty: string;
-  course: string;
-  changeFrom: string;
-  changeTo: string;
-  reason: string;
+  order: number;
+  roleName: string;
+  description: string | null;
+  isRequired: boolean;
+  color: string;
 };
+
+const DEFAULT_SIGNING_STEP_COLOR = '#94A3B8';
 
 // --- State ---
 const route = useRoute();
 const router = useRouter();
 const overlay = useOverlay();
 const toast = useToast();
-const templateId = route.params.id;
+const templateId = computed(() => {
+  const value = route.params.id;
+  return Array.isArray(value) ? value[0] : value;
+});
 const template = ref<Template | null>(null);
 const isLoading = ref(true);
 const isDeleting = ref(false);
 const error = ref<string | null>(null);
+const isEditingRequestDetail = ref(false);
+const isSavingRequestDetail = ref(false);
+const requestDescriptionDraft = ref('');
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
-// Mock Data
-const _requestData = ref<RequestData>({
-  id: 'KU-2023-0892',
-  submittedAt: 'Oct 24, 2023',
-  studentName: 'Somchai Saetang',
-  studentId: '6310405821',
-  faculty: 'Faculty of Engineering',
-  course: '01204111 Computer Programming',
-  changeFrom: 'Grade B',
-  changeTo: 'Grade A',
-  reason: 'The final examination score for 01204111 (Computer Programming) was incorrectly recorded. After reviewing the physical script with the instructor, it was found that Question 4 was not included in the final tally. I would like to request a correction from B to A.',
+const placedFields = ref<any[]>([]);
+
+const requestDescriptionItems = computed(() => {
+  const rawDescription = template.value?.description;
+  if (!rawDescription)
+    return [];
+
+  return rawDescription
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
 });
 
-const workflowSteps = ref<WorkflowStep[]>([
-  {
-    id: 1,
-    title: 'Nisit',
-    status: 'pending',
-    icon: 'i-heroicons-user-circle',
-  },
-  {
-    id: 2,
-    title: 'Teacher Name...',
-    status: 'pending',
-    icon: 'i-heroicons-user-circle',
-  },
-  {
-    id: 3,
-    title: 'Teacher Name...',
-    status: 'pending',
-    icon: 'i-heroicons-user-circle',
-  },
-]);
+const requestDetailItems = computed(() => {
+  return requestDescriptionItems.value;
+});
 
-const placedFields = ref<any[]>([]);
+const signingSteps = computed<SigningStepSummary[]>(() => normalizeSigningFlowData(template.value?.signingFlowData));
+
+const templateDescriptionPreview = computed(() => {
+  if (isLoading.value)
+    return 'Loading...';
+
+  return template.value?.description?.trim() || 'ยังไม่มีคำอธิบาย';
+});
+
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== 'string')
+    return value;
+
+  try {
+    return JSON.parse(value);
+  }
+  catch {
+    return value;
+  }
+}
+
+function normalizePlacedFieldsData(value: unknown): any[] {
+  const parsed = parseMaybeJson(value);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function normalizeSigningFlowData(value: unknown): SigningStepSummary[] {
+  const parsed = parseMaybeJson(value);
+  if (!Array.isArray(parsed))
+    return [];
+
+  return parsed
+    .map((step: any, index: number) => ({
+      id: typeof step?.id === 'string' && step.id.trim().length > 0 ? step.id : `step-${index + 1}`,
+      order: typeof step?.order === 'number' ? step.order : index + 1,
+      roleName: typeof step?.roleName === 'string' && step.roleName.trim().length > 0
+        ? step.roleName.trim()
+        : `Signer ${index + 1}`,
+      description: typeof step?.description === 'string' && step.description.trim().length > 0
+        ? step.description.trim()
+        : null,
+      isRequired: step?.isRequired !== false,
+      color: typeof step?.color === 'string' && step.color.trim().length > 0
+        ? step.color
+        : DEFAULT_SIGNING_STEP_COLOR,
+    }))
+    .sort((a, b) => a.order - b.order);
+}
+
+function startEditRequestDetail() {
+  requestDescriptionDraft.value = template.value?.description || '';
+  isEditingRequestDetail.value = true;
+}
+
+function cancelEditRequestDetail() {
+  isEditingRequestDetail.value = false;
+  requestDescriptionDraft.value = '';
+}
+
+async function saveRequestDetail() {
+  if (!templateId.value || !template.value)
+    return;
+
+  isSavingRequestDetail.value = true;
+
+  try {
+    const normalizedDescription = requestDescriptionDraft.value
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n');
+
+    const result = await $fetch<ApiResponse<RequestDetailUpdateData>>(`/api/pdf-templates/${templateId.value}/request-detail`, {
+      method: 'PATCH',
+      body: {
+        description: normalizedDescription || null,
+      },
+    });
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to update request detail');
+    }
+
+    template.value = {
+      ...template.value,
+      description: result.data.description,
+    };
+    isEditingRequestDetail.value = false;
+    requestDescriptionDraft.value = '';
+
+    toast.add({
+      title: 'บันทึกสำเร็จ',
+      description: 'อัปเดตรายละเอียดคำร้องแล้ว',
+      color: 'success',
+    });
+  }
+  catch (err) {
+    console.error('Error updating request detail:', err);
+    toast.add({
+      title: 'เกิดข้อผิดพลาด',
+      description: err instanceof Error ? err.message : 'ไม่สามารถอัปเดตรายละเอียดคำร้องได้',
+      color: 'error',
+    });
+  }
+  finally {
+    isSavingRequestDetail.value = false;
+  }
+}
 
 // --- Methods ---
 async function fetchTemplate() {
+  if (!templateId.value) {
+    error.value = 'Template ID is required';
+    isLoading.value = false;
+    return;
+  }
+
   isLoading.value = true;
   error.value = null;
 
   try {
-    const result = await $fetch<ApiResponse<Template>>(`/api/pdf-templates/${templateId}`);
+    const result = await $fetch<ApiResponse<Template>>(`/api/pdf-templates/${templateId.value}`);
 
     if (result.success && result.data) {
       template.value = result.data;
-
-      // Set placed fields
-      if (template.value?.placedFieldsData) {
-        placedFields.value = template.value.placedFieldsData;
-      }
+      placedFields.value = normalizePlacedFieldsData(result.data.placedFieldsData);
     }
     else {
       error.value = 'Template not found';
@@ -131,6 +226,9 @@ function downloadPdf() {
 }
 
 async function deleteTemplate() {
+  if (!templateId.value)
+    return;
+
   const instance = confirmDialog.open({
     title: 'ลบ Template',
     description: `คุณต้องการลบ "${template.value?.name}" หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`,
@@ -144,7 +242,7 @@ async function deleteTemplate() {
 
   isDeleting.value = true;
   try {
-    await $fetch(`/api/pdf-templates/${templateId}`, { method: 'DELETE' });
+    await $fetch(`/api/pdf-templates/${templateId.value}`, { method: 'DELETE' });
     toast.add({
       title: 'ลบสำเร็จ',
       description: `Template "${template.value?.name}" ถูกลบแล้ว`,
@@ -178,7 +276,7 @@ onMounted(() => {
         <UBreadcrumb
           :links="[
             { label: 'Templates', to: '/admin/templates' },
-            { label: template?.name || 'Loading...', to: `/admin/templates/${templateId}` },
+            { label: template?.name || 'Loading...', to: templateId ? `/admin/templates/${templateId}` : '/admin/templates' },
           ]"
         />
         <div class="mt-4 flex items-center justify-between">
@@ -187,7 +285,7 @@ onMounted(() => {
               {{ template?.name || 'Document Preview' }}
             </h1>
             <p class="mt-1 text-sm text-gray-500">
-              {{ template?.description || 'Loading...' }}
+              {{ templateDescriptionPreview }}
             </p>
           </div>
           <div class="flex gap-2">
@@ -205,7 +303,7 @@ onMounted(() => {
               @click="deleteTemplate"
             />
             <UButton
-              :to="`/admin/templates/edit?id=${templateId}`"
+              :to="templateId ? `/admin/templates/edit?id=${templateId}` : '/admin/templates'"
               icon="i-heroicons-pencil-square"
               variant="solid"
               color="info"
@@ -257,35 +355,73 @@ onMounted(() => {
           <!-- Request Summary -->
           <UCard>
             <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Request Detail
-              </h3>
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                  Request Detail
+                </h3>
+                <div class="flex items-center gap-1">
+                  <UButton
+                    v-if="!isEditingRequestDetail"
+                    size="xs"
+                    variant="ghost"
+                    icon="i-heroicons-pencil-square"
+                    @click="startEditRequestDetail"
+                  >
+                    Edit
+                  </UButton>
+                  <template v-else>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      :disabled="isSavingRequestDetail"
+                      @click="cancelEditRequestDetail"
+                    >
+                      Cancel
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="primary"
+                      :loading="isSavingRequestDetail"
+                      @click="saveRequestDetail"
+                    >
+                      Save
+                    </UButton>
+                  </template>
+                </div>
+              </div>
             </template>
-            <div class="space-y-3">
-              <div class="flex items-start gap-2">
-                <UIcon name="i-heroicons-arrow-right-circle-solid" class="text-green-500 mt-0.5 shrink-0" />
-                <div class="text-sm">
-                  <p class="text-gray-700">
-                    ใบคำร้องทั่วไป / General Request
-                  </p>
+            <div class="space-y-3 w-full">
+              <template v-if="isEditingRequestDetail">
+                <p class="text-xs text-gray-500">
+                  เพิ่มคำอธิบายได้โดยใส่ 1 บรรทัดต่อ 1 รายการ
+                </p>
+                <UTextarea
+                  v-model="requestDescriptionDraft"
+                  :rows="6"
+                  class="w-full"
+                  placeholder="ตัวอย่าง: ใช้สำหรับนิสิตระดับปริญญาตรี ส่งเอกสารภายใน 3 วันทำการ"
+                />
+              </template>
+              <template v-else>
+                <div v-if="requestDetailItems.length > 0" class="space-y-3">
+                  <div
+                    v-for="(item, index) in requestDetailItems"
+                    :key="`${item}-${index}`"
+                    class="flex items-start gap-2"
+                  >
+                    <UIcon name="i-heroicons-arrow-right-circle-solid" class="text-green-500 mt-0.5 shrink-0" />
+                    <div class="text-sm">
+                      <p class="text-gray-700">
+                        {{ item }}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="flex items-start gap-2">
-                <UIcon name="i-heroicons-arrow-right-circle-solid" class="text-green-500 mt-0.5 shrink-0" />
-                <div class="text-sm">
-                  <p class="text-gray-700">
-                    Detail 1 .......
-                  </p>
-                </div>
-              </div>
-              <div class="flex items-start gap-2">
-                <UIcon name="i-heroicons-arrow-right-circle-solid" class="text-green-500 mt-0.5 shrink-0" />
-                <div class="text-sm">
-                  <p class="text-gray-700">
-                    Detail 2 .......
-                  </p>
-                </div>
-              </div>
+                <p v-else class="text-sm text-gray-500">
+                  ยังไม่มีรายละเอียดคำร้อง
+                </p>
+              </template>
             </div>
           </UCard>
 
@@ -296,53 +432,42 @@ onMounted(() => {
                 Order of signing
               </h3>
             </template>
-            <div class="space-y-0">
+            <div v-if="signingSteps.length === 0" class="text-sm text-gray-500">
+              ยังไม่มีการกำหนดลำดับการลงนาม
+            </div>
+            <div v-else class="space-y-0">
               <template
-                v-for="(step, index) in workflowSteps"
+                v-for="(step, index) in signingSteps"
                 :key="step.id"
               >
-                <div class="flex items-center gap-3 py-2">
+                <div class="flex items-start gap-3 py-2">
                   <div
-                    class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
-                    :class="{
-                      'bg-green-100': step.status === 'in-progress',
-                      'bg-gray-100': step.status === 'pending',
-                    }"
+                    class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold"
+                    :style="{ backgroundColor: step.color }"
                   >
-                    <UIcon
-                      :name="step.icon"
-                      :class="{
-                        'text-green-600': step.status === 'in-progress',
-                        'text-gray-400': step.status === 'pending',
-                      }"
-                      class="text-xl"
-                    />
+                    {{ step.order }}
                   </div>
-                  <div class="flex-1">
-                    <p
-                      class="text-sm font-medium"
-                      :class="{
-                        'text-gray-900': step.status === 'in-progress',
-                        'text-gray-500': step.status === 'pending',
-                      }"
-                    >
-                      {{ step.title }}
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900">
+                      {{ step.roleName }}
+                    </p>
+                    <p v-if="step.description" class="text-xs text-gray-500 mt-1">
+                      {{ step.description }}
                     </p>
                     <UBadge
-                      v-if="step.status === 'in-progress'"
-                      color="success"
+                      :color="step.isRequired ? 'primary' : 'neutral'"
                       variant="subtle"
                       size="xs"
                       class="mt-1"
                     >
-                      In Progress
+                      {{ step.isRequired ? 'Required' : 'Optional' }}
                     </UBadge>
                   </div>
                 </div>
 
                 <!-- Arrow between items -->
                 <div
-                  v-if="index < workflowSteps.length - 1"
+                  v-if="index < signingSteps.length - 1"
                   class="flex items-center gap-3"
                 >
                   <div class="w-10 flex justify-center">
@@ -373,7 +498,7 @@ onMounted(() => {
                   {{ index + 1 }}. {{ field.label || field.name }}
                 </div>
                 <div class="text-gray-500 mt-1">
-                  Type: {{ field.type }}
+                  Type: {{ field.type || field.fieldType || '-' }} | Page {{ field.pageNumber || 1 }}
                 </div>
               </div>
             </div>
