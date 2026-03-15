@@ -766,7 +766,6 @@ async function saveTemplate() {
     const templatePayload = {
       name: templateName,
       description: null,
-      category: null,
       version: '1.0.0',
       isActive: true,
       createdBy: null,

@@ -1,7 +1,6 @@
+import db from '~~/lib/db';
+import { request, requestTemplateValues, signatureFlow, userRoles } from '~~/lib/db/schema';
 import { eq } from 'drizzle-orm';
-
-import db from '../../../lib/db';
-import { request, requestTemplateValues, signatureFlow, userRoles } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);

@@ -9,6 +9,10 @@ const props = defineProps({
   pdfUrl: { type: String, required: true },
   /** Array of placed field instances with normalized coordinates */
   placedFields: { type: Array as () => Field[], default: () => [] },
+  /** When set, show a button to open this URL in a new tab (e.g. signed PDF link) */
+  openInNewTabUrl: { type: String, default: null },
+  /** Label for the open-in-new-tab button */
+  openInNewTabLabel: { type: String, default: 'เปิด PDF ในแท็บใหม่' },
 });
 
 // --- Refs ---
@@ -247,6 +251,11 @@ function zoomReset() {
   uiScale.value = 1;
 }
 
+function openPdfInNewTab() {
+  if (props.openInNewTabUrl && typeof window !== 'undefined')
+    window.open(props.openInNewTabUrl, '_blank');
+}
+
 // --- Page Navigation ---
 function prevPage() {
   if (currentPage.value > 1)
@@ -326,6 +335,19 @@ onUnmounted(() => {
       <UButton size="xs" variant="ghost" @click="zoomReset">
         Reset
       </UButton>
+
+      <!-- Open in new tab (optional) -->
+      <div v-if="openInNewTabUrl" class="ml-auto">
+        <UButton
+          size="xs"
+          icon="i-heroicons-arrow-top-right-on-square"
+          variant="soft"
+          color="primary"
+          @click="openPdfInNewTab"
+        >
+          {{ openInNewTabLabel }}
+        </UButton>
+      </div>
 
       <!-- Divider -->
       <div v-if="pdfLoaded && totalPages > 1" class="w-px h-5 bg-gray-300" />

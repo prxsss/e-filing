@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import type { TableRow } from '@nuxt/ui';
-
-// import { access } from 'node:fs';
-import { h, resolveComponent } from 'vue';
+import type { TableColumn, TableRow } from '@nuxt/ui';
 
 definePageMeta({
   title: 'requests',
@@ -14,6 +11,36 @@ const localePath = useLocalePath();
 
 // === Types ===
 type RequestStatus = 'in_progress' | 'rejected' | 'completed';
+
+type RequestItem = {
+  id: number;
+  templateName: string | null;
+  status: string | null;
+  createdAt: string | null;
+  submittedAt: string | null;
+  filledDocumentUrl?: string | null;
+};
+
+type SelectableRow = {
+  getIsSelected: () => boolean;
+  toggleSelected: (value: boolean) => void;
+};
+
+type SelectableTable = {
+  getIsSomePageRowsSelected: () => boolean;
+  getIsAllPageRowsSelected: () => boolean;
+  toggleAllPageRowsSelected: (value: boolean) => void;
+};
+
+type FilteredSelectedRow = {
+  original: RequestItem;
+};
+
+type RequestsTableApi = {
+  getFilteredSelectedRowModel: () => {
+    rows: FilteredSelectedRow[];
+  };
+};
 
 // === Status Helpers ===
 const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
@@ -50,28 +77,88 @@ function formatDate(dateStr: string | null): string {
 
 // === Table Columns ===
 const UBadge = resolveComponent('UBadge');
+const UButton = resolveComponent('UButton');
+const UCheckbox = resolveComponent('UCheckbox');
 const UIcon = resolveComponent('UIcon');
 
-const columns: any[] = [
+const table = ref<{ tableApi?: RequestsTableApi } | null>(null);
+const rowSelection = ref<Record<string, boolean>>({});
+
+const columns: TableColumn<RequestItem>[] = [
+  {
+    id: 'select',
+    header: (ctx: { table: SelectableTable }) =>
+      h(UCheckbox, {
+        'modelValue': ctx.table.getIsSomePageRowsSelected() ? 'indeterminate' : ctx.table.getIsAllPageRowsSelected(),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => ctx.table.toggleAllPageRowsSelected(!!value),
+        'aria-label': 'Select all',
+      }),
+    cell: (ctx: { row: SelectableRow }) =>
+      h(UCheckbox, {
+        'modelValue': ctx.row.getIsSelected(),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => ctx.row.toggleSelected(!!value),
+        'aria-label': 'Select row',
+      }),
+    enableSorting: false,
+    enableHiding: false,
+  },
   { accessorKey: 'id', header: t('requestId'), size: 80 },
   { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
   { accessorKey: 'status', header: t('status'), size: 150 },
   { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
   { accessorKey: 'submittedAt', header: t('lastUpdated'), size: 165 },
   {
-    id: 'navigate',
+    id: 'actions',
     header: '',
-    size: 40,
-    cell: () =>
-      h(UIcon, {
-        name: 'i-lucide-chevron-right',
-        class: 'w-5 h-5 text-gray-400',
-      }),
+    size: 100,
+    meta: { class: { td: 'text-right' } },
   },
 ];
 
-function onRowSelect(_e: Event, row: TableRow<any>) {
+function onRowSelect(_e: Event, row: TableRow<RequestItem>) {
   router.push(localePath(`/admin/requests/${row.original.id}`));
+}
+
+// === PDF Download ===
+async function downloadPdf(url: string, filename: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok)
+      throw new Error('Fetch failed');
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(objectUrl);
+  }
+  catch {
+    if (typeof window !== 'undefined')
+      window.open(url, '_blank');
+  }
+}
+
+const selectedRowsWithPdf = computed<FilteredSelectedRow[]>(() => {
+  const api: RequestsTableApi | undefined = table.value?.tableApi;
+  if (!api)
+    return [];
+  return api.getFilteredSelectedRowModel().rows.filter(
+    row => Boolean(row.original?.filledDocumentUrl),
+  );
+});
+
+const canBulkDownload = computed<boolean>(() => selectedRowsWithPdf.value.length > 0);
+
+async function onBulkDownload() {
+  const rows = selectedRowsWithPdf.value;
+  for (const [index, row] of rows.entries()) {
+    const url = row.original.filledDocumentUrl;
+    if (url)
+      await downloadPdf(url, `request-${row.original.id}.pdf`);
+    if (index < rows.length - 1)
+      await new Promise(r => setTimeout(r, 250));
+  }
 }
 
 // === Filter State ===
@@ -104,7 +191,7 @@ const { data: response, status: fetchStatus, refresh } = await useFetch('/api/re
   watch: [queryParams],
 });
 
-const requests = computed(() => response.value?.data ?? []);
+const requests = computed<RequestItem[]>(() => response.value?.data ?? []);
 const total = computed(() => response.value?.meta?.total ?? 0);
 
 // === Stats ===
@@ -196,7 +283,19 @@ function clearFilters() {
           class="w-full sm:w-80"
           :loading="fetchStatus === 'pending'"
         />
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
+          <UTooltip text="กรุณาเลือกรายการก่อน" :prevent="canBulkDownload">
+            <UButton
+              icon="i-heroicons-arrow-down-tray"
+              color="primary"
+              variant="soft"
+              size="sm"
+              :disabled="!canBulkDownload"
+              @click="onBulkDownload"
+            >
+              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด PDF (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด PDF' }}
+            </UButton>
+          </UTooltip>
           <USelect
             v-model="selectedStatus"
             :items="statusOptions"
@@ -219,8 +318,11 @@ function clearFilters() {
 
       <!-- Table -->
       <UTable
+        ref="table"
+        v-model:row-selection="rowSelection"
         :data="requests"
         :columns="columns"
+        :get-row-id="(row: RequestItem) => String(row.id)"
         :loading="fetchStatus === 'pending'"
         :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
@@ -240,6 +342,22 @@ function clearFilters() {
           >
             {{ getStatusLabel(row.original.status ?? '') }}
           </UBadge>
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex items-center justify-end gap-3" @click.stop>
+            <UTooltip text="ดาวน์โหลด PDF">
+              <UButton
+                icon="i-heroicons-arrow-down-tray"
+                size="md"
+                variant="ghost"
+                color="neutral"
+                :disabled="!row.original.filledDocumentUrl"
+                :aria-label="row.original.filledDocumentUrl ? 'ดาวน์โหลด PDF' : 'ไม่มี PDF'"
+                @click="row.original.filledDocumentUrl && downloadPdf(row.original.filledDocumentUrl, `request-${row.original.id}.pdf`)"
+              />
+            </UTooltip>
+            <UIcon name="i-lucide-chevron-right" class="w-5 h-5" />
+          </div>
         </template>
       </UTable>
 
