@@ -211,20 +211,11 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
         email: event.data.email,
         facultyId: event.data.faculty,
         password: event.data.password,
+        roleAssignments: roleAssignments.value,
       },
     });
     if (!response.success) {
       throw new Error('Failed to create user');
-    }
-
-    // Assign roles to the user
-    for (const role of roleAssignments.value) {
-      if (role.roleId) {
-        await $fetch('/api/user-role', {
-          method: 'POST',
-          body: { userId: response.user.id, roleId: role.roleId, facultyId: role.facultyId, departmentId: role.departmentId },
-        });
-      }
     }
 
     isDirty.value = false;
