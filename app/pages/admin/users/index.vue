@@ -27,7 +27,7 @@ const authStore = useAuthStore();
 //   })),
 // });
 
-const { rows: data, isLoading, page, pageSize, total } = useUsers();
+const { rows: data, isLoading, page, pageSize, total, refresh } = useUsers();
 
 const columns: TableColumn<UserListItem>[] = [
   {
@@ -140,9 +140,13 @@ const columns: TableColumn<UserListItem>[] = [
         </h1>
         <p>Manage system users and access permissions.</p>
       </div>
-      <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
-        Add User
-      </UButton>
+      <div class="flex items-center gap-2">
+        <AdminUsersImportCsvModal v-if="authStore.can('user.import')" @imported="refresh" />
+
+        <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
+          Add User
+        </UButton>
+      </div>
     </div>
     <div class="w-full">
       <div class="max-w-sm">

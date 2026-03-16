@@ -31,8 +31,10 @@ const formRef = ref<any>(null);
 
 const createUserSchema = z.object({
   id: z.string().min(1, 'ID is required'),
-  firstNameEn: z.string().min(1, 'First name is required'),
-  lastNameEn: z.string().min(1, 'Last name is required'),
+  firstNameEn: z.string().min(1, 'First name (English) is required'),
+  lastNameEn: z.string().min(1, 'Last name (English) is required'),
+  firstNameTh: z.string().min(1, 'First name (Thai) is required'),
+  lastNameTh: z.string().min(1, 'Last name (Thai) is required'),
   email: z.email('Invalid email'),
   faculty: z.number().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -51,6 +53,8 @@ const form = ref<Partial<CreateUserSchema>>({
   id: '',
   firstNameEn: '',
   lastNameEn: '',
+  firstNameTh: '',
+  lastNameTh: '',
   email: '',
   faculty: null,
   password: '',
@@ -208,23 +212,16 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
         id: event.data.id,
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
+        firstNameTh: event.data.firstNameTh,
+        lastNameTh: event.data.lastNameTh,
         email: event.data.email,
         facultyId: event.data.faculty,
         password: event.data.password,
+        roleAssignments: roleAssignments.value,
       },
     });
     if (!response.success) {
       throw new Error('Failed to create user');
-    }
-
-    // Assign roles to the user
-    for (const role of roleAssignments.value) {
-      if (role.roleId) {
-        await $fetch('/api/user-role', {
-          method: 'POST',
-          body: { userId: response.user.id, roleId: role.roleId, facultyId: role.facultyId, departmentId: role.departmentId },
-        });
-      }
     }
 
     isDirty.value = false;
@@ -405,6 +402,30 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               >
                 <UInput
                   v-model="form.lastNameEn"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <!-- First Name (TH) -->
+              <UFormField
+                label="First Name (TH)"
+                name="firstNameTh"
+                required
+              >
+                <UInput
+                  v-model="form.firstNameTh"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <!-- Last Name (TH) -->
+              <UFormField
+                label="Last Name (TH)"
+                name="lastNameTh"
+                required
+              >
+                <UInput
+                  v-model="form.lastNameTh"
                   class="w-full"
                 />
               </UFormField>
