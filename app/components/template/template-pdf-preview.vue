@@ -424,7 +424,21 @@ onUnmounted(() => {
                   alt="ลายเซ็น"
                 >
                 <template v-else>
-                  <i v-if="field.name === 'Check Mark'" :class="field.icon" />
+                  <svg
+                    v-if="field.name === 'Check Mark'"
+                    class="checkbox-mark-svg"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M5 13L9 17L19 7"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
                   <span v-if="field.label">{{ field.label }}</span>
                   <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
                 </template>
@@ -509,6 +523,14 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.checkbox-mark-svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  color: #111827;
+  display: block;
 }
 
 .instance-num {

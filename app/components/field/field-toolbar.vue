@@ -5,10 +5,12 @@ type Field = any;
 
 const props = withDefaults(defineProps<{
   selectedField?: Field;
+  placedFields?: Field[];
   pdfRef?: any;
   scale?: number;
   isSavingDefaults?: boolean;
 }>(), {
+  placedFields: () => [],
   isSavingDefaults: false,
 });
 
@@ -20,6 +22,73 @@ const emit = defineEmits<{
 
 const localField = ref<any>({});
 
+function getFieldType(field?: Field): string {
+  return String(field?.type || field?.fieldType || '').toLowerCase();
+}
+
+function supportsConditionalSource(field?: Field): boolean {
+  if (!field) {
+    return false;
+  }
+
+  const fieldType = getFieldType(field);
+  const fieldName = String(field.name || '').trim().toLowerCase();
+  return fieldType === 'checkbox' || fieldName === 'check mark';
+}
+
+function normalizeVisibilityRule(rawRule: any) {
+  if (!rawRule || typeof rawRule !== 'object') {
+    return null;
+  }
+
+  const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
+  if (!sourceFieldInstanceId.length) {
+    return null;
+  }
+
+  return {
+    enabled: rawRule.enabled !== false,
+    sourceFieldInstanceId,
+    operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
+    // Always preserve hidden field values.
+    clearWhenHidden: false,
+  };
+}
+
+function getConditionalSourceLabel(field?: Field): string {
+  if (!field) {
+    return 'Checkbox';
+  }
+
+  const baseLabel = String(field.label || field.name || 'Checkbox').trim();
+  const instanceSuffix = Number.isFinite(Number(field.instanceNumber)) ? ` #${field.instanceNumber}` : '';
+  return `${baseLabel}${instanceSuffix}`;
+}
+
+const conditionalSourceOptions = computed(() => {
+  const selectedInstanceId = String(props.selectedField?.instanceId || '').trim();
+
+  return (props.placedFields || [])
+    .filter((field: any) => {
+      if (!field) {
+        return false;
+      }
+
+      const instanceId = String(field.instanceId || '').trim();
+      if (!instanceId.length || instanceId === selectedInstanceId) {
+        return false;
+      }
+
+      return supportsConditionalSource(field);
+    })
+    .map((field: any) => {
+      return {
+        value: String(field.instanceId),
+        label: getConditionalSourceLabel(field),
+      };
+    });
+});
+
 function normalizeMaxLength(value: unknown): number | null {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed) || parsed <= 0)
@@ -30,9 +99,32 @@ function normalizeMaxLength(value: unknown): number | null {
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
 const isDateField = computed(() => selectedFieldType.value === 'date');
 const isTimeField = computed(() => selectedFieldType.value === 'time');
+const selectedFieldHasConditionalRule = computed(() => {
+  return Boolean(normalizeVisibilityRule(props.selectedField?.visibilityRule ?? props.selectedField?.visibility_rule));
+});
+
+const selectedFieldConditionalTagText = computed(() => {
+  const rule = normalizeVisibilityRule(props.selectedField?.visibilityRule ?? props.selectedField?.visibility_rule);
+  if (!rule) {
+    return '';
+  }
+
+  const sourceField = (props.placedFields || []).find(
+    candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
+  );
+  const sourceLabel = sourceField
+    ? getConditionalSourceLabel(sourceField)
+    : `Checkbox (${rule.sourceFieldInstanceId.slice(0, 8)})`;
+  const operatorLabel = rule.operator === 'isUnchecked' ? 'เมื่อไม่ติ๊ก' : 'เมื่อติ๊ก';
+  return `IF ${sourceLabel} ${operatorLabel}`;
+});
 
 const supportsMaxLength = computed(() => {
-  return selectedFieldType.value !== 'signature' && selectedFieldType.value !== 'icon' && selectedFieldType.value !== 'date' && selectedFieldType.value !== 'time';
+  return selectedFieldType.value !== 'signature'
+    && selectedFieldType.value !== 'icon'
+    && selectedFieldType.value !== 'date'
+    && selectedFieldType.value !== 'time'
+    && selectedFieldType.value !== 'checkbox';
 });
 
 // Use computed for display coordinates to ensure they recalculate when scale changes
@@ -92,6 +184,7 @@ watch(
   (newField) => {
     if (newField) {
       const autoDateTimeConfig = getAutoDateTimeFormatConfig(newField);
+      const visibilityRule = normalizeVisibilityRule(newField.visibilityRule ?? newField.visibility_rule);
       localField.value = {
         ...newField,
         ...autoDateTimeConfig,
@@ -102,6 +195,9 @@ watch(
         letterSpacing: newField.letterSpacing ?? 0,
         lineHeight: newField.lineHeight ?? 1.5,
         maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
+        conditionalEnabled: Boolean(visibilityRule),
+        conditionalSourceFieldInstanceId: visibilityRule?.sourceFieldInstanceId || '',
+        conditionalOperator: visibilityRule?.operator || 'isChecked',
       };
     }
     else {
@@ -110,6 +206,19 @@ watch(
   },
   { immediate: true },
 );
+
+function toggleConditionalVisibility() {
+  if (!localField.value) {
+    return;
+  }
+
+  localField.value.conditionalEnabled = !localField.value.conditionalEnabled;
+  if (!localField.value.conditionalEnabled) {
+    localField.value.conditionalSourceFieldInstanceId = '';
+  }
+
+  onPropertyChange();
+}
 
 function onPropertyChange() {
   if (!localField.value || !props.selectedField)
@@ -142,6 +251,14 @@ function onPropertyChange() {
     letterSpacing: localField.value.letterSpacing ?? 0,
     lineHeight: localField.value.lineHeight ?? 1.5,
     maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+    visibilityRule: localField.value.conditionalEnabled
+      ? normalizeVisibilityRule({
+          enabled: true,
+          sourceFieldInstanceId: localField.value.conditionalSourceFieldInstanceId,
+          operator: localField.value.conditionalOperator,
+          clearWhenHidden: false,
+        })
+      : null,
     ...dateTimeFormatUpdates,
   };
 
@@ -263,11 +380,18 @@ function removeField() {
     <div class="field-toolbar-inline">
       <!-- Identity Section -->
       <UTooltip text="ประเภทของช่องข้อมูล" :popper="{ placement: 'top' }">
-        <div class="flex items-center gap-1.5 bg-primary-50 px-2 py-1 rounded-md border border-primary-100">
+        <div class="flex items-center gap-1.5 bg-primary-50 px-2 py-1 rounded-md border border-primary-100 min-w-0 max-w-88">
           <UIcon name="i-heroicons-tag" class="w-3.5 h-3.5 text-primary-500" />
           <span class="text-xs font-semibold text-primary-700 truncate max-w-32">{{ selectedField.name }}</span>
           <span v-if="selectedField.instanceNumber > 1" class="text-[10px] bg-white text-primary-600 px-1 rounded shadow-sm font-mono">
             #{{ selectedField.instanceNumber }}
+          </span>
+          <span
+            v-if="selectedFieldHasConditionalRule"
+            class="conditional-tag-inline text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 rounded"
+            :title="selectedFieldConditionalTagText"
+          >
+            {{ selectedFieldConditionalTagText }}
           </span>
         </div>
       </UTooltip>
@@ -292,7 +416,7 @@ function removeField() {
       </div>
 
       <!-- Font (text fields only) -->
-      <template v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'">
+      <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
         <div class="h-5 w-px bg-gray-200" />
 
         <div class="flex items-center gap-1.5">
@@ -577,6 +701,19 @@ function removeField() {
 
       <div class="h-5 w-px bg-gray-200" />
 
+      <!-- Conditional visibility toggle (details shown in second row) -->
+      <UTooltip text="แสดงช่องนี้ตามเงื่อนไขจาก Checkbox" :popper="{ placement: 'top' }">
+        <button
+          class="toolbar-fmt-btn"
+          :class="{ active: localField.conditionalEnabled }"
+          @click="toggleConditionalVisibility"
+        >
+          <UIcon name="i-heroicons-adjustments-horizontal" class="w-3.5 h-3.5" />
+        </button>
+      </UTooltip>
+
+      <div class="h-5 w-px bg-gray-200" />
+
       <!-- Save as default -->
       <UTooltip text="บันทึกค่าช่องนี้เป็นค่าเริ่มต้นของ Field" :popper="{ placement: 'top' }">
         <button
@@ -600,12 +737,55 @@ function removeField() {
         </button>
       </UTooltip>
     </div>
+
+    <div v-if="localField.conditionalEnabled" class="conditional-toolbar-row">
+      <div class="conditional-toolbar-inline">
+        <span class="conditional-toolbar-label">
+          <UIcon name="i-heroicons-funnel" class="w-3.5 h-3.5" />
+          เงื่อนไขการแสดงผลจาก Checkbox
+        </span>
+
+        <select
+          v-model="localField.conditionalSourceFieldInstanceId"
+          class="toolbar-select conditional-select"
+          @change="onPropertyChange"
+        >
+          <option value="" disabled>
+            เลือก Checkbox
+          </option>
+          <option
+            v-for="option in conditionalSourceOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+
+        <select
+          v-model="localField.conditionalOperator"
+          class="toolbar-select conditional-select"
+          @change="onPropertyChange"
+        >
+          <option value="isChecked">
+            ติ๊กแล้ว
+          </option>
+          <option value="isUnchecked">
+            ไม่ติ๊ก
+          </option>
+        </select>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .field-toolbar-wrapper {
   display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  max-width: 100%;
   box-shadow:
     0 2px 8px -2px rgba(0, 0, 0, 0.05),
     0 4px 16px -4px rgba(0, 0, 0, 0.02);
@@ -615,8 +795,51 @@ function removeField() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.conditional-tag-inline {
+  display: inline-block;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.conditional-toolbar-row {
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 0.5rem;
+}
+
+.conditional-toolbar-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conditional-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 9999px;
+  padding: 0.2rem 0.5rem;
+  white-space: nowrap;
+}
+
+.conditional-select {
+  max-width: 16rem;
 }
 
 /* Figma-style Input Group */
@@ -689,6 +912,22 @@ function removeField() {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.toolbar-inline-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.toolbar-inline-checkbox input {
+  width: 0.75rem;
+  height: 0.75rem;
+  accent-color: #3b82f6;
 }
 
 /* Hide number spin buttons completely */

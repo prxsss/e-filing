@@ -58,7 +58,7 @@ const formData = ref({
   maxLength: null,
 });
 
-const fieldTypes = ['Text', 'Date', 'Time', 'Signature', 'Number', 'Email', 'Phone'];
+const fieldTypes = ['Text', 'Date', 'Time', 'Checkbox', 'Signature', 'Number', 'Email', 'Phone'];
 
 const iconOptions = [
   { value: 'i-heroicons-document', label: 'Document', icon: 'i-heroicons-document' },
@@ -79,11 +79,11 @@ const fontOptions = ['Sarabun', 'Prompt', 'Mitr', 'Arial', 'Helvetica', 'Times N
 const selectedFieldType = computed(() => String(formData.value.type || '').toLowerCase());
 
 const supportsTextSettings = computed(() => {
-  return selectedFieldType.value !== 'signature' && selectedFieldType.value !== 'icon';
+  return !['signature', 'icon', 'checkbox'].includes(selectedFieldType.value);
 });
 
 const supportsMaxLength = computed(() => {
-  return !['signature', 'icon', 'date', 'time'].includes(selectedFieldType.value);
+  return !['signature', 'icon', 'date', 'time', 'checkbox'].includes(selectedFieldType.value);
 });
 
 const isOpen = computed({

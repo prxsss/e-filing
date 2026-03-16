@@ -766,7 +766,21 @@ defineExpose({
               @click="selectField(field)"
             >
               <div class="field-content">
-                <UIcon v-if="field.name === 'Check Mark'" :name="field.icon" class="w-4 h-4" />
+                <svg
+                  v-if="field.name === 'Check Mark'"
+                  class="w-4 h-4 shrink-0 text-gray-900"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 13L9 17L19 7"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
                 <span v-if="field.label">{{ field.label }}</span>
                 <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
               </div>

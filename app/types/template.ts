@@ -18,6 +18,15 @@ export type Field = {
   [key: string]: any;
 };
 
+export type ConditionalVisibilityOperator = 'isChecked' | 'isUnchecked';
+
+export type FieldVisibilityRule = {
+  enabled?: boolean;
+  sourceFieldInstanceId?: string | null;
+  operator?: ConditionalVisibilityOperator;
+  clearWhenHidden?: boolean;
+};
+
 /**
  * Field instance with placement metadata and coordinates
  * Extends Field with instance-specific properties
@@ -53,6 +62,8 @@ export type FieldInstance = Field & {
   signerStepId?: string;
   // Auto-generate flag (system fills value automatically, skips signer assignment)
   isAutoGenerate?: boolean;
+  // Optional conditional visibility linked to another field instance.
+  visibilityRule?: FieldVisibilityRule | null;
   // Auto-generated date/time format controls
   dateSeparator?: string;
   dateShowDay?: boolean;

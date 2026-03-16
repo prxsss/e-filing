@@ -31,7 +31,7 @@ function normalizeEnum<T extends string>(value: unknown, allowed: readonly T[], 
 
 function supportsMaxLength(fieldType: unknown): boolean {
   const type = String(fieldType ?? '').toLowerCase();
-  return !['signature', 'icon', 'date', 'time'].includes(type);
+  return !['signature', 'icon', 'date', 'time', 'checkbox'].includes(type);
 }
 
 export default defineEventHandler(async (event: H3Event) => {
