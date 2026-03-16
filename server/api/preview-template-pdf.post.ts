@@ -90,21 +90,41 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
     // Cache embedded fonts
     const embeddedFontCache = new Map<string, any>();
 
+    function getSarabunVariantFileName(bold: boolean, italic: boolean): string {
+      if (bold && italic)
+        return 'Sarabun-BoldItalic.ttf';
+      if (bold)
+        return 'Sarabun-Bold.ttf';
+      if (italic)
+        return 'Sarabun-Italic.ttf';
+      return 'Sarabun-Regular.ttf';
+    }
+
     async function getFont(fontFamily: string, bold: boolean, italic: boolean) {
-      const key = `${fontFamily}|${bold}|${italic}`;
+      const normalizedFamily = String(fontFamily || 'Sarabun').trim().toLowerCase() || 'sarabun';
+      const key = `${normalizedFamily}|${bold}|${italic}`;
       if (embeddedFontCache.has(key))
         return embeddedFontCache.get(key);
 
       let font: any;
       try {
-        // Since pdf-font-loader.ts is removed, we load Sarabun font directly
-        const fontPath = join(process.cwd(), 'public', 'fonts', 'Sarabun-Regular.ttf');
+        // Current server renderer standardizes to Sarabun variants by style.
+        const fontPath = join(process.cwd(), 'public', 'fonts', getSarabunVariantFileName(bold, italic));
         const fontBytes = new Uint8Array(await readFile(fontPath));
         font = await pdfDoc.embedFont(fontBytes, { subset: true });
       }
-      catch (e) {
-        console.warn('Failed to load local font:', e);
-        font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      catch (variantError) {
+        try {
+          // Fallback to regular variant in case specific style file is unavailable.
+          const fallbackPath = join(process.cwd(), 'public', 'fonts', 'Sarabun-Regular.ttf');
+          const fallbackBytes = new Uint8Array(await readFile(fallbackPath));
+          font = await pdfDoc.embedFont(fallbackBytes, { subset: true });
+        }
+        catch (fallbackError) {
+          console.warn('Failed to load local Sarabun font variant:', variantError);
+          console.warn('Failed to load fallback Sarabun-Regular font:', fallbackError);
+          font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+        }
       }
 
       embeddedFontCache.set(key, font);
@@ -171,9 +191,9 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         const fieldYBottom = pageHeight - fieldYTop - fieldH;
 
         // ── Font ───────────────────────────────────────────────────────────
-        const isBold = field.fontWeight === 'bold';
-        const isItalic = field.fontStyle === 'italic';
-        const font = await getFont(field.fontFamily || 'Sarabun', isBold, isItalic);
+        const isBold = String(field.fontWeight || '').toLowerCase() === 'bold';
+        const isItalic = String(field.fontStyle || '').toLowerCase() === 'italic';
+        const font = await getFont(field.fontFamily || field.font || 'Sarabun', isBold, isItalic);
 
         // ── Font size ──────────────────────────────────────────────────────
         const requestedFontSizePx = Number(field.fontSize || 12);
