@@ -141,7 +141,7 @@ const columns: TableColumn<UserListItem>[] = [
         <p>Manage system users and access permissions.</p>
       </div>
       <div class="flex items-center gap-2">
-        <AdminUsersImportCsvModal @imported="refresh" />
+        <AdminUsersImportCsvModal v-if="authStore.can('user.import')" @imported="refresh" />
 
         <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
           Add User
