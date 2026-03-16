@@ -214,7 +214,7 @@ function navigateToNewRequest() {
 
       <!-- 5. Help Section -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 ">
-        <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-start gap-4 hover:bg-blue-50 transition-colors">
+        <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-start gap-4 hover:bg-blue-50 transition-colors cursor-pointer">
           <div class="bg-white p-2.5 rounded-lg text-blue-600 shadow-sm flex items-center justify-center">
             <UIcon name="i-heroicons-book-open" class="w-5 h-5" />
           </div>
