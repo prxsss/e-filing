@@ -1,7 +1,6 @@
-import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
-
-import db from '../../../lib/db';
-import { request, requestTemplate, users } from '../../../lib/db/schema';
+import db from '~~/lib/db';
+import { request, requestTemplate, users } from '~~/lib/db/schema';
+import { and, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -16,6 +15,7 @@ export default defineEventHandler(async (event) => {
     const offset = (page - 1) * limit;
     const status = query.status as string | undefined;
     const search = query.search as string | undefined;
+    const dateParam = query.date as string | undefined; // Added date query
     const mine = query.mine === 'true' || query.mine === '1';
 
     // Build WHERE conditions
@@ -28,6 +28,18 @@ export default defineEventHandler(async (event) => {
 
     if (status) {
       conditions.push(eq(request.status, status));
+    }
+
+    // Handle Specific Date Filtering (from 00:00:00 to 23:59:59)
+    if (dateParam) {
+      const startOfDay = new Date(dateParam);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(dateParam);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      conditions.push(gte(request.createdAt, startOfDay.toISOString()));
+      conditions.push(lte(request.createdAt, endOfDay.toISOString()));
     }
 
     if (search) {

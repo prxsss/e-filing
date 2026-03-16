@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import type { DateValue } from '@internationalized/date';
 import type { TableColumn, TableRow } from '@nuxt/ui';
+
+import { useDebounceFn } from '@vueuse/core';
 
 definePageMeta({
   title: 'requests',
@@ -170,25 +173,139 @@ const statusOptions = [
 ];
 
 const searchQuery = ref('');
+const debouncedSearch = ref('');
+const applySearch = useDebounceFn((val: string) => {
+  debouncedSearch.value = val;
+}, 350);
+watch(searchQuery, applySearch);
+
 const selectedStatus = ref<string | undefined>(undefined);
+const selectedDate = ref<DateValue | undefined>(undefined);
+const calendarModel = computed<any>({
+  get: () => selectedDate.value,
+  set: (value) => {
+    selectedDate.value = (value ?? undefined) as DateValue | undefined;
+  },
+});
 const page = ref(1);
 const pageSize = 15;
 
-watch([searchQuery, selectedStatus], () => {
+// === Month / Year Filter ===
+const now = new Date();
+const selectedMonth = ref<number>(now.getMonth() + 1); // 1–12
+const selectedYear = ref<number>(now.getFullYear());
+
+const monthOptions = [
+  { label: 'มกราคม', value: 1 },
+  { label: 'กุมภาพันธ์', value: 2 },
+  { label: 'มีนาคม', value: 3 },
+  { label: 'เมษายน', value: 4 },
+  { label: 'พฤษภาคม', value: 5 },
+  { label: 'มิถุนายน', value: 6 },
+  { label: 'กรกฎาคม', value: 7 },
+  { label: 'สิงหาคม', value: 8 },
+  { label: 'กันยายน', value: 9 },
+  { label: 'ตุลาคม', value: 10 },
+  { label: 'พฤศจิกายน', value: 11 },
+  { label: 'ธันวาคม', value: 12 },
+];
+
+const { data: yearsData } = await useFetch('/api/requests/years');
+const yearOptions = computed(() => {
+  const years: number[] = yearsData.value?.data ?? [now.getFullYear()];
+  // Always include the current year even if there's no data yet
+  const merged = Array.from(new Set([...years, now.getFullYear()])).sort((a, b) => b - a);
+  return merged.map(y => ({ label: String(y), value: y }));
+});
+
+// Clearing the day filter does NOT reset the month/year filter
+function clearDayFilter() {
+  selectedDate.value = undefined;
+}
+
+const hasActiveFilters = computed(() =>
+  Boolean(searchQuery.value || selectedStatus.value || selectedDate.value),
+);
+
+// "Reset all" resets day filter + month/year back to current month
+function clearFilters() {
+  searchQuery.value = '';
+  debouncedSearch.value = '';
+  selectedStatus.value = undefined;
+  selectedDate.value = undefined;
+  selectedMonth.value = now.getMonth() + 1;
+  selectedYear.value = now.getFullYear();
+  page.value = 1;
+}
+
+const formattedSelectedDate = computed(() => {
+  if (!selectedDate.value)
+    return null;
+
+  const parts = selectedDate.value.toString().split('-').map(Number);
+  if (parts.length < 3 || parts.some(Number.isNaN))
+    return selectedDate.value.toString();
+
+  const [year, month, day] = parts as [number, number, number];
+  const selected = new Date(year, month - 1, day);
+
+  return selected.toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    day: 'numeric',
+  });
+});
+
+// Reset page only when filters change (not when page itself changes) — avoids double-fetch
+watch([debouncedSearch, selectedStatus, selectedDate, selectedMonth, selectedYear], () => {
   page.value = 1;
 });
 
-// === Fetch ===
-const queryParams = computed(() => ({
-  page: page.value,
-  limit: pageSize,
-  ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
-  ...(searchQuery.value ? { search: searchQuery.value } : {}),
-}));
+// When a specific date is selected, sync the month/year selectors to match it
+watch(selectedDate, (val) => {
+  if (!val)
+    return;
+  const parts = val.toString().split('-').map(Number);
+  if (parts.length >= 2 && !parts.some(Number.isNaN)) {
+    selectedYear.value = parts[0]!;
+    selectedMonth.value = parts[1]!;
+  }
+});
 
+// === Fetch ===
+const queryParams = computed(() => {
+  // If a specific day is selected, send only that date (backend handles it as a single-day range)
+  if (selectedDate.value) {
+    return {
+      page: page.value,
+      limit: pageSize,
+      ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
+      date: selectedDate.value.toString(),
+      // Use debouncedSearch here — not searchQuery — to avoid per-keystroke requests
+      ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
+    };
+  }
+
+  // Otherwise send the full month range
+  const firstDay = new Date(selectedYear.value, selectedMonth.value - 1, 1);
+  const lastDay = new Date(selectedYear.value, selectedMonth.value, 0);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  return {
+    page: page.value,
+    limit: pageSize,
+    ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
+    monthStart: fmt(firstDay),
+    monthEnd: fmt(lastDay),
+    // Use debouncedSearch here — not searchQuery — to avoid per-keystroke requests
+    ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
+  };
+});
+
+// Remove watch: [queryParams] from useFetch — the queryParams ref passed as `query`
+// is already reactive. useFetch re-runs whenever it changes, so the explicit watch
+// was just causing a redundant second fetch on every filter change.
 const { data: response, status: fetchStatus, refresh } = await useFetch('/api/requests', {
   query: queryParams,
-  watch: [queryParams],
 });
 
 const requests = computed<RequestItem[]>(() => response.value?.data ?? []);
@@ -204,12 +321,6 @@ const statsMap = computed(() => {
     completed: counts?.completed ?? 0,
   };
 });
-
-function clearFilters() {
-  searchQuery.value = '';
-  selectedStatus.value = undefined;
-  page.value = 1;
-}
 </script>
 
 <template>
@@ -283,7 +394,7 @@ function clearFilters() {
           class="w-full sm:w-80"
           :loading="fetchStatus === 'pending'"
         />
-        <div class="flex gap-2 items-center">
+        <div class="flex gap-2 items-center flex-wrap sm:flex-nowrap">
           <UTooltip text="กรุณาเลือกรายการก่อน" :prevent="canBulkDownload">
             <UButton
               icon="i-heroicons-arrow-down-tray"
@@ -296,15 +407,58 @@ function clearFilters() {
               {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด PDF (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด PDF' }}
             </UButton>
           </UTooltip>
+
+          <!-- Month / Year selectors (always visible, default = current month) -->
+          <div class="flex items-center gap-1">
+            <USelect
+              v-model="selectedMonth"
+              :items="monthOptions"
+              size="sm"
+              class="w-32"
+            />
+            <USelect
+              v-model="selectedYear"
+              :items="yearOptions"
+              size="sm"
+              class="w-20"
+            />
+          </div>
+
+          <!-- Day picker — optional, narrows within the selected month -->
+          <UPopover arrow :content="{ align: 'center', side: 'bottom' }">
+            <UButton
+              :color="selectedDate ? 'primary' : 'neutral'"
+              :variant="selectedDate ? 'subtle' : 'outline'"
+              size="sm"
+              class="font-normal gap-1.5"
+            >
+              <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 shrink-0" />
+              <span>{{ selectedDate ? `วันที่ ${formattedSelectedDate}` : 'ทุกวัน' }}</span>
+              <UIcon
+                v-if="selectedDate"
+                name="i-heroicons-x-mark"
+                class="w-3.5 h-3.5 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                @click.stop="clearDayFilter"
+              />
+              <UIcon v-else name="i-heroicons-chevron-down" class="w-3.5 h-3.5 shrink-0 opacity-50" />
+            </UButton>
+            <template #content>
+              <div class="p-1">
+                <UCalendar v-model="calendarModel" />
+              </div>
+            </template>
+          </UPopover>
+
           <USelect
             v-model="selectedStatus"
             :items="statusOptions"
             option-attribute="label"
             placeholder="สถานะ"
-            class="w-40"
+            class="w-32 sm:w-36"
+            size="sm"
           />
           <UButton
-            v-if="searchQuery || selectedStatus"
+            v-if="hasActiveFilters"
             icon="i-heroicons-x-mark"
             color="neutral"
             variant="ghost"
@@ -369,7 +523,7 @@ function clearFilters() {
         <h3 class="font-medium mb-1">
           ไม่พบข้อมูลคำร้อง
         </h3>
-        <p v-if="searchQuery || selectedStatus" class="text-sm text-gray-400">
+        <p v-if="hasActiveFilters" class="text-sm text-gray-400">
           ลองปรับเงื่อนไขการค้นหา หรือ
           <button class="text-primary-500 underline" @click="clearFilters">
             ล้างตัวกรอง
