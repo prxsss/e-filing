@@ -29,6 +29,9 @@ export default defineNuxtConfig({
         // maxAge: 60 * 60, // 1 hour
       },
     },
+    public: {
+      importUserDefaultPassword: env.IMPORT_USER_PASSWORD,
+    },
   },
   compatibilityDate: '2025-07-15',
   i18n: {

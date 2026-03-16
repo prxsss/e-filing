@@ -10,7 +10,6 @@ const createUserSchema = zod.object({
   lastNameTh: zod.string().min(1, 'Last name (Thai) is required'),
   email: zod.email(),
   password: zod.string().min(8, 'Password must be at least 8 characters long'),
-  facultyId: zod.number().nullable(),
   image: zod.string().optional(),
   roleAssignments: zod.array(zod.object({
     roleId: zod.number(),
