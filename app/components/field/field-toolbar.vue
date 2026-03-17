@@ -164,6 +164,7 @@ watch(
   () => props.selectedField,
   (newField) => {
     if (newField) {
+      const fieldType = getFieldType(newField);
       const autoDateTimeConfig = getAutoDateTimeFormatConfig(newField);
       const visibilityRule = normalizeVisibilityRule(newField.visibilityRule ?? newField.visibility_rule);
       localField.value = {
@@ -173,7 +174,7 @@ watch(
         fontStyle: newField.fontStyle || 'normal',
         textDecoration: newField.textDecoration || 'none',
         textAlign: newField.textAlign || 'left',
-        letterSpacing: newField.letterSpacing ?? 0,
+        letterSpacing: fieldType === 'date' || fieldType === 'time' ? 0 : (newField.letterSpacing ?? 0),
         lineHeight: newField.lineHeight ?? 1.5,
         maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
         conditionalEnabled: Boolean(visibilityRule),
@@ -210,6 +211,7 @@ function onPropertyChange() {
   const dateTimeFormatUpdates = isDateField.value
     ? {
         dateSeparator: autoDateTimeConfig.dateSeparator,
+        dateSeparatorSpacing: autoDateTimeConfig.dateSeparatorSpacing,
         dateShowDay: autoDateTimeConfig.dateShowDay,
         dateShowMonth: autoDateTimeConfig.dateShowMonth,
         dateShowYear: autoDateTimeConfig.dateShowYear,
@@ -217,6 +219,7 @@ function onPropertyChange() {
     : isTimeField.value
       ? {
           timeSeparator: autoDateTimeConfig.timeSeparator,
+          timeSeparatorSpacing: autoDateTimeConfig.timeSeparatorSpacing,
           timeShowHour: autoDateTimeConfig.timeShowHour,
           timeShowMinute: autoDateTimeConfig.timeShowMinute,
         }
@@ -229,7 +232,7 @@ function onPropertyChange() {
     fontStyle: localField.value.fontStyle || 'normal',
     textDecoration: localField.value.textDecoration || 'none',
     textAlign: localField.value.textAlign || 'left',
-    letterSpacing: localField.value.letterSpacing ?? 0,
+    letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
     lineHeight: localField.value.lineHeight ?? 1.5,
     maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
     visibilityRule: localField.value.conditionalEnabled
@@ -292,6 +295,7 @@ function saveDefaults() {
   const dateTimeDefaults = isDateField.value
     ? {
         dateSeparator: autoDateTimeConfig.dateSeparator,
+        dateSeparatorSpacing: autoDateTimeConfig.dateSeparatorSpacing,
         dateShowDay: autoDateTimeConfig.dateShowDay,
         dateShowMonth: autoDateTimeConfig.dateShowMonth,
         dateShowYear: autoDateTimeConfig.dateShowYear,
@@ -299,6 +303,7 @@ function saveDefaults() {
     : isTimeField.value
       ? {
           timeSeparator: autoDateTimeConfig.timeSeparator,
+          timeSeparatorSpacing: autoDateTimeConfig.timeSeparatorSpacing,
           timeShowHour: autoDateTimeConfig.timeShowHour,
           timeShowMinute: autoDateTimeConfig.timeShowMinute,
         }
@@ -315,7 +320,7 @@ function saveDefaults() {
       fontStyle: localField.value.fontStyle || 'normal',
       textDecoration: localField.value.textDecoration || 'none',
       textAlign: localField.value.textAlign || 'left',
-      letterSpacing: localField.value.letterSpacing ?? 0,
+      letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
       lineHeight: localField.value.lineHeight ?? 1.5,
       maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
       ...dateTimeDefaults,
@@ -490,26 +495,28 @@ function removeField() {
             </UTooltip>
           </div>
 
-          <div class="h-5 w-px bg-gray-200" />
+          <template v-if="!isDateField && !isTimeField">
+            <div class="h-5 w-px bg-gray-200" />
 
-          <!-- Letter spacing -->
-          <UTooltip text="ระยะห่างตัวอักษร (Letter Spacing)" :popper="{ placement: 'top' }">
-            <div class="toolbar-input-group">
-              <span class="toolbar-prefix text-gray-400">
-                <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
-              </span>
-              <input
-                v-model.number="localField.letterSpacing"
-                type="number"
-                class="toolbar-input w-12"
-                min="-5"
-                max="20"
-                step="0.5"
-                placeholder="0"
-                @input="onPropertyChange"
-              >
-            </div>
-          </UTooltip>
+            <!-- Letter spacing -->
+            <UTooltip text="ระยะห่างตัวอักษร (Letter Spacing)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix text-gray-400">
+                  <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
+                </span>
+                <input
+                  v-model.number="localField.letterSpacing"
+                  type="number"
+                  class="toolbar-input w-12"
+                  min="-5"
+                  max="20"
+                  step="0.5"
+                  placeholder="0"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+          </template>
 
           <div class="h-5 w-px bg-gray-200" />
 
@@ -571,6 +578,21 @@ function removeField() {
               </div>
             </UTooltip>
 
+            <UTooltip text="ระยะห่างตัวคั่นวันที่" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">gap</span>
+                <input
+                  v-model.number="localField.dateSeparatorSpacing"
+                  type="number"
+                  class="toolbar-input w-10"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
             <div class="flex items-center gap-0.5">
               <UTooltip text="แสดงวัน" :popper="{ placement: 'top' }">
                 <button
@@ -614,6 +636,21 @@ function removeField() {
                   class="toolbar-input w-10"
                   maxlength="3"
                   placeholder=":"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <UTooltip text="ระยะห่างตัวคั่นเวลา" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">gap</span>
+                <input
+                  v-model.number="localField.timeSeparatorSpacing"
+                  type="number"
+                  class="toolbar-input w-10"
+                  min="0"
+                  step="1"
+                  placeholder="0"
                   @input="onPropertyChange"
                 >
               </div>

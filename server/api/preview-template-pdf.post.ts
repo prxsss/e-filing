@@ -390,7 +390,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
 
         if (field.textAlign === 'center' || field.textAlign === 'right') {
           try {
-            const spacing = Number(field.letterSpacing ?? 0) || 0;
+            const spacing = isDateOrTimeField(field) ? 0 : (Number(field.letterSpacing ?? 0) || 0);
             const spacingExtra = spacing !== 0 ? Math.max(0, text.length - 1) * spacing * CSS_PX_TO_PT : 0;
             const textW = font.widthOfTextAtSize(text.split('\n')[0], fontSize) + spacingExtra;
             textX = field.textAlign === 'center'
@@ -403,7 +403,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         textX = Math.max(fieldX, textX);
 
         // ── Letter spacing ─────────────────────────────────────────────────
-        const letterSpacing = (Number(field.letterSpacing ?? 0) || 0) * CSS_PX_TO_PT;
+        const letterSpacing = isDateOrTimeField(field) ? 0 : (Number(field.letterSpacing ?? 0) || 0) * CSS_PX_TO_PT;
 
         if (letterSpacing !== 0 && text.length > 0) {
           let cursorX = textX;

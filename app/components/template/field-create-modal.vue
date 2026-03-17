@@ -82,6 +82,10 @@ const supportsTextSettings = computed(() => {
   return !['signature', 'icon', 'checkbox'].includes(selectedFieldType.value);
 });
 
+const supportsLetterSpacing = computed(() => {
+  return !['date', 'time'].includes(selectedFieldType.value);
+});
+
 const supportsMaxLength = computed(() => {
   return !['signature', 'icon', 'date', 'time', 'checkbox'].includes(selectedFieldType.value);
 });
@@ -157,7 +161,7 @@ function buildFieldPayload() {
     fontStyle: formData.value.fontStyle === 'italic' ? 'italic' : 'normal',
     textDecoration: formData.value.textDecoration === 'underline' ? 'underline' : 'none',
     textAlign: ['left', 'center', 'right'].includes(formData.value.textAlign) ? formData.value.textAlign : 'left',
-    letterSpacing: parseFiniteNumber(formData.value.letterSpacing, 0),
+    letterSpacing: supportsLetterSpacing.value ? parseFiniteNumber(formData.value.letterSpacing, 0) : 0,
     lineHeight: parseFiniteNumber(formData.value.lineHeight, 1.5),
     maxLength: supportsMaxLength.value ? normalizeMaxLength(formData.value.maxLength) : null,
     isFillable: formData.value.isFillable ?? true,
@@ -482,7 +486,7 @@ async function handleDelete() {
               </div>
 
               <div class="grid grid-cols-2 gap-1.5">
-                <div>
+                <div v-if="supportsLetterSpacing">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                     ระยะห่างตัวอักษร
                   </label>
@@ -495,7 +499,7 @@ async function handleDelete() {
                     size="md"
                   />
                 </div>
-                <div>
+                <div :class="supportsLetterSpacing ? '' : 'col-span-2'">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                     ความห่างบรรทัด
                   </label>

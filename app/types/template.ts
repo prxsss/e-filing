@@ -66,10 +66,12 @@ export type FieldInstance = Field & {
   visibilityRule?: FieldVisibilityRule | null;
   // Auto-generated date/time format controls
   dateSeparator?: string;
+  dateSeparatorSpacing?: number;
   dateShowDay?: boolean;
   dateShowMonth?: boolean;
   dateShowYear?: boolean;
   timeSeparator?: string;
+  timeSeparatorSpacing?: number;
   timeShowHour?: boolean;
   timeShowMinute?: boolean;
 };

@@ -179,6 +179,11 @@ const placedFieldsOnCurrentPage = computed<FieldInstance[]>(() => {
   );
 });
 
+function supportsLetterSpacing(field: FieldInstance): boolean {
+  const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
+  return fieldType !== 'date' && fieldType !== 'time';
+}
+
 // Converts normalized coords → display coords for rendering
 const fieldsWithDisplayCoords = computed<FieldInstance[]>(() => {
   const _scale = scale.value;
@@ -757,7 +762,7 @@ defineExpose({
                 textDecoration: field.textDecoration || 'none',
                 fontKerning: 'none',
                 justifyContent: field.textAlign === 'right' ? 'flex-end' : field.textAlign === 'center' ? 'center' : 'flex-start',
-                letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
+                letterSpacing: supportsLetterSpacing(field) && field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                 lineHeight: field.lineHeight ?? 1.5,
                 zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
               }"

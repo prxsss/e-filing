@@ -193,10 +193,12 @@ function toAutoDateTimeFormatPayload(field: any) {
   const config = getAutoDateTimeFormatConfig(field);
   return {
     dateSeparator: config.dateSeparator,
+    dateSeparatorSpacing: config.dateSeparatorSpacing,
     dateShowDay: config.dateShowDay,
     dateShowMonth: config.dateShowMonth,
     dateShowYear: config.dateShowYear,
     timeSeparator: config.timeSeparator,
+    timeSeparatorSpacing: config.timeSeparatorSpacing,
     timeShowHour: config.timeShowHour,
     timeShowMinute: config.timeShowMinute,
   };
@@ -776,7 +778,9 @@ function addFieldToPreview(fieldToAdd: Field): void {
   const defaultFontStyle = normalizeEnum((fieldToAdd as any).fontStyle, ['normal', 'italic'], 'normal');
   const defaultTextDecoration = normalizeEnum((fieldToAdd as any).textDecoration, ['none', 'underline'], 'none');
   const defaultTextAlign = normalizeEnum((fieldToAdd as any).textAlign, ['left', 'center', 'right'], 'left');
-  const defaultLetterSpacing = parseFiniteNumber((fieldToAdd as any).letterSpacing, 0);
+  const defaultLetterSpacing = ['date', 'time'].includes(getFieldType(fieldToAdd))
+    ? 0
+    : parseFiniteNumber((fieldToAdd as any).letterSpacing, 0);
   const defaultLineHeight = parseFiniteNumber((fieldToAdd as any).lineHeight, 1.5);
   const defaultMaxLength = parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length);
   const defaultAutoDateTimeFormat = toAutoDateTimeFormatPayload(fieldToAdd);
@@ -970,7 +974,9 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
     fontStyle: normalizeEnum(payload.defaults?.fontStyle ?? (fieldDefinition as any).fontStyle, ['normal', 'italic'], 'normal'),
     textDecoration: normalizeEnum(payload.defaults?.textDecoration ?? (fieldDefinition as any).textDecoration, ['none', 'underline'], 'none'),
     textAlign: normalizeEnum(payload.defaults?.textAlign ?? (fieldDefinition as any).textAlign, ['left', 'center', 'right'], 'left'),
-    letterSpacing: parseFiniteNumber(payload.defaults?.letterSpacing ?? (fieldDefinition as any).letterSpacing, 0),
+    letterSpacing: ['date', 'time'].includes(typeLower)
+      ? 0
+      : parseFiniteNumber(payload.defaults?.letterSpacing ?? (fieldDefinition as any).letterSpacing, 0),
     lineHeight: parseFiniteNumber(payload.defaults?.lineHeight ?? (fieldDefinition as any).lineHeight, 1.5),
     maxLength,
     ...toAutoDateTimeFormatPayload(payload.defaults ?? fieldDefinition ?? selectedFieldData),
@@ -1106,7 +1112,7 @@ async function performSave(): Promise<void> {
       fontStyle: field.fontStyle || 'normal',
       textDecoration: field.textDecoration || 'none',
       textAlign: field.textAlign || 'left',
-      letterSpacing: field.letterSpacing ?? 0,
+      letterSpacing: ['date', 'time'].includes(getFieldType(field)) ? 0 : (field.letterSpacing ?? 0),
       lineHeight: field.lineHeight ?? 1.5,
       maxLength: parsePositiveInteger((field as any).maxLength ?? (field as any).max_length),
       ...toAutoDateTimeFormatPayload(field),
