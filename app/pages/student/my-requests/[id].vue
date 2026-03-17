@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 definePageMeta({
   title: 'requestDetails',
+  middleware: ['permission'],
+  permission: 'request.view_own',
 });
 
 // --- Types ---
