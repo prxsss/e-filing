@@ -146,7 +146,7 @@ const columns: any[] = [
 ];
 
 function onRowSelect(_e: Event, row: TableRow<any>) {
-  router.push(`/teacher/sign/${row.original.requestId}`);
+  router.push(`/signer/sign/${row.original.requestId}`);
 }
 </script>
 

@@ -29,7 +29,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
   {
     label: t('dashboard'),
     icon: 'i-lucide-layout-dashboard',
-    to: localePath('/teacher'),
+    to: localePath('/signer'),
     onSelect: () => {
       open.value = false;
     },
@@ -56,7 +56,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
   {
     label: t('toSign'),
     icon: 'i-lucide-pen-tool',
-    to: localePath('/teacher/to-sign'),
+    to: localePath('/signer/to-sign'),
     onSelect: () => {
       open.value = false;
     },
@@ -65,7 +65,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
   {
     label: t('signedHistory'),
     icon: 'i-lucide-circle-check',
-    to: localePath('/teacher/signed-history'),
+    to: localePath('/signer/signed-history'),
     onSelect: () => {
       open.value = false;
     },

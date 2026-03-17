@@ -179,7 +179,7 @@ const requestStatusLabel: Record<string, string> = {
                 variant="ghost"
                 color="neutral"
                 icon="i-lucide-eye"
-                :to="`/teacher/sign/${entry.requestId}`"
+                :to="`/signer/sign/${entry.requestId}`"
               >
                 รายละเอียด
               </UButton>

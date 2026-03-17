@@ -18,7 +18,7 @@ const authStore = useAuthStore();
 const roleIcons: Record<string, string> = {
   'Super Admin': 'i-lucide-user-cog',
   'Admin': 'i-lucide-users',
-  'Teacher': 'i-lucide-graduation-cap',
+  'Signer': 'i-lucide-graduation-cap',
   'Student': 'i-lucide-user',
   'Registrar': 'i-lucide-files',
 };
