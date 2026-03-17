@@ -13,6 +13,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Role not found' });
   }
 
+  if (role.name.toLowerCase() === 'admin') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Admin role cannot be deleted',
+      data: {
+        code: 'ADMIN_ROLE_DELETE_LOCKED',
+      },
+    });
+  }
+
   if (role.userCount > 0) {
     throw createError({
       statusCode: 409,

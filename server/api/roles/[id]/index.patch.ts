@@ -1,4 +1,4 @@
-import { updateRole } from '~~/lib/db/queries/role';
+import { getRoleById, updateRole } from '~~/lib/db/queries/role';
 import * as z from 'zod';
 
 const updateRoleSchema = z.object({
@@ -16,6 +16,19 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readValidatedBody(event, updateRoleSchema.parse);
+
+  const existingRole = await getRoleById(id);
+  if (!existingRole) {
+    throw createError({ statusCode: 404, statusMessage: 'Role not found' });
+  }
+
+  if (existingRole.name.toLowerCase() === 'admin' && body.name && body.name !== existingRole.name) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Admin role name is locked and cannot be changed',
+      data: { code: 'ADMIN_ROLE_NAME_LOCKED' },
+    });
+  }
 
   try {
     const role = await updateRole(id, body);

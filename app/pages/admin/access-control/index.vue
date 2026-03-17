@@ -65,7 +65,20 @@ async function handleEditRole(role: { id: number; name: string; descriptionEn: s
 // ── Delete Role ──
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
+function isAdminRole(roleName: string) {
+  return roleName.toLowerCase() === 'admin';
+}
+
 async function handleDeleteRole(role: { id: number; name: string; userCount: number }) {
+  if (isAdminRole(role.name)) {
+    toast.add({
+      title: t('deleteRole'),
+      description: t('adminRoleDeleteLocked'),
+      color: 'error',
+    });
+    return;
+  }
+
   if (role.userCount > 0) {
     toast.add({
       title: t('deleteRole'),
@@ -105,6 +118,15 @@ async function handleDeleteRole(role: { id: number; name: string; userCount: num
       toast.add({
         title: t('deleteRole'),
         description: t('roleDeleteInUse', { count: errorData.userCount ?? role.userCount }),
+        color: 'error',
+      });
+      return;
+    }
+
+    if (statusCode === 409 && errorData?.code === 'ADMIN_ROLE_DELETE_LOCKED') {
+      toast.add({
+        title: t('deleteRole'),
+        description: t('adminRoleDeleteLocked'),
         color: 'error',
       });
       return;
@@ -323,7 +345,7 @@ function selectRole(roleId: number) {
                     icon: 'i-lucide-trash',
                     color: 'error' as const,
                     onSelect: () => handleDeleteRole(role),
-                    visible: authStore.can('role.delete'),
+                    visible: authStore.can('role.delete') && !isAdminRole(role.name),
                   },
                 ].filter((i) => i.visible)"
               >
