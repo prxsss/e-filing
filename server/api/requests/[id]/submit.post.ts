@@ -53,6 +53,15 @@ export default defineEventHandler(async (event) => {
     );
 
     const signingSteps = (template.signingFlowData as any[]) || [];
+    const placedFields = (template.placedFieldsData as any[]) || [];
+
+    // Signature fields require explicit signing; submission alone must not auto-sign them.
+    const signatureFieldInstanceIdSet = new Set(
+      placedFields
+        .filter((field: any) => String(field?.type ?? '').trim().toLowerCase() === 'signature')
+        .map((field: any) => String(field?.instanceId ?? '').trim())
+        .filter((instanceId: string) => instanceId.length > 0),
+    );
 
     // Create signature_flow entries sorted by order
     const sorted = [...signingSteps].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -79,11 +88,9 @@ export default defineEventHandler(async (event) => {
 
       // ── Pass 1: resolve every step's assignedUserId and auto-sign flag ──────
       // "auto-signed" = the submitter is the intended signer for this step (their
-      // role matches AND they end up directly assigned to it).  For these steps,
-      // the act of submitting the form counts as their signature — they must NOT
-      // be sent back to the signing page for their own submission.  This mirrors
-      // DocuSign's behaviour where a sender who also appears as a signer in an
-      // envelope is not required to re-sign through the signing portal.
+      // role matches AND they end up directly assigned to it) AND the step has no
+      // signature fields. Steps that include signature fields must be explicitly
+      // signed in the signing page to preserve actual signature intent.
       type Draft = {
         requestId: number;
         stepId: string;
@@ -92,6 +99,7 @@ export default defineEventHandler(async (event) => {
         roleName: string;
         assignedFieldInstanceIds: string[];
         assignedUserId: string | null;
+        requiresSignature: boolean;
         autoSigned: boolean;
       };
 
@@ -118,8 +126,20 @@ export default defineEventHandler(async (event) => {
         const selfAssigned: string | null = isSubmitterStep ? submitterId : null;
         const resolvedAssignedUserId: string | null = templatePreAssigned ?? uiSelected ?? selfAssigned;
 
+        const assignedFieldInstanceIds = Array.isArray(step.assignedFieldInstanceIds)
+          ? step.assignedFieldInstanceIds
+              .map((instanceId: unknown) => String(instanceId ?? '').trim())
+              .filter((instanceId: string) => instanceId.length > 0)
+          : [];
+
+        const requiresSignature = assignedFieldInstanceIds
+          .some((instanceId: string) => signatureFieldInstanceIdSet.has(instanceId));
+
         // Auto-sign when the submitter IS the signer (role match + direct assignment)
-        const autoSigned = isSubmitterStep && resolvedAssignedUserId === submitterId;
+        // EXCEPT when this step has signature fields, which require explicit ink/sign action.
+        const autoSigned = isSubmitterStep
+          && resolvedAssignedUserId === submitterId
+          && !requiresSignature;
 
         return {
           requestId,
@@ -127,8 +147,9 @@ export default defineEventHandler(async (event) => {
           stepOrder: step.order ?? index + 1,
           roleId: resolvedRoleId,
           roleName: step.roleName,
-          assignedFieldInstanceIds: step.assignedFieldInstanceIds ?? [],
+          assignedFieldInstanceIds,
           assignedUserId: resolvedAssignedUserId,
+          requiresSignature,
           autoSigned,
         };
       });
@@ -139,7 +160,7 @@ export default defineEventHandler(async (event) => {
       // rest → 'waiting'
       const now = new Date().toISOString();
       let firstPendingAssigned = false;
-      const flowEntries = draftEntries.map(({ autoSigned, ...entry }) => {
+      const flowEntries = draftEntries.map(({ autoSigned, requiresSignature: _requiresSignature, ...entry }) => {
         if (autoSigned) {
           return { ...entry, status: 'signed', signedBy: submitterId, signedAt: now };
         }
@@ -164,12 +185,24 @@ export default defineEventHandler(async (event) => {
           ? 'in_progress'
           : 'pending_signature';
 
+      const requiresSubmitterSignature = draftEntries.some(entry =>
+        !entry.autoSigned
+        && entry.requiresSignature
+        && entry.assignedUserId === submitterId,
+      );
+
       await db
         .update(request)
         .set({ status: newStatus, submittedAt: new Date().toISOString() })
         .where(eq(request.id, requestId));
 
-      return { success: true, data: { status: newStatus } };
+      return {
+        success: true,
+        data: {
+          status: newStatus,
+          requiresSubmitterSignature,
+        },
+      };
     }
 
     // No signing steps at all — request is immediately submitted

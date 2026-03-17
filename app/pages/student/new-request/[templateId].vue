@@ -67,6 +67,7 @@ const fieldValues = ref<Record<string, string>>({});
 const previewSyncedFieldValues = ref<Record<string, string>>({});
 const scale = ref(1);
 const isRefreshingPreview = ref(false);
+const submitterSignatureDataUrl = ref<string | null>(null);
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
 const isUploadingAttachment = ref(false);
@@ -77,6 +78,7 @@ let previewRequestToken = 0;
 
 // --- Recipient selection ---
 const { locale } = useI18n();
+const localePath = useLocalePath();
 const { user } = useUserSession();
 const signingSteps = ref<SigningStep[]>([]);
 const roleNameToId = ref<Record<string, number>>({}); // roleName -> roleId
@@ -84,23 +86,70 @@ const usersByRoleId = ref<Record<number, UserOption[]>>({});
 const loadingUsersByRoleId = ref<Record<number, boolean>>({});
 const selectedRecipients = ref<Record<string, string>>({}); // stepId -> userId
 
+function normalizeRoleName(roleName: unknown): string {
+  return String(roleName ?? '').trim().toLowerCase();
+}
+
+function findSubmitterStep(steps: SigningStep[]): SigningStep | undefined {
+  const currentRoleName = normalizeRoleName(user.value?.currentRole);
+  if (!currentRoleName) {
+    return undefined;
+  }
+
+  return steps.find(step => normalizeRoleName(step.roleName) === currentRoleName);
+}
+
+function getFieldSignerStepId(field: any): string | null {
+  const rawStepId = String(field?.signerStepId ?? field?.signer_step_id ?? '').trim();
+  return rawStepId.length > 0 ? rawStepId : null;
+}
+
 const recipientSteps = computed(() => {
   const steps = signingSteps.value;
   if (!steps.length)
     return [];
-  const currentRoleName = user.value?.currentRole ?? '';
+  const submitterStepId = findSubmitterStep(steps)?.id;
   // Show a UI picker only for steps that are:
   //   • NOT pre-assigned in the template (step.assignedUserId is empty/absent)
-  //   • NOT the submitter's own step (roleName ≠ submitter's currentRole)
+  //   • NOT the submitter's own step (step.id ≠ submitter step id)
   // Steps that are pre-assigned (template creator locked a specific person) and
   // steps that belong to the submitter (self-signed by role match on the server)
   // are handled automatically — no user interaction needed.
-  return steps.filter(s => !s.assignedUserId && s.roleName !== currentRoleName);
+  return steps.filter(s => !s.assignedUserId && s.id !== submitterStepId);
 });
 
 const allRecipientsSelected = computed(() =>
   recipientSteps.value.every(step => !!selectedRecipients.value[step.id]),
 );
+
+const submitterSignatureFieldCount = computed(() => {
+  const submitterStep = findSubmitterStep(signingSteps.value);
+  const templateFields = templateData.value?.placedFieldsData;
+
+  if (!submitterStep || !Array.isArray(templateFields)) {
+    return 0;
+  }
+
+  return templateFields.filter((field: any) => {
+    if (getFieldType(field) !== 'signature') {
+      return false;
+    }
+
+    return getFieldSignerStepId(field) === submitterStep.id;
+  }).length;
+});
+
+const requiresSubmitterSignature = computed(() => submitterSignatureFieldCount.value > 0);
+const hasConfirmedSubmitterSignature = computed(() => (submitterSignatureDataUrl.value ?? '').length > 0);
+const canSubmitRequest = computed(() =>
+  allRecipientsSelected.value
+  && !isSaving.value
+  && (!requiresSubmitterSignature.value || hasConfirmedSubmitterSignature.value),
+);
+
+function handleSubmitterSignatureConfirmed(dataUrl: string) {
+  submitterSignatureDataUrl.value = dataUrl;
+}
 
 function getResolvedRoleId(step: SigningStep): number | undefined {
   return step.roleId ?? roleNameToId.value[step.roleName];
@@ -172,6 +221,10 @@ function normalizeCheckboxValue(value: unknown): string {
 
 function getFieldType(field: any): string {
   return String(field?.type || field?.fieldType || '').toLowerCase();
+}
+
+function isSignatureField(field: any): boolean {
+  return getFieldType(field) === 'signature';
 }
 
 function isCheckboxField(field: any): boolean {
@@ -325,12 +378,36 @@ function getVisibleFillableFields(): any[] {
 const previewDisplayFile = computed(() => previewPdfFile.value || pdfFile.value);
 
 const previewOverlayFields = computed(() => {
-  return getVisiblePlacedFields().filter((field: any) => {
+  const overlayFields = getVisiblePlacedFields().filter((field: any) => {
     const key = getPreviewFieldKey(field);
     const currentValue = normalizeFieldValue(resolveCurrentFieldValue(field));
     const syncedValue = normalizeFieldValue(key ? previewSyncedFieldValues.value[key] : '');
     return currentValue.length === 0 || currentValue !== syncedValue;
   });
+
+  if (!submitterSignatureDataUrl.value) {
+    return overlayFields;
+  }
+
+  const submitterStepId = findSubmitterStep(signingSteps.value)?.id;
+  const templateFields = templateData.value?.placedFieldsData;
+
+  if (!submitterStepId || !Array.isArray(templateFields)) {
+    return overlayFields;
+  }
+
+  const signatureOverlayFields = templateFields
+    .filter((field: any) =>
+      isSignatureField(field)
+      && getFieldSignerStepId(field) === submitterStepId
+      && isFieldVisible(field),
+    )
+    .map((field: any) => ({
+      ...field,
+      imageUrl: submitterSignatureDataUrl.value,
+    }));
+
+  return [...overlayFields, ...signatureOverlayFields];
 });
 
 const previewOverlayFieldValues = computed<Record<string, string>>(() => {
@@ -459,9 +536,7 @@ async function fetchTemplateData() {
 
       if (templateData.value?.placedFieldsData) {
         // Show only the student's own fields (matched by signerStepId) or unassigned fields
-        const currentRoleName = user.value?.currentRole ?? '';
-        const studentStep = signingSteps.value.find(s => s.roleName === currentRoleName);
-        const studentStepId = studentStep?.id ?? null;
+        const submitterStepId = findSubmitterStep(signingSteps.value)?.id ?? null;
 
         placedFields.value = (templateData.value.placedFieldsData as any[]).filter(
           (field: any) => {
@@ -469,9 +544,9 @@ async function fetchTemplateData() {
               return false;
             if (field.type === 'Signature')
               return false;
-            if (studentStepId) {
-              const stepId = field.signerStepId ?? field.signer_step_id ?? null;
-              return !stepId || stepId === studentStepId;
+            if (submitterStepId) {
+              const stepId = getFieldSignerStepId(field);
+              return !stepId || stepId === submitterStepId;
             }
             return true;
           },
@@ -577,7 +652,28 @@ async function submitRequest() {
     });
 
     if (updateResult.success) {
-      navigateTo('/student/my-requests');
+      const needsSubmitterSignature = Boolean(updateResult?.data?.requiresSubmitterSignature);
+      if (needsSubmitterSignature) {
+        if (submitterSignatureDataUrl.value) {
+          const signResult: any = await $fetch(`/api/requests/${activeRequestId}/sign`, {
+            method: 'POST',
+            body: {
+              signatureDataUrl: submitterSignatureDataUrl.value,
+            },
+          });
+
+          if (!signResult.success) {
+            navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+            return;
+          }
+        }
+        else {
+          navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+          return;
+        }
+      }
+
+      navigateTo(localePath('/student/my-requests'));
     }
     else {
       error.value = (updateResult.error as string) || 'Failed to submit request';
@@ -953,13 +1049,47 @@ watch([pdfFile, placedFields, fieldValues], () => {
           </UCard>
 
           <!-- Action Buttons -->
+          <UAlert
+            v-if="requiresSubmitterSignature"
+            color="info"
+            variant="soft"
+            icon="i-heroicons-pencil-square"
+            :title="locale === 'th' ? 'คำร้องนี้ต้องมีลายเซ็นของผู้ยื่น' : 'Submitter signature is required'"
+            :description="locale === 'th'
+              ? 'กรุณาวาดลายเซ็นและกดยืนยันก่อนส่งคำร้อง'
+              : 'Please draw and confirm your signature before submitting.'"
+          />
+
+          <UCard v-if="requiresSubmitterSignature">
+            <template #header>
+              <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                {{ locale === 'th' ? 'ลายเซ็นผู้ยื่นคำร้อง' : 'Submitter Signature' }}
+              </h3>
+            </template>
+
+            <div class="space-y-3">
+              <signature-canvas
+                :disabled="isSaving"
+                :height="160"
+                @confirm="handleSubmitterSignatureConfirmed"
+              />
+
+              <p
+                v-if="hasConfirmedSubmitterSignature"
+                class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
+              >
+                {{ locale === 'th' ? 'ยืนยันลายเซ็นแล้ว พร้อมส่งคำร้อง' : 'Signature confirmed. Ready to submit.' }}
+              </p>
+            </div>
+          </UCard>
+
           <div class="flex flex-col gap-3">
             <UButton
               block
               color="success"
               size="lg"
               :loading="isSaving"
-              :disabled="!allRecipientsSelected || isSaving"
+              :disabled="!canSubmitRequest"
               @click="submitRequest"
             >
               <i class="fas fa-paper-plane mr-2" />

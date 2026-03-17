@@ -86,6 +86,19 @@ function isCheckboxField(field: Field): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function isSignatureField(field: Field): boolean {
+  const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
+  return fieldType === 'signature';
+}
+
+function hasSignatureImage(field: Field): boolean {
+  if (!isSignatureField(field)) {
+    return false;
+  }
+
+  return String(field?.imageUrl ?? '').trim().length > 0;
+}
+
 function getFieldVisibilityRule(field: Field) {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -1144,6 +1157,7 @@ defineExpose<{
                 'read-only': props.readOnly && !props.fillMode && !props.signingSteps.length,
                 'field-unassigned': props.signingSteps.length > 0 && !field.signerStepId,
                 'field-clickable': props.readOnly && props.signingSteps.length > 0,
+                'signature-field': hasSignatureImage(field),
               }"
               :style="{
                 left: `${field.displayX}px`,
@@ -1179,7 +1193,14 @@ defineExpose<{
               </div>
 
               <div class="field-content">
-                <template v-if="isCheckboxField(field)">
+                <template v-if="hasSignatureImage(field)">
+                  <img
+                    :src="field.imageUrl"
+                    class="signature-img"
+                    alt="Signature preview"
+                  >
+                </template>
+                <template v-else-if="isCheckboxField(field)">
                   <span
                     v-if="!props.fillMode"
                     class="field-label-text"
@@ -1194,7 +1215,7 @@ defineExpose<{
                     class="field-label-text"
                   >{{ field.label || field.name }}</span>
                 </template>
-                <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+                <span v-if="field.isGrouped && !hasSignatureImage(field)" class="instance-num">#{{ field.instanceNumber }}</span>
               </div>
               <!-- Signer role tag (visible in read-only mode with signing steps) -->
               <div
@@ -1409,6 +1430,18 @@ defineExpose<{
   border: none !important;
   outline: 1px dashed rgba(59, 130, 246, 0.35) !important;
   outline-offset: 0;
+}
+
+.placed-field.signature-field {
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.signature-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* Actual typed value — inherits all styling from .placed-field */
