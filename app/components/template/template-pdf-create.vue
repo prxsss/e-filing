@@ -1393,6 +1393,7 @@ defineExpose<{
   border-radius: 3px;
   white-space: nowrap;
   line-height: 1.2;
+  letter-spacing: normal;
   font-weight: 700;
   pointer-events: none;
   z-index: 1002;

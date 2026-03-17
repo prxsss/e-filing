@@ -99,25 +99,6 @@ function normalizeMaxLength(value: unknown): number | null {
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
 const isDateField = computed(() => selectedFieldType.value === 'date');
 const isTimeField = computed(() => selectedFieldType.value === 'time');
-const selectedFieldHasConditionalRule = computed(() => {
-  return Boolean(normalizeVisibilityRule(props.selectedField?.visibilityRule ?? props.selectedField?.visibility_rule));
-});
-
-const selectedFieldConditionalTagText = computed(() => {
-  const rule = normalizeVisibilityRule(props.selectedField?.visibilityRule ?? props.selectedField?.visibility_rule);
-  if (!rule) {
-    return '';
-  }
-
-  const sourceField = (props.placedFields || []).find(
-    candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-  );
-  const sourceLabel = sourceField
-    ? getConditionalSourceLabel(sourceField)
-    : `Checkbox (${rule.sourceFieldInstanceId.slice(0, 8)})`;
-  const operatorLabel = rule.operator === 'isUnchecked' ? 'เมื่อไม่ติ๊ก' : 'เมื่อติ๊ก';
-  return `IF ${sourceLabel} ${operatorLabel}`;
-});
 
 const supportsMaxLength = computed(() => {
   return selectedFieldType.value !== 'signature'
@@ -386,34 +367,8 @@ function removeField() {
           <span v-if="selectedField.instanceNumber > 1" class="text-[10px] bg-white text-primary-600 px-1 rounded shadow-sm font-mono">
             #{{ selectedField.instanceNumber }}
           </span>
-          <span
-            v-if="selectedFieldHasConditionalRule"
-            class="conditional-tag-inline text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 rounded"
-            :title="selectedFieldConditionalTagText"
-          >
-            {{ selectedFieldConditionalTagText }}
-          </span>
         </div>
       </UTooltip>
-
-      <div class="h-5 w-px bg-gray-200" />
-
-      <!-- Size Section (Width and Height) -->
-      <div class="flex items-center gap-1.5">
-        <UTooltip text="ความกว้าง (Width)" :popper="{ placement: 'top' }">
-          <div class="toolbar-input-group">
-            <span class="toolbar-prefix">W</span>
-            <input v-model.number="editableWidth" type="number" class="toolbar-input w-12" min="10" @input="onPropertyChange">
-          </div>
-        </UTooltip>
-
-        <UTooltip text="ความสูง (Height)" :popper="{ placement: 'top' }">
-          <div class="toolbar-input-group">
-            <span class="toolbar-prefix">H</span>
-            <input v-model.number="editableHeight" type="number" class="toolbar-input w-12" min="10" @input="onPropertyChange">
-          </div>
-        </UTooltip>
-      </div>
 
       <!-- Font (text fields only) -->
       <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
@@ -801,15 +756,6 @@ function removeField() {
   scrollbar-width: thin;
   -webkit-user-select: none;
   user-select: none;
-}
-
-.conditional-tag-inline {
-  display: inline-block;
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.2;
 }
 
 .conditional-toolbar-row {
