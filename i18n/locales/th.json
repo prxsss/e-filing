@@ -135,6 +135,7 @@
   "roleUpdateFailed": "ไม่สามารถอัปเดตบทบาทได้ กรุณาลองใหม่อีกครั้ง",
   "roleDeletedSuccess": "ลบบทบาทสำเร็จแล้ว",
   "roleDeleteInUse": "บทบาทนี้กำลังถูกใช้งานโดยผู้ใช้ {count} คน จึงไม่สามารถลบได้",
+  "adminRolePermissionLocked": "สิทธิ์ role.* และ permission.* ของบทบาท Admin ถูกล็อคและไม่สามารถแก้ไขได้",
   "roleDeleteFailed": "ไม่สามารถลบบทบาทได้ กรุณาลองใหม่อีกครั้ง",
   "error": "ข้อผิดพลาด",
   "delete": "ลบ",
