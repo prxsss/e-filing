@@ -65,7 +65,16 @@ async function handleEditRole(role: { id: number; name: string; descriptionEn: s
 // ── Delete Role ──
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
-async function handleDeleteRole(role: { id: number; name: string }) {
+async function handleDeleteRole(role: { id: number; name: string; userCount: number }) {
+  if (role.userCount > 0) {
+    toast.add({
+      title: t('deleteRole'),
+      description: t('roleDeleteInUse', { count: role.userCount }),
+      color: 'error',
+    });
+    return;
+  }
+
   const instance = confirmDialog.open({
     title: t('deleteRole'),
     description: t('deleteRoleConfirm', { name: role.name }),
@@ -88,7 +97,19 @@ async function handleDeleteRole(role: { id: number; name: string }) {
 
     await refreshRoles();
   }
-  catch {
+  catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number })?.statusCode;
+    const errorData = (error as { data?: { code?: string; userCount?: number } })?.data;
+
+    if (statusCode === 409 && errorData?.code === 'ROLE_IN_USE') {
+      toast.add({
+        title: t('deleteRole'),
+        description: t('roleDeleteInUse', { count: errorData.userCount ?? role.userCount }),
+        color: 'error',
+      });
+      return;
+    }
+
     toast.add({ title: t('error'), description: t('roleDeleteFailed'), color: 'error' });
   }
 }

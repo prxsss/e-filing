@@ -96,6 +96,7 @@
   "roleUpdatedSuccess": "Role updated successfully.",
   "roleUpdateFailed": "Failed to update role. Please try again.",
   "roleDeletedSuccess": "Role deleted successfully.",
+  "roleDeleteInUse": "This role is currently assigned to {count} user(s) and cannot be deleted.",
   "roleDeleteFailed": "Failed to delete role. Please try again.",
   "error": "Error",
   "delete": "Delete",

@@ -17,6 +17,20 @@ export async function getRoles() {
     .groupBy(roles.id);
 }
 
+export async function getRoleWithUserCount(id: number) {
+  const [role] = await db
+    .select({
+      id: roles.id,
+      userCount: sql<number>`cast(count(${userRoles.userId}) as int)`,
+    })
+    .from(roles)
+    .leftJoin(userRoles, sql`${roles.id} = ${userRoles.roleId}`)
+    .where(eq(roles.id, id))
+    .groupBy(roles.id);
+
+  return role ?? null;
+}
+
 export async function createRole(data: {
   name: string;
   descriptionEn?: string | null;

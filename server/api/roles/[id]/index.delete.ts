@@ -1,4 +1,4 @@
-import { deleteRole } from '~~/lib/db/queries/role';
+import { deleteRole, getRoleWithUserCount } from '~~/lib/db/queries/role';
 
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'role.delete');
@@ -8,10 +8,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid role ID' });
   }
 
-  const role = await deleteRole(id);
+  const role = await getRoleWithUserCount(id);
   if (!role) {
     throw createError({ statusCode: 404, statusMessage: 'Role not found' });
   }
+
+  if (role.userCount > 0) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Role is in use and cannot be deleted',
+      data: {
+        code: 'ROLE_IN_USE',
+        userCount: role.userCount,
+      },
+    });
+  }
+
+  await deleteRole(id);
 
   return { success: true };
 });
