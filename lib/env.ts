@@ -5,6 +5,7 @@ const EnvSchema = z.object({
   NUXT_SESSION_PASSWORD: z.string(),
   SUPABASE_URL: z.string(),
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
+  IMPORT_USER_PASSWORD: z.string(),
 });
 
 export type EnvSchema = z.infer<typeof EnvSchema>;

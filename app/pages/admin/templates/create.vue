@@ -5,6 +5,8 @@ type Field = any;
 
 definePageMeta({
   title: 'createTemplate',
+  middleware: ['permission'],
+  permission: 'template.create',
 });
 
 const router = useRouter();

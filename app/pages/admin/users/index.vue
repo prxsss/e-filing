@@ -7,6 +7,8 @@ import type { UserListItem } from '~/types/user';
 
 definePageMeta({
   title: 'users',
+  middleware: ['permission'],
+  permission: 'user.view',
 });
 
 const UButton = resolveComponent('UButton');
@@ -25,7 +27,7 @@ const authStore = useAuthStore();
 //   })),
 // });
 
-const { rows: data, isLoading, page, pageSize, total } = useUsers();
+const { rows: data, isLoading, page, pageSize, total, refresh } = useUsers();
 
 const columns: TableColumn<UserListItem>[] = [
   {
@@ -87,36 +89,43 @@ const columns: TableColumn<UserListItem>[] = [
       },
     },
     cell: ({ row }) => {
-      return h('div', { class: 'flex items-center justify-end gap-2' }, [
+      const actionButtons = [
+        // For view button, the permission middleware will handle access control at the route level,
+        // so we show the button regardless of permissions
         h(
           UButton,
           {
             'color': 'neutral',
-            'variant': 'soft',
+            'variant': 'ghost',
+            'icon': 'i-lucide-eye',
             'aria-label': 'View user details',
             onClick() {
             // Navigate to user details page
               router.push(localPath(`/admin/users/${row.original.id}?tab=overview`));
             },
           },
-          () => 'View',
         ),
-        h(
-          UButton,
-          {
-            'color': 'neutral',
-            'variant': 'soft',
-            'aria-label': 'Edit user details',
-            onClick() {
-            // Navigate to user details page
-              router.push(localPath(`/admin/users/${row.original.id}/edit`));
-            },
-          },
-          () => 'Edit',
-        ),
-      ])
+      ];
 
-      ;
+      if (authStore.can('user.edit')) {
+        actionButtons.push(
+          h(
+            UButton,
+            {
+              'color': 'primary',
+              'variant': 'ghost',
+              'icon': 'i-lucide-pencil',
+              'aria-label': 'Edit user details',
+              onClick() {
+                // Navigate to user edit page
+                router.push(localPath(`/admin/users/${row.original.id}/edit`));
+              },
+            },
+          ),
+        );
+      }
+
+      return h('div', { class: 'flex items-center justify-end gap-2' }, actionButtons);
     },
   },
 ];
@@ -131,9 +140,13 @@ const columns: TableColumn<UserListItem>[] = [
         </h1>
         <p>Manage system users and access permissions.</p>
       </div>
-      <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
-        Add User
-      </UButton>
+      <div class="flex items-center gap-2">
+        <AdminUsersImportCsvModal v-if="authStore.can('user.import')" @imported="refresh" />
+
+        <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
+          Add User
+        </UButton>
+      </div>
     </div>
     <div class="w-full">
       <div class="max-w-sm">

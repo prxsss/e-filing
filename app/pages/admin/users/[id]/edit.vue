@@ -7,6 +7,12 @@ import * as z from 'zod';
 
 import type { Role, UserDetail } from '~/types/user';
 
+definePageMeta({
+  title: 'edit-user',
+  middleware: ['permission'],
+  permission: 'user.edit',
+});
+
 const UButton = resolveComponent('UButton');
 
 const localPath = useLocalePath();

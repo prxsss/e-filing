@@ -6,6 +6,8 @@ import * as z from 'zod';
 
 definePageMeta({
   title: 'createNewRole',
+  middleware: ['permission'],
+  permission: 'role.create',
 });
 
 const { t, locale } = useI18n();

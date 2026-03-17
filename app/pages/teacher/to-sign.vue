@@ -3,6 +3,8 @@ import type { TableRow } from '@nuxt/ui';
 
 definePageMeta({
   title: 'toSign',
+  middleware: ['permission'],
+  permission: 'request.to_sign.view',
 });
 
 type SigningTask = {
@@ -20,6 +22,8 @@ type SigningTask = {
     templateName: string | null;
   } | null;
 };
+
+// const authStore = useAuthStore();
 
 const router = useRouter();
 

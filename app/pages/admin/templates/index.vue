@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({
   title: 'allTemplates',
+  middleware: ['permission'],
+  permission: 'template.view',
 });
 
 // --- 1. Type Definitions ---
@@ -30,6 +32,8 @@ const searchQuery = ref('');
 const statusFilter = ref('all');
 const isLoading = ref(true);
 const error = ref<string | null>(null);
+
+const authStore = useAuthStore();
 
 const statusOptions = [
   { value: 'all', label: 'สถานะ: ทั้งหมด (All)' },
@@ -135,6 +139,7 @@ onMounted(() => {
           </h1>
         </div>
         <UButton
+          v-if="authStore.can('template.create')"
           icon="i-heroicons-plus"
           color="info"
           label="สร้างต้นแบบใหม่"

@@ -5,6 +5,8 @@ import * as z from 'zod';
 
 definePageMeta({
   title: 'create-department',
+  middleware: ['permission'],
+  permission: 'department.create',
 });
 
 type FacultyItem = {

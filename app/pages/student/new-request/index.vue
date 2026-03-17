@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({
   title: 'newRequest',
+  middleware: ['permission'],
+  permission: 'request.create',
 });
 
 type Template = {

@@ -2,7 +2,7 @@ export function useUsers() {
   const page = ref(1);
   const pageSize = ref(5);
 
-  const { data, status } = useFetch('/api/users', {
+  const { data, status, refresh } = useFetch('/api/users', {
     query: computed(() => ({
       page: page.value,
       pageSize: pageSize.value,
@@ -35,6 +35,7 @@ export function useUsers() {
     hasNext,
     prevPage,
     nextPage,
+    refresh,
     isLoading: computed(() => status.value === 'pending'),
   };
 }

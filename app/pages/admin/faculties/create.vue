@@ -5,6 +5,8 @@ import * as z from 'zod';
 
 definePageMeta({
   title: 'create-faculty',
+  middleware: ['permission'],
+  permission: 'faculty.create',
 });
 
 const localPath = useLocalePath();

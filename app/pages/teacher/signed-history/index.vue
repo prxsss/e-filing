@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { TableRow } from '@nuxt/ui';
 
-definePageMeta({ title: 'signedHistory' });
+definePageMeta({
+  title: 'signedHistory',
+  middleware: ['permission'],
+  permission: 'request.sign_history.view',
+});
 
 type HistoryEntry = {
   flowId: number;

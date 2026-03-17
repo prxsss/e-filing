@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 definePageMeta({
   title: 'newRequest',
+  middleware: ['permission'],
+  permission: 'request.create',
 });
 
 // --- Types ---
@@ -74,6 +76,8 @@ const roleNameToId = ref<Record<string, number>>({}); // roleName -> roleId
 const usersByRoleId = ref<Record<number, UserOption[]>>({});
 const loadingUsersByRoleId = ref<Record<number, boolean>>({});
 const selectedRecipients = ref<Record<string, string>>({}); // stepId -> userId
+
+const authStore = useAuthStore();
 
 const recipientSteps = computed(() => {
   const steps = signingSteps.value;
@@ -764,6 +768,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
           <!-- Action Buttons -->
           <div class="flex flex-col gap-3">
             <UButton
+              v-if="authStore.can('request.submit')"
               block
               color="success"
               size="lg"

@@ -6,6 +6,8 @@ import { useDebounceFn } from '@vueuse/core';
 
 definePageMeta({
   title: 'requests',
+  middleware: ['permission'],
+  permission: 'request.view',
 });
 
 const { t, locale } = useI18n();

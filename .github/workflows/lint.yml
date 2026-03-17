@@ -14,6 +14,7 @@ jobs:
       NUXT_SESSION_PASSWORD: ${{ secrets.NUXT_SESSION_PASSWORD}}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      IMPORT_USER_PASSWORD: ${{ secrets.IMPORT_USER_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v5

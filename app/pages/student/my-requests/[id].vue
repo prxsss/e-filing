@@ -60,6 +60,7 @@ type WorkflowStep = {
 
 // --- State ---
 const route = useRoute();
+const authStore = useAuthStore();
 const requestId = route.params.id;
 const localePath = useLocalePath();
 const { user } = useUserSession();
@@ -83,7 +84,6 @@ const isUploadingAttachment = ref(false);
 const isDeletingAttachment = ref<number | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
-// --- Methods ---
 // Fetch request and field values
 async function fetchRequestData() {
   isLoading.value = true;
@@ -713,10 +713,11 @@ onMounted(() => {
             <!-- DRAFT: editable inputs -->
             <div v-if="requestData?.status === 'draft'" class="space-y-4">
               <div v-for="field in studentFields" :key="field.instanceId">
+                test
                 <form-field-input
                   v-model="fieldValues[field.id]"
                   :field="field"
-                  :disabled="isSaving"
+                  :disabled="isSaving || !authStore.can('request.edit_draft')"
                 />
               </div>
               <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
@@ -752,7 +753,7 @@ onMounted(() => {
                   ไฟล์แนบ
                 </h3>
                 <UButton
-                  v-if="requestData?.status === 'draft'"
+                  v-if="requestData?.status === 'draft' && authStore.can('request.edit_draft')"
                   size="xs"
                   color="primary"
                   variant="soft"
@@ -798,7 +799,7 @@ onMounted(() => {
                     ดู
                   </UButton>
                   <UButton
-                    v-if="requestData?.status === 'draft'"
+                    v-if="requestData?.status === 'draft' && authStore.can('request.edit_draft')"
                     size="xs"
                     variant="ghost"
                     color="error"
@@ -827,6 +828,7 @@ onMounted(() => {
           <div class="flex flex-col gap-2.5">
             <template v-if="requestData?.status === 'draft'">
               <UButton
+                v-if="authStore.can('request.edit_draft')"
                 block
                 color="primary"
                 size="lg"
@@ -838,6 +840,7 @@ onMounted(() => {
                 บันทึก
               </UButton>
               <UButton
+                v-if="authStore.can('request.submit')"
                 block
                 color="success"
                 size="lg"
