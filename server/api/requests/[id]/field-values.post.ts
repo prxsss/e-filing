@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
         // Update existing value
         await db
           .update(requestTemplateValues)
-          .set({ value, createdAt: new Date() })
+          .set({ value, createdAt: new Date().toISOString() })
           .where(eq(requestTemplateValues.id, existing[0].id));
 
         results.push({ fieldId, action: 'updated' });
