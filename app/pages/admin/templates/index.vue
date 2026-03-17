@@ -10,7 +10,6 @@ type Template = {
   id: number;
   name: string | null;
   description: string | null;
-  category: string | null;
   version: string | null;
   isActive: boolean | null;
   createdBy: number | null;

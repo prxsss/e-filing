@@ -9,14 +9,13 @@ type Template = {
   id: number;
   name: string | null;
   description: string | null;
-  category: string | null;
   isActive: boolean | null;
 };
 
 const router = useRouter();
 const searchQuery = ref('');
 
-const { data: templatesData, status, error } = await useFetch<{ success: boolean; data: Template[] }>('/api/pdf-templates');
+const { data: templatesData, status, error, refresh } = await useFetch<{ success: boolean; data: Template[] }>('/api/pdf-templates');
 
 const activeTemplates = computed<Template[]>(() => {
   if (!templatesData.value?.data)
@@ -30,8 +29,7 @@ const filteredRequests = computed(() => {
     return activeTemplates.value;
   return activeTemplates.value.filter(t =>
     (t.name ?? '').toLowerCase().includes(query)
-    || (t.description ?? '').toLowerCase().includes(query)
-    || (t.category ?? '').toLowerCase().includes(query),
+    || (t.description ?? '').toLowerCase().includes(query),
   );
 });
 
@@ -41,97 +39,125 @@ function handleSelectRequest(templateId: number) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold text-slate-800">
-        New Request
-      </h1>
-      <p class="text-sm text-slate-500 mt-1">
-        Choose a request type to get started
-      </p>
-    </div>
-
-    <!-- Search bar -->
-    <div class="flex gap-3">
-      <div class="flex-1">
-        <UInput
-          v-model="searchQuery"
-          placeholder="Search requests by name or category"
-          icon="i-lucide-search"
-          color="success"
-        />
-      </div>
-    </div>
-
+  <div class="min-h-screen pb-12">
     <!-- Loading state -->
-    <div v-if="status === 'pending'" class="flex justify-center py-16">
-      <UIcon name="i-lucide-loader-circle" class="w-8 h-8 text-green-600 animate-spin" />
+    <div v-if="status === 'pending'" class="flex items-center justify-center h-96">
+      <div class="text-center">
+        <UIcon name="i-lucide-loader" class="text-4xl text-gray-400 mb-4 animate-spin" />
+        <p class="text-gray-500">
+          Loading templates...
+        </p>
+      </div>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="text-center py-12">
-      <UIcon name="i-lucide-triangle-alert" class="w-12 h-12 text-red-400 mx-auto mb-4" />
-      <h3 class="font-semibold text-slate-800 mb-2">
-        Failed to load templates
-      </h3>
-      <p class="text-sm text-slate-500">
-        {{ error.message }}
-      </p>
-    </div>
+    <UContainer v-else-if="error" class="py-8">
+      <UCard>
+        <div class="text-center py-8">
+          <UIcon name="i-lucide-triangle-alert" class="text-4xl text-red-400 mb-4" />
+          <p class="text-red-600 mb-4">
+            {{ error.message }}
+          </p>
+          <UButton @click="refresh()">
+            Try again
+          </UButton>
+        </div>
+      </UCard>
+    </UContainer>
 
-    <template v-else>
-      <!-- Result counter -->
-      <div class="text-sm text-slate-500">
-        Showing {{ filteredRequests.length }} of {{ activeTemplates.length }} templates
-      </div>
-
-      <!-- Template catalog grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div
-          v-for="template in filteredRequests"
-          :key="template.id"
-          class="cursor-pointer group"
-          @click="handleSelectRequest(template.id)"
-        >
-          <UCard class="h-full hover:shadow-md transition-all duration-200 hover:border-green-500">
-            <template #header>
-              <div class="flex items-start justify-between">
-                <div class="bg-green-50 text-green-700 p-3 rounded-lg group-hover:bg-green-600 group-hover:text-white transition-colors duration-200">
-                  <UIcon name="i-lucide-file-text" class="w-6 h-6" />
-                </div>
-                <UBadge
-                  v-if="template.category"
-                  :label="template.category"
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                />
-              </div>
-            </template>
-
-            <div class="space-y-2">
-              <h3 class="font-bold text-slate-800 group-hover:text-green-700 transition-colors duration-200">
-                {{ template.name }}
-              </h3>
-              <p class="text-sm text-slate-600 line-clamp-2">
-                {{ template.description || 'No description available.' }}
-              </p>
-            </div>
-          </UCard>
+    <!-- Main content -->
+    <UContainer v-else class="space-y-6">
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">
+            New Request
+          </h1>
+          <p class="text-sm text-slate-500 mt-1">
+            Choose a request type to get started
+          </p>
         </div>
       </div>
 
-      <!-- Empty state -->
-      <div v-if="filteredRequests.length === 0" class="text-center py-12">
-        <UIcon name="i-lucide-inbox" class="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h3 class="font-semibold text-slate-800 mb-2">
-          No templates found
-        </h3>
-        <p class="text-sm text-slate-500">
-          {{ searchQuery ? 'Try adjusting your search query' : 'No active templates available' }}
-        </p>
+      <!-- Search bar -->
+      <div class="p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-4">
+        <div class="relative w-full">
+          <UInput
+            v-model="searchQuery"
+            icon="i-heroicons-magnifying-glass"
+            placeholder="Search requests by name"
+            class="w-full"
+            size="md"
+          />
+        </div>
       </div>
-    </template>
+
+      <!-- Template catalog grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          v-for="template in filteredRequests"
+          :key="template.id"
+          class="cursor-pointer group h-full"
+          @click="handleSelectRequest(template.id)"
+        >
+          <div class="relative group overflow-hidden h-full rounded-xl bg-white border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1 hover:border-primary-400">
+            <!-- Left accent strip -->
+            <div class="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl bg-emerald-500 group-hover:bg-emerald-400 transition-colors duration-200" />
+
+            <UCard
+              class="h-full border-0 shadow-none rounded-xl bg-transparent hover:shadow-none"
+              :ui="{ root: 'h-full', body: 'pl-3', header: 'pl-3' }"
+            >
+              <template #header>
+                <div class="flex justify-between items-start mb-4">
+                  <div
+                    class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl transition-transform duration-200 group-hover:scale-110 bg-gray-100 text-gray-600"
+                  >
+                    <UIcon name="i-heroicons-document-text" class="w-6 h-6" />
+                  </div>
+                </div>
+              </template>
+
+              <div class="space-y-2 mb-4 pl-0">
+                <h3 class="font-bold text-gray-800 text-lg leading-tight group-hover:text-primary-700 transition-colors line-clamp-1">
+                  {{ template.name }}
+                </h3>
+                <p class="text-sm line-clamp-2 h-10 leading-relaxed text-gray-600">
+                  {{ template.description || 'No description available.' }}
+                </p>
+              </div>
+
+              <div class="pt-4 border-t border-gray-100 flex justify-end items-center gap-1.5 text-xs text-gray-500">
+                <span>Select to continue</span>
+              </div>
+            </UCard>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div
+          v-if="filteredRequests.length === 0"
+          class="col-span-full py-16 text-center bg-white rounded-xl border-2 border-dashed border-gray-300"
+        >
+          <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+            <UIcon name="i-heroicons-document-magnifying-glass" class="w-8 h-8" />
+          </div>
+          <h3 class="text-gray-900 font-medium text-lg">
+            No templates found
+          </h3>
+          <p class="text-gray-500 text-sm mt-1">
+            {{ searchQuery ? 'Try adjusting your search query' : 'No active templates available' }}
+          </p>
+          <UButton
+            v-if="searchQuery"
+            variant="link"
+            color="neutral"
+            label="Clear search"
+            class="mt-2"
+            @click="searchQuery = ''"
+          />
+        </div>
+      </div>
+    </UContainer>
   </div>
 </template>

@@ -873,7 +873,6 @@ async function performSave(): Promise<void> {
     const templatePayload = {
       name: newTemplateName.value.trim(),
       description: null,
-      category: null,
       version: '1.0.0',
       isActive: true,
       createdBy: null,

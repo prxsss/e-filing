@@ -2,7 +2,7 @@
 import { LazyBaseConfirmDialogWithReason } from '#components';
 
 definePageMeta({
-  title: 'Sign Document',
+  title: 'signDocument',
   middleware: ['permission'],
   permission: 'request.sign',
 });
