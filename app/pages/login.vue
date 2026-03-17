@@ -40,15 +40,22 @@ const formState = reactive({
   password: '',
 });
 
+const authForm = useTemplateRef('authForm');
+
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   await authStore.login(payload.data.email, payload.data.password);
 }
+
+watch(() => [authForm.value?.state.email, authForm.value?.state.password], () => {
+  authStore.clearError();
+});
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
     <UPageCard class="w-full max-w-md">
       <UAuthForm
+        ref="authForm"
         v-model="formState"
         :schema="schema"
         :fields="fields"
