@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+
 type Field = any;
 type RenderTask = any;
 type PDFDocumentProxy = any;
@@ -130,7 +132,7 @@ function getVisibilitySourceLabel(sourceFieldInstanceId: string): string {
   }
 
   const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox').trim();
-  const instanceSuffix = Number.isFinite(Number(sourceField.instanceNumber)) ? ` #${sourceField.instanceNumber}` : '';
+  const instanceSuffix = ` #${getFieldDisplayInstanceNumber(sourceField, props.placedFields)}`;
   return `${baseLabel}${instanceSuffix}`;
 }
 

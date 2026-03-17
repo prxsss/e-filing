@@ -2,6 +2,7 @@
 import type { FieldInstance, FieldVisibilityRule, FileTypeValue, PdfRef, SigningStep, WizardStep } from '~/types/template';
 
 import { getAutoDateTimeFormatConfig } from '../../../../shared/auto-date-time-format';
+import { getFieldDisplayInstanceNumber, getNextFieldInstanceNumber } from '../../../../shared/field-instance-number';
 
 type Field = any;
 
@@ -784,6 +785,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
   const defaultLineHeight = parseFiniteNumber((fieldToAdd as any).lineHeight, 1.5);
   const defaultMaxLength = parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length);
   const defaultAutoDateTimeFormat = toAutoDateTimeFormatPayload(fieldToAdd);
+  const nextInstanceNumber = getNextFieldInstanceNumber(placedFields.value, fieldToAdd);
   let selectedSourceField: FieldInstance | null = null;
   if (
     selectedField.value
@@ -808,7 +810,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
     const instance: FieldInstance = {
       ...fieldToAdd,
       instanceId: `field_${fieldToAdd.id}_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
-      instanceNumber: i + 1,
+      instanceNumber: nextInstanceNumber + i,
       groupId,
       isGrouped: amount > 1,
       groupSize: amount,
@@ -1102,7 +1104,7 @@ async function performSave(): Promise<void> {
     const normalizedFields = placedFields.value.map((field: FieldInstance) => ({
       id: field.id,
       instanceId: field.instanceId,
-      instanceNumber: field.instanceNumber,
+      instanceNumber: getFieldDisplayInstanceNumber(field, placedFields.value),
       type: field.fieldType || (field as any).type,
       name: field.name,
       label: field.label,

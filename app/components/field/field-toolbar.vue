@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getAutoDateTimeFormatConfig } from '../../../shared/auto-date-time-format';
+import { getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
 
 type Field = any;
 
@@ -61,9 +62,13 @@ function getConditionalSourceLabel(field?: Field): string {
   }
 
   const baseLabel = String(field.label || field.name || 'Checkbox').trim();
-  const instanceSuffix = Number.isFinite(Number(field.instanceNumber)) ? ` #${field.instanceNumber}` : '';
+  const instanceSuffix = ` #${getFieldDisplayInstanceNumber(field, props.placedFields)}`;
   return `${baseLabel}${instanceSuffix}`;
 }
+
+const selectedFieldDisplayInstanceNumber = computed(() => {
+  return getFieldDisplayInstanceNumber(props.selectedField, props.placedFields);
+});
 
 const conditionalSourceOptions = computed(() => {
   const selectedInstanceId = String(props.selectedField?.instanceId || '').trim();
@@ -364,10 +369,20 @@ function removeField() {
 <template>
   <div class="field-toolbar-wrapper bg-white shadow-sm border border-gray-200 rounded-lg px-3 py-1.5 mx-auto">
     <div class="field-toolbar-inline">
+      <!-- Identity Section -->
+      <UTooltip text="ประเภทของช่องข้อมูล" :popper="{ placement: 'top' }">
+        <div class="flex items-center gap-1.5 bg-primary-50 px-2 py-1 rounded-md border border-primary-100 min-w-0 max-w-88">
+          <UIcon name="i-heroicons-tag" class="w-3.5 h-3.5 text-primary-500" />
+          <span class="text-xs font-semibold text-primary-700 truncate max-w-32">{{ selectedField.name }}</span>
+          <span v-if="selectedFieldType === 'checkbox' || selectedFieldDisplayInstanceNumber > 1" class="text-[10px] bg-white text-primary-600 px-1 rounded shadow-sm font-mono">
+            #{{ selectedFieldDisplayInstanceNumber }}
+          </span>
+        </div>
+      </UTooltip>
+
       <!-- Font (text fields only) -->
       <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
         <div class="h-5 w-px bg-gray-200" />
-
         <div class="flex items-center gap-1.5">
           <UTooltip text="ขนาดตัวอักษร" :popper="{ placement: 'top' }">
             <div class="toolbar-input-group">
