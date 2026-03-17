@@ -392,40 +392,9 @@ function removeField() {
               class="toolbar-select"
               @change="onPropertyChange"
             >
-              <optgroup label="ฟอนต์ภาษาไทย">
-                <option value="Sarabun">
-                  Sarabun (สารบรรณ)
-                </option>
-                <option value="Prompt">
-                  Prompt (พร้อม)
-                </option>
-                <option value="Mitr">
-                  Mitr (มิตร)
-                </option>
-              </optgroup>
-              <optgroup label="ฟอนต์ภาษาอังกฤษ">
-                <option value="Arial">
-                  Arial
-                </option>
-                <option value="Helvetica">
-                  Helvetica
-                </option>
-                <option value="Times New Roman">
-                  Times New Roman
-                </option>
-                <option value="Courier New">
-                  Courier New
-                </option>
-                <option value="Georgia">
-                  Georgia
-                </option>
-                <option value="Verdana">
-                  Verdana
-                </option>
-                <option value="Tahoma">
-                  Tahoma
-                </option>
-              </optgroup>
+              <option value="Sarabun">
+                Sarabun (สารบรรณ)
+              </option>
             </select>
           </UTooltip>
 
