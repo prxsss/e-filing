@@ -38,6 +38,8 @@ type TemplateData = {
   id: number;
   name: string;
   documentUrl: string | null;
+  documentWidth?: number | null;
+  documentHeight?: number | null;
   placedFieldsData: any[] | null;
   signingFlowData: SigningStep[] | null;
 };
@@ -68,6 +70,7 @@ const previewSyncedFieldValues = ref<Record<string, string>>({});
 const scale = ref(1);
 const isRefreshingPreview = ref(false);
 const submitterSignatureDataUrl = ref<string | null>(null);
+const showSubmitterSignaturePopup = ref(false);
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
 const isUploadingAttachment = ref(false);
@@ -139,6 +142,110 @@ const submitterSignatureFieldCount = computed(() => {
   }).length;
 });
 
+const submitterSignatureField = computed<any | null>(() => {
+  const submitterStep = findSubmitterStep(signingSteps.value);
+  const templateFields = templateData.value?.placedFieldsData;
+
+  if (!submitterStep || !Array.isArray(templateFields)) {
+    return null;
+  }
+
+  return templateFields.find((field: any) => {
+    if (getFieldType(field) !== 'signature') {
+      return false;
+    }
+
+    return getFieldSignerStepId(field) === submitterStep.id;
+  }) || null;
+});
+
+const submitterSignatureFieldScale = 4;
+
+function getPositiveDimension(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getSubmitterSignatureFieldDimensions() {
+  const field = submitterSignatureField.value;
+  if (!field) {
+    return { width: null, height: null };
+  }
+
+  const documentWidth = getPositiveDimension(templateData.value?.documentWidth) ?? 595;
+  const documentHeight = getPositiveDimension(templateData.value?.documentHeight) ?? 842;
+
+  const normalizedWidth = getPositiveDimension(field.normalizedWidth);
+  const normalizedHeight = getPositiveDimension(field.normalizedHeight);
+  if (normalizedWidth !== null && normalizedHeight !== null) {
+    return {
+      width: Math.round(normalizedWidth * documentWidth * submitterSignatureFieldScale),
+      height: Math.round(normalizedHeight * documentHeight * submitterSignatureFieldScale),
+    };
+  }
+
+  const displayWidth = getPositiveDimension(field.displayWidth);
+  const displayHeight = getPositiveDimension(field.displayHeight);
+  if (displayWidth !== null && displayHeight !== null) {
+    return {
+      width: Math.round(displayWidth * submitterSignatureFieldScale),
+      height: Math.round(displayHeight * submitterSignatureFieldScale),
+    };
+  }
+
+  const width = getPositiveDimension(field.width);
+  const height = getPositiveDimension(field.height);
+  if (width !== null && height !== null) {
+    return {
+      width: Math.round(width * submitterSignatureFieldScale),
+      height: Math.round(height * submitterSignatureFieldScale),
+    };
+  }
+
+  const defaultWidth = getPositiveDimension(field.default_width ?? field.defaultWidth);
+  const defaultHeight = getPositiveDimension(field.default_height ?? field.defaultHeight);
+  if (defaultWidth !== null && defaultHeight !== null) {
+    return {
+      width: Math.round(defaultWidth * submitterSignatureFieldScale),
+      height: Math.round(defaultHeight * submitterSignatureFieldScale),
+    };
+  }
+
+  return {
+    width: null,
+    height: null,
+  };
+}
+
+const submitterSignatureAspectRatio = computed(() => {
+  const dimensions = getSubmitterSignatureFieldDimensions();
+
+  if (dimensions.width === null || dimensions.height === null) {
+    return 2.2;
+  }
+
+  return dimensions.width / dimensions.height;
+});
+
+const submitterSignaturePopupStyle = computed(() => {
+  const dimensions = getSubmitterSignatureFieldDimensions();
+  const popupWidth = (dimensions.width ?? 320) + 32;
+
+  return {
+    width: `min(calc(100vw - 2rem), ${popupWidth}px)`,
+    maxHeight: 'calc(100vh - 2rem)',
+  };
+});
+
+const submitterSignatureFieldBoxStyle = computed(() => {
+  const dimensions = getSubmitterSignatureFieldDimensions();
+
+  return {
+    width: `${dimensions.width ?? 320}px`,
+    maxWidth: '100%',
+  };
+});
+
 const requiresSubmitterSignature = computed(() => submitterSignatureFieldCount.value > 0);
 const hasConfirmedSubmitterSignature = computed(() => (submitterSignatureDataUrl.value ?? '').length > 0);
 const canSubmitRequest = computed(() =>
@@ -147,8 +254,23 @@ const canSubmitRequest = computed(() =>
   && (!requiresSubmitterSignature.value || hasConfirmedSubmitterSignature.value),
 );
 
+watch(requiresSubmitterSignature, (required) => {
+  if (!required) {
+    showSubmitterSignaturePopup.value = false;
+  }
+});
+
+function openSubmitterSignaturePopup() {
+  showSubmitterSignaturePopup.value = true;
+}
+
+function closeSubmitterSignaturePopup() {
+  showSubmitterSignaturePopup.value = false;
+}
+
 function handleSubmitterSignatureConfirmed(dataUrl: string) {
   submitterSignatureDataUrl.value = dataUrl;
+  showSubmitterSignaturePopup.value = false;
 }
 
 function getResolvedRoleId(step: SigningStep): number | undefined {
@@ -1067,12 +1189,22 @@ watch([pdfFile, placedFields, fieldValues], () => {
               </h3>
             </template>
 
-            <div class="space-y-3">
-              <signature-canvas
-                :disabled="isSaving"
-                :height="160"
-                @confirm="handleSubmitterSignatureConfirmed"
-              />
+            <div class="flex flex-col gap-3">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="space-y-1">
+                  <p class="text-xs text-gray-500">
+                    {{ locale === 'th' ? 'กดปุ่มเพื่อเปิด popup เซ็นเอกสาร' : 'Open the popup to sign.' }}
+                  </p>
+                </div>
+
+                <UButton
+                  color="primary"
+                  icon="i-heroicons-pencil-square"
+                  @click="openSubmitterSignaturePopup"
+                >
+                  {{ hasConfirmedSubmitterSignature ? (locale === 'th' ? 'แก้ไขลายเซ็น' : 'Edit signature') : (locale === 'th' ? 'เปิดกล่องเซ็นลายมือชื่อ' : 'Open signature popup') }}
+                </UButton>
+              </div>
 
               <p
                 v-if="hasConfirmedSubmitterSignature"
@@ -1106,6 +1238,50 @@ watch([pdfFile, placedFields, fieldValues], () => {
               Back to Request
             </UButton>
           </div>
+        </div>
+      </div>
+
+      <div
+        v-if="showSubmitterSignaturePopup && requiresSubmitterSignature"
+        class="fixed inset-0 z-50 bg-black/20 backdrop-blur-[1px]"
+        @click.self="closeSubmitterSignaturePopup"
+      >
+        <div class="absolute bottom-4 right-4" :style="submitterSignaturePopupStyle">
+          <UCard class="overflow-hidden border border-gray-200 shadow-2xl bg-white">
+            <template #header>
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-900">
+                    {{ locale === 'th' ? 'เซ็นลายเซ็นผู้ยื่นคำร้อง' : 'Submitter signature' }}
+                  </h3>
+                </div>
+
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-heroicons-x-mark"
+                  @click="closeSubmitterSignaturePopup"
+                />
+              </div>
+            </template>
+
+            <div class="space-y-3 p-1">
+              <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                <div class="mb-2 flex items-center justify-between text-xs text-slate-500">
+                  <span>{{ locale === 'th' ? 'เซ็นในช่องด้านล่าง' : 'Sign in the box below' }}</span>
+                </div>
+
+                <div :style="submitterSignatureFieldBoxStyle" class="mx-auto">
+                  <signature-canvas
+                    class="w-full"
+                    :disabled="isSaving"
+                    :aspect-ratio="submitterSignatureAspectRatio"
+                    @confirm="handleSubmitterSignatureConfirmed"
+                  />
+                </div>
+              </div>
+            </div>
+          </UCard>
         </div>
       </div>
     </div>
