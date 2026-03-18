@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+import { getFieldDisplayBadgeText, getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
 
 type Field = any;
 type RenderTask = any;
@@ -1199,6 +1199,14 @@ defineExpose<{
                 {{ getVisibilityConditionText(field) }}
               </div>
 
+              <div
+                v-if="!props.readOnly && isCheckboxField(field)"
+                class="checkbox-tag"
+                :title="getFieldDisplayBadgeText(field, props.placedFields)"
+              >
+                {{ getFieldDisplayBadgeText(field, props.placedFields) }}
+              </div>
+
               <div class="field-content">
                 <template v-if="hasSignatureImage(field)">
                   <img
@@ -1389,6 +1397,24 @@ defineExpose<{
 }
 
 .condition-tag {
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  font-size: 0.55rem;
+  color: #78350f;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: normal;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1002;
+}
+
+.checkbox-tag {
   position: absolute;
   top: -8px;
   left: -4px;

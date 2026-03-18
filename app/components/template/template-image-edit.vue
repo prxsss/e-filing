@@ -1,4 +1,6 @@
 <script setup>
+import { getFieldDisplayBadgeText } from '../../../shared/field-instance-number';
+
 const props = defineProps({
   previewImageUrl: {
     type: String,
@@ -511,6 +513,14 @@ onUnmounted(() => {
           @mousedown.prevent="startDrag($event, field)"
           @touchstart.prevent="startDrag($event, field)"
         >
+          <div
+            v-if="field.name === 'Check Mark'"
+            class="checkbox-tag"
+            :title="getFieldDisplayBadgeText(field, placedFields)"
+          >
+            {{ getFieldDisplayBadgeText(field, placedFields) }}
+          </div>
+
           <div class="field-content">
             <svg
               v-if="field.name === 'Check Mark'"
@@ -610,6 +620,24 @@ onUnmounted(() => {
   pointer-events: none;
   width: 100%;
   overflow: hidden;
+}
+
+.checkbox-tag {
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  font-size: 0.55rem;
+  color: #78350f;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: normal;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1002;
 }
 
 .field-label {

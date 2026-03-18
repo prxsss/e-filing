@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { FieldInstance, PdfDimensions } from '~/types/template';
 
+import { getFieldDisplayBadgeText } from '../../../shared/field-instance-number';
+
 type Props = {
   pdfBytes?: Uint8Array | null;
   originalPdfBytes?: Uint8Array | null;
@@ -770,6 +772,14 @@ defineExpose({
               @touchstart="startDrag($event, field)"
               @click="selectField(field)"
             >
+              <div
+                v-if="field.name === 'Check Mark'"
+                class="checkbox-tag"
+                :title="getFieldDisplayBadgeText(field, props.placedFields)"
+              >
+                {{ getFieldDisplayBadgeText(field, props.placedFields) }}
+              </div>
+
               <div class="field-content">
                 <svg
                   v-if="field.name === 'Check Mark'"
@@ -892,6 +902,24 @@ defineExpose({
 .placed-field * {
   user-select: none;
   pointer-events: none;
+}
+
+.checkbox-tag {
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  font-size: 0.55rem;
+  color: #78350f;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: normal;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1002;
 }
 
 .placed-field:hover {

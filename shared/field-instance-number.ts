@@ -78,3 +78,12 @@ export function getNextFieldInstanceNumber(
 
   return maxExistingNumber + 1;
 }
+
+export function getFieldDisplayBadgeText(
+  field: FieldInstanceLike | null | undefined,
+  fields: FieldInstanceLike[] = [],
+  fallbackLabel = 'Checkbox',
+): string {
+  const baseLabel = String(field?.name || field?.label || fallbackLabel).trim() || fallbackLabel;
+  return `${baseLabel} #${getFieldDisplayInstanceNumber(field, fields)}`;
+}
