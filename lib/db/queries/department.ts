@@ -1,9 +1,15 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, roles, userRoles, users } from '../schema';
 
-export async function getDepartments() {
+export async function getDepartments({
+  pageSize,
+  offset,
+}: {
+  pageSize: number;
+  offset: number;
+}) {
   const headOfDepartment = db
     .select({
       headOfDeptEn: sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`.as('head_of_dept_en'),
@@ -21,8 +27,8 @@ export async function getDepartments() {
     .limit(1)
     .as('head_of_department');
 
-  return await db
-    .select({
+  const [rows, total] = await Promise.all([
+    db.select({
       id: departments.id,
       departmentCode: departments.departmentCode,
       nameEn: departments.nameEn,
@@ -35,9 +41,15 @@ export async function getDepartments() {
       headOfDeptEn: headOfDepartment.headOfDeptEn,
       headOfDeptTh: headOfDepartment.headOfDeptTh,
     })
-    .from(departments)
-    .leftJoin(faculties, eq(departments.facultyId, faculties.id))
-    .leftJoinLateral(headOfDepartment, sql`true`);
+      .from(departments)
+      .leftJoin(faculties, eq(departments.facultyId, faculties.id))
+      .leftJoinLateral(headOfDepartment, sql`true`)
+      .orderBy(desc(departments.id))
+      .limit(pageSize)
+      .offset(offset),
+    db.$count(departments),
+  ]);
+  return { rows, total };
 }
 
 export async function createDepartment(data: {

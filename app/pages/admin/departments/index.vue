@@ -2,7 +2,7 @@
 import type { TableColumn } from '@nuxt/ui';
 
 import { LazyBaseConfirmDialog } from '#components';
-import { h, resolveComponent, watch } from 'vue';
+import { h, resolveComponent } from 'vue';
 
 definePageMeta({
   title: 'departments',
@@ -33,15 +33,11 @@ const overlay = useOverlay();
 
 const authStore = useAuthStore();
 
-const searchTerm = ref('');
-const selectedFacultyId = ref<number | 'all'>('all');
-const page = ref(1);
-const pageSize = ref(5);
 const deletingDepartmentId = ref<number | null>(null);
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
-const { data: departmentsData, status, refresh } = await useFetch<DepartmentListItem[]>('/api/admin/departments');
+const { rows, isLoading, page, pageSize, total, refresh } = useDepartments();
 
 function getFacultyName(row: DepartmentListItem) {
   if (!row.faculty)
@@ -49,41 +45,6 @@ function getFacultyName(row: DepartmentListItem) {
 
   return locale.value === 'en' ? row.faculty.nameEn : row.faculty.nameTh;
 }
-
-const filteredRows = computed(() => {
-  const rows = departmentsData.value ?? [];
-  const term = searchTerm.value.trim().toLowerCase();
-
-  return rows.filter((row) => {
-    const departmentName = locale.value === 'en' ? row.nameEn : row.nameTh;
-    const facultyName = getFacultyName(row);
-
-    const matchFaculty = selectedFacultyId.value === 'all' || row.faculty?.id === selectedFacultyId.value;
-    const matchSearch = !term
-      || row.departmentCode.toLowerCase().includes(term)
-      || departmentName.toLowerCase().includes(term)
-      || facultyName.toLowerCase().includes(term);
-
-    return matchFaculty && matchSearch;
-  });
-});
-
-const total = computed(() => filteredRows.value.length);
-
-const paginatedRows = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  return filteredRows.value.slice(start, start + pageSize.value);
-});
-
-watch([searchTerm, selectedFacultyId, pageSize], () => {
-  page.value = 1;
-});
-
-watch(total, () => {
-  const maxPage = Math.max(1, Math.ceil(total.value / pageSize.value));
-  if (page.value > maxPage)
-    page.value = maxPage;
-});
 
 function handleAddDepartment() {
   navigateTo(localPath('/admin/departments/create'));
@@ -226,13 +187,16 @@ const columns: TableColumn<DepartmentListItem>[] = [
     </div>
 
     <div class="w-full">
-      <div class="max-w-sm">
-        <UInput class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by name, email, or ID..." />
+      <div class="max-w-sm ml-auto">
+        <UFieldGroup class="w-full">
+          <UInput class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by name, email, or ID..." />
+          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" />
+        </UFieldGroup>
       </div>
     </div>
 
     <UCard>
-      <UTable :data="paginatedRows" :columns="columns" :loading="status === 'pending'" class="flex-1" />
+      <UTable :data="rows" :columns="columns" :loading="isLoading" class="flex-1" />
 
       <div class="flex justify-center gap-2 border-t border-default pt-4 px-4">
         <UPagination
