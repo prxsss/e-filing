@@ -16,18 +16,77 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const localValue = computed({
-  get: () => props.modelValue,
-  set: value => emit('update:modelValue', value),
+const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
+const isNumericField = computed(() => fieldType.value === 'number');
+const isCheckboxField = computed(() => fieldType.value === 'checkbox');
+
+function normalizeCheckboxValue(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'checked', 'on'].includes(normalized) ? 'true' : '';
+}
+
+const checkboxChecked = computed(() => normalizeCheckboxValue(props.modelValue) === 'true');
+
+const maxLength = computed(() => {
+  const rawValue = props.field?.maxLength ?? props.field?.max_length;
+  const parsed = Number.parseInt(String(rawValue ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 });
+
+function normalizeInputValue(value) {
+  let normalizedValue = String(value ?? '');
+
+  if (isCheckboxField.value) {
+    return normalizeCheckboxValue(normalizedValue);
+  }
+
+  // Number fields are rendered as text with numeric input mode so maxlength
+  // can block extra typing in real-time.
+  if (isNumericField.value) {
+    normalizedValue = normalizedValue.replace(/\D/g, '');
+  }
+
+  if (!maxLength.value || fieldType.value === 'date' || fieldType.value === 'time') {
+    return normalizedValue;
+  }
+  if (normalizedValue.length <= maxLength.value) {
+    return normalizedValue;
+  }
+  return normalizedValue.slice(0, maxLength.value);
+}
+
+const localValue = computed({
+  get: () => normalizeInputValue(props.modelValue),
+  set: value => emit('update:modelValue', normalizeInputValue(value)),
+});
+
+function handleCheckboxChange(event) {
+  const target = event.target;
+  emit('update:modelValue', target?.checked ? 'true' : '');
+}
+
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    const normalizedValue = normalizeInputValue(newValue);
+    if (normalizedValue !== String(newValue ?? '')) {
+      emit('update:modelValue', normalizedValue);
+    }
+  },
+);
 
 // Get appropriate input type based on field type
 const inputType = computed(() => {
-  switch (props.field.type?.toLowerCase()) {
+  switch (fieldType.value) {
     case 'date':
       return 'date';
+    case 'time':
+      return 'time';
     case 'number':
-      return 'number';
+      return 'text';
     case 'email':
       return 'email';
     case 'phone':
@@ -37,6 +96,14 @@ const inputType = computed(() => {
   }
 });
 
+const inputMode = computed(() => {
+  if (isNumericField.value) {
+    return 'numeric';
+  }
+
+  return undefined;
+});
+
 // Get placeholder text
 const placeholder = computed(() => {
   if (props.field.label) {
@@ -44,22 +111,46 @@ const placeholder = computed(() => {
   }
   return `Enter ${props.field.name || 'value'}`;
 });
+
+const currentLength = computed(() => localValue.value.length);
 </script>
 
 <template>
   <div class="field-input">
-    <label v-if="field.label || field.name" class="field-label">
-      <i v-if="field.icon" :class="field.icon" class="mr-2" />
-      {{ field.label || field.name }}
-    </label>
+    <template v-if="isCheckboxField">
+      <label class="field-checkbox-row">
+        <input
+          :checked="checkboxChecked"
+          type="checkbox"
+          :disabled="disabled"
+          class="form-checkbox"
+          @change="handleCheckboxChange"
+        >
+        <span class="field-label mb-0">
+          <i v-if="field.icon" :class="field.icon" class="mr-2" />
+          {{ field.label || field.name }}
+        </span>
+      </label>
+    </template>
+    <template v-else>
+      <label v-if="field.label || field.name" class="field-label">
+        <i v-if="field.icon" :class="field.icon" class="mr-2" />
+        {{ field.label || field.name }}
+      </label>
 
-    <input
-      v-model="localValue"
-      :type="inputType"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      class="form-input"
-    >
+      <input
+        v-model="localValue"
+        :type="inputType"
+        :inputmode="inputMode"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        :maxlength="maxLength || undefined"
+        class="form-input"
+      >
+      <p v-if="maxLength" class="field-helper">
+        {{ currentLength }}/{{ maxLength }} characters
+      </p>
+    </template>
   </div>
 </template>
 
@@ -74,6 +165,18 @@ const placeholder = computed(() => {
   font-weight: 500;
   color: #374151;
   margin-bottom: 0.5rem;
+}
+
+.field-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #10b981;
 }
 
 .form-input {
@@ -94,5 +197,12 @@ const placeholder = computed(() => {
 .form-input:disabled {
   background-color: #f3f4f6;
   cursor: not-allowed;
+}
+
+.field-helper {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: right;
 }
 </style>

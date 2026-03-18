@@ -11,10 +11,20 @@ export type Field = {
   name: string;
   label?: string;
   fieldType: string;
+  maxLength?: number | null;
   amount?: number;
   fontSize?: number;
   fontFamily?: string;
   [key: string]: any;
+};
+
+export type ConditionalVisibilityOperator = 'isChecked' | 'isUnchecked';
+
+export type FieldVisibilityRule = {
+  enabled?: boolean;
+  sourceFieldInstanceId?: string | null;
+  operator?: ConditionalVisibilityOperator;
+  clearWhenHidden?: boolean;
 };
 
 /**
@@ -52,6 +62,18 @@ export type FieldInstance = Field & {
   signerStepId?: string;
   // Auto-generate flag (system fills value automatically, skips signer assignment)
   isAutoGenerate?: boolean;
+  // Optional conditional visibility linked to another field instance.
+  visibilityRule?: FieldVisibilityRule | null;
+  // Auto-generated date/time format controls
+  dateSeparator?: string;
+  dateSeparatorSpacing?: number;
+  dateShowDay?: boolean;
+  dateShowMonth?: boolean;
+  dateShowYear?: boolean;
+  timeSeparator?: string;
+  timeSeparatorSpacing?: number;
+  timeShowHour?: boolean;
+  timeShowMinute?: boolean;
 };
 
 /**
