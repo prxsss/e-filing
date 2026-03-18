@@ -326,13 +326,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 <div class="relative">
                   <div class="w-32 h-32 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                     <UIcon
-                      name="i-heroicons-user-plus-20-solid"
+                      name="i-lucide-user-round"
                       class="w-16 h-16 text-slate-400"
                     />
                   </div>
                   <UButton
                     type="button"
-                    icon="i-heroicons-camera-20-solid"
+                    icon="i-lucide-camera"
                     size="sm"
                     color="primary"
                     class="absolute bottom-2 right-1 rounded-full shadow-lg"
@@ -359,8 +359,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
             <template #header>
               <div class="flex items-center gap-3">
                 <UIcon
-                  name="i-heroicons-identification-20-solid"
-                  class="text-gray-400"
+                  name="i-lucide-id-card"
+                  class="text-primary"
                 />
                 <h2 class="font-semibold text-base">
                   Basic Information
@@ -467,8 +467,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <UIcon
-                    name="i-heroicons-shield-check-20-solid"
-                    class="text-gray-400"
+                    name="i-lucide-shield-user"
+                    class="text-primary"
                   />
                   <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
                     Role Assignments
@@ -485,7 +485,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                         name="role"
                         required
                       >
-                        <BaseSelect v-model="newRoleAssignment.roleId" :items="roles || []" value-key="value" placeholder="Select Role" :clear="true" size="xl" />
+                        <USelectMenu v-model="newRoleAssignment.roleId" :items="roles || []" value-key="value" placeholder="Select Role" :clear="true" size="lg" class="w-full" />
                       </UFormField>
                       <!-- Faculty -->
                       <UFormField
@@ -493,14 +493,32 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                         name="faculty"
                         required
                       >
-                        <BaseSelect v-model="newRoleAssignment.facultyId" :items="faculties || []" value-key="value" placeholder="Select Faculty" :clear="true" size="xl" />
+                        <!--
+                          Issue: Hover doesn't work for USelectMenu inside UPopover (unless `search-input` is enabled).
+                          Workaround: Keep `search-input` enabled and hide it via CSS.
+                          TODO: Investigate root cause and replace this workaround.
+                        -->
+                        <USelectMenu
+                          v-model="newRoleAssignment.facultyId" :items="faculties || []" value-key="value" placeholder="Select Faculty" :clear="true" size="lg" class="w-full" :ui="{
+                            input: 'hidden',
+                          }"
+                        />
                       </UFormField>
                       <!-- Department -->
                       <UFormField
                         label="Department"
                         name="department"
                       >
-                        <BaseSelect v-model="newRoleAssignment.departmentId" :items="filteredDepartments" value-key="value" placeholder="Select Department" :clear="true" size="xl" />
+                        <!--
+                          Issue: Hover doesn't work for USelectMenu inside UPopover (unless `search-input` is enabled).
+                          Workaround: Keep `search-input` enabled and hide it via CSS.
+                          TODO: Investigate root cause and replace this workaround.
+                        -->
+                        <USelectMenu
+                          v-model="newRoleAssignment.departmentId" :items="filteredDepartments" value-key="value" placeholder="Select Department" :clear="true" size="lg" class="w-full" :ui="{
+                            input: 'hidden',
+                          }"
+                        />
                       </UFormField>
                     </div>
                   </template>
@@ -523,49 +541,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               variant="subtle"
               title="Role assignment required"
               description="Please assign at least one role to the user before continuing."
-              icon="i-heroicons-exclamation-triangle-20-solid"
+              icon="i-lucide-triangle-alert"
               class="mb-4"
             />
 
             <UTable
               :data="roleAssignments" :columns="columns" class=""
             />
-          </UCard>
-
-          <!-- Initial Signature Setup Card -->
-          <UCard>
-            <template #header>
-              <div class="flex items-center gap-3">
-                <UIcon
-                  name="i-heroicons-pencil-square-20-solid"
-                  class="text-gray-400"
-                />
-                <h2 class="font-semibold text-base">
-                  Initial Signature Setup
-                </h2>
-              </div>
-            </template>
-
-            <div class="space-y-4">
-              <!-- Upload Area -->
-              <div
-                class="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-8 text-center bg-slate-50 dark:bg-slate-900/50 hover:border-primary-400 transition-colors cursor-pointer"
-              >
-                <UIcon
-                  name="i-heroicons-cloud-arrow-up-20-solid"
-                  class="w-12 h-12 text-slate-400 mx-auto mb-2"
-                />
-                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Drop signature image here, or
-                  <span class="text-primary-500 hover:text-primary-600">
-                    browse
-                  </span>
-                </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Supports PNG with transparent background
-                </p>
-              </div>
-            </div>
           </UCard>
         </div>
       </div>
@@ -580,8 +562,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
         <UButton
           type="button"
           color="primary"
-          label="Create User"
-          icon="i-heroicons-check-20-solid"
+          label="Add User"
           :loading
           @click="handleSubmit"
         />
