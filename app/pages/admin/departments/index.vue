@@ -34,10 +34,32 @@ const overlay = useOverlay();
 const authStore = useAuthStore();
 
 const deletingDepartmentId = ref<number | null>(null);
+const searchInput = ref('');
+const appliedSearch = ref('');
+const selectedFacultyId = ref<number | undefined>(undefined);
+const appliedFacultyId = ref<number | undefined>(undefined);
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
-const { rows, isLoading, page, pageSize, total, refresh } = useDepartments();
+const { data: faculties } = useFetch('/api/faculties');
+
+const facultyOptions = computed(() => {
+  return (faculties.value ?? []).map(faculty => ({
+    label: locale.value === 'en' ? faculty.nameEn : faculty.nameTh,
+    value: faculty.id,
+  }));
+});
+
+const { rows, isLoading, page, pageSize, total, refresh } = useDepartments({
+  search: appliedSearch,
+  facultyId: appliedFacultyId,
+});
+
+function applySearch() {
+  appliedSearch.value = searchInput.value.trim();
+  appliedFacultyId.value = selectedFacultyId.value;
+  page.value = 1;
+}
 
 function getFacultyName(row: DepartmentListItem) {
   if (!row.faculty)
@@ -119,10 +141,11 @@ const columns: TableColumn<DepartmentListItem>[] = [
     },
   },
   {
-    accessorKey: 'headOfDeptEn',
+    id: 'headOfDepartment',
     header: 'Head of Dept.',
     cell: ({ row }) => {
-      return h('div', null, row.original.headOfDeptEn ?? '-');
+      const headOfDepartment = locale.value === 'en' ? row.original.headOfDeptEn : row.original.headOfDeptTh;
+      return h('div', null, headOfDepartment ?? '-');
     },
 
   },
@@ -187,11 +210,40 @@ const columns: TableColumn<DepartmentListItem>[] = [
     </div>
 
     <div class="w-full">
-      <div class="max-w-sm ml-auto">
-        <UFieldGroup class="w-full">
-          <UInput class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by name, email, or ID..." />
-          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" />
-        </UFieldGroup>
+      <div class="max-w-2xl ml-auto">
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <!--
+            Issue: Hover doesn't work for USelectMenu (unless `search-input` is enabled).
+            Workaround: Keep `search-input` enabled and hide it via CSS.
+            TODO: Investigate root cause and replace this workaround.
+          -->
+          <USelectMenu
+            v-model="selectedFacultyId"
+            class="w-full sm:w-64"
+            :items="facultyOptions"
+            label-key="label"
+            value-key="value"
+            placeholder="All faculties"
+            clear
+            :ui="{
+              input: 'hidden',
+              content: 'min-w-fit',
+            }"
+          />
+
+          <UFieldGroup class="w-full sm:max-w-md">
+            <UInput
+              v-model="searchInput"
+              class="w-full"
+              icon="i-lucide-search"
+              size="lg"
+              variant="outline"
+              placeholder="Search by department / head name, or ID"
+              @keyup.enter="applySearch"
+            />
+            <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+          </UFieldGroup>
+        </div>
       </div>
     </div>
 
