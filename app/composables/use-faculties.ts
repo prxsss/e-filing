@@ -1,4 +1,8 @@
-export function useFaculties() {
+type FacultySearchFilters = {
+  search?: Ref<string>;
+};
+
+export function useFaculties(filters: FacultySearchFilters = {}) {
   const page = ref(1);
   const pageSize = ref(5);
 
@@ -6,6 +10,7 @@ export function useFaculties() {
     query: computed(() => ({
       page: page.value,
       pageSize: pageSize.value,
+      search: filters.search?.value?.trim() || undefined,
     })),
   });
 
