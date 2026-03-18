@@ -68,7 +68,7 @@
   "allTemplates": "แม่แบบคำร้องทั้งหมด",
   "requestDetails": "รายละเอียดคำร้อง",
   "placeFields": "วางฟิลด์",
-  "signingFlow": "ลำดับการเซ็น",
+  "signingFlow": "ลำดับการกรอกข้อมูล",
   "reviewAndSave": "ตรวจสอบและบันทึก",
   "next": "ถัดไป",
   "previous": "ย้อนกลับ",
@@ -138,5 +138,6 @@
   "delete": "ลบ",
   "confirmSave": "ยืนยันและบันทึกเทมเพลต",
   "faculties": "คณะ",
-  "departments": "สาขาวิชา"
+  "departments": "สาขาวิชา",
+  "assignPersonTooltip": "ถ้าไม่เลือกจะเป็นการให้คนแรกเป็นผู้เลือกแทน"
 }
