@@ -156,7 +156,7 @@ function onRowSelect(_e: Event, row: any) {
   if (notif)
     notif.isRead = true;
   if (row.original.requestId)
-    router.push(localePath(`/teacher/sign/${row.original.requestId}`));
+    router.push(localePath(`/signer/sign/${row.original.requestId}`));
 }
 
 function markAllRead() {
@@ -195,7 +195,7 @@ function markAllRead() {
             label="รายการรอลงนาม"
             icon="i-lucide-pen-line"
             class="text-primary-700 font-bold shadow-md"
-            :to="localePath('/teacher/to-sign')"
+            :to="localePath('/signer/to-sign')"
           />
         </div>
       </div>
@@ -254,7 +254,7 @@ function markAllRead() {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div
           class="bg-orange-50/50 border border-orange-100 rounded-xl p-4 flex items-start gap-4 hover:bg-orange-50 transition-colors cursor-pointer"
-          @click="router.push(localePath('/teacher/to-sign'))"
+          @click="router.push(localePath('/signer/to-sign'))"
         >
           <div class="bg-white p-2.5 rounded-lg text-orange-600 shadow-sm flex items-center justify-center">
             <UIcon name="i-lucide-pen-line" class="w-5 h-5" />
@@ -270,7 +270,7 @@ function markAllRead() {
         </div>
         <div
           class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-start gap-4 hover:bg-blue-50 transition-colors cursor-pointer"
-          @click="router.push(localePath('/teacher/signed-history'))"
+          @click="router.push(localePath('/signer/signed-history'))"
         >
           <div class="bg-white p-2.5 rounded-lg text-blue-600 shadow-sm flex items-center justify-center">
             <UIcon name="i-heroicons-clock" class="w-5 h-5" />

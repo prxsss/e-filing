@@ -17,6 +17,21 @@ export async function getRoles() {
     .groupBy(roles.id);
 }
 
+export async function getRoleWithUserCount(id: number) {
+  const [role] = await db
+    .select({
+      id: roles.id,
+      name: roles.name,
+      userCount: sql<number>`cast(count(${userRoles.userId}) as int)`,
+    })
+    .from(roles)
+    .leftJoin(userRoles, sql`${roles.id} = ${userRoles.roleId}`)
+    .where(eq(roles.id, id))
+    .groupBy(roles.id);
+
+  return role ?? null;
+}
+
 export async function createRole(data: {
   name: string;
   descriptionEn?: string | null;
@@ -61,6 +76,20 @@ export async function updateRole(
     .returning();
 
   return updated;
+}
+
+export async function getRoleById(id: number) {
+  const [role] = await db
+    .select({
+      id: roles.id,
+      name: roles.name,
+      descriptionEn: roles.descriptionEn,
+      descriptionTh: roles.descriptionTh,
+    })
+    .from(roles)
+    .where(eq(roles.id, id));
+
+  return role ?? null;
 }
 
 export async function deleteRole(id: number) {

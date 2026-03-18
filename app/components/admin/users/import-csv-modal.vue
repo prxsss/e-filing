@@ -53,7 +53,6 @@ const emit = defineEmits<{
   imported: [];
 }>();
 const authStore = useAuthStore();
-const runtimeConfig = useRuntimeConfig();
 const toast = useToast();
 const USelectMenu = resolveComponent('USelectMenu');
 const UInput = resolveComponent('UInput');
@@ -973,52 +972,38 @@ async function importData() {
   }
 
   isImporting.value = true;
-  const failedRows: string[] = [];
-  let success = 0;
-  let failed = 0;
 
   try {
-    for (const row of validRows.value) {
-      try {
-        await $fetch('/api/users', {
-          method: 'POST',
-          body: {
-            id: row.values.id,
-            firstNameEn: row.values.first_name_en,
-            lastNameEn: row.values.last_name_en,
-            firstNameTh: row.values.first_name_th,
-            lastNameTh: row.values.last_name_th,
-            email: row.emailValue,
-            image: normalizeOptionalValue(row.values.image) || undefined,
-            facultyId: row.facultyId,
+    const response = await $fetch<{ success: number; failed: number; failedRows: string[] }>('/api/users/import', {
+      method: 'POST',
+      body: {
+        users: validRows.value.map(row => ({
+          rowNumber: row.rowNumber,
+          id: row.values.id,
+          firstNameEn: row.values.first_name_en,
+          lastNameEn: row.values.last_name_en,
+          firstNameTh: row.values.first_name_th,
+          lastNameTh: row.values.last_name_th,
+          email: row.emailValue,
+          image: normalizeOptionalValue(row.values.image) || undefined,
+          roleAssignments: [
+            {
+              roleId: row.roleId,
+              facultyId: row.facultyId,
+              departmentId: row.departmentId,
+            },
+          ],
+        })),
+      },
+    });
 
-            // Simplify the process of development by using the same default password for all imported users.
-            password: runtimeConfig.public.importUserDefaultPassword,
+    importResult.value = response;
 
-            roleAssignments: [
-              {
-                roleId: row.roleId,
-                facultyId: row.facultyId,
-                departmentId: row.departmentId,
-              },
-            ],
-          },
-        });
-        success += 1;
-      }
-      catch (error: any) {
-        failed += 1;
-        failedRows.push(`Row ${row.rowNumber}: ${error?.data?.message || error?.message || 'Unknown error'}`);
-      }
-    }
-
-    importResult.value = { success, failed, failedRows };
-
-    if (success > 0) {
+    if (response.success > 0) {
       toast.add({
         title: 'Import completed',
-        description: `${success} users imported successfully${failed > 0 ? `, ${failed} failed.` : '.'}`,
-        color: failed > 0 ? 'warning' : 'success',
+        description: `${response.success} users imported successfully${response.failed > 0 ? `, ${response.failed} failed.` : '.'}`,
+        color: response.failed > 0 ? 'warning' : 'success',
       });
       emit('imported');
     }

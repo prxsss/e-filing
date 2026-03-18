@@ -15,6 +15,7 @@ const emit = defineEmits<{ close: [boolean] }>();
 const { t } = useI18n();
 const toast = useToast();
 const loading = ref(false);
+const isAdminRole = computed(() => props.role.name.toLowerCase() === 'admin');
 
 const editRoleSchema = z.object({
   name: z.string().min(1, 'Role name is required'),
@@ -36,7 +37,7 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
     await $fetch(`/api/roles/${props.role.id}`, {
       method: 'PATCH',
       body: {
-        name: event.data.name,
+        name: isAdminRole.value ? props.role.name : event.data.name,
         descriptionEn: event.data.descriptionEn || null,
         descriptionTh: event.data.descriptionTh || null,
       },
@@ -45,6 +46,11 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
     emit('close', true);
   }
   catch (error: any) {
+    if (error?.statusCode === 409 && error?.data?.code === 'ADMIN_ROLE_NAME_LOCKED') {
+      toast.add({ title: t('editRole'), description: t('adminRoleNameLocked'), color: 'error' });
+      return;
+    }
+
     const message = error?.data?.statusMessage || t('roleUpdateFailed');
     toast.add({ title: t('error'), description: message, color: 'error' });
   }
@@ -59,7 +65,10 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
     <template #body>
       <UForm :schema="editRoleSchema" :state="form" class="space-y-4" @submit="handleSubmit">
         <UFormField :label="t('roleName')" name="name" required>
-          <UInput v-model="form.name" :placeholder="t('roleNamePlaceholder')" class="w-full" />
+          <UInput v-model="form.name" :placeholder="t('roleNamePlaceholder')" class="w-full" :disabled="isAdminRole" />
+          <p v-if="isAdminRole" class="text-xs text-error mt-1">
+            {{ t('adminRoleNameLocked') }}
+          </p>
         </UFormField>
 
         <UFormField :label="t('descriptionEn')" name="descriptionEn">
