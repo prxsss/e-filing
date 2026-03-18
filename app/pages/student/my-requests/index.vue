@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import type { TableRow } from '@nuxt/ui';
 
-import { h, resolveComponent } from 'vue';
-
 definePageMeta({
   title: 'myRequests',
   middleware: ['permission'],

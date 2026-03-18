@@ -171,13 +171,6 @@ function markAllRead() {
       <div class="bg-linear-to-r from-primary-600 to-emerald-600 rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
         <!-- Decorative Background Element (same as student dashboard) -->
         <div class="absolute right-0 top-0 h-full w-1/3 bg-white/10 skew-x-12 translate-x-12 pointer-events-none" />
-        <!-- Placeholder — swap src for real banner image URL -->
-        <img
-          src="https://placehold.co/1200x300/00000000/ffffff00"
-          alt=""
-          class="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          aria-hidden="true"
-        >
 
         <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
@@ -188,15 +181,6 @@ function markAllRead() {
               ตรวจสอบและลงนามเอกสารคำร้องของนักศึกษา ติดตามสถานะได้ตลอด 24 ชม.
             </p>
           </div>
-          <UButton
-            size="xl"
-            color="success"
-            variant="solid"
-            label="รายการรอลงนาม"
-            icon="i-lucide-pen-line"
-            class="text-primary-700 font-bold shadow-md"
-            :to="localePath('/signer/to-sign')"
-          />
         </div>
       </div>
 
