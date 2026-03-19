@@ -21,10 +21,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
     onSelect: () => {
       open.value = false;
     },
-    visible: computed(() => authStore.canAny([
-      'dashboard.student.view',
-      'dashboard.admin.view',
-    ])),
+    visible: computed(() => authStore.can('dashboard.student.view')),
   },
   {
     label: t('dashboard'),
@@ -72,15 +69,6 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
     visible: computed(() => authStore.can('request.sign_history.view')),
   },
   {
-    label: t('templates'),
-    icon: 'i-lucide-file',
-    to: localePath('/admin/templates'),
-    onSelect: () => {
-      open.value = false;
-    },
-    visible: computed(() => authStore.can('template.view')),
-  },
-  {
     label: t('requests'),
     icon: 'i-lucide-files',
     to: localePath('/admin/requests'),
@@ -88,6 +76,15 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
       open.value = false;
     },
     visible: computed(() => authStore.can('request.view')),
+  },
+  {
+    label: t('templates'),
+    icon: 'i-lucide-file',
+    to: localePath('/admin/templates'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('template.view')),
   },
   {
     label: t('users'),
