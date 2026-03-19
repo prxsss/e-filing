@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { FieldInstance, FileTypeValue, SigningStep } from '~/types/template';
 
-defineProps<{
+const props = defineProps<{
   templateName: string;
+  templateDescription: string;
   uploadedFile: File | null;
   fileType: FileTypeValue;
   placedFields: FieldInstance[];
@@ -12,10 +13,63 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  confirm: [];
+  'confirm': [];
+  'update:templateDescription': [value: string];
 }>();
 
 const { t } = useI18n();
+
+const descriptionInput = ref<any>(null);
+const isDescriptionError = ref(false);
+
+const localDescription = computed({
+  get: () => props.templateDescription,
+  set: value => emit('update:templateDescription', value),
+});
+
+// Clear error state as soon as the user starts typing
+watch(localDescription, (newVal) => {
+  if (newVal && String(newVal).trim() !== '') {
+    isDescriptionError.value = false;
+  }
+});
+
+// Validation and Focus logic exposed for both local and parent usage
+function validateAndFocus(): boolean {
+  if (!localDescription.value || String(localDescription.value).trim() === '') {
+    isDescriptionError.value = true;
+
+    // Focus the text area
+    nextTick(() => {
+      if (descriptionInput.value) {
+        // Try focusing the Nuxt UI component directly, fallback to native textarea
+        if (typeof descriptionInput.value.focus === 'function') {
+          descriptionInput.value.focus();
+        }
+        else {
+          const el = descriptionInput.value.$el || descriptionInput.value;
+          const textarea = el.tagName === 'TEXTAREA' ? el : el.querySelector('textarea');
+          if (textarea)
+            textarea.focus();
+        }
+      }
+    });
+    return false;
+  }
+
+  isDescriptionError.value = false;
+  return true;
+}
+
+// Expose the method so the parent (create.vue) can trigger it
+defineExpose({ validateAndFocus });
+
+function handleConfirm() {
+  if (!validateAndFocus()) {
+    return;
+  }
+  emit('confirm');
+}
 
 function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): number {
   return fields.filter(f => f.signerStepId === step.id).length;
@@ -42,7 +96,7 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
           <UIcon name="i-heroicons-document-text" class="text-primary-500" />
           ข้อมูลเทมเพลต
         </h3>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-4 mb-6">
           <div>
             <label class="text-xs font-semibold text-gray-500 uppercase">{{ t('templateName') }}</label>
             <p class="text-sm font-medium text-gray-900 mt-1">
@@ -68,6 +122,27 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
             <p class="text-sm font-medium text-gray-900 mt-1">
               {{ placedFields.length }} {{ t('fields') }}
             </p>
+          </div>
+        </div>
+
+        <!-- Required Template Description Input -->
+        <div class="border-t border-gray-100 pt-5 mt-2">
+          <div class="bg-primary-50/50 p-4 rounded-lg border border-primary-100 transition-colors" :class="{ 'border-red-200 bg-red-50/50': isDescriptionError }">
+            <UFormGroup
+              label="รายละเอียดเทมเพลต"
+              description="คำอธิบายนี้จะช่วยให้ผู้ใช้เข้าใจจุดประสงค์ของเทมเพลตนี้ได้ง่ายขึ้น"
+              required
+              :error="isDescriptionError ? 'กรุณาระบุรายละเอียดเทมเพลตก่อนยืนยัน' : false"
+            >
+              <UTextarea
+                ref="descriptionInput"
+                v-model="localDescription"
+                placeholder="ระบุรายละเอียด..."
+                :rows="3"
+                class="mt-1"
+                autofocus
+              />
+            </UFormGroup>
           </div>
         </div>
       </div>
@@ -135,14 +210,14 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
       </div>
 
       <!-- Confirm Button -->
-      <div class="flex justify-center pt-4 pb-8">
+      <div class="flex flex-col items-center pt-4 pb-8">
         <UButton
           icon="i-heroicons-check-circle"
           :label="t('confirmSave')"
           size="xl"
           color="primary"
           class="px-8 font-bold"
-          @click="emit('confirm')"
+          @click="handleConfirm"
         />
       </div>
     </div>

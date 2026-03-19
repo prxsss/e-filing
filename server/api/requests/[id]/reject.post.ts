@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     // Mark the current step as rejected
     await db
       .update(signatureFlow)
-      .set({ status: 'rejected', signedBy: userId, signedAt: new Date() })
+      .set({ status: 'rejected', signedBy: userId, signedAt: new Date().toISOString() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
     // Cancel all remaining waiting steps

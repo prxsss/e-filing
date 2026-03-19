@@ -1,4 +1,4 @@
-import { pgTable, unique, text, boolean, timestamp, serial, varchar, foreignKey, integer, bigint, jsonb, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, unique, text, boolean, timestamp, serial, varchar, foreignKey, integer, bigint, jsonb, primaryKey, real } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const users = pgTable("users", {
@@ -236,6 +236,13 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	label: text().notNull(),
 	font: text().default('Prompt'),
 	fontSize: integer("font_size").default(14),
+	fontWeight: text("font_weight").default('normal'),
+	fontStyle: text("font_style").default('normal'),
+	textDecoration: text("text_decoration").default('none'),
+	textAlign: text("text_align").default('left'),
+	letterSpacing: real("letter_spacing").default(0),
+	lineHeight: real("line_height").default(1.5),
+	maxLength: integer("max_length"),
 	isFillable: boolean("is_fillable").default(true),
 	width: integer().notNull(),
 	height: integer().notNull(),
