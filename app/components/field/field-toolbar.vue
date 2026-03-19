@@ -369,20 +369,43 @@ function removeField() {
       <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
         <div class="h-5 w-px bg-gray-200" />
         <div class="flex items-center gap-1.5">
-          <UTooltip text="ขนาดตัวอักษร" :popper="{ placement: 'top' }">
+          <UTooltip text="ขนาดตัวอักษร">
             <div class="toolbar-input-group">
               <span class="toolbar-prefix text-gray-400">
                 <UIcon name="i-lucide-type" class="w-3.5 h-3.5" />
               </span>
-              <input
-                v-model.number="localField.fontSize"
-                type="number"
-                class="toolbar-input w-10"
-                min="8"
-                max="72"
-                placeholder="14"
-                @input="onPropertyChange"
-              >
+              <select v-model.number="localField.fontSize" class="toolbar-select" @change="onPropertyChange">
+                <option value="6">
+                  6
+                </option>
+                <option value="8">
+                  8
+                </option>
+                <option value="10">
+                  10
+                </option>
+                <option value="12">
+                  12
+                </option>
+                <option value="14">
+                  14
+                </option>
+                <option value="16">
+                  16
+                </option>
+                <option value="18">
+                  18
+                </option>
+                <option value="20">
+                  20
+                </option>
+                <option value="22">
+                  22
+                </option>
+                <option value="24">
+                  24
+                </option>
+              </select>
             </div>
           </UTooltip>
 
@@ -843,10 +866,6 @@ function removeField() {
   user-select: text;
   transition: all 0.15s ease-in-out;
   cursor: pointer;
-}
-
-.toolbar-select:focus {
-  outline: none;
 }
 
 .toolbar-select:focus {
