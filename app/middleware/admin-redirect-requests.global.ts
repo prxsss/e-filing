@@ -1,7 +1,7 @@
 export default defineNuxtRouteMiddleware((to) => {
   const authStore = useAuthStore();
 
-  if (authStore.can('dashboard.admin.view') && (to.path === '/' || to.path === '/admin' || to.path === '/admin/')) {
+  if (authStore.can('dashboard.admin.view') && (to.path === '/' || to.path === '/en' || to.path === '/en/' || to.path === '/admin' || to.path === '/en/admin' || to.path === '/admin/' || to.path === '/en/admin/')) {
     return navigateTo('/admin/requests');
   }
 }); ;
