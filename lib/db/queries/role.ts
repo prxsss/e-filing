@@ -1,10 +1,16 @@
 import { eq, sql } from 'drizzle-orm';
 
 import db from '..';
-import { rolePermissions, roles, userRoles } from '../schema';
+import { permissions, rolePermissions, roles, userRoles } from '../schema';
 
-export async function getRoles() {
-  return db
+type RoleListFilters = {
+  permission?: string;
+};
+
+export async function getRoles(filters: RoleListFilters = {}) {
+  const { permission } = filters;
+
+  const rolesListQuery = db
     .select({
       id: roles.id,
       name: roles.name,
@@ -15,6 +21,15 @@ export async function getRoles() {
     .from(roles)
     .leftJoin(userRoles, sql`${roles.id} = ${userRoles.roleId}`)
     .groupBy(roles.id);
+
+  // Join permissions if filtering by permission
+  if (permission) {
+    rolesListQuery.leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(permissions.code, permission));
+  }
+
+  return rolesListQuery;
 }
 
 export async function getRoleWithUserCount(id: number) {
