@@ -1,18 +1,113 @@
 <script setup lang="ts">
+import { getAutoDateTimeFormatConfig } from '../../../shared/auto-date-time-format';
+import { getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+
 type Field = any;
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   selectedField?: Field;
+  placedFields?: Field[];
   pdfRef?: any;
   scale?: number;
-}>();
+  isSavingDefaults?: boolean;
+}>(), {
+  placedFields: () => [],
+  isSavingDefaults: false,
+});
 
 const emit = defineEmits<{
   fieldUpdated: [data: { instanceId: string; updates: any }];
   fieldRemoved: [instanceId: string];
+  saveDefaults: [data: { fieldId: number | string; defaults: any }];
 }>();
 
 const localField = ref<any>({});
+
+function getFieldType(field?: Field): string {
+  return String(field?.type || field?.fieldType || '').toLowerCase();
+}
+
+function supportsConditionalSource(field?: Field): boolean {
+  if (!field) {
+    return false;
+  }
+
+  const fieldType = getFieldType(field);
+  const fieldName = String(field.name || '').trim().toLowerCase();
+  return fieldType === 'checkbox' || fieldName === 'check mark';
+}
+
+function normalizeVisibilityRule(rawRule: any) {
+  if (!rawRule || typeof rawRule !== 'object') {
+    return null;
+  }
+
+  const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
+  if (!sourceFieldInstanceId.length) {
+    return null;
+  }
+
+  return {
+    enabled: rawRule.enabled !== false,
+    sourceFieldInstanceId,
+    operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
+    // Always preserve hidden field values.
+    clearWhenHidden: false,
+  };
+}
+
+function getConditionalSourceLabel(field?: Field): string {
+  if (!field) {
+    return 'Checkbox';
+  }
+
+  const baseLabel = String(field.label || field.name || 'Checkbox').trim();
+  const instanceSuffix = ` #${getFieldDisplayInstanceNumber(field, props.placedFields)}`;
+  return `${baseLabel}${instanceSuffix}`;
+}
+
+const conditionalSourceOptions = computed(() => {
+  const selectedInstanceId = String(props.selectedField?.instanceId || '').trim();
+
+  return (props.placedFields || [])
+    .filter((field: any) => {
+      if (!field) {
+        return false;
+      }
+
+      const instanceId = String(field.instanceId || '').trim();
+      if (!instanceId.length || instanceId === selectedInstanceId) {
+        return false;
+      }
+
+      return supportsConditionalSource(field);
+    })
+    .map((field: any) => {
+      return {
+        value: String(field.instanceId),
+        label: getConditionalSourceLabel(field),
+      };
+    });
+});
+
+function normalizeMaxLength(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0)
+    return null;
+  return parsed;
+}
+
+const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
+const isDateField = computed(() => selectedFieldType.value === 'date');
+const isTimeField = computed(() => selectedFieldType.value === 'time');
+
+const supportsMaxLength = computed(() => {
+  return selectedFieldType.value !== 'signature'
+    && selectedFieldType.value !== 'icon'
+    && selectedFieldType.value !== 'date'
+    && selectedFieldType.value !== 'time'
+    && selectedFieldType.value !== 'checkbox';
+});
 
 // Use computed for display coordinates to ensure they recalculate when scale changes
 const displayCoords = computed(() => {
@@ -70,14 +165,22 @@ watch(
   () => props.selectedField,
   (newField) => {
     if (newField) {
+      const fieldType = getFieldType(newField);
+      const autoDateTimeConfig = getAutoDateTimeFormatConfig(newField);
+      const visibilityRule = normalizeVisibilityRule(newField.visibilityRule ?? newField.visibility_rule);
       localField.value = {
         ...newField,
+        ...autoDateTimeConfig,
         fontWeight: newField.fontWeight || 'normal',
         fontStyle: newField.fontStyle || 'normal',
         textDecoration: newField.textDecoration || 'none',
         textAlign: newField.textAlign || 'left',
-        letterSpacing: newField.letterSpacing ?? 0,
+        letterSpacing: fieldType === 'date' || fieldType === 'time' ? 0 : (newField.letterSpacing ?? 0),
         lineHeight: newField.lineHeight ?? 1.5,
+        maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
+        conditionalEnabled: Boolean(visibilityRule),
+        conditionalSourceFieldInstanceId: visibilityRule?.sourceFieldInstanceId || '',
+        conditionalOperator: visibilityRule?.operator || 'isChecked',
       };
     }
     else {
@@ -87,9 +190,62 @@ watch(
   { immediate: true },
 );
 
+function toggleConditionalVisibility() {
+  if (!localField.value) {
+    return;
+  }
+
+  localField.value.conditionalEnabled = !localField.value.conditionalEnabled;
+  if (!localField.value.conditionalEnabled) {
+    localField.value.conditionalSourceFieldInstanceId = '';
+  }
+
+  onPropertyChange();
+}
+
 function onPropertyChange() {
   if (!localField.value || !props.selectedField)
     return;
+
+  const autoDateTimeConfig = getAutoDateTimeFormatConfig(localField.value);
+
+  const dateTimeFormatUpdates = isDateField.value
+    ? {
+        dateSeparator: autoDateTimeConfig.dateSeparator,
+        dateSeparatorSpacing: autoDateTimeConfig.dateSeparatorSpacing,
+        dateShowDay: autoDateTimeConfig.dateShowDay,
+        dateShowMonth: autoDateTimeConfig.dateShowMonth,
+        dateShowYear: autoDateTimeConfig.dateShowYear,
+      }
+    : isTimeField.value
+      ? {
+          timeSeparator: autoDateTimeConfig.timeSeparator,
+          timeSeparatorSpacing: autoDateTimeConfig.timeSeparatorSpacing,
+          timeShowHour: autoDateTimeConfig.timeShowHour,
+          timeShowMinute: autoDateTimeConfig.timeShowMinute,
+        }
+      : {};
+
+  const commonStyleUpdates = {
+    fontSize: localField.value.fontSize || 14,
+    fontFamily: localField.value.fontFamily || 'Arial',
+    fontWeight: localField.value.fontWeight || 'normal',
+    fontStyle: localField.value.fontStyle || 'normal',
+    textDecoration: localField.value.textDecoration || 'none',
+    textAlign: localField.value.textAlign || 'left',
+    letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
+    lineHeight: localField.value.lineHeight ?? 1.5,
+    maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+    visibilityRule: localField.value.conditionalEnabled
+      ? normalizeVisibilityRule({
+          enabled: true,
+          sourceFieldInstanceId: localField.value.conditionalSourceFieldInstanceId,
+          operator: localField.value.conditionalOperator,
+          clearWhenHidden: false,
+        })
+      : null,
+    ...dateTimeFormatUpdates,
+  };
 
   // For PDF with normalized coordinates, convert display back to normalized
   if (props.pdfRef && props.selectedField.normalizedX !== undefined) {
@@ -109,14 +265,7 @@ function onPropertyChange() {
           normalizedY: normalized.y,
           normalizedWidth: normalized.width,
           normalizedHeight: normalized.height,
-          fontSize: localField.value.fontSize || 14,
-          fontFamily: localField.value.fontFamily || 'Arial',
-          fontWeight: localField.value.fontWeight || 'normal',
-          fontStyle: localField.value.fontStyle || 'normal',
-          textDecoration: localField.value.textDecoration || 'none',
-          textAlign: localField.value.textAlign || 'left',
-          letterSpacing: localField.value.letterSpacing ?? 0,
-          lineHeight: localField.value.lineHeight ?? 1.5,
+          ...commonStyleUpdates,
         },
       });
       return;
@@ -131,29 +280,79 @@ function onPropertyChange() {
       y: editableY.value,
       width: editableWidth.value,
       height: editableHeight.value,
-      fontSize: localField.value.fontSize || 14,
-      fontFamily: localField.value.fontFamily || 'Arial',
-      fontWeight: localField.value.fontWeight || 'normal',
-      fontStyle: localField.value.fontStyle || 'normal',
-      textDecoration: localField.value.textDecoration || 'none',
-      textAlign: localField.value.textAlign || 'left',
-      letterSpacing: localField.value.letterSpacing ?? 0,
-      lineHeight: localField.value.lineHeight ?? 1.5,
+      ...commonStyleUpdates,
     },
   });
 }
 
-function onAutoGenerateChange(event: Event) {
-  if (!props.selectedField)
+function saveDefaults() {
+  const fieldId = props.selectedField?.id;
+  if (fieldId === undefined || fieldId === null) {
     return;
-  const checked = (event.target as HTMLInputElement).checked;
-  localField.value.isAutoGenerate = checked;
-  emit('fieldUpdated', {
-    instanceId: props.selectedField.instanceId,
-    updates: {
-      isAutoGenerate: checked,
+  }
+
+  const autoDateTimeConfig = getAutoDateTimeFormatConfig(localField.value);
+
+  const dateTimeDefaults = isDateField.value
+    ? {
+        dateSeparator: autoDateTimeConfig.dateSeparator,
+        dateSeparatorSpacing: autoDateTimeConfig.dateSeparatorSpacing,
+        dateShowDay: autoDateTimeConfig.dateShowDay,
+        dateShowMonth: autoDateTimeConfig.dateShowMonth,
+        dateShowYear: autoDateTimeConfig.dateShowYear,
+      }
+    : isTimeField.value
+      ? {
+          timeSeparator: autoDateTimeConfig.timeSeparator,
+          timeSeparatorSpacing: autoDateTimeConfig.timeSeparatorSpacing,
+          timeShowHour: autoDateTimeConfig.timeShowHour,
+          timeShowMinute: autoDateTimeConfig.timeShowMinute,
+        }
+      : {};
+
+  emit('saveDefaults', {
+    fieldId,
+    defaults: {
+      width: editableWidth.value,
+      height: editableHeight.value,
+      font: localField.value.fontFamily || localField.value.font || 'Arial',
+      fontSize: localField.value.fontSize || 14,
+      fontWeight: localField.value.fontWeight || 'normal',
+      fontStyle: localField.value.fontStyle || 'normal',
+      textDecoration: localField.value.textDecoration || 'none',
+      textAlign: localField.value.textAlign || 'left',
+      letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
+      lineHeight: localField.value.lineHeight ?? 1.5,
+      maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+      ...dateTimeDefaults,
     },
   });
+}
+
+function toggleDatePart(partKey: 'dateShowDay' | 'dateShowMonth' | 'dateShowYear') {
+  const parts: Array<'dateShowDay' | 'dateShowMonth' | 'dateShowYear'> = ['dateShowDay', 'dateShowMonth', 'dateShowYear'];
+  const activeCount = parts.filter(key => localField.value[key] !== false).length;
+  const isActive = localField.value[partKey] !== false;
+
+  if (isActive && activeCount <= 1) {
+    return;
+  }
+
+  localField.value[partKey] = !isActive;
+  onPropertyChange();
+}
+
+function toggleTimePart(partKey: 'timeShowHour' | 'timeShowMinute') {
+  const parts: Array<'timeShowHour' | 'timeShowMinute'> = ['timeShowHour', 'timeShowMinute'];
+  const activeCount = parts.filter(key => localField.value[key] !== false).length;
+  const isActive = localField.value[partKey] !== false;
+
+  if (isActive && activeCount <= 1) {
+    return;
+  }
+
+  localField.value[partKey] = !isActive;
+  onPropertyChange();
 }
 
 function removeField() {
@@ -166,40 +365,9 @@ function removeField() {
 <template>
   <div class="field-toolbar-wrapper bg-white shadow-sm border border-gray-200 rounded-lg px-3 py-1.5 mx-auto">
     <div class="field-toolbar-inline">
-      <!-- Identity Section -->
-      <UTooltip text="ประเภทของช่องข้อมูล" :popper="{ placement: 'top' }">
-        <div class="flex items-center gap-1.5 bg-primary-50 px-2 py-1 rounded-md border border-primary-100">
-          <UIcon name="i-heroicons-tag" class="w-3.5 h-3.5 text-primary-500" />
-          <span class="text-xs font-semibold text-primary-700 truncate max-w-32">{{ selectedField.name }}</span>
-          <span v-if="selectedField.instanceNumber > 1" class="text-[10px] bg-white text-primary-600 px-1 rounded shadow-sm font-mono">
-            #{{ selectedField.instanceNumber }}
-          </span>
-        </div>
-      </UTooltip>
-
-      <div class="h-5 w-px bg-gray-200" />
-
-      <!-- Size Section (Width and Height) -->
-      <div class="flex items-center gap-1.5">
-        <UTooltip text="ความกว้าง (Width)" :popper="{ placement: 'top' }">
-          <div class="toolbar-input-group">
-            <span class="toolbar-prefix">W</span>
-            <input v-model.number="editableWidth" type="number" class="toolbar-input w-12" min="10" @input="onPropertyChange">
-          </div>
-        </UTooltip>
-
-        <UTooltip text="ความสูง (Height)" :popper="{ placement: 'top' }">
-          <div class="toolbar-input-group">
-            <span class="toolbar-prefix">H</span>
-            <input v-model.number="editableHeight" type="number" class="toolbar-input w-12" min="10" @input="onPropertyChange">
-          </div>
-        </UTooltip>
-      </div>
-
       <!-- Font (text fields only) -->
-      <template v-if="selectedField.type !== 'Icon' && selectedField.type !== 'Signature'">
+      <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
         <div class="h-5 w-px bg-gray-200" />
-
         <div class="flex items-center gap-1.5">
           <UTooltip text="ขนาดตัวอักษร" :popper="{ placement: 'top' }">
             <div class="toolbar-input-group">
@@ -224,40 +392,9 @@ function removeField() {
               class="toolbar-select"
               @change="onPropertyChange"
             >
-              <optgroup label="ฟอนต์ภาษาไทย">
-                <option value="Sarabun">
-                  Sarabun (สารบรรณ)
-                </option>
-                <option value="Prompt">
-                  Prompt (พร้อม)
-                </option>
-                <option value="Mitr">
-                  Mitr (มิตร)
-                </option>
-              </optgroup>
-              <optgroup label="ฟอนต์ภาษาอังกฤษ">
-                <option value="Arial">
-                  Arial
-                </option>
-                <option value="Helvetica">
-                  Helvetica
-                </option>
-                <option value="Times New Roman">
-                  Times New Roman
-                </option>
-                <option value="Courier New">
-                  Courier New
-                </option>
-                <option value="Georgia">
-                  Georgia
-                </option>
-                <option value="Verdana">
-                  Verdana
-                </option>
-                <option value="Tahoma">
-                  Tahoma
-                </option>
-              </optgroup>
+              <option value="Sarabun">
+                Sarabun (สารบรรณ)
+              </option>
             </select>
           </UTooltip>
 
@@ -327,26 +464,28 @@ function removeField() {
             </UTooltip>
           </div>
 
-          <div class="h-5 w-px bg-gray-200" />
+          <template v-if="!isDateField && !isTimeField">
+            <div class="h-5 w-px bg-gray-200" />
 
-          <!-- Letter spacing -->
-          <UTooltip text="ระยะห่างตัวอักษร (Letter Spacing)" :popper="{ placement: 'top' }">
-            <div class="toolbar-input-group">
-              <span class="toolbar-prefix text-gray-400">
-                <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
-              </span>
-              <input
-                v-model.number="localField.letterSpacing"
-                type="number"
-                class="toolbar-input w-12"
-                min="-5"
-                max="20"
-                step="0.5"
-                placeholder="0"
-                @input="onPropertyChange"
-              >
-            </div>
-          </UTooltip>
+            <!-- Letter spacing -->
+            <UTooltip text="ระยะห่างตัวอักษร (Letter Spacing)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix text-gray-400">
+                  <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
+                </span>
+                <input
+                  v-model.number="localField.letterSpacing"
+                  type="number"
+                  class="toolbar-input w-12"
+                  min="-5"
+                  max="20"
+                  step="0.5"
+                  placeholder="0"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+          </template>
 
           <div class="h-5 w-px bg-gray-200" />
 
@@ -368,29 +507,173 @@ function removeField() {
               >
             </div>
           </UTooltip>
+
+          <template v-if="supportsMaxLength">
+            <div class="h-5 w-px bg-gray-200" />
+
+            <UTooltip text="จำนวนตัวอักษรสูงสุด (เว้นว่าง = ไม่จำกัด)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix text-gray-400">
+                  <UIcon name="i-heroicons-hashtag" class="w-3.5 h-3.5" />
+                </span>
+                <input
+                  v-model.number="localField.maxLength"
+                  type="number"
+                  class="toolbar-input w-14"
+                  min="1"
+                  max="5000"
+                  step="1"
+                  placeholder="∞"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+          </template>
+
+          <template v-if="isDateField">
+            <div class="h-5 w-px bg-gray-200" />
+
+            <UTooltip text="ตัวคั่นวันที่ (เว้นว่าง = ไม่คั่น)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">/</span>
+                <input
+                  v-model="localField.dateSeparator"
+                  type="text"
+                  class="toolbar-input w-10"
+                  maxlength="3"
+                  placeholder="/"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <UTooltip text="ระยะห่างตัวคั่นวันที่" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">gap</span>
+                <input
+                  v-model.number="localField.dateSeparatorSpacing"
+                  type="number"
+                  class="toolbar-input w-10"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <div class="flex items-center gap-0.5">
+              <UTooltip text="แสดงวัน" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.dateShowDay !== false }"
+                  @click="toggleDatePart('dateShowDay')"
+                >
+                  D
+                </button>
+              </UTooltip>
+              <UTooltip text="แสดงเดือน" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.dateShowMonth !== false }"
+                  @click="toggleDatePart('dateShowMonth')"
+                >
+                  M
+                </button>
+              </UTooltip>
+              <UTooltip text="แสดงปี" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.dateShowYear !== false }"
+                  @click="toggleDatePart('dateShowYear')"
+                >
+                  Y
+                </button>
+              </UTooltip>
+            </div>
+          </template>
+
+          <template v-if="isTimeField">
+            <div class="h-5 w-px bg-gray-200" />
+
+            <UTooltip text="ตัวคั่นเวลา (เว้นว่าง = ไม่คั่น)" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">:</span>
+                <input
+                  v-model="localField.timeSeparator"
+                  type="text"
+                  class="toolbar-input w-10"
+                  maxlength="3"
+                  placeholder=":"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <UTooltip text="ระยะห่างตัวคั่นเวลา" :popper="{ placement: 'top' }">
+              <div class="toolbar-input-group">
+                <span class="toolbar-prefix">gap</span>
+                <input
+                  v-model.number="localField.timeSeparatorSpacing"
+                  type="number"
+                  class="toolbar-input w-10"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  @input="onPropertyChange"
+                >
+              </div>
+            </UTooltip>
+
+            <div class="flex items-center gap-0.5">
+              <UTooltip text="แสดงชั่วโมง" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.timeShowHour !== false }"
+                  @click="toggleTimePart('timeShowHour')"
+                >
+                  H
+                </button>
+              </UTooltip>
+              <UTooltip text="แสดงนาที" :popper="{ placement: 'top' }">
+                <button
+                  class="toolbar-fmt-btn"
+                  :class="{ active: localField.timeShowMinute !== false }"
+                  @click="toggleTimePart('timeShowMinute')"
+                >
+                  M
+                </button>
+              </UTooltip>
+            </div>
+          </template>
         </div>
       </template>
 
-      <!-- Auto-generate toggle (Date fields only) -->
-      <template v-if="selectedField.type === 'Date' || selectedField.fieldType === 'Date'">
-        <div class="h-5 w-px bg-gray-200" />
-        <UTooltip text="ระบบจะเติมวันที่ปัจจุบันให้อัตโนมัติ" :popper="{ placement: 'top' }">
-          <label
-            class="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-colors"
-            :class="localField.isAutoGenerate ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'"
-          >
-            <input
-              type="checkbox"
-              :checked="localField.isAutoGenerate"
-              class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-              @change="onAutoGenerateChange"
-            >
-            <span class="text-xs font-medium" :class="localField.isAutoGenerate ? 'text-blue-700' : 'text-gray-600'">
-              เติมอัตโนมัติ
-            </span>
-          </label>
-        </UTooltip>
-      </template>
+      <div class="h-5 w-px bg-gray-200" />
+
+      <!-- Conditional visibility toggle (details shown in second row) -->
+      <UTooltip text="แสดงช่องนี้ตามเงื่อนไขจาก Checkbox" :popper="{ placement: 'top' }">
+        <button
+          class="toolbar-fmt-btn"
+          :class="{ active: localField.conditionalEnabled }"
+          @click="toggleConditionalVisibility"
+        >
+          <UIcon name="i-heroicons-adjustments-horizontal" class="w-3.5 h-3.5" />
+        </button>
+      </UTooltip>
+
+      <div class="h-5 w-px bg-gray-200" />
+
+      <!-- Save as default -->
+      <UTooltip text="บันทึกค่าช่องนี้เป็นค่าเริ่มต้นของ Field" :popper="{ placement: 'top' }">
+        <button
+          class="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="!selectedField?.id || isSavingDefaults"
+          @click="saveDefaults"
+        >
+          <UIcon :name="isSavingDefaults ? 'i-heroicons-arrow-path' : 'i-heroicons-bookmark-square'" class="w-4 h-4" :class="{ 'animate-spin': isSavingDefaults }" />
+        </button>
+      </UTooltip>
 
       <div class="h-5 w-px bg-gray-200" />
 
@@ -404,12 +687,55 @@ function removeField() {
         </button>
       </UTooltip>
     </div>
+
+    <div v-if="localField.conditionalEnabled" class="conditional-toolbar-row">
+      <div class="conditional-toolbar-inline">
+        <span class="conditional-toolbar-label">
+          <UIcon name="i-heroicons-funnel" class="w-3.5 h-3.5" />
+          เงื่อนไขการแสดงผลจาก Checkbox
+        </span>
+
+        <select
+          v-model="localField.conditionalSourceFieldInstanceId"
+          class="toolbar-select conditional-select"
+          @change="onPropertyChange"
+        >
+          <option value="" disabled>
+            เลือก Checkbox
+          </option>
+          <option
+            v-for="option in conditionalSourceOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+
+        <select
+          v-model="localField.conditionalOperator"
+          class="toolbar-select conditional-select"
+          @change="onPropertyChange"
+        >
+          <option value="isChecked">
+            ติ๊กแล้ว
+          </option>
+          <option value="isUnchecked">
+            ไม่ติ๊ก
+          </option>
+        </select>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .field-toolbar-wrapper {
   display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  max-width: 100%;
   box-shadow:
     0 2px 8px -2px rgba(0, 0, 0, 0.05),
     0 4px 16px -4px rgba(0, 0, 0, 0.02);
@@ -419,8 +745,42 @@ function removeField() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.conditional-toolbar-row {
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 0.5rem;
+}
+
+.conditional-toolbar-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conditional-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 9999px;
+  padding: 0.2rem 0.5rem;
+  white-space: nowrap;
+}
+
+.conditional-select {
+  max-width: 16rem;
 }
 
 /* Figma-style Input Group */
@@ -493,6 +853,22 @@ function removeField() {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.toolbar-inline-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.toolbar-inline-checkbox input {
+  width: 0.75rem;
+  height: 0.75rem;
+  accent-color: #3b82f6;
 }
 
 /* Hide number spin buttons completely */

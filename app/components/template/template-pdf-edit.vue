@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { FieldInstance, PdfDimensions } from '~/types/template';
 
+import { getFieldDisplayBadgeText } from '../../../shared/field-instance-number';
+
 type Props = {
   pdfBytes?: Uint8Array | null;
   originalPdfBytes?: Uint8Array | null;
@@ -178,6 +180,11 @@ const placedFieldsOnCurrentPage = computed<FieldInstance[]>(() => {
     field => !field.pageNumber || field.pageNumber === currentPage.value,
   );
 });
+
+function supportsLetterSpacing(field: FieldInstance): boolean {
+  const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
+  return fieldType !== 'date' && fieldType !== 'time';
+}
 
 // Converts normalized coords → display coords for rendering
 const fieldsWithDisplayCoords = computed<FieldInstance[]>(() => {
@@ -757,7 +764,7 @@ defineExpose({
                 textDecoration: field.textDecoration || 'none',
                 fontKerning: 'none',
                 justifyContent: field.textAlign === 'right' ? 'flex-end' : field.textAlign === 'center' ? 'center' : 'flex-start',
-                letterSpacing: field.letterSpacing ? `${field.letterSpacing}px` : undefined,
+                letterSpacing: supportsLetterSpacing(field) && field.letterSpacing ? `${field.letterSpacing}px` : undefined,
                 lineHeight: field.lineHeight ?? 1.5,
                 zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 1,
               }"
@@ -765,8 +772,30 @@ defineExpose({
               @touchstart="startDrag($event, field)"
               @click="selectField(field)"
             >
+              <div
+                v-if="field.name === 'Check Mark'"
+                class="checkbox-tag"
+                :title="getFieldDisplayBadgeText(field, props.placedFields)"
+              >
+                {{ getFieldDisplayBadgeText(field, props.placedFields) }}
+              </div>
+
               <div class="field-content">
-                <UIcon v-if="field.name === 'Check Mark'" :name="field.icon" class="w-4 h-4" />
+                <svg
+                  v-if="field.name === 'Check Mark'"
+                  class="w-4 h-4 shrink-0 text-gray-900"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 13L9 17L19 7"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
                 <span v-if="field.label">{{ field.label }}</span>
                 <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
               </div>
@@ -873,6 +902,24 @@ defineExpose({
 .placed-field * {
   user-select: none;
   pointer-events: none;
+}
+
+.checkbox-tag {
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  font-size: 0.55rem;
+  color: #78350f;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: normal;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1002;
 }
 
 .placed-field:hover {

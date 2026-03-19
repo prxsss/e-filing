@@ -1,22 +1,100 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, roles, userRoles, users } from '../schema';
 
-export async function getUsers({ pageSize, offset }: { pageSize: number; offset: number }) {
-  const [rows, total] = await Promise.all([
-    db
-      .select({
-        id: users.id,
+type UserListFilters = {
+  search?: string;
+  facultyId?: number | null;
+  departmentId?: number | null;
+  roleId?: number | null;
+  status?: 'active' | 'banned' | null;
+};
 
-        fullNameEn: sql<string>`
+function getUsersWhere(filters: UserListFilters): SQL | undefined {
+  const conditions: SQL[] = [];
+
+  const search = filters.search?.trim();
+  if (search) {
+    const keyword = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(users.id, keyword),
+        ilike(users.email, keyword),
+        ilike(sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`, keyword),
+        ilike(sql<string>`concat(${users.firstNameTh}, ' ', ${users.lastNameTh})`, keyword),
+      )!,
+    );
+  }
+
+  if (typeof filters.facultyId === 'number') {
+    conditions.push(
+      sql`exists (
+        select 1
+        from ${userRoles} ur
+        where ur.user_id = ${users.id}
+          and ur.faculty_id = ${filters.facultyId}
+      )`,
+    );
+  }
+
+  if (typeof filters.departmentId === 'number') {
+    conditions.push(
+      sql`exists (
+        select 1
+        from ${userRoles} ur
+        where ur.user_id = ${users.id}
+          and ur.department_id = ${filters.departmentId}
+      )`,
+    );
+  }
+
+  if (typeof filters.roleId === 'number') {
+    conditions.push(
+      sql`exists (
+        select 1
+        from ${userRoles} ur
+        where ur.user_id = ${users.id}
+          and ur.role_id = ${filters.roleId}
+      )`,
+    );
+  }
+
+  if (filters.status === 'active') {
+    conditions.push(eq(users.banned, false));
+  }
+  else if (filters.status === 'banned') {
+    conditions.push(eq(users.banned, true));
+  }
+
+  return conditions.length > 0 ? and(...conditions)! : undefined;
+}
+
+export async function getUsers({
+  pageSize,
+  offset,
+  filters,
+}: {
+  pageSize: number;
+  offset: number;
+  filters?: UserListFilters;
+}) {
+  const whereClause = getUsersWhere(filters ?? {});
+
+  const usersListQuery = db
+    .select({
+      id: users.id,
+
+      fullNameEn: sql<string>`
           concat(${users.firstNameEn}, ' ', ${users.lastNameEn})
         `,
 
-        email: users.email,
-        banned: users.banned,
+      email: users.email,
+      banned: users.banned,
 
-        faculties: sql<{ nameEn: string; nameTh: string }[]>`
+      faculties: sql<{ nameEn: string; nameTh: string }[]>`
           coalesce(
             json_agg(
               distinct jsonb_build_object(
@@ -28,7 +106,7 @@ export async function getUsers({ pageSize, offset }: { pageSize: number; offset:
           )
         `,
 
-        roles: sql<{ name: string; count: number }[]>`
+      roles: sql<{ name: string; count: number }[]>`
           coalesce(
             (
               select json_agg(
@@ -48,15 +126,27 @@ export async function getUsers({ pageSize, offset }: { pageSize: number; offset:
             '[]'
           )
         `,
-      })
-      .from(users)
-      .leftJoin(userRoles, eq(users.id, userRoles.userId))
-      .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
-      .groupBy(users.id)
-      .orderBy(desc(users.createdAt))
-      .limit(pageSize)
-      .offset(offset),
-    db.$count(users),
+    })
+    .from(users)
+    .leftJoin(userRoles, eq(users.id, userRoles.userId))
+    .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
+    .groupBy(users.id)
+    .orderBy(desc(users.createdAt))
+    .limit(pageSize)
+    .offset(offset);
+
+  const usersTotalQuery = db
+    .select({ count: sql<number>`cast(count(*) as int)` })
+    .from(users);
+
+  if (whereClause) {
+    usersListQuery.where(whereClause);
+    usersTotalQuery.where(whereClause);
+  }
+
+  const [rows, total] = await Promise.all([
+    usersListQuery,
+    usersTotalQuery.then(result => result[0]?.count ?? 0),
   ]);
 
   return { rows, total };

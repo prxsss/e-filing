@@ -111,7 +111,7 @@
   "allTemplates": "All Templates",
   "requestDetails": "Request Details",
   "placeFields": "Place Fields",
-  "signingFlow": "Signing Flow",
+  "signingFlow": "Signing Step",
   "reviewAndSave": "Review & Save",
   "next": "Next",
   "previous": "Previous",
@@ -143,5 +143,6 @@
   "noUsersWithRole": "No users with this role",
   "confirmSave": "Confirm & Save Template",
   "faculties": "Faculties",
-  "departments": "Departments"
+  "departments": "Departments",
+  "assignPersonTooltip": "If no choice is made, the first person will choose instead."
 }
