@@ -1,9 +1,60 @@
-import { and, eq, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, roles, userRoles, users } from '../schema';
 
-export async function getDepartments() {
+type DepartmentListFilters = {
+  search?: string;
+  facultyId?: number;
+};
+
+function getDepartmentsWhere(filters: DepartmentListFilters): SQL | undefined {
+  const conditions: SQL[] = [];
+
+  if (typeof filters.facultyId === 'number' && Number.isFinite(filters.facultyId)) {
+    conditions.push(eq(departments.facultyId, filters.facultyId));
+  }
+
+  const search = filters.search?.trim();
+  if (search) {
+    const keyword = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(sql<string>`${departments.id}::text`, keyword),
+        ilike(departments.nameEn, keyword),
+        ilike(departments.nameTh, keyword),
+        sql`exists (
+          select 1
+          from ${userRoles} ur
+          join ${roles} r on ur.role_id = r.id
+          join ${users} u on ur.user_id = u.id
+          where ur.department_id = ${departments.id}
+            and lower(r.name) in ('head of dept', 'head of the department', 'department head')
+            and (
+              concat(u.first_name_en, ' ', u.last_name_en) ilike ${keyword}
+              or concat(u.first_name_th, ' ', u.last_name_th) ilike ${keyword}
+            )
+        )`,
+      )!,
+    );
+  }
+
+  return conditions.length > 0 ? and(...conditions)! : undefined;
+}
+
+export async function getDepartments({
+  pageSize,
+  offset,
+  filters,
+}: {
+  pageSize: number;
+  offset: number;
+  filters?: DepartmentListFilters;
+}) {
+  const whereClause = getDepartmentsWhere(filters ?? {});
+
   const headOfDepartment = db
     .select({
       headOfDeptEn: sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`.as('head_of_dept_en'),
@@ -21,23 +72,41 @@ export async function getDepartments() {
     .limit(1)
     .as('head_of_department');
 
-  return await db
-    .select({
-      id: departments.id,
-      departmentCode: departments.departmentCode,
-      nameEn: departments.nameEn,
-      nameTh: departments.nameTh,
-      faculty: sql<{ id: number; nameEn: string; nameTh: string }>`json_build_object(
-        'id', ${faculties.id},
-        'nameEn', ${faculties.nameEn},
-        'nameTh', ${faculties.nameTh}
-      )`,
-      headOfDeptEn: headOfDepartment.headOfDeptEn,
-      headOfDeptTh: headOfDepartment.headOfDeptTh,
-    })
+  const departmentsListQuery = db.select({
+    id: departments.id,
+    departmentCode: departments.departmentCode,
+    nameEn: departments.nameEn,
+    nameTh: departments.nameTh,
+    faculty: sql<{ id: number; nameEn: string; nameTh: string }>`json_build_object(
+      'id', ${faculties.id},
+      'nameEn', ${faculties.nameEn},
+      'nameTh', ${faculties.nameTh}
+    )`,
+    headOfDeptEn: headOfDepartment.headOfDeptEn,
+    headOfDeptTh: headOfDepartment.headOfDeptTh,
+  })
     .from(departments)
     .leftJoin(faculties, eq(departments.facultyId, faculties.id))
-    .leftJoinLateral(headOfDepartment, sql`true`);
+    .leftJoinLateral(headOfDepartment, sql`true`)
+    .orderBy(desc(departments.id))
+    .limit(pageSize)
+    .offset(offset);
+
+  const departmentsTotalQuery = db
+    .select({ count: sql<number>`cast(count(*) as int)` })
+    .from(departments);
+
+  if (whereClause) {
+    departmentsListQuery.where(whereClause);
+    departmentsTotalQuery.where(whereClause);
+  }
+
+  const [rows, total] = await Promise.all([
+    departmentsListQuery,
+    departmentsTotalQuery.then(result => result[0]?.count ?? 0),
+  ]);
+
+  return { rows, total };
 }
 
 export async function createDepartment(data: {
