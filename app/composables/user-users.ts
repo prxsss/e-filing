@@ -1,4 +1,12 @@
-export function useUsers() {
+type UserSearchFilters = {
+  search?: Ref<string>;
+  facultyId?: Ref<number | null | undefined>;
+  departmentId?: Ref<number | null | undefined>;
+  roleId?: Ref<number | null | undefined>;
+  status?: Ref<'active' | 'banned' | null | undefined>;
+};
+
+export function useUsers(filters: UserSearchFilters = {}) {
   const page = ref(1);
   const pageSize = ref(5);
 
@@ -6,6 +14,11 @@ export function useUsers() {
     query: computed(() => ({
       page: page.value,
       pageSize: pageSize.value,
+      search: filters.search?.value?.trim() || undefined,
+      facultyId: filters.facultyId?.value ?? undefined,
+      departmentId: filters.departmentId?.value ?? undefined,
+      roleId: filters.roleId?.value ?? undefined,
+      status: filters.status?.value ?? undefined,
     })),
   });
 

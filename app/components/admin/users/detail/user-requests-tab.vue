@@ -20,7 +20,7 @@ defineProps<{
   <UCard>
     <template #header>
       <div class="flex items-center gap-3">
-        <UIcon name="i-heroicons-document-20-solid" class="text-gray-400" />
+        <UIcon name="i-lucide-file-text" class="text-primary" />
         <h2 class="font-semibold">
           Related Requests
         </h2>

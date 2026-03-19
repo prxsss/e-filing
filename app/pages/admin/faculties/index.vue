@@ -23,6 +23,8 @@ const authStore = useAuthStore();
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const deletingFacultyId = ref<number | null>(null);
+const searchInput = ref('');
+const appliedSearch = ref('');
 
 type FacultyListItem = {
   id: number;
@@ -34,7 +36,14 @@ type FacultyListItem = {
   deanNameTh: string;
 };
 
-const { rows, isLoading, page, pageSize, total, refresh } = useFaculties();
+const { rows, isLoading, page, pageSize, total, refresh } = useFaculties({
+  search: appliedSearch,
+});
+
+function applySearch() {
+  appliedSearch.value = searchInput.value.trim();
+  page.value = 1;
+}
 
 const columns: TableColumn<FacultyListItem>[] = [
   {
@@ -163,8 +172,11 @@ const columns: TableColumn<FacultyListItem>[] = [
     </div>
 
     <div class="w-full">
-      <div class="max-w-sm">
-        <UInput class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by faculty name..." />
+      <div class="max-w-sm ml-auto">
+        <UFieldGroup class="w-full">
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by faculty / dean name, or ID" @keyup.enter="applySearch" />
+          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+        </UFieldGroup>
       </div>
     </div>
 
