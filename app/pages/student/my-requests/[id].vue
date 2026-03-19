@@ -303,6 +303,9 @@ async function fetchRequestData() {
             hydrateFieldValueKeys();
             clearHiddenFieldValues();
           }
+
+          // Load PDF file for preview
+          await loadPdfFile();
         }
       }
     }
@@ -316,6 +319,34 @@ async function fetchRequestData() {
   }
   finally {
     isLoading.value = false;
+  }
+}
+
+async function loadPdfFile() {
+  // For submitted/completed requests, use filledDocumentUrl
+  const pdfUrl = requestData.value?.filledDocumentUrl || templateData.value?.documentUrl;
+
+  if (!pdfUrl) {
+    pdfFile.value = null;
+    return;
+  }
+
+  try {
+    const response = await fetch(pdfUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const fileName = requestData.value?.filledDocumentUrl
+      ? `request-${requestId}.pdf`
+      : templateData.value?.documentUrl?.split('/').pop() || 'template.pdf';
+
+    pdfFile.value = new File([arrayBuffer], fileName, { type: 'application/pdf' });
+  }
+  catch (err) {
+    console.error('Failed to load PDF file:', err);
+    pdfFile.value = null;
   }
 }
 
