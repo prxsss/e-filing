@@ -97,6 +97,57 @@ function normalizeMaxLength(value: unknown): number | null {
   return parsed;
 }
 
+function normalizeFontSize(value: unknown): number {
+  const parsed = Number.parseFloat(String(value ?? ''));
+  if (!Number.isFinite(parsed) || parsed <= 0)
+    return 14;
+  return parsed;
+}
+
+const fontSizeInput = ref('');
+const fontSizeCommitted = ref(14);
+
+function setFontSize(nextFontSize: unknown): void {
+  const normalizedFontSize = normalizeFontSize(nextFontSize);
+  fontSizeCommitted.value = normalizedFontSize;
+  fontSizeInput.value = String(normalizedFontSize);
+  localField.value.fontSize = normalizedFontSize;
+  onPropertyChange();
+}
+
+function handleFontSizeInput(): void {
+  const rawValue = String(fontSizeInput.value ?? '').trim();
+  if (!rawValue.length) {
+    return;
+  }
+
+  const parsedFontSize = Number.parseFloat(rawValue);
+  if (!Number.isFinite(parsedFontSize) || parsedFontSize <= 0) {
+    return;
+  }
+
+  localField.value.fontSize = parsedFontSize;
+  onPropertyChange();
+}
+
+function handleFontSizeBlur(): void {
+  const rawValue = String(fontSizeInput.value ?? '').trim();
+  const restoredFontSize = fontSizeCommitted.value || 14;
+
+  if (!rawValue.length) {
+    setFontSize(restoredFontSize);
+    return;
+  }
+
+  const parsedFontSize = Number.parseFloat(rawValue);
+  if (!Number.isFinite(parsedFontSize) || parsedFontSize <= 0) {
+    setFontSize(restoredFontSize);
+    return;
+  }
+
+  setFontSize(parsedFontSize);
+}
+
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
 const isDateField = computed(() => selectedFieldType.value === 'date');
 const isTimeField = computed(() => selectedFieldType.value === 'time');
@@ -108,6 +159,13 @@ const supportsMaxLength = computed(() => {
     && selectedFieldType.value !== 'time'
     && selectedFieldType.value !== 'checkbox';
 });
+
+const fontSizeDropdownItems = [6, 8, 10, 12, 14, 16, 18, 20, 22, 24].map(size => ({
+  label: String(size),
+  onSelect: () => {
+    setFontSize(size);
+  },
+}));
 
 // Use computed for display coordinates to ensure they recalculate when scale changes
 const displayCoords = computed(() => {
@@ -162,14 +220,18 @@ watch(displayCoords, (newCoords) => {
 
 // Watch selectedField for font properties
 watch(
-  () => props.selectedField,
-  (newField) => {
+  () => props.selectedField?.instanceId,
+  () => {
+    const newField = props.selectedField;
+
     if (newField) {
       const fieldType = getFieldType(newField);
       const autoDateTimeConfig = getAutoDateTimeFormatConfig(newField);
       const visibilityRule = normalizeVisibilityRule(newField.visibilityRule ?? newField.visibility_rule);
+      const fontSize = normalizeFontSize(newField.fontSize ?? newField.font_size);
       localField.value = {
         ...newField,
+        fontSize,
         ...autoDateTimeConfig,
         fontWeight: newField.fontWeight || 'normal',
         fontStyle: newField.fontStyle || 'normal',
@@ -182,9 +244,14 @@ watch(
         conditionalSourceFieldInstanceId: visibilityRule?.sourceFieldInstanceId || '',
         conditionalOperator: visibilityRule?.operator || 'isChecked',
       };
+
+      fontSizeCommitted.value = fontSize;
+      fontSizeInput.value = String(fontSize);
     }
     else {
       localField.value = {};
+      fontSizeInput.value = '';
+      fontSizeCommitted.value = 14;
     }
   },
   { immediate: true },
@@ -227,7 +294,7 @@ function onPropertyChange() {
       : {};
 
   const commonStyleUpdates = {
-    fontSize: localField.value.fontSize || 14,
+    fontSize: normalizeFontSize(localField.value.fontSize),
     fontFamily: localField.value.fontFamily || 'Arial',
     fontWeight: localField.value.fontWeight || 'normal',
     fontStyle: localField.value.fontStyle || 'normal',
@@ -316,7 +383,7 @@ function saveDefaults() {
       width: editableWidth.value,
       height: editableHeight.value,
       font: localField.value.fontFamily || localField.value.font || 'Arial',
-      fontSize: localField.value.fontSize || 14,
+      fontSize: normalizeFontSize(localField.value.fontSize),
       fontWeight: localField.value.fontWeight || 'normal',
       fontStyle: localField.value.fontStyle || 'normal',
       textDecoration: localField.value.textDecoration || 'none',
@@ -369,43 +436,40 @@ function removeField() {
       <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
         <div class="h-5 w-px bg-gray-200" />
         <div class="flex items-center gap-1.5">
-          <UTooltip text="ขนาดตัวอักษร">
+          <UTooltip text="ขนาดตัวอักษร" :popper="{ placement: 'top' }">
             <div class="toolbar-input-group">
               <span class="toolbar-prefix text-gray-400">
                 <UIcon name="i-lucide-type" class="w-3.5 h-3.5" />
               </span>
-              <select v-model.number="localField.fontSize" class="toolbar-select" @change="onPropertyChange">
-                <option value="6">
-                  6
-                </option>
-                <option value="8">
-                  8
-                </option>
-                <option value="10">
-                  10
-                </option>
-                <option value="12">
-                  12
-                </option>
-                <option value="14">
-                  14
-                </option>
-                <option value="16">
-                  16
-                </option>
-                <option value="18">
-                  18
-                </option>
-                <option value="20">
-                  20
-                </option>
-                <option value="22">
-                  22
-                </option>
-                <option value="24">
-                  24
-                </option>
-              </select>
+              <input
+                v-model="fontSizeInput"
+                type="number"
+                class="toolbar-input w-10"
+                min="8"
+                max="72"
+                placeholder="14"
+                @input="handleFontSizeInput"
+                @blur="handleFontSizeBlur"
+              >
+
+              <UDropdownMenu
+                :items="fontSizeDropdownItems"
+                :content="{
+                  align: 'end',
+                  side: 'bottom',
+                }"
+                :ui="{
+                  content: 'min-w-15 w-15',
+                }"
+              >
+                <button
+                  type="button"
+                  class="font-size-dropdown-trigger"
+                  aria-label="เลือกขนาดตัวอักษร"
+                >
+                  <UIcon name="i-lucide-chevron-down" class="w-3.5 h-3.5" />
+                </button>
+              </UDropdownMenu>
             </div>
           </UTooltip>
 
@@ -850,6 +914,31 @@ function removeField() {
 }
 
 .toolbar-input:focus {
+  outline: none;
+}
+
+.font-size-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-left: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  flex-shrink: 0;
+}
+
+.font-size-dropdown-trigger:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.font-size-dropdown-trigger:focus {
   outline: none;
 }
 
