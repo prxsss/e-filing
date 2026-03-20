@@ -167,35 +167,35 @@ function isFieldVisible(field: any): boolean {
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
 }
 
-const previewFillableFields = computed(() => {
+/** All student-fillable fields for the layout editor (ignore conditional visibility so every field can be reordered). */
+const layoutEditorFillableFields = computed(() => {
   return placedFields.value.filter((field: any) =>
     field.isFillable !== false
     && field.is_fillable !== false
-    && getFieldType(field) !== 'signature'
-    && isFieldVisible(field),
+    && getFieldType(field) !== 'signature',
   );
 });
 
-const previewFieldsById = computed(() => {
+const layoutEditorFieldsById = computed(() => {
   const map = new Map<string, any>();
-  for (const field of previewFillableFields.value) {
+  for (const field of layoutEditorFillableFields.value) {
     map.set(String(field.instanceId), field);
   }
   return map;
 });
 
-const orderedPreviewFields = computed(() => {
+const orderedLayoutEditorFields = computed(() => {
   const layoutIds = new Set(formFieldLayout.value.map(item => item.instanceId));
   const ordered = formFieldLayout.value
-    .map(item => previewFieldsById.value.get(item.instanceId))
+    .map(item => layoutEditorFieldsById.value.get(item.instanceId))
     .filter(Boolean);
-  const remaining = previewFillableFields.value.filter(field => !layoutIds.has(String(field.instanceId)));
+  const remaining = layoutEditorFillableFields.value.filter(field => !layoutIds.has(String(field.instanceId)));
   return [...ordered, ...remaining];
 });
 
 function syncFormFieldLayout() {
   const existing = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
-  const sourceFields = [...previewFillableFields.value].sort((a: any, b: any) => {
+  const sourceFields = [...layoutEditorFillableFields.value].sort((a: any, b: any) => {
     const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
     const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
     if (aOrder !== bOrder) {
@@ -254,15 +254,18 @@ function focusLayoutInputByInstanceId(instanceId: string) {
 }
 
 function moveLayoutItem(index: number, direction: -1 | 1) {
+  const orderedFields = orderedLayoutEditorFields.value;
   const nextIndex = index + direction;
-  if (nextIndex < 0 || nextIndex >= formFieldLayout.value.length) {
+  if (nextIndex < 0 || nextIndex >= orderedFields.length) {
     return;
   }
-  const cloned = [...formFieldLayout.value];
-  const current = cloned[index];
-  cloned[index] = cloned[nextIndex]!;
-  cloned[nextIndex] = current!;
-  formFieldLayout.value = cloned;
+  const reorderedIds = orderedFields.map(field => String(field.instanceId));
+  const [moved] = reorderedIds.splice(index, 1);
+  reorderedIds.splice(nextIndex, 0, moved!);
+  const layoutById = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
+  formFieldLayout.value = reorderedIds
+    .map(id => layoutById.get(id))
+    .filter((item): item is { instanceId: string; questionLabel: string } => Boolean(item));
 }
 
 function getFieldCardClass(field: any): string {
@@ -300,6 +303,9 @@ async function saveFormLayout() {
     if (Array.isArray(result.data?.placedFieldsData)) {
       placedFields.value = result.data!.placedFieldsData!;
       syncFormFieldLayout();
+    }
+    else {
+      await fetchTemplate();
     }
 
     toast.add({
@@ -489,7 +495,10 @@ onMounted(() => {
   fetchTemplate();
 });
 
-watch(previewFillableFields, () => {
+watch(layoutEditorFillableFields, () => {
+  if (isEditingFormLayout.value) {
+    return;
+  }
   syncFormFieldLayout();
 }, { deep: true });
 </script>
@@ -618,7 +627,7 @@ watch(previewFillableFields, () => {
                 </h4>
                 <div class="space-y-3">
                   <div
-                    v-for="(field, index) in orderedPreviewFields"
+                    v-for="(field, index) in orderedLayoutEditorFields"
                     :id="`form-layout-row-${field.instanceId}`"
                     :key="field.instanceId"
                     :class="getFieldCardClass(field)"
@@ -643,18 +652,25 @@ watch(previewFillableFields, () => {
                         size="xs"
                         icon="i-heroicons-chevron-down"
                         variant="ghost"
-                        :disabled="!isEditingFormLayout || index === orderedPreviewFields.length - 1"
+                        :disabled="!isEditingFormLayout || index === orderedLayoutEditorFields.length - 1"
                         @click="moveLayoutItem(index, 1)"
                       />
                     </div>
                     <form-field-input
+                      v-if="isFieldVisible(field)"
                       :model-value="previewFieldValues[getFieldValueKey(field)]"
                       :field="{ ...field, label: getQuestionLabel(field) }"
                       :disabled="isPreviewCheckboxDisabled(field)"
                       @update:model-value="(value) => updatePreviewValue(field, String(value ?? ''))"
                     />
+                    <p
+                      v-else
+                      class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
+                    >
+                      ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
+                    </p>
                   </div>
-                  <p v-if="orderedPreviewFields.length === 0" class="text-sm text-gray-400 text-center py-3">
+                  <p v-if="orderedLayoutEditorFields.length === 0" class="text-sm text-gray-400 text-center py-3">
                     ไม่มีฟิลด์ที่นิสิตต้องกรอก
                   </p>
                 </div>

@@ -9,6 +9,14 @@ type LayoutFieldInput = {
   order?: number;
 };
 
+function getPlacedFieldInstanceId(field: Record<string, unknown> | null | undefined): string {
+  if (!field || typeof field !== 'object') {
+    return '';
+  }
+  const raw = (field as any).instanceId ?? (field as any).instance_id;
+  return String(raw ?? '').trim();
+}
+
 function parseMaybeJson(value: unknown): unknown {
   if (typeof value !== 'string') {
     return value;
@@ -60,7 +68,7 @@ export default defineEventHandler(async (event) => {
   const placedFieldsData = Array.isArray(rawFields) ? rawFields : [];
 
   const updatedPlacedFieldsData = placedFieldsData.map((field: any) => {
-    const instanceId = String(field?.instanceId || '').trim();
+    const instanceId = getPlacedFieldInstanceId(field);
     if (!instanceId.length) {
       return field;
     }
