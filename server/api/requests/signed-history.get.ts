@@ -1,7 +1,6 @@
+import db from '~~/lib/db';
+import { request, requestTemplate, signatureFlow, users } from '~~/lib/db/schema';
 import { desc, eq, inArray } from 'drizzle-orm';
-
-import db from '../../../lib/db';
-import { request, requestTemplate, signatureFlow } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -31,22 +30,38 @@ export default defineEventHandler(async (event) => {
         submittedAt: request.submittedAt,
         filledDocumentUrl: request.filledDocumentUrl,
         templateName: requestTemplate.name,
+        userId: request.userId,
+        requesterFirstNameTh: users.firstNameTh,
+        requesterLastNameTh: users.lastNameTh,
+        requesterFirstNameEn: users.firstNameEn,
+        requesterLastNameEn: users.lastNameEn,
       })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
+      .leftJoin(users, eq(request.userId, users.id))
       .where(inArray(request.id, requestIds));
 
     const requestMap = new Map(requestRows.map(r => [r.id, r]));
 
-    const data = myFlows.map(flow => ({
-      flowId: flow.id,
-      requestId: flow.requestId,
-      stepOrder: flow.stepOrder,
-      roleName: flow.roleName,
-      status: flow.status,
-      signedAt: flow.signedAt,
-      request: requestMap.get(flow.requestId) ?? null,
-    }));
+    const data = myFlows.map((flow) => {
+      const req = requestMap.get(flow.requestId);
+      const studentName = req
+        ? (req.requesterFirstNameTh && req.requesterLastNameTh
+            ? `${req.requesterFirstNameTh} ${req.requesterLastNameTh}`
+            : `${req.requesterFirstNameEn ?? ''} ${req.requesterLastNameEn ?? ''}`.trim())
+        : '-';
+
+      return {
+        flowId: flow.id,
+        requestId: flow.requestId,
+        stepOrder: flow.stepOrder,
+        status: flow.status,
+        signedAt: flow.signedAt,
+        studentId: req?.userId ?? null,
+        studentName,
+        request: req ?? null,
+      };
+    });
 
     return { success: true, data };
   }

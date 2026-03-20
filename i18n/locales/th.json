@@ -116,6 +116,7 @@
   "signerRole": "ตำแหน่งผู้เซ็น",
   "description": "คำอธิบาย",
   "clickFieldToAssign": "คลิกฟิลด์บน PDF เพื่อกำหนดให้ลำดับนี้",
+  "clickFieldOnDocumentToAssign": "คลิกฟิลด์บนเอกสารเพื่อกำหนดให้ลำดับนี้",
   "noSigningSteps": "ยังไม่มีลำดับการเซ็น",
   "addFirstStep": "เพิ่มลำดับการเซ็นแรก",
   "removeStep": "ลบลำดับ",

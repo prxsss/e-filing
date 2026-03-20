@@ -49,69 +49,9 @@ async function fetchRoles(): Promise<void> {
   }
 }
 
-// Fetch users by role for person selection
-type UserRecord = { id: string; fullNameEn: string; fullNameTh: string; email: string };
-const usersByRole = ref<Record<number, UserRecord[]>>({});
-const loadingUsersByRole = ref<Record<number, boolean>>({});
-
-async function fetchAllUsersForRoles(): Promise<void> {
-  const roleIds = roles.value.map(r => r.id);
-  await Promise.all(roleIds.map(async (roleId) => {
-    if (usersByRole.value[roleId])
-      return;
-    loadingUsersByRole.value[roleId] = true;
-    try {
-      const data = await $fetch<UserRecord[]>(`/api/users/by-role/${roleId}`);
-      usersByRole.value[roleId] = data;
-    }
-    catch (error) {
-      console.error(`Failed to fetch users for role ${roleId}:`, error);
-      usersByRole.value[roleId] = [];
-    }
-    finally {
-      loadingUsersByRole.value[roleId] = false;
-    }
-  }));
-}
-
 onMounted(async () => {
   await fetchRoles();
-  await fetchAllUsersForRoles();
 });
-
-function getUserItems(roleId: number | undefined) {
-  if (!roleId)
-    return [];
-  const list = usersByRole.value[roleId] ?? [];
-  return list.map(u => ({
-    label: locale.value === 'th' ? u.fullNameTh : u.fullNameEn,
-    value: u.id,
-  }));
-}
-
-function getUserDisplayName(userId: string, roleId: number | undefined): string {
-  if (!roleId)
-    return '';
-  const list = usersByRole.value[roleId] ?? [];
-  const user = list.find(u => u.id === userId);
-  if (!user)
-    return '';
-  return locale.value === 'th' ? user.fullNameTh : user.fullNameEn;
-}
-
-function onUserSelected(stepId: string, userId: string | undefined): void {
-  const updatedSteps = props.signingSteps.map((s) => {
-    if (s.id === stepId) {
-      return {
-        ...s,
-        assignedUserId: userId || undefined,
-        assignedUserName: userId ? getUserDisplayName(userId, s.roleId) : undefined,
-      };
-    }
-    return s;
-  });
-  emit('update:signingSteps', updatedSteps);
-}
 
 // Roles formatted for USelect (Shows Description, falls back to Name)
 const roleItems = computed(() => {
@@ -450,20 +390,6 @@ watch(() => props.signingSteps.length, (newLen) => {
             <UBadge color="neutral" variant="subtle" size="xs">
               {{ step.assignedFieldInstanceIds.length }} {{ t('fields') }}
             </UBadge>
-          </div>
-
-          <!-- User assignment dropdown -->
-          <div class="mt-2" @click.stop>
-            <UTooltip :text="t('assignPersonTooltip')">
-              <USelect
-                :model-value="step.assignedUserId"
-                :items="getUserItems(step.roleId)"
-                :placeholder="t('selectPerson')"
-                size="xs"
-                class="w-full"
-                @update:model-value="(val: string | undefined) => onUserSelected(step.id, val)"
-              />
-            </UTooltip>
           </div>
         </div>
 
