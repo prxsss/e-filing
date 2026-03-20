@@ -20,6 +20,7 @@ type SigningTask = {
     submittedAt: string | null;
     filledDocumentUrl: string | null;
     templateName: string | null;
+    userId: string | null;
   } | null;
 };
 
@@ -49,6 +50,7 @@ const tableData = computed(() =>
     submittedAt: task.request?.submittedAt ?? null,
     status: task.request?.status ?? '',
     stepInfo: `ขั้นตอนที่ ${task.stepOrder}: ${task.roleName}`,
+    studentId: task.request?.userId ?? '-',
   })),
 );
 
@@ -93,8 +95,18 @@ function formatDate(dateStr: string | null) {
 const UIcon = resolveComponent('UIcon');
 
 const columns: any[] = [
+  {
+    id: 'rowNumber',
+    header: '#',
+    size: 50,
+    cell: (ctx: any) => {
+      const index = paginatedTasks.value.findIndex((t: any) => t.id === ctx.row.original.id);
+      return ((page.value - 1) * pageCount) + index + 1;
+    },
+  },
+  { accessorKey: 'studentId', header: 'รหัสนิสิต' },
+  { accessorKey: 'studentName', header: 'นิสิต' },
   { accessorKey: 'templateName', header: 'ชื่อเอกสาร' },
-  { accessorKey: 'studentName', header: 'นักศึกษา' },
   { accessorKey: 'stepInfo', header: 'ขั้นตอน' },
   { accessorKey: 'submittedAt', header: 'วันที่ยื่น' },
   {
@@ -143,7 +155,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         <UInput
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
-          placeholder="ค้นหาตามชื่อเอกสาร นักศึกษา หรือขั้นตอน..."
+          placeholder="ค้นหาตามชื่อเอกสาร นิสิต หรือขั้นตอน..."
           class="w-full sm:w-80"
         />
       </div>

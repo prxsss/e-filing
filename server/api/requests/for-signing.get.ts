@@ -60,6 +60,7 @@ export default defineEventHandler(async (event) => {
         filledDocumentUrl: request.filledDocumentUrl,
         templateName: requestTemplate.name,
         templateId: request.templateId,
+        userId: request.userId, // ← add this
         requesterFirstNameTh: users.firstNameTh,
         requesterLastNameTh: users.lastNameTh,
         requesterFirstNameEn: users.firstNameEn,
@@ -98,6 +99,7 @@ export default defineEventHandler(async (event) => {
               filledDocumentUrl: req.filledDocumentUrl,
               templateName: req.templateName,
               templateId: req.templateId,
+              userId: req.userId,
             }
           : null,
       };
