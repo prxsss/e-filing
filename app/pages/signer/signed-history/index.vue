@@ -127,7 +127,17 @@ const paginatedEntries = computed(() => {
 const total = computed(() => filteredEntries.value.length);
 
 const columns: any[] = [
-  { accessorKey: 'requestId', header: 'รหัสคำร้อง' },
+  {
+    id: 'rowNumber',
+    header: '#',
+    size: 50,
+    cell: (ctx: any) => {
+      const index = paginatedEntries.value.findIndex((t: any) => t.id === ctx.row.original.id);
+      return ((page.value - 1) * pageCount) + index + 1;
+    },
+  },
+  { accessorKey: 'studentId', header: 'รหัสนิสิต' },
+  { accessorKey: 'studentName', header: 'ชื่อนิสิต' },
   { accessorKey: 'templateName', header: 'ชื่อเอกสาร' },
   { accessorKey: 'actionStatus', header: 'ผลการดำเนินการ' },
   { accessorKey: 'requestStatus', header: 'สถานะคำร้อง' },
@@ -196,7 +206,6 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         :data="paginatedEntries"
         :columns="columns"
         :loading="status === 'pending'"
-        :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
         @select="onRowSelect"
       >

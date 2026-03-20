@@ -24,6 +24,8 @@ type RequestItem = {
   createdAt: string | null;
   submittedAt: string | null;
   filledDocumentUrl?: string | null;
+  studentId: string | null;
+  requesterName: string | null;
 };
 
 type SelectableRow = {
@@ -107,7 +109,8 @@ const columns: TableColumn<RequestItem>[] = [
     enableSorting: false,
     enableHiding: false,
   },
-  { accessorKey: 'id', header: t('requestId'), size: 80 },
+  { accessorKey: 'studentId', header: t('studentId'), size: 80 },
+  { accessorKey: 'requesterName', header: t('studentName'), size: 200 },
   { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
   { accessorKey: 'status', header: t('status'), size: 150 },
   { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
