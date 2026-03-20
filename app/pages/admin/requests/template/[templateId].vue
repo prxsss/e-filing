@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
 import { DateFormatter, getLocalTimeZone } from '@internationalized/date';
@@ -6,19 +6,26 @@ import { useDebounceFn } from '@vueuse/core';
 
 import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
 
+type TemplateInfo = { id: number; name: string | null };
+
 definePageMeta({
-  title: 'requests',
+  title: 'requestByTemplate',
   middleware: ['permission'],
   permission: 'request.view',
 });
 
+const route = useRoute();
 const { t, locale } = useI18n();
 const router = useRouter();
 const localePath = useLocalePath();
+const templateId = route.params.templateId as string;
+
+// Fetch template info
+const { data: templateRes } = await useFetch(`/api/pdf-templates/${templateId}`);
+const template = computed<TemplateInfo | null>(() => templateRes.value?.data ?? null);
 
 // === Types ===
 type RequestStatus = 'draft' | 'in_progress' | 'rejected' | 'completed';
-
 type RequestItem = {
   id: number;
   templateName: string | null;
@@ -31,27 +38,10 @@ type RequestItem = {
   studentNameTh: string | null;
   studentName: string;
 };
-
-type SelectableRow = {
-  getIsSelected: () => boolean;
-  toggleSelected: (value: boolean) => void;
-};
-
-type SelectableTable = {
-  getIsSomePageRowsSelected: () => boolean;
-  getIsAllPageRowsSelected: () => boolean;
-  toggleAllPageRowsSelected: (value: boolean) => void;
-};
-
-type FilteredSelectedRow = {
-  original: RequestItem;
-};
-
-type RequestsTableApi = {
-  getFilteredSelectedRowModel: () => {
-    rows: FilteredSelectedRow[];
-  };
-};
+type SelectableRow = { getIsSelected: () => boolean; toggleSelected: (value: boolean) => void };
+type SelectableTable = { getIsSomePageRowsSelected: () => boolean; getIsAllPageRowsSelected: () => boolean; toggleAllPageRowsSelected: (value: boolean) => void };
+type FilteredSelectedRow = { original: RequestItem };
+type RequestsTableApi = { getFilteredSelectedRowModel: () => { rows: FilteredSelectedRow[] } };
 
 // === Status Helpers ===
 const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
@@ -60,22 +50,18 @@ const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'su
   rejected: 'error',
   completed: 'success',
 };
-
 const statusLabelMap: Record<RequestStatus, string> = {
   draft: t('draft'),
   in_progress: t('inProgress'),
   rejected: t('rejected'),
   completed: t('completed'),
 };
-
 function getStatusColor(status: string) {
   return statusColorMap[status as RequestStatus] ?? 'neutral';
 }
-
 function getStatusLabel(status: string) {
   return statusLabelMap[status as RequestStatus] ?? status;
 }
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '-';
@@ -91,10 +77,8 @@ const UBadge = resolveComponent('UBadge');
 const UButton = resolveComponent('UButton');
 const UCheckbox = resolveComponent('UCheckbox');
 const UIcon = resolveComponent('UIcon');
-
 const table = ref<{ tableApi?: RequestsTableApi } | null>(null);
 const rowSelection = ref<Record<string, boolean>>({});
-
 const columns: TableColumn<RequestItem>[] = [
   {
     id: 'select',
@@ -131,7 +115,6 @@ const columns: TableColumn<RequestItem>[] = [
     meta: { class: { td: 'text-right' } },
   },
 ];
-
 function onRowSelect(_e: Event, row: TableRow<RequestItem>) {
   router.push(localePath(`/admin/requests/${row.original.id}`));
 }
@@ -155,18 +138,13 @@ async function downloadPdf(url: string, filename: string) {
       window.open(url, '_blank');
   }
 }
-
 const selectedRowsWithPdf = computed<FilteredSelectedRow[]>(() => {
   const api: RequestsTableApi | undefined = table.value?.tableApi;
   if (!api)
     return [];
-  return api.getFilteredSelectedRowModel().rows.filter(
-    row => Boolean(row.original?.filledDocumentUrl),
-  );
+  return api.getFilteredSelectedRowModel().rows.filter(row => Boolean(row.original?.filledDocumentUrl));
 });
-
 const canBulkDownload = computed<boolean>(() => selectedRowsWithPdf.value.length > 0);
-
 async function onBulkDownload() {
   const rows = selectedRowsWithPdf.value;
   for (const [index, row] of rows.entries()) {
@@ -178,61 +156,43 @@ async function onBulkDownload() {
   }
 }
 
-// === Shared Filter State (Pinia) ===
+// === Shared Date Filter (Pinia) ===
 const filterStore = useRequestFiltersStore();
 const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
 
 const df = new DateFormatter('en-US', { dateStyle: 'medium' });
 
-// Local-only state (not shared across pages)
-const searchQuery = ref('');
-const debouncedSearch = ref('');
-const applySearch = useDebounceFn((val: string) => {
-  debouncedSearch.value = val;
-}, 350);
-watch(searchQuery, applySearch);
-
-const selectedStatus = ref<string | undefined>(undefined);
-const selectedTemplateId = ref<number | undefined>(undefined);
-const page = ref(1);
-const pageSize = 15;
-
-// === Filter Helpers ===
+// === Local Filter State ===
 const statusOptions = [
   { label: 'สถานะทั้งหมด', value: undefined },
   { label: 'กำลังดำเนินการ', value: 'in_progress' },
   { label: 'ปฏิเสธ', value: 'rejected' },
   { label: 'เสร็จสิ้น', value: 'completed' },
 ];
-
-const { data: templatesData } = await useFetch('/api/pdf-templates', {
-  query: { pageSize: 100 },
-});
-
-const templateOptions = computed(() => {
-  const rows = templatesData.value?.data ?? [];
-  const options = rows.map((t: { id: number; name: string | null }) => ({
-    label: t.name ?? '-',
-    value: t.id,
-  }));
-  return [{ label: 'แบบฟอร์มทั้งหมด', value: undefined }, ...options];
-});
+const searchQuery = ref('');
+const debouncedSearch = ref('');
+const applySearch = useDebounceFn((val: string) => {
+  debouncedSearch.value = val;
+}, 350);
+watch(searchQuery, applySearch);
+const selectedStatus = ref<string | undefined>(undefined);
+const page = ref(1);
+const pageSize = 15;
 
 const hasActiveFilters = computed(() =>
-  Boolean(searchQuery.value || selectedStatus.value || selectedTemplateId.value || selectedPeriod.value !== 'This month'),
+  Boolean(searchQuery.value || selectedStatus.value || selectedPeriod.value !== 'This month'),
 );
 
 function clearFilters() {
   searchQuery.value = '';
   debouncedSearch.value = '';
   selectedStatus.value = undefined;
-  selectedTemplateId.value = undefined;
   filterStore.resetDateFilter();
   page.value = 1;
 }
 
 // Reset page when any filter changes
-watch([debouncedSearch, selectedStatus, selectedTemplateId, dateRangeQuery], () => {
+watch([debouncedSearch, selectedStatus, dateRangeQuery], () => {
   page.value = 1;
 }, { deep: true });
 
@@ -241,21 +201,15 @@ const queryParams = computed(() => ({
   page: page.value,
   limit: pageSize,
   ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
-  ...(selectedTemplateId.value ? { templateId: selectedTemplateId.value } : {}),
   ...dateRangeQuery.value,
   ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
+  templateId,
 }));
-
-const { data: response, status: fetchStatus, refresh } = await useFetch('/api/requests', {
-  query: queryParams,
-});
-
+const { data: response, status: fetchStatus, refresh } = await useFetch('/api/requests', { query: queryParams });
 const requests = computed<RequestItem[]>(() => {
   const raw = response.value?.data ?? [];
   return raw.map((item: any) => {
-    const studentName = locale.value === 'th'
-      ? (item.studentNameTh ?? '')
-      : (item.studentNameEn ?? '');
+    const studentName = locale.value === 'th' ? (item.studentNameTh ?? '') : (item.studentNameEn ?? '');
     return {
       ...item,
       studentId: item.studentId ?? '',
@@ -266,8 +220,6 @@ const requests = computed<RequestItem[]>(() => {
   });
 });
 const total = computed(() => response.value?.meta?.total ?? 0);
-
-// === Stats ===
 const statsMap = computed(() => {
   const counts = response.value?.meta?.statusCounts;
   return {
@@ -285,9 +237,9 @@ const statsMap = computed(() => {
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          คำร้องทั้งหมด
+          {{ template?.name ? `คำร้องสำหรับ: ${template.name}` : 'คำร้องตามแบบฟอร์ม' }}
         </h1>
-        <p>ตรวจสอบและติดตามสถานะคำร้องของผู้ใช้ทุกคน</p>
+        <p>ตรวจสอบและติดตามสถานะคำร้องสำหรับแบบฟอร์มนี้</p>
       </div>
       <div class="flex items-center gap-2">
         <UButton
@@ -384,7 +336,7 @@ const statsMap = computed(() => {
             />
             <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />
           </UFieldGroup>
-          <UPopover arrow :content="{ align: 'end', side: 'bottom' }">
+          <UPopover :content="{ align: 'end', side: 'bottom' }">
             <template #default="{ open }">
               <UButton
                 color="primary"
@@ -417,16 +369,6 @@ const statsMap = computed(() => {
                     />
                   </UFormField>
                 </div>
-                <UFormField label="ประเภทคำร้อง">
-                  <USelect
-                    v-model="selectedTemplateId"
-                    :items="templateOptions"
-                    option-attribute="label"
-                    placeholder="ประเภทคำร้องทั้งหมด"
-                    class="w-full"
-                    size="sm"
-                  />
-                </UFormField>
                 <UFormField label="กำหนดช่วงวันที่เอง">
                   <UPopover arrow :content="{ align: 'start', side: 'bottom' }">
                     <UButton color="neutral" variant="outline" size="sm" class="w-full font-normal">
@@ -538,3 +480,7 @@ const statsMap = computed(() => {
     </UCard>
   </div>
 </template>
+
+<style>
+
+</style>
