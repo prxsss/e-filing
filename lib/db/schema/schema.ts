@@ -208,6 +208,11 @@ export const requestTemplateValues = pgTable("request_template_values", {
 	requestId: bigint("request_id", { mode: "number" }),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	fieldId: bigint("field_id", { mode: "number" }),
+	/**
+	 * Optional per-instance key (needed for checkbox groups / repeated fields).
+	 * When present, values should be resolved by instanceId first, then fieldId fallback.
+	 */
+	fieldInstanceId: text("field_instance_id"),
 	value: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [

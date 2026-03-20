@@ -87,7 +87,7 @@ export default defineEventHandler(async (event) => {
     // Process each field value
     const results = [];
     for (const fieldValue of body.fieldValues) {
-      const { fieldId, value } = fieldValue;
+      const { fieldId, value, instanceId } = fieldValue;
 
       const normalizedFieldId = Number.parseInt(String(fieldId ?? ''), 10);
       if (!Number.isFinite(normalizedFieldId) || normalizedFieldId <= 0) {
@@ -103,6 +103,10 @@ export default defineEventHandler(async (event) => {
         normalizedValue = normalizeCheckboxValue(normalizedValue);
       }
 
+      const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim().length > 0
+        ? instanceId.trim()
+        : null;
+
       const maxLength = fieldMaxLengthMap.get(normalizedFieldId);
       if (maxLength && normalizedValue.length > maxLength) {
         normalizedValue = normalizedValue.slice(0, maxLength);
@@ -116,6 +120,9 @@ export default defineEventHandler(async (event) => {
           and(
             eq(requestTemplateValues.requestId, requestId),
             eq(requestTemplateValues.fieldId, normalizedFieldId),
+            normalizedInstanceId
+              ? eq(requestTemplateValues.fieldInstanceId, normalizedInstanceId)
+              : eq(requestTemplateValues.fieldInstanceId, null),
           ),
         )
         .limit(1);
@@ -134,10 +141,11 @@ export default defineEventHandler(async (event) => {
         await db.insert(requestTemplateValues).values({
           requestId,
           fieldId: normalizedFieldId,
+          fieldInstanceId: normalizedInstanceId,
           value: normalizedValue,
         });
 
-        results.push({ fieldId: normalizedFieldId, action: 'created' });
+        results.push({ fieldId: normalizedFieldId, instanceId: normalizedInstanceId, action: 'created' });
       }
     }
 

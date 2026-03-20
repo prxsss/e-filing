@@ -170,7 +170,9 @@ async function loadAll() {
     // field values
     if (reqResult.data.fieldValues) {
       reqResult.data.fieldValues.forEach((fv: any) => {
-        fieldValues.value[fv.fieldId] = fv.value || '';
+        const instanceKey = String(fv.fieldInstanceId ?? '').trim();
+        const key = instanceKey.length > 0 ? instanceKey : String(fv.fieldId);
+        fieldValues.value[key] = fv.value || '';
       });
     }
 

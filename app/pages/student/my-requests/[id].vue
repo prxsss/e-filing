@@ -348,7 +348,9 @@ async function fetchRequestData() {
       // Load existing field values
       if (requestResult.data.fieldValues) {
         requestResult.data.fieldValues.forEach((fv: any) => {
-          fieldValues.value[String(fv.fieldId)] = fv.value || '';
+          const instanceKey = String(fv.fieldInstanceId ?? '').trim();
+          const key = instanceKey.length > 0 ? instanceKey : String(fv.fieldId);
+          fieldValues.value[key] = fv.value || '';
         });
       }
 
