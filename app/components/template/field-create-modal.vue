@@ -43,6 +43,7 @@ const formData = ref({
   label: '',
   type: 'Text',
   icon: 'i-heroicons-document',
+  amount: 1,
   width: 150,
   height: 40,
   isFillable: true,
@@ -82,6 +83,8 @@ const supportsTextSettings = computed(() => {
   return !['signature', 'icon', 'checkbox'].includes(selectedFieldType.value);
 });
 
+const supportsAmountSetting = computed(() => selectedFieldType.value === 'checkbox');
+
 const supportsLetterSpacing = computed(() => {
   return !['date', 'time'].includes(selectedFieldType.value);
 });
@@ -103,6 +106,7 @@ watch(() => props.editField, (newField) => {
       label: newField.label || '',
       type: newField.type || 'Text',
       icon: newField.icon || 'i-heroicons-document',
+      amount: parsePositiveInteger(newField.amount) ?? 1,
       width: newField.default_width || newField.width || 150,
       height: newField.default_height || newField.height || 40,
       isFillable: newField.isFillable ?? true,
@@ -120,12 +124,19 @@ watch(() => props.editField, (newField) => {
   }
 }, { immediate: true });
 
+watch(supportsAmountSetting, (enabled) => {
+  if (!enabled) {
+    formData.value.amount = 1;
+  }
+});
+
 function resetForm() {
   formData.value = {
     name: '',
     label: '',
     type: 'Text',
     icon: 'i-heroicons-document',
+    amount: 1,
     width: 150,
     height: 40,
     isFillable: true,
@@ -149,11 +160,15 @@ function closeModal() {
 
 function buildFieldPayload() {
   const normalizedFontSize = parsePositiveInteger(formData.value.fontSize) ?? 14;
+  const normalizedAmount = supportsAmountSetting.value
+    ? (parsePositiveInteger(formData.value.amount) ?? 1)
+    : 1;
   const normalizedWidth = parsePositiveInteger(formData.value.width) ?? 150;
   const normalizedHeight = parsePositiveInteger(formData.value.height) ?? 40;
 
   return {
     ...formData.value,
+    amount: normalizedAmount,
     width: normalizedWidth,
     height: normalizedHeight,
     fontSize: normalizedFontSize,
@@ -388,8 +403,20 @@ async function handleDelete() {
             </div>
 
             <!-- Width & Height -->
-            <div class="grid grid-cols-2 gap-1.5">
-              <div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div v-if="supportsAmountSetting">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                  จำนวนชุด (amount)
+                </label>
+                <UInput
+                  v-model.number="formData.amount"
+                  type="number"
+                  min="1"
+                  max="20"
+                  size="md"
+                />
+              </div>
+              <div :class="supportsAmountSetting ? '' : 'col-span-2'">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                   ความกว้าง (px)
                 </label>
@@ -401,7 +428,7 @@ async function handleDelete() {
                   size="md"
                 />
               </div>
-              <div>
+              <div :class="supportsAmountSetting ? '' : 'col-span-1'">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                   ความสูง (px)
                 </label>

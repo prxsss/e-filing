@@ -23,6 +23,7 @@ export type ConditionalVisibilityOperator = 'isChecked' | 'isUnchecked';
 export type FieldVisibilityRule = {
   enabled?: boolean;
   sourceFieldInstanceId?: string | null;
+  sourceGroupId?: string | null;
   operator?: ConditionalVisibilityOperator;
   clearWhenHidden?: boolean;
 };

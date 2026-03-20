@@ -237,13 +237,15 @@ function sanitizeFieldVisibilityRule(rawRule: any): FieldVisibilityRule | null {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
     clearWhenHidden: false,
   };

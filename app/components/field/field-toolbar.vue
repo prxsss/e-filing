@@ -43,13 +43,15 @@ function normalizeVisibilityRule(rawRule: any) {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
     // Always preserve hidden field values.
     clearWhenHidden: false,
@@ -88,6 +90,29 @@ const conditionalSourceOptions = computed(() => {
         label: getConditionalSourceLabel(field),
       };
     });
+});
+
+const conditionalGroupSourceOptions = computed(() => {
+  const groupedCheckboxes = (props.placedFields || []).filter((field: any) => {
+    if (!field || !supportsConditionalSource(field)) {
+      return false;
+    }
+
+    const groupId = String(field.groupId || '').trim();
+    return groupId.length > 0;
+  });
+
+  const uniqueGroups = new Map<string, string>();
+  for (const field of groupedCheckboxes) {
+    const groupId = String(field.groupId || '').trim();
+    if (!groupId || uniqueGroups.has(groupId)) {
+      continue;
+    }
+    const baseLabel = String(field.label || field.name || 'Checkbox Group').trim();
+    uniqueGroups.set(groupId, `${baseLabel} (ทั้งกลุ่ม)`);
+  }
+
+  return Array.from(uniqueGroups.entries()).map(([value, label]) => ({ value, label }));
 });
 
 function normalizeMaxLength(value: unknown): number | null {
@@ -241,7 +266,9 @@ watch(
         lineHeight: newField.lineHeight ?? 1.5,
         maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
         conditionalEnabled: Boolean(visibilityRule),
+        conditionalSourceType: visibilityRule?.sourceGroupId ? 'group' : 'single',
         conditionalSourceFieldInstanceId: visibilityRule?.sourceFieldInstanceId || '',
+        conditionalSourceGroupId: visibilityRule?.sourceGroupId || '',
         conditionalOperator: visibilityRule?.operator || 'isChecked',
       };
 
@@ -265,6 +292,7 @@ function toggleConditionalVisibility() {
   localField.value.conditionalEnabled = !localField.value.conditionalEnabled;
   if (!localField.value.conditionalEnabled) {
     localField.value.conditionalSourceFieldInstanceId = '';
+    localField.value.conditionalSourceGroupId = '';
   }
 
   onPropertyChange();
@@ -293,6 +321,14 @@ function onPropertyChange() {
         }
       : {};
 
+  const sourceType = localField.value.conditionalSourceType === 'group' ? 'group' : 'single';
+  const sourceFieldInstanceId = sourceType === 'single'
+    ? String(localField.value.conditionalSourceFieldInstanceId || '').trim()
+    : '';
+  const sourceGroupId = sourceType === 'group'
+    ? String(localField.value.conditionalSourceGroupId || '').trim()
+    : '';
+
   const commonStyleUpdates = {
     fontSize: normalizeFontSize(localField.value.fontSize),
     fontFamily: localField.value.fontFamily || 'Arial',
@@ -306,7 +342,8 @@ function onPropertyChange() {
     visibilityRule: localField.value.conditionalEnabled
       ? normalizeVisibilityRule({
           enabled: true,
-          sourceFieldInstanceId: localField.value.conditionalSourceFieldInstanceId,
+          sourceFieldInstanceId,
+          sourceGroupId,
           operator: localField.value.conditionalOperator,
           clearWhenHidden: false,
         })
@@ -783,6 +820,20 @@ function removeField() {
         </span>
 
         <select
+          v-model="localField.conditionalSourceType"
+          class="toolbar-select conditional-select"
+          @change="onPropertyChange"
+        >
+          <option value="single">
+            Checkbox เดี่ยว
+          </option>
+          <option value="group">
+            Checkbox Group
+          </option>
+        </select>
+
+        <select
+          v-if="localField.conditionalSourceType !== 'group'"
           v-model="localField.conditionalSourceFieldInstanceId"
           class="toolbar-select conditional-select"
           @change="onPropertyChange"
@@ -792,6 +843,24 @@ function removeField() {
           </option>
           <option
             v-for="option in conditionalSourceOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+
+        <select
+          v-else
+          v-model="localField.conditionalSourceGroupId"
+          class="toolbar-select conditional-select"
+          @change="onPropertyChange"
+        >
+          <option value="" disabled>
+            เลือก Checkbox Group
+          </option>
+          <option
+            v-for="option in conditionalGroupSourceOptions"
             :key="option.value"
             :value="option.value"
           >

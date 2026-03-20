@@ -16,6 +16,7 @@ type FieldValue = {
 type VisibilityRule = {
   enabled?: boolean;
   sourceFieldInstanceId?: string | null;
+  sourceGroupId?: string | null;
   operator?: 'isChecked' | 'isUnchecked';
   clearWhenHidden?: boolean;
 };
@@ -401,13 +402,15 @@ function getVisibilityRule(field: any): VisibilityRule | null {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
     clearWhenHidden: false,
   };
@@ -419,17 +422,94 @@ function isFieldVisible(field: any): boolean {
     return true;
   }
 
-  const sourceField = placedFields.value.find(
-    candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-  );
+  let isChecked = false;
+  if (rule.sourceGroupId) {
+    const groupCheckboxes = placedFields.value.filter((candidate) => {
+      return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+    });
+    isChecked = groupCheckboxes.some(candidate => normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true');
+  }
+  else {
+    const sourceField = placedFields.value.find(
+      candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+    );
 
-  if (!sourceField) {
-    return true;
+    if (!sourceField) {
+      return true;
+    }
+
+    const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
+    isChecked = sourceValue === 'true';
   }
 
-  const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
-  const isChecked = sourceValue === 'true';
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+}
+
+function getCheckboxGroupId(field: any): string {
+  return String(field?.groupId ?? '').trim();
+}
+
+function handleFieldValueUpdate(field: any, nextValue: string) {
+  const key = getFieldValueKey(field);
+  if (!key) {
+    return;
+  }
+
+  if (!isCheckboxField(field)) {
+    fieldValues.value[key] = String(nextValue ?? '');
+    return;
+  }
+
+  const normalizedNextValue = normalizeCheckboxValue(nextValue);
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId) {
+    fieldValues.value[key] = normalizedNextValue;
+    return;
+  }
+
+  if (normalizedNextValue === 'true') {
+    for (const candidate of placedFields.value) {
+      if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+        continue;
+      }
+      const candidateKey = getFieldValueKey(candidate);
+      if (!candidateKey) {
+        continue;
+      }
+      fieldValues.value[candidateKey] = candidateKey === key ? 'true' : '';
+    }
+    return;
+  }
+
+  fieldValues.value[key] = '';
+}
+
+function isCheckboxTemporarilyDisabled(field: any): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId) {
+    return false;
+  }
+
+  const currentKey = getFieldValueKey(field);
+  const isCurrentChecked = normalizeCheckboxValue(resolveCurrentFieldValue(field)) === 'true';
+  if (isCurrentChecked) {
+    return false;
+  }
+
+  return placedFields.value.some((candidate) => {
+    if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+      return false;
+    }
+    const candidateKey = getFieldValueKey(candidate);
+    if (!candidateKey || candidateKey === currentKey) {
+      return false;
+    }
+    return normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true';
+  });
 }
 
 function hydrateFieldValueKeys() {
@@ -1050,9 +1130,10 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 class="field-group"
               >
                 <form-field-input
-                  v-model="fieldValues[getFieldValueKey(field)]"
+                  :model-value="fieldValues[getFieldValueKey(field)]"
                   :field="field"
-                  :disabled="isSaving"
+                  :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
+                  @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
 

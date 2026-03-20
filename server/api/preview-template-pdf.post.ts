@@ -92,13 +92,15 @@ function getVisibilityRule(field: any) {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
   };
 }
@@ -245,16 +247,26 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         return true;
       }
 
-      const sourceField = fields.find(
-        candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-      );
+      let isChecked = false;
+      if (rule.sourceGroupId) {
+        const groupFields = fields.filter((candidate) => {
+          return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+        });
+        isChecked = groupFields.some(candidate => normalizeCheckboxValue(resolveFieldInputValue(candidate)) === 'true');
+      }
+      else {
+        const sourceField = fields.find(
+          candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+        );
 
-      if (!sourceField) {
-        return true;
+        if (!sourceField) {
+          return true;
+        }
+
+        const sourceValue = normalizeCheckboxValue(resolveFieldInputValue(sourceField));
+        isChecked = sourceValue === 'true';
       }
 
-      const sourceValue = normalizeCheckboxValue(resolveFieldInputValue(sourceField));
-      const isChecked = sourceValue === 'true';
       return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
     }
 

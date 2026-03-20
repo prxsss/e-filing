@@ -108,12 +108,14 @@ function getFieldVisibilityRule(field: Field) {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
   };
 }
@@ -136,6 +138,19 @@ function getVisibilitySourceLabel(sourceFieldInstanceId: string): string {
   return `${baseLabel}${instanceSuffix}`;
 }
 
+function getVisibilityGroupSourceLabel(sourceGroupId: string): string {
+  const sourceField = props.placedFields.find(
+    candidate => String(candidate?.groupId ?? '').trim() === sourceGroupId && isCheckboxField(candidate),
+  );
+
+  if (!sourceField) {
+    return `Checkbox Group (${sourceGroupId.slice(0, 8)})`;
+  }
+
+  const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox Group').trim();
+  return `${baseLabel} (ทั้งกลุ่ม)`;
+}
+
 function getVisibilityOperatorText(operator: string): string {
   return operator === 'isUnchecked' ? 'ไม่ติ๊ก' : 'ติ๊ก';
 }
@@ -146,7 +161,9 @@ function getVisibilityConditionText(field: Field): string {
     return '';
   }
 
-  const sourceLabel = getVisibilitySourceLabel(rule.sourceFieldInstanceId);
+  const sourceLabel = rule.sourceGroupId
+    ? getVisibilityGroupSourceLabel(rule.sourceGroupId)
+    : getVisibilitySourceLabel(String(rule.sourceFieldInstanceId || ''));
   const operatorText = getVisibilityOperatorText(rule.operator);
   return `แสดงช่องใส่ข้อมูลเมื่อ ${sourceLabel} ${operatorText}`;
 }
