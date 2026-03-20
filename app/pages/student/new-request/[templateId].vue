@@ -907,6 +907,22 @@ const visibleFillableFields = computed(() => {
   return fillableFields.value.filter(field => isFieldVisible(field));
 });
 
+const requestFormSectionTitle = computed(() => {
+  const fieldWithTitle = visibleFillableFields.value.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
+  return String(fieldWithTitle?.formSectionTitle || 'Request Information');
+});
+
+const orderedVisibleFillableFields = computed(() => {
+  return [...visibleFillableFields.value].sort((a: any, b: any) => {
+    const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    return String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
+  });
+});
+
 function triggerFileUpload() {
   fileInputRef.value?.click();
 }
@@ -1119,25 +1135,25 @@ watch([pdfFile, placedFields, fieldValues], () => {
           <UCard>
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Request Information
+                {{ requestFormSectionTitle }}
               </h3>
             </template>
 
             <div class="space-y-4">
               <div
-                v-for="field in visibleFillableFields"
+                v-for="field in orderedVisibleFillableFields"
                 :key="field.instanceId"
                 class="field-group"
               >
                 <form-field-input
                   :model-value="fieldValues[getFieldValueKey(field)]"
-                  :field="field"
+                  :field="{ ...field, label: field.formQuestionLabel || field.label }"
                   :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
                   @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
 
-              <div v-if="visibleFillableFields.length === 0" class="text-center py-8 text-gray-500">
+              <div v-if="orderedVisibleFillableFields.length === 0" class="text-center py-8 text-gray-500">
                 <i class="fas fa-inbox text-3xl mb-2" />
                 <p class="text-sm">
                   No fillable fields in this template

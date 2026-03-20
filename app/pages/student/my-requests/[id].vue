@@ -526,9 +526,25 @@ const visibleFillableFields = computed(() => {
   return fillableFields.value.filter(field => isFieldVisible(field));
 });
 
+const requestFormSectionTitle = computed(() => {
+  const fieldWithTitle = visibleFillableFields.value.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
+  return String(fieldWithTitle?.formSectionTitle || 'ข้อมูลคำร้อง');
+});
+
 // Student-fillable fields: exclude Signature fields (those belong to signing roles, not the student)
 const studentFields = computed(() => {
   return getVisibleStudentFields();
+});
+
+const orderedStudentFields = computed(() => {
+  return [...studentFields.value].sort((a: any, b: any) => {
+    const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    return String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
+  });
 });
 
 const canSaveOrSubmitDraft = computed(() => fillableFields.value.length > 0);
@@ -1183,21 +1199,21 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
           <UCard>
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                ข้อมูลคำร้อง
+                {{ requestFormSectionTitle }}
               </h3>
             </template>
 
             <!-- DRAFT: editable inputs -->
             <div v-if="requestData?.status === 'draft'" class="space-y-4">
-              <div v-for="field in studentFields" :key="field.instanceId">
+              <div v-for="field in orderedStudentFields" :key="field.instanceId">
                 <form-field-input
                   :model-value="fieldValues[getFieldValueKey(field)]"
-                  :field="field"
+                  :field="{ ...field, label: field.formQuestionLabel || field.label }"
                   :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
                   @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
-              <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
                 ไม่มีฟิลด์ที่ต้องกรอก
               </div>
             </div>
@@ -1205,7 +1221,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
             <!-- SUBMITTED / IN_PROGRESS / COMPLETED / REJECTED: read-only display -->
             <div v-else class="space-y-3">
               <div
-                v-for="field in studentFields"
+                v-for="field in orderedStudentFields"
                 :key="field.instanceId"
                 class="flex flex-col gap-0.5"
               >
@@ -1214,7 +1230,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                   {{ resolveCurrentFieldValue(field) || '—' }}
                 </span>
               </div>
-              <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
                 ไม่มีข้อมูลที่กรอก
               </div>
             </div>
@@ -1269,7 +1285,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                     size="xs"
                     variant="ghost"
                     icon="i-heroicons-eye"
-                    @click="openPdfInNewTab(attachment.fileUrl!)"
+                    @click="attachment.fileUrl ? openPdfInNewTab(attachment.fileUrl) : undefined"
                   >
                     ดู
                   </UButton>
