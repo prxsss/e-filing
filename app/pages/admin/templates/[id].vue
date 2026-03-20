@@ -66,6 +66,13 @@ const formFieldLayout = ref<Array<{ instanceId: string; questionLabel: string }>
 const isSavingFormLayout = ref(false);
 const activeEditingFieldId = ref<string | null>(null);
 
+/** Snapshot when entering layout edit (for cancel restore). */
+type FormLayoutEditSnapshot = {
+  sectionTitle: string;
+  layout: Array<{ instanceId: string; questionLabel: string }>;
+};
+const formLayoutEditSnapshot = ref<FormLayoutEditSnapshot | null>(null);
+
 const signingSteps = computed<SigningStepSummary[]>(() => normalizeSigningFlowData(template.value?.signingFlowData));
 
 const templateDescriptionPreview = computed(() => {
@@ -275,9 +282,9 @@ function getFieldCardClass(field: any): string {
     : 'rounded-md border border-gray-100 p-2 bg-gray-50';
 }
 
-async function saveFormLayout() {
+async function saveFormLayout(): Promise<boolean> {
   if (!templateId.value) {
-    return;
+    return false;
   }
 
   isSavingFormLayout.value = true;
@@ -313,6 +320,7 @@ async function saveFormLayout() {
       description: 'บันทึกการจัดรูปแบบฟอร์มแล้ว',
       color: 'success',
     });
+    return true;
   }
   catch (err) {
     toast.add({
@@ -320,20 +328,59 @@ async function saveFormLayout() {
       description: err instanceof Error ? err.message : 'ไม่สามารถบันทึก Form Layout ได้',
       color: 'error',
     });
+    return false;
   }
   finally {
     isSavingFormLayout.value = false;
   }
 }
 
-async function toggleEditFormLayout() {
-  if (isEditingFormLayout.value) {
-    await saveFormLayout();
-    isEditingFormLayout.value = false;
-    activeEditingFieldId.value = null;
+function startEditFormLayout() {
+  formLayoutEditSnapshot.value = {
+    sectionTitle: String(formSectionTitle.value || ''),
+    layout: formFieldLayout.value.map(item => ({ ...item })),
+  };
+  isEditingFormLayout.value = true;
+}
+
+async function confirmAndSaveFormLayout() {
+  const instance = confirmDialog.open({
+    title: 'ยืนยันการบันทึก',
+    description: 'บันทึกหัวข้อส่วน คำถาม และลำดับฟิลด์ไปใช้กับฟอร์มฝั่งนิสิต?',
+    cancelButton: { label: 'ยกเลิก' },
+    confirmButton: { label: 'บันทึก', color: 'primary' },
+  });
+  const confirmed = await instance.result;
+  if (!confirmed) {
     return;
   }
-  isEditingFormLayout.value = true;
+  const ok = await saveFormLayout();
+  if (ok) {
+    isEditingFormLayout.value = false;
+    activeEditingFieldId.value = null;
+    formLayoutEditSnapshot.value = null;
+  }
+}
+
+async function confirmAndCancelFormLayoutEdit() {
+  const instance = confirmDialog.open({
+    title: 'ยืนยันการยกเลิก',
+    description: 'ยกเลิกการแก้ไข Form Layout? การเปลี่ยนแปลงที่ยังไม่บันทึกจะถูกทิ้ง',
+    cancelButton: { label: 'กลับไปแก้ไข' },
+    confirmButton: { label: 'ยกเลิกการแก้ไข', color: 'error' },
+  });
+  const confirmed = await instance.result;
+  if (!confirmed) {
+    return;
+  }
+  const snap = formLayoutEditSnapshot.value;
+  if (snap) {
+    formSectionTitle.value = snap.sectionTitle;
+    formFieldLayout.value = snap.layout.map(item => ({ ...item }));
+  }
+  isEditingFormLayout.value = false;
+  activeEditingFieldId.value = null;
+  formLayoutEditSnapshot.value = null;
 }
 
 function updatePreviewValue(field: any, value: string) {
@@ -599,19 +646,38 @@ watch(layoutEditorFillableFields, () => {
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
                   Form Layout (Student View)
                 </h3>
-                <div class="flex items-center gap-1">
-                  <UButton size="xs" variant="ghost" icon="i-heroicons-pencil-square" :loading="isSavingFormLayout" @click="toggleEditFormLayout">
-                    {{ isEditingFormLayout ? 'Done' : 'Edit Layout' }}
-                  </UButton>
-                  <UButton
-                    size="xs"
-                    color="primary"
-                    icon="i-heroicons-check"
-                    :loading="isSavingFormLayout"
-                    @click="saveFormLayout"
-                  >
-                    Save Layout
-                  </UButton>
+                <div class="flex items-center gap-1 justify-end">
+                  <template v-if="!isEditingFormLayout">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      icon="i-heroicons-pencil-square"
+                      @click="startEditFormLayout"
+                    >
+                      Edit Layout
+                    </UButton>
+                  </template>
+                  <template v-else>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      icon="i-heroicons-x-mark"
+                      :disabled="isSavingFormLayout"
+                      @click="confirmAndCancelFormLayoutEdit"
+                    >
+                      Cancel
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="primary"
+                      icon="i-heroicons-check"
+                      :loading="isSavingFormLayout"
+                      @click="confirmAndSaveFormLayout"
+                    >
+                      Save Layout
+                    </UButton>
+                  </template>
                 </div>
               </div>
             </template>
