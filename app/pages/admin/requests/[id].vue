@@ -72,6 +72,10 @@ const allFields = ref<any[]>([]);
 const signingStatus = ref<SigningStatus | null>(null);
 const attachments = ref<Attachment[]>([]);
 
+// --- Download state ---
+const downloadingAttachmentId = ref<number | null>(null);
+const isDownloadingAll = ref(false);
+
 // --- Helpers ---
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
@@ -149,6 +153,229 @@ function openInNewTab(url: string) {
     window.open(url, '_blank');
 }
 
+// --- Individual download ---
+async function downloadAttachment(attachment: Attachment) {
+  if (!attachment.fileUrl)
+    return;
+  downloadingAttachmentId.value = attachment.id;
+  try {
+    const res = await fetch(attachment.fileUrl);
+    if (!res.ok)
+      throw new Error('Fetch failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = attachment.fileName || `attachment-${attachment.id}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  catch {
+    // Fallback: open in new tab
+    if (typeof window !== 'undefined')
+      window.open(attachment.fileUrl, '_blank');
+  }
+  finally {
+    downloadingAttachmentId.value = null;
+  }
+}
+
+// --- Download all as ZIP ---
+async function downloadAllAsZip() {
+  const valid = attachments.value.filter(a => a.fileUrl);
+  if (!valid.length)
+    return;
+
+  isDownloadingAll.value = true;
+  try {
+    // Fetch all files in parallel
+    const fileEntries = await Promise.all(
+      valid.map(async (att) => {
+        const res = await fetch(att.fileUrl!);
+        if (!res.ok)
+          throw new Error(`Failed to fetch ${att.fileName}`);
+        return {
+          name: att.fileName || `attachment-${att.id}`,
+          data: new Uint8Array(await res.arrayBuffer()),
+        };
+      }),
+    );
+
+    // ── ZIP helpers ────────────────────────────────────────────────────────
+    function u16(n: number): Uint8Array {
+      const b = new Uint8Array(2);
+      new DataView(b.buffer).setUint16(0, n, true);
+      return b;
+    }
+
+    function u32(n: number): Uint8Array {
+      const b = new Uint8Array(4);
+      new DataView(b.buffer).setUint32(0, n >>> 0, true);
+      return b;
+    }
+
+    function dosNow(): { time: number; date: number } {
+      const d = new Date();
+      return {
+        time: ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) >>> 0,
+        date: (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) >>> 0,
+      };
+    }
+
+    function crc32(data: Uint8Array): number {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++)
+          c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[i] = c;
+      }
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < data.length; i++)
+        crc = (table[(crc ^ data[i]!) & 0xFF]!) ^ (crc >>> 8);
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
+      const cs = new (window as any).CompressionStream('deflate-raw');
+      const writer = cs.writable.getWriter();
+      writer.write(data);
+      writer.close();
+      const chunks: Uint8Array[] = [];
+      const reader = cs.readable.getReader();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        chunks.push(value);
+      }
+      const total = chunks.reduce((s: number, c: Uint8Array) => s + c.length, 0);
+      const out = new Uint8Array(total);
+      let pos = 0;
+      for (const c of chunks) {
+        out.set(c, pos);
+        pos += c.length;
+      }
+      return out;
+    }
+
+    const encoder = new TextEncoder();
+    const localParts: Uint8Array[] = [];
+    const centralDir: Uint8Array[] = [];
+    let localOffset = 0;
+
+    for (const entry of fileEntries) {
+      const compressed = await deflateRaw(entry.data);
+      const crc = crc32(entry.data);
+      const nameBytes = encoder.encode(entry.name);
+      const { time, date } = dosNow();
+
+      const localHeader = new Uint8Array([
+        0x50,
+        0x4B,
+        0x03,
+        0x04, // local file signature
+        20,
+        0, // version needed
+        0,
+        0x08, // flags (UTF-8 name)
+        8,
+        0, // compression: deflate
+        ...u16(time),
+        ...u16(date),
+        ...u32(crc),
+        ...u32(compressed.length),
+        ...u32(entry.data.length),
+        ...u16(nameBytes.length),
+        0,
+        0, // extra field length
+        ...nameBytes,
+      ]);
+
+      const cdEntry = new Uint8Array([
+        0x50,
+        0x4B,
+        0x01,
+        0x02, // central dir signature
+        20,
+        0, // version made by
+        20,
+        0, // version needed
+        0,
+        0x08, // flags
+        8,
+        0, // compression
+        ...u16(time),
+        ...u16(date),
+        ...u32(crc),
+        ...u32(compressed.length),
+        ...u32(entry.data.length),
+        ...u16(nameBytes.length),
+        0,
+        0, // extra length
+        0,
+        0, // comment length
+        0,
+        0, // disk start
+        0,
+        0, // internal attrs
+        0,
+        0,
+        0,
+        0, // external attrs
+        ...u32(localOffset), // local header offset
+        ...nameBytes,
+      ]);
+
+      localParts.push(localHeader, compressed);
+      centralDir.push(cdEntry);
+      localOffset += localHeader.length + compressed.length;
+    }
+
+    const cdSize = centralDir.reduce((s, c) => s + c.length, 0);
+    const eocd = new Uint8Array([
+      0x50,
+      0x4B,
+      0x05,
+      0x06, // EOCD signature
+      0,
+      0, // disk number
+      0,
+      0, // disk with CD
+      ...u16(fileEntries.length),
+      ...u16(fileEntries.length),
+      ...u32(cdSize),
+      ...u32(localOffset),
+      0,
+      0, // comment length
+    ]);
+
+    const allParts = [...localParts, ...centralDir, eocd];
+    const totalSize = allParts.reduce((s, c) => s + c.length, 0);
+    const zip = new Uint8Array(totalSize);
+    let pos = 0;
+    for (const p of allParts) {
+      zip.set(p, pos);
+      pos += p.length;
+    }
+
+    const blob = new Blob([zip], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attachments-request-${requestId}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  catch (err) {
+    console.error('Failed to build ZIP:', err);
+  }
+  finally {
+    isDownloadingAll.value = false;
+  }
+}
+
 // --- Fetch ---
 async function loadAll() {
   isLoading.value = true;
@@ -189,13 +416,12 @@ async function loadAll() {
       };
     }
 
-    // template metadata (for field labels in right panel)
+    // template metadata
     if (requestData.value?.templateId) {
       const tplResult = await $fetch<any>(`/api/pdf-templates/${requestData.value.templateId}`);
       if (tplResult.success && tplResult.data) {
         templateData.value = tplResult.data;
 
-        // all placed fields — NO role filter, admin sees everything
         if (templateData.value?.placedFieldsData) {
           allFields.value = (templateData.value.placedFieldsData as any[]).filter(
             (f: any) => f.isFillable !== false && f.is_fillable !== false,
@@ -278,7 +504,6 @@ onMounted(loadAll);
       <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left: PDF Preview -->
         <div class="lg:col-span-2 space-y-4">
-          <!-- PDF Viewer -->
           <div v-if="displayPdfUrl">
             <template-pdf-preview
               :pdf-url="displayPdfUrl"
@@ -461,7 +686,7 @@ onMounted(loadAll);
             </div>
           </UCard>
 
-          <!-- All Filled Fields (admin sees everything) -->
+          <!-- All Filled Fields -->
           <UCard>
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
@@ -491,9 +716,21 @@ onMounted(loadAll);
           <!-- Attachments -->
           <UCard v-if="attachments.length > 0">
             <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                ไฟล์แนบ
-              </h3>
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                  ไฟล์แนบ
+                </h3>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  color="neutral"
+                  icon="i-heroicons-arrow-down-tray"
+                  :loading="isDownloadingAll"
+                  @click="downloadAllAsZip"
+                >
+                  ดาวน์โหลดทั้งหมด
+                </UButton>
+              </div>
             </template>
             <div class="space-y-2">
               <div
@@ -512,14 +749,22 @@ onMounted(loadAll);
                     </p>
                   </div>
                 </div>
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  icon="i-heroicons-eye"
-                  @click="openInNewTab(attachment.fileUrl!)"
-                >
-                  ดู
-                </UButton>
+                <div class="flex items-center gap-1 shrink-0">
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-heroicons-arrow-down-tray"
+                    :loading="downloadingAttachmentId === attachment.id"
+                    @click="downloadAttachment(attachment)"
+                  />
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    icon="i-heroicons-eye"
+                    @click="openInNewTab(attachment.fileUrl!)"
+                  />
+                </div>
               </div>
             </div>
           </UCard>
