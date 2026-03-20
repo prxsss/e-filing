@@ -11,7 +11,8 @@ type SigningTask = {
   flowId: number;
   requestId: number;
   stepOrder: number;
-  roleName: string;
+  roleDescriptionEn: string | null;
+  roleDescriptionTh: string | null;
   createdAt: string;
   studentNameEn: string;
   studentNameTh: string;
@@ -21,13 +22,18 @@ type SigningTask = {
     submittedAt: string | null;
     filledDocumentUrl: string | null;
     templateName: string | null;
+    userId: string | null;
   } | null;
 };
 
 // const authStore = useAuthStore();
 
 const router = useRouter();
-const { locale } = useI18n();
+// const { locale } = useI18n();
+
+// const { t } = useI18n();
+
+// const { t } = useI18n();
 
 const { data, status, refresh } = await useFetch<{ success: boolean; data: SigningTask[] }>(
   '/api/requests/for-signing',
@@ -50,7 +56,8 @@ const tableData = computed(() =>
     templateName: task.request?.templateName ?? 'เอกสาร',
     submittedAt: task.request?.submittedAt ?? null,
     status: task.request?.status ?? '',
-    stepInfo: `ขั้นตอนที่ ${task.stepOrder}: ${task.roleName}`,
+    stepInfo: `${task.roleDescriptionTh}`,
+    studentId: task.request?.userId ?? '-',
   })),
 );
 
@@ -97,14 +104,18 @@ function formatDate(dateStr: string | null) {
 const UIcon = resolveComponent('UIcon');
 
 const columns: any[] = [
-  { accessorKey: 'templateName', header: 'ชื่อเอกสาร' },
   {
-    header: 'นักศึกษา',
-    cell: ({ row }: { row: TableRow<SigningTask> }) => {
-      const studentName = locale.value === 'th' ? row.original.studentNameTh : row.original.studentNameEn;
-      return studentName || '-';
+    id: 'rowNumber',
+    header: '#',
+    size: 50,
+    cell: (ctx: any) => {
+      const index = paginatedTasks.value.findIndex((t: any) => t.id === ctx.row.original.id);
+      return ((page.value - 1) * pageCount) + index + 1;
     },
   },
+  { accessorKey: 'studentId', header: 'รหัสนิสิต' },
+  { accessorKey: 'studentName', header: 'ชื่อนิสิต' },
+  { accessorKey: 'templateName', header: 'เอกสาร' },
   { accessorKey: 'stepInfo', header: 'ขั้นตอน' },
   { accessorKey: 'submittedAt', header: 'วันที่ยื่น' },
   {
@@ -153,7 +164,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         <UInput
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
-          placeholder="ค้นหาตามชื่อเอกสาร นักศึกษา หรือขั้นตอน..."
+          placeholder="ค้นหาตามชื่อเอกสาร นิสิต หรือขั้นตอน..."
           class="w-full sm:w-80"
         />
       </div>

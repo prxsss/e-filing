@@ -158,6 +158,7 @@
   "signerRole": "Signer Role",
   "description": "Description",
   "clickFieldToAssign": "Click a field on the PDF to assign it to this step",
+  "clickFieldOnDocumentToAssign": "Click a field on the document to assign it to this step",
   "noSigningSteps": "No signing steps defined",
   "addFirstStep": "Add your first signing step",
   "removeStep": "Remove Step",
