@@ -346,7 +346,7 @@ function startEditFormLayout() {
 async function confirmAndSaveFormLayout() {
   const instance = confirmDialog.open({
     title: 'ยืนยันการบันทึก',
-    description: 'บันทึกหัวข้อส่วน คำถาม และลำดับฟิลด์ไปใช้กับฟอร์มฝั่งนิสิต?',
+    description: 'ยืนยันการบันทึกไปใช้กับฟอร์มฝั่งนิสิต?',
     cancelButton: { label: 'ยกเลิก' },
     confirmButton: { label: 'บันทึก', color: 'primary' },
   });
@@ -365,7 +365,7 @@ async function confirmAndSaveFormLayout() {
 async function confirmAndCancelFormLayoutEdit() {
   const instance = confirmDialog.open({
     title: 'ยืนยันการยกเลิก',
-    description: 'ยกเลิกการแก้ไข Form Layout? การเปลี่ยนแปลงที่ยังไม่บันทึกจะถูกทิ้ง',
+    description: 'ยกเลิกการแก้ไข การเปลี่ยนแปลงที่ยังไม่บันทึกจะถูกยกเลิก',
     cancelButton: { label: 'กลับไปแก้ไข' },
     confirmButton: { label: 'ยกเลิกการแก้ไข', color: 'error' },
   });
