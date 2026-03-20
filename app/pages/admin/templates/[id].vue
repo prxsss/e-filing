@@ -228,7 +228,15 @@ function syncFormFieldLayout() {
 
 function getQuestionLabel(field: any): string {
   const item = formFieldLayout.value.find(layout => layout.instanceId === String(field.instanceId));
-  return item?.questionLabel || String(field.label || field.name || 'Question');
+  // Allow the input to be truly empty (questionLabel === '') while editing.
+  // Fallback to template label only when questionLabel is null/undefined.
+  if (!item) {
+    return String(field.label || field.name || 'Question');
+  }
+  if (item.questionLabel === undefined || item.questionLabel === null) {
+    return String(field.label || field.name || 'Question');
+  }
+  return String(item.questionLabel);
 }
 
 function setQuestionLabel(instanceId: string, value: string) {
@@ -237,6 +245,48 @@ function setQuestionLabel(instanceId: string, value: string) {
     return;
   }
   item.questionLabel = value;
+}
+
+function revertQuestionLabelIfEmpty(instanceId: string) {
+  if (!isEditingFormLayout.value) {
+    return;
+  }
+  const snap = formLayoutEditSnapshot.value;
+  if (!snap) {
+    return;
+  }
+
+  const current = String(formFieldLayout.value.find(item => item.instanceId === instanceId)?.questionLabel ?? '');
+  if (current.trim().length > 0) {
+    return;
+  }
+
+  const original = snap.layout.find(item => item.instanceId === instanceId);
+  if (original && original.questionLabel !== undefined) {
+    setQuestionLabel(instanceId, String(original.questionLabel));
+    return;
+  }
+
+  // Fallback to the template label if snapshot doesn't exist for some reason.
+  const templateField = placedFields.value.find((f: any) => String(f?.instanceId ?? '') === instanceId);
+  setQuestionLabel(instanceId, templateField ? String(templateField.label || templateField.name || 'Question') : '');
+}
+
+function revertSectionTitleIfEmpty() {
+  if (!isEditingFormLayout.value) {
+    return;
+  }
+  const snap = formLayoutEditSnapshot.value;
+  if (!snap) {
+    return;
+  }
+
+  const current = String(formSectionTitle.value ?? '');
+  if (current.trim().length > 0) {
+    return;
+  }
+
+  formSectionTitle.value = String(snap.sectionTitle ?? '');
 }
 
 function focusLayoutInputByInstanceId(instanceId: string) {
@@ -289,6 +339,15 @@ async function saveFormLayout(): Promise<boolean> {
 
   isSavingFormLayout.value = true;
   try {
+    // If user cleared inputs but didn't provide any value, restore the original values
+    // from when editing started (avoids accidental fallback and keeps UX consistent).
+    if (formLayoutEditSnapshot.value) {
+      revertSectionTitleIfEmpty();
+      for (const item of formFieldLayout.value) {
+        revertQuestionLabelIfEmpty(item.instanceId);
+      }
+    }
+
     const payload = {
       sectionTitle: String(formSectionTitle.value || 'Request Information').trim(),
       fields: formFieldLayout.value.map((item, index) => ({
@@ -684,7 +743,11 @@ watch(layoutEditorFillableFields, () => {
             <div class="space-y-3 w-full">
               <div>
                 <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Section Title</label>
-                <UInput v-model="formSectionTitle" :disabled="!isEditingFormLayout" />
+                <UInput
+                  v-model="formSectionTitle"
+                  :disabled="!isEditingFormLayout"
+                  @blur="revertSectionTitleIfEmpty"
+                />
               </div>
 
               <div class="rounded-lg border border-gray-200 p-3">
@@ -704,7 +767,7 @@ watch(layoutEditorFillableFields, () => {
                         :disabled="!isEditingFormLayout"
                         class="flex-1"
                         @focus="activeEditingFieldId = String(field.instanceId)"
-                        @blur="activeEditingFieldId = null"
+                        @blur="() => { activeEditingFieldId = null; revertQuestionLabelIfEmpty(String(field.instanceId)); }"
                         @update:model-value="(value) => setQuestionLabel(String(field.instanceId), String(value ?? ''))"
                       />
                       <UButton
