@@ -63,7 +63,7 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
         @submit="onSubmit"
       >
         <template #header>
-          <SciKuSrcLogo :width="300" class="mx-auto" />
+          <KuSrcLogo class="h-auto w-75 mx-auto" />
         </template>
         <template #validation>
           <UAlert v-if="authStore.errorMessage" color="error" variant="subtle" icon="i-lucide-info" :title="authStore.errorMessage" />
