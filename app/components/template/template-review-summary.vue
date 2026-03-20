@@ -13,7 +13,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'confirm': [];
   'update:templateDescription': [value: string];
 }>();
 
@@ -34,7 +33,7 @@ watch(localDescription, (newVal) => {
   }
 });
 
-// Validation and Focus logic exposed for both local and parent usage
+// Validation and Focus logic exposed for the parent (create.vue) save button to trigger
 function validateAndFocus(): boolean {
   if (!localDescription.value || String(localDescription.value).trim() === '') {
     isDescriptionError.value = true;
@@ -63,13 +62,6 @@ function validateAndFocus(): boolean {
 
 // Expose the method so the parent (create.vue) can trigger it
 defineExpose({ validateAndFocus });
-
-function handleConfirm() {
-  if (!validateAndFocus()) {
-    return;
-  }
-  emit('confirm');
-}
 
 function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): number {
   return fields.filter(f => f.signerStepId === step.id).length;
@@ -207,18 +199,6 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
             :signing-steps="signingSteps"
           />
         </div>
-      </div>
-
-      <!-- Confirm Button -->
-      <div class="flex flex-col items-center pt-4 pb-8">
-        <UButton
-          icon="i-heroicons-check-circle"
-          :label="t('confirmSave')"
-          size="xl"
-          color="primary"
-          class="px-8 font-bold"
-          @click="handleConfirm"
-        />
       </div>
     </div>
   </div>
