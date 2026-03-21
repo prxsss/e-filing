@@ -1210,6 +1210,7 @@ defineExpose<{
               <div
                 v-if="!props.readOnly && hasVisibilityRule(field)"
                 class="condition-tag"
+                :class="{ 'condition-tag--stacked': isCheckboxField(field) }"
                 :title="getVisibilityBadgeTitle(field)"
               >
                 {{ getVisibilityConditionText(field) }}
@@ -1218,6 +1219,7 @@ defineExpose<{
               <div
                 v-if="!props.readOnly && isCheckboxField(field)"
                 class="checkbox-tag"
+                :class="{ 'checkbox-tag--stacked': hasVisibilityRule(field) }"
                 :title="getFieldDisplayBadgeText(field, props.placedFields)"
               >
                 {{ getFieldDisplayBadgeText(field, props.placedFields) }}
@@ -1446,6 +1448,14 @@ defineExpose<{
   font-weight: 700;
   pointer-events: none;
   z-index: 1002;
+}
+
+.condition-tag--stacked {
+  top: -8px;
+}
+
+.checkbox-tag--stacked {
+  top: -22px;
 }
 
 .field-selected {
