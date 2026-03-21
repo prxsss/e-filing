@@ -1012,7 +1012,9 @@ function handleKeyDown(event: KeyboardEvent): void {
 
   const step = event.shiftKey ? 10 : 1;
   const refreshPreviewForMovedField = () => {
-    if (fieldHasPreviewContent(field)) {
+    // Keep keyboard movement behavior aligned with mouse drag:
+    // any layout move should refresh preview when preview mode is active.
+    if (isPreviewOutputEnabled.value && hasPreviewInputs.value) {
       schedulePreviewRefresh();
     }
   };
