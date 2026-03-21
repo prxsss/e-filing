@@ -1,7 +1,6 @@
-import { and, eq } from 'drizzle-orm';
-
-import db from '../../../../lib/db';
-import { request, requestTemplate, requestTemplateValues } from '../../../../lib/db/schema';
+import db from '~~/lib/db';
+import { request, requestTemplate, requestTemplateValues, signatureFlow, userRoles } from '~~/lib/db/schema';
+import { and, asc, eq } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -26,12 +25,41 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Request not found' };
     }
 
-    if (requestRecord.userId !== userId) {
+    const isOwner = requestRecord.userId === userId;
+
+    let isAuthorizedSigner = false;
+    if (!isOwner) {
+      const userRoleRows = await db
+        .select({ roleId: userRoles.roleId })
+        .from(userRoles)
+        .where(eq(userRoles.userId, userId));
+      const userRoleIds = userRoleRows.map(r => r.roleId);
+
+      const [pendingFlow] = await db
+        .select()
+        .from(signatureFlow)
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.status, 'pending'),
+        ))
+        .orderBy(asc(signatureFlow.stepOrder))
+        .limit(1);
+
+      if (pendingFlow) {
+        isAuthorizedSigner = pendingFlow.assignedUserId === userId
+          || (pendingFlow.assignedUserId === null && userRoleIds.includes(pendingFlow.roleId));
+      }
+    }
+
+    if (!isOwner && !isAuthorizedSigner) {
       throw createError({ statusCode: 403, message: 'Forbidden' });
     }
 
-    if (requestRecord.status !== 'draft') {
+    if (isOwner && requestRecord.status !== 'draft') {
       return { success: false, error: 'Field values can only be edited while the request is in draft' };
+    }
+    if (isAuthorizedSigner && !['in_progress', 'pending_signature'].includes(requestRecord.status ?? '')) {
+      return { success: false, error: 'Request is not in a signable state' };
     }
 
     const fieldMaxLengthMap = new Map<number, number>();
