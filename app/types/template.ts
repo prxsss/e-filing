@@ -15,6 +15,8 @@ export type Field = {
   amount?: number;
   fontSize?: number;
   fontFamily?: string;
+  strikeThroughGroupMode?: boolean;
+  strikeLineThickness?: number;
   [key: string]: any;
 };
 
@@ -75,6 +77,8 @@ export type FieldInstance = Field & {
   timeSeparatorSpacing?: number;
   timeShowHour?: boolean;
   timeShowMinute?: boolean;
+  strikeThroughGroupMode?: boolean;
+  strikeLineThickness?: number;
 };
 
 /**

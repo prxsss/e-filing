@@ -990,6 +990,16 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
       ? 0
       : parseFiniteNumber(payload.defaults?.letterSpacing ?? (fieldDefinition as any).letterSpacing, 0),
     lineHeight: parseFiniteNumber(payload.defaults?.lineHeight ?? (fieldDefinition as any).lineHeight, 1.5),
+    strikeThroughGroupMode: typeLower === 'checkbox' && (parsePositiveInteger((fieldDefinition as any).amount) ?? 1) > 1
+      ? Boolean(payload.defaults?.strikeThroughGroupMode ?? (fieldDefinition as any).strikeThroughGroupMode ?? (fieldDefinition as any).strike_through_group_mode ?? false)
+      : false,
+    strikeLineThickness: Math.min(
+      8,
+      Math.max(
+        0.5,
+        parseFiniteNumber(payload.defaults?.strikeLineThickness ?? (fieldDefinition as any).strikeLineThickness ?? (fieldDefinition as any).strike_line_thickness, 1.5),
+      ),
+    ),
     maxLength,
     ...toAutoDateTimeFormatPayload(payload.defaults ?? fieldDefinition ?? selectedFieldData),
     isFillable: fieldDefinition.isFillable ?? true,

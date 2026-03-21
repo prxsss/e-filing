@@ -88,9 +88,11 @@ function isCheckboxField(field: Field): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
-function normalizeCheckboxValue(value: unknown): string {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return ['true', '1', 'yes', 'y', 'checked', 'on'].includes(normalized) ? 'true' : '';
+function isStrikeThroughGroupModeEnabled(field: Field): boolean {
+  if (Object.prototype.hasOwnProperty.call(field || {}, 'strikeThroughGroupMode')) {
+    return field?.strikeThroughGroupMode === true;
+  }
+  return field?.strike_through_group_mode === true;
 }
 
 function isStrikeThroughGroupField(field: Field): boolean {
@@ -98,33 +100,15 @@ function isStrikeThroughGroupField(field: Field): boolean {
     return false;
   }
 
-  return field?.strikeThroughGroupMode === true || field?.strike_through_group_mode === true;
+  return isStrikeThroughGroupModeEnabled(field);
 }
 
-function getStrikeLineThickness(field: Field): number {
-  const rawValue = Number(field?.strikeLineThickness ?? field?.strike_line_thickness ?? 1.5);
-  if (!Number.isFinite(rawValue) || rawValue <= 0) {
-    return 1.5;
+function getCheckboxBadgeText(field: Field): string {
+  const baseText = getFieldDisplayBadgeText(field, props.placedFields);
+  if (isStrikeThroughGroupField(field)) {
+    return `${baseText} -`;
   }
-  return Math.min(8, Math.max(0.5, rawValue));
-}
-
-function isCheckboxChecked(field: Field): boolean {
-  const override = getFieldTextOverride(field);
-  return normalizeCheckboxValue(override) === 'true';
-}
-
-function shouldRenderUncheckedStrikeLine(field: Field): boolean {
-  if (!isStrikeThroughGroupField(field)) {
-    return false;
-  }
-
-  const groupId = String(field?.groupId || '').trim();
-  if (!groupId.length) {
-    return false;
-  }
-
-  return !isCheckboxChecked(field);
+  return baseText;
 }
 
 function isSignatureField(field: Field): boolean {
@@ -1261,9 +1245,9 @@ defineExpose<{
                 v-if="!props.readOnly && isCheckboxField(field)"
                 class="checkbox-tag"
                 :class="{ 'checkbox-tag--stacked': hasVisibilityRule(field) }"
-                :title="getFieldDisplayBadgeText(field, props.placedFields)"
+                :title="getCheckboxBadgeText(field)"
               >
-                {{ getFieldDisplayBadgeText(field, props.placedFields) }}
+                {{ getCheckboxBadgeText(field) }}
               </div>
 
               <div class="field-content">
@@ -1275,17 +1259,7 @@ defineExpose<{
                   >
                 </template>
                 <template v-else-if="isCheckboxField(field)">
-                  <span
-                    v-if="!isStrikeThroughGroupField(field) && !props.fillMode"
-                    class="field-label-text"
-                  >{{ field.label || field.name }}</span>
-                  <div
-                    v-if="shouldRenderUncheckedStrikeLine(field)"
-                    class="unchecked-strike-line"
-                    :style="{
-                      height: `${Math.max(0.5, getStrikeLineThickness(field) * fitScale)}px`,
-                    }"
-                  />
+                  <!-- Keep checkbox box visually empty in builder preview -->
                 </template>
                 <template v-else>
                   <template v-if="hasFieldTextOverride(field)">
@@ -1296,7 +1270,10 @@ defineExpose<{
                     class="field-label-text"
                   >{{ field.label || field.name }}</span>
                 </template>
-                <span v-if="field.isGrouped && !hasSignatureImage(field)" class="instance-num">#{{ field.instanceNumber }}</span>
+                <span
+                  v-if="field.isGrouped && !hasSignatureImage(field) && !isCheckboxField(field) && !isStrikeThroughGroupField(field)"
+                  class="instance-num"
+                >#{{ field.instanceNumber }}</span>
               </div>
               <!-- Signer role tag (visible in read-only mode with signing steps) -->
               <div
@@ -1584,13 +1561,6 @@ defineExpose<{
   min-width: 0;
   color: rgba(17, 24, 39, 0.72);
   font-kerning: none;
-}
-
-.unchecked-strike-line {
-  width: 100%;
-  align-self: center;
-  background: rgba(17, 24, 39, 0.78);
-  border-radius: 9999px;
 }
 
 .instance-num {

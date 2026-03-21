@@ -624,6 +624,16 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
       ? 0
       : parseFiniteNumber(payload.defaults?.letterSpacing ?? (fieldDefinition as any).letterSpacing, 0),
     lineHeight: parseFiniteNumber(payload.defaults?.lineHeight ?? (fieldDefinition as any).lineHeight, 1.5),
+    strikeThroughGroupMode: typeLower === 'checkbox' && (parsePositiveInteger((fieldDefinition as any).amount) ?? 1) > 1
+      ? Boolean(payload.defaults?.strikeThroughGroupMode ?? (fieldDefinition as any).strikeThroughGroupMode ?? (fieldDefinition as any).strike_through_group_mode ?? false)
+      : false,
+    strikeLineThickness: Math.min(
+      8,
+      Math.max(
+        0.5,
+        parseFiniteNumber(payload.defaults?.strikeLineThickness ?? (fieldDefinition as any).strikeLineThickness ?? (fieldDefinition as any).strike_line_thickness, 1.5),
+      ),
+    ),
     maxLength,
     ...toAutoDateTimeFormatPayload(payload.defaults ?? fieldDefinition ?? selectedFieldData),
     isFillable: fieldDefinition.isFillable ?? true,
@@ -858,6 +868,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
   }
 
   const amount = fieldToAdd.amount || 1;
+  const isCheckboxGroup = getFieldType(fieldToAdd) === 'checkbox' && amount > 1;
   const groupId = amount > 1 ? `group_${fieldToAdd.id}_${Date.now()}` : null;
   const defaultWidth = parsePositiveInteger((fieldToAdd as any).default_width ?? (fieldToAdd as any).width) ?? 150;
   const defaultHeight = parsePositiveInteger((fieldToAdd as any).default_height ?? (fieldToAdd as any).height) ?? 40;
@@ -871,7 +882,9 @@ function addFieldToPreview(fieldToAdd: Field): void {
     ? 0
     : parseFiniteNumber((fieldToAdd as any).letterSpacing, 0);
   const defaultLineHeight = parseFiniteNumber((fieldToAdd as any).lineHeight, 1.5);
-  const defaultStrikeThroughGroupMode = Boolean((fieldToAdd as any).strikeThroughGroupMode ?? (fieldToAdd as any).strike_through_group_mode ?? false);
+  const defaultStrikeThroughGroupMode = isCheckboxGroup
+    ? Boolean((fieldToAdd as any).strikeThroughGroupMode ?? (fieldToAdd as any).strike_through_group_mode ?? false)
+    : false;
   const defaultStrikeLineThickness = parseFiniteNumber((fieldToAdd as any).strikeLineThickness ?? (fieldToAdd as any).strike_line_thickness, 1.5);
   const defaultMaxLength = parsePositiveInteger((fieldToAdd as any).maxLength ?? (fieldToAdd as any).max_length);
   const defaultAutoDateTimeFormat = toAutoDateTimeFormatPayload(fieldToAdd);
