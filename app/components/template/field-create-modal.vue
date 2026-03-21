@@ -40,7 +40,6 @@ function normalizeMaxLength(value) {
 
 const formData = ref({
   name: '',
-  label: '',
   type: 'Text',
   icon: 'i-heroicons-document',
   amount: 1,
@@ -102,8 +101,7 @@ const isOpen = computed({
 watch(() => props.editField, (newField) => {
   if (newField && props.mode === 'edit') {
     formData.value = {
-      name: newField.name || '',
-      label: newField.label || '',
+      name: newField.name || newField.label || '',
       type: newField.type || 'Text',
       icon: newField.icon || 'i-heroicons-document',
       amount: parsePositiveInteger(newField.amount) ?? 1,
@@ -133,7 +131,6 @@ watch(supportsAmountSetting, (enabled) => {
 function resetForm() {
   formData.value = {
     name: '',
-    label: '',
     type: 'Text',
     icon: 'i-heroicons-document',
     amount: 1,
@@ -168,6 +165,7 @@ function buildFieldPayload() {
 
   return {
     ...formData.value,
+    label: formData.value.name,
     amount: normalizedAmount,
     width: normalizedWidth,
     height: normalizedHeight,
@@ -185,7 +183,7 @@ function buildFieldPayload() {
 }
 
 async function handleSubmit() {
-  if (!formData.value.name || !formData.value.label) {
+  if (!formData.value.name) {
     toast.add({
       title: 'กรุณากรอกข้อมูลให้ครบ',
       color: 'error',
@@ -325,18 +323,6 @@ async function handleDelete() {
               <UInput
                 v-model="formData.name"
                 placeholder="เช่น Student Name"
-                size="md"
-              />
-            </div>
-
-            <!-- Field Label -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                ป้ายชื่อ (Label) <span class="text-red-500">*</span>
-              </label>
-              <UInput
-                v-model="formData.label"
-                placeholder="เช่น ชื่อนักศึกษา"
                 size="md"
               />
             </div>
