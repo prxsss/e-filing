@@ -1,5 +1,5 @@
 import db from '~~/lib/db';
-import { request, requestTemplate, signatureFlow, userRoles, users } from '~~/lib/db/schema';
+import { request, requestTemplate, roles, signatureFlow, userRoles, users } from '~~/lib/db/schema';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
     const allPendingFlows = await db
       .select()
       .from(signatureFlow)
+      .leftJoin(roles, eq(signatureFlow.roleId, roles.id))
       .where(
         and(
           eq(signatureFlow.status, 'pending'),
@@ -49,7 +50,7 @@ export default defineEventHandler(async (event) => {
       return { success: true, data: [] };
     }
 
-    const requestIds = [...new Set(allPendingFlows.map(f => f.requestId))] as number[];
+    const requestIds = [...new Set(allPendingFlows.map(f => f.signature_flow.requestId))] as number[];
 
     // Fetch request details and join requester name (for "จาก:" label in UI)
     const requestRows = await db
@@ -60,7 +61,7 @@ export default defineEventHandler(async (event) => {
         filledDocumentUrl: request.filledDocumentUrl,
         templateName: requestTemplate.name,
         templateId: request.templateId,
-        userId: request.userId, // ← add this
+        userId: request.userId,
         requesterFirstNameTh: users.firstNameTh,
         requesterLastNameTh: users.lastNameTh,
         requesterFirstNameEn: users.firstNameEn,
@@ -72,7 +73,7 @@ export default defineEventHandler(async (event) => {
       .where(inArray(request.id, requestIds));
 
     const data = allPendingFlows.map((flow) => {
-      const req = requestRows.find(r => r.id === flow.requestId);
+      const req = requestRows.find(r => r.id === flow.signature_flow.requestId);
 
       // Prefer Thai name; fall back to English name
       const studentName = req
@@ -82,14 +83,15 @@ export default defineEventHandler(async (event) => {
         : '-';
 
       return {
-        flowId: flow.id,
-        requestId: flow.requestId,
-        stepId: flow.stepId,
-        stepOrder: flow.stepOrder,
-        roleId: flow.roleId,
-        roleName: flow.roleName,
-        assignedFieldInstanceIds: flow.assignedFieldInstanceIds as string[],
-        createdAt: flow.createdAt,
+        flowId: flow.signature_flow.id,
+        requestId: flow.signature_flow.requestId,
+        stepId: flow.signature_flow.stepId,
+        stepOrder: flow.signature_flow.stepOrder,
+        roleId: flow.signature_flow.roleId,
+        roleDescriptionEn: flow.roles?.descriptionEn,
+        roleDescriptionTh: flow.roles?.descriptionTh,
+        assignedFieldInstanceIds: flow.signature_flow.assignedFieldInstanceIds as string[],
+        createdAt: flow.signature_flow.createdAt,
         studentName,
         request: req
           ? {
@@ -103,6 +105,10 @@ export default defineEventHandler(async (event) => {
             }
           : null,
       };
+    }).sort((a, b) => {
+      const dateA = a.request?.submittedAt ? new Date(a.request.submittedAt).getTime() : 0;
+      const dateB = b.request?.submittedAt ? new Date(b.request.submittedAt).getTime() : 0;
+      return dateA - dateB; // ascending
     });
 
     return { success: true, data };

@@ -11,7 +11,8 @@ type SigningTask = {
   flowId: number;
   requestId: number;
   stepOrder: number;
-  roleName: string;
+  roleDescriptionEn: string | null;
+  roleDescriptionTh: string | null;
   createdAt: string;
   studentName: string;
   request: {
@@ -27,6 +28,8 @@ type SigningTask = {
 // const authStore = useAuthStore();
 
 const router = useRouter();
+
+// const { t } = useI18n();
 
 const { data, status, refresh } = await useFetch<{ success: boolean; data: SigningTask[] }>(
   '/api/requests/for-signing',
@@ -49,7 +52,7 @@ const tableData = computed(() =>
     templateName: task.request?.templateName ?? 'เอกสาร',
     submittedAt: task.request?.submittedAt ?? null,
     status: task.request?.status ?? '',
-    stepInfo: `ขั้นตอนที่ ${task.stepOrder}: ${task.roleName}`,
+    stepInfo: `${task.roleDescriptionTh}`,
     studentId: task.request?.userId ?? '-',
   })),
 );
@@ -105,8 +108,8 @@ const columns: any[] = [
     },
   },
   { accessorKey: 'studentId', header: 'รหัสนิสิต' },
-  { accessorKey: 'studentName', header: 'นิสิต' },
-  { accessorKey: 'templateName', header: 'ชื่อเอกสาร' },
+  { accessorKey: 'studentName', header: 'ชื่อนิสิต' },
+  { accessorKey: 'templateName', header: 'เอกสาร' },
   { accessorKey: 'stepInfo', header: 'ขั้นตอน' },
   { accessorKey: 'submittedAt', header: 'วันที่ยื่น' },
   {
