@@ -176,6 +176,16 @@ function handleFontSizeBlur(): void {
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
 const isDateField = computed(() => selectedFieldType.value === 'date');
 const isTimeField = computed(() => selectedFieldType.value === 'time');
+const isCheckboxType = computed(() => selectedFieldType.value === 'checkbox');
+const isGroupedCheckboxField = computed(() => {
+  if (!isCheckboxType.value) {
+    return false;
+  }
+
+  const groupId = String(props.selectedField?.groupId || '').trim();
+  const groupSize = Number(props.selectedField?.groupSize || 0);
+  return groupId.length > 0 || groupSize > 1;
+});
 
 const supportsMaxLength = computed(() => {
   return selectedFieldType.value !== 'signature'
@@ -265,6 +275,8 @@ watch(
         letterSpacing: fieldType === 'date' || fieldType === 'time' ? 0 : (newField.letterSpacing ?? 0),
         lineHeight: newField.lineHeight ?? 1.5,
         maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
+        strikeThroughGroupMode: Boolean(newField.strikeThroughGroupMode ?? newField.strike_through_group_mode ?? false),
+        strikeLineThickness: Number.parseFloat(String(newField.strikeLineThickness ?? newField.strike_line_thickness ?? 1.5)) || 1.5,
         conditionalEnabled: Boolean(visibilityRule),
         conditionalSourceType: visibilityRule?.sourceGroupId ? 'group' : 'single',
         conditionalSourceFieldInstanceId: visibilityRule?.sourceFieldInstanceId || '',
@@ -339,6 +351,10 @@ function onPropertyChange() {
     letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
     lineHeight: localField.value.lineHeight ?? 1.5,
     maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+    strikeThroughGroupMode: isCheckboxType.value ? Boolean(localField.value.strikeThroughGroupMode) : false,
+    strikeLineThickness: isCheckboxType.value
+      ? Math.min(8, Math.max(0.5, Number.parseFloat(String(localField.value.strikeLineThickness ?? 1.5)) || 1.5))
+      : 1.5,
     visibilityRule: localField.value.conditionalEnabled
       ? normalizeVisibilityRule({
           enabled: true,
@@ -428,6 +444,10 @@ function saveDefaults() {
       letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
       lineHeight: localField.value.lineHeight ?? 1.5,
       maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
+      strikeThroughGroupMode: isCheckboxType.value ? Boolean(localField.value.strikeThroughGroupMode) : false,
+      strikeLineThickness: isCheckboxType.value
+        ? Math.min(8, Math.max(0.5, Number.parseFloat(String(localField.value.strikeLineThickness ?? 1.5)) || 1.5))
+        : 1.5,
       ...dateTimeDefaults,
     },
   });
@@ -771,6 +791,37 @@ function removeField() {
             </div>
           </template>
         </div>
+      </template>
+
+      <template v-if="isGroupedCheckboxField">
+        <div class="h-5 w-px bg-gray-200" />
+        <label class="toolbar-inline-checkbox">
+          <input
+            v-model="localField.strikeThroughGroupMode"
+            type="checkbox"
+            @change="onPropertyChange"
+          >
+          โหมดขีดฆ่าช่องที่ไม่ติ๊กในกลุ่ม
+        </label>
+      </template>
+
+      <template v-if="isGroupedCheckboxField && localField.strikeThroughGroupMode">
+        <UTooltip text="ความหนาเส้นขีดฆ่า (ใช้เมื่อเปิดโหมดขีดฆ่า)" :popper="{ placement: 'top' }">
+          <div class="toolbar-input-group">
+            <span class="toolbar-prefix text-gray-400">
+              <UIcon name="i-heroicons-minus-small" class="w-3.5 h-3.5" />
+            </span>
+            <input
+              v-model.number="localField.strikeLineThickness"
+              type="number"
+              class="toolbar-input w-12"
+              min="0.5"
+              max="8"
+              step="0.1"
+              @input="onPropertyChange"
+            >
+          </div>
+        </UTooltip>
       </template>
 
       <div class="h-5 w-px bg-gray-200" />

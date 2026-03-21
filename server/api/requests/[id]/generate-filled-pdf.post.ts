@@ -242,6 +242,18 @@ function isCheckboxField(field: any): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function isStrikeThroughGroupField(field: any): boolean {
+  return isCheckboxField(field) && (field?.strikeThroughGroupMode === true || field?.strike_through_group_mode === true);
+}
+
+function getStrikeLineThickness(field: any): number {
+  const parsed = Number.parseFloat(String(field?.strikeLineThickness ?? field?.strike_line_thickness ?? 1.5));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1.5;
+  }
+  return Math.min(8, Math.max(0.5, parsed));
+}
+
 function getVisibilityRule(field: any) {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -385,10 +397,24 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
       });
     }
 
+    function drawUncheckedStrikeLine(targetPage: any, fieldX: number, fieldYBottom: number, fieldW: number, fieldH: number, field: any) {
+      const lineY = fieldYBottom + (fieldH / 2);
+      targetPage.drawLine({
+        start: { x: fieldX, y: lineY },
+        end: { x: fieldX + fieldW, y: lineY },
+        thickness: getStrikeLineThickness(field),
+        color: PDFLib.rgb(0, 0, 0),
+      });
+    }
+
     // Process each field
     for (const field of fields) {
       const normalizedFieldValue = applyFieldCharacterLimit(field.value, field);
-      if (!normalizedFieldValue.trim())
+      const normalizedCheckboxValue = normalizeCheckboxValue(normalizedFieldValue);
+      const shouldDrawStrikeLine = isStrikeThroughGroupField(field)
+        && String(field?.groupId ?? '').trim().length > 0
+        && normalizedCheckboxValue !== 'true';
+      if (!normalizedFieldValue.trim() && !shouldDrawStrikeLine)
         continue;
 
       try {
@@ -420,6 +446,16 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
         }
 
         const fieldYBottom = pageHeight - fieldYTop - fieldH;
+
+        if (isCheckboxField(field) && shouldDrawStrikeLine) {
+          drawUncheckedStrikeLine(targetPage, fieldX, fieldYBottom, fieldW, fieldH, field);
+          continue;
+        }
+
+        if (isCheckboxField(field) && isStrikeThroughGroupField(field)) {
+          // Strike-through mode: checked option should remain empty (no tick, no text).
+          continue;
+        }
 
         if (isCheckboxField(field)) {
           drawCheckboxTick(targetPage, fieldX, fieldYBottom, fieldW, fieldH);

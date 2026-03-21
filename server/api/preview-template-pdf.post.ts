@@ -85,6 +85,18 @@ function isCheckboxField(field: any): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function isStrikeThroughGroupField(field: any): boolean {
+  return isCheckboxField(field) && (field?.strikeThroughGroupMode === true || field?.strike_through_group_mode === true);
+}
+
+function getStrikeLineThickness(field: any): number {
+  const parsed = Number.parseFloat(String(field?.strikeLineThickness ?? field?.strike_line_thickness ?? 1.5));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1.5;
+  }
+  return Math.min(8, Math.max(0.5, parsed));
+}
+
 function getVisibilityRule(field: any) {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -232,6 +244,16 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
       });
     }
 
+    function drawUncheckedStrikeLine(targetPage: any, fieldX: number, fieldYBottom: number, fieldW: number, fieldH: number, field: any) {
+      const lineY = fieldYBottom + (fieldH / 2);
+      targetPage.drawLine({
+        start: { x: fieldX, y: lineY },
+        end: { x: fieldX + fieldW, y: lineY },
+        thickness: getStrikeLineThickness(field),
+        color: PDFLib.rgb(0.1, 0.3, 0.7),
+      });
+    }
+
     function resolveFieldInputValue(field: any): string {
       const rawPreviewValue = field.sampleValue ?? field.value ?? '';
       const limitedPreviewValue = applyFieldCharacterLimit(rawPreviewValue, field).trim();
@@ -282,7 +304,10 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
       const sampleValue = isCheckbox
         ? (isCheckboxChecked ? '__checked__' : '')
         : (resolvedFieldValue || (field.useFallbackLabel === false ? '' : fallbackValue));
-      if (!sampleValue?.trim())
+      const shouldDrawStrikeLine = isStrikeThroughGroupField(field)
+        && String(field?.groupId ?? '').trim().length > 0
+        && !isCheckboxChecked;
+      if (!sampleValue?.trim() && !shouldDrawStrikeLine)
         continue;
 
       try {
@@ -327,6 +352,16 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
             borderWidth: 0.5,
             opacity: 0.6,
           });
+        }
+
+        if (isCheckbox && shouldDrawStrikeLine) {
+          drawUncheckedStrikeLine(targetPage, fieldX, fieldYBottom, fieldW, fieldH, field);
+          continue;
+        }
+
+        if (isCheckbox && isStrikeThroughGroupField(field)) {
+          // Strike-through mode: checked option should remain empty (no tick, no text).
+          continue;
         }
 
         if (isCheckbox) {

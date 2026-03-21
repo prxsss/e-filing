@@ -88,6 +88,45 @@ function isCheckboxField(field: Field): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function normalizeCheckboxValue(value: unknown): string {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'checked', 'on'].includes(normalized) ? 'true' : '';
+}
+
+function isStrikeThroughGroupField(field: Field): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  return field?.strikeThroughGroupMode === true || field?.strike_through_group_mode === true;
+}
+
+function getStrikeLineThickness(field: Field): number {
+  const rawValue = Number(field?.strikeLineThickness ?? field?.strike_line_thickness ?? 1.5);
+  if (!Number.isFinite(rawValue) || rawValue <= 0) {
+    return 1.5;
+  }
+  return Math.min(8, Math.max(0.5, rawValue));
+}
+
+function isCheckboxChecked(field: Field): boolean {
+  const override = getFieldTextOverride(field);
+  return normalizeCheckboxValue(override) === 'true';
+}
+
+function shouldRenderUncheckedStrikeLine(field: Field): boolean {
+  if (!isStrikeThroughGroupField(field)) {
+    return false;
+  }
+
+  const groupId = String(field?.groupId || '').trim();
+  if (!groupId.length) {
+    return false;
+  }
+
+  return !isCheckboxChecked(field);
+}
+
 function isSignatureField(field: Field): boolean {
   const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
   return fieldType === 'signature';
@@ -855,6 +894,8 @@ async function saveTemplate() {
       label: field.label,
       fontSize: field.fontSize || 14,
       fontFamily: field.fontFamily || 'Arial',
+      strikeThroughGroupMode: Boolean(field.strikeThroughGroupMode ?? field.strike_through_group_mode ?? false),
+      strikeLineThickness: Math.min(8, Math.max(0.5, Number(field.strikeLineThickness ?? field.strike_line_thickness ?? 1.5) || 1.5)),
       // Normalize coordinates to 0-1 scale based on PDF dimensions
       normalizedX: Math.round((field.x / pdfNaturalDimensions.value.width) * 10000) / 10000,
       normalizedY: Math.round((field.y / pdfNaturalDimensions.value.height) * 10000) / 10000,
@@ -1235,9 +1276,16 @@ defineExpose<{
                 </template>
                 <template v-else-if="isCheckboxField(field)">
                   <span
-                    v-if="!props.fillMode"
+                    v-if="!isStrikeThroughGroupField(field) && !props.fillMode"
                     class="field-label-text"
                   >{{ field.label || field.name }}</span>
+                  <div
+                    v-if="shouldRenderUncheckedStrikeLine(field)"
+                    class="unchecked-strike-line"
+                    :style="{
+                      height: `${Math.max(0.5, getStrikeLineThickness(field) * fitScale)}px`,
+                    }"
+                  />
                 </template>
                 <template v-else>
                   <template v-if="hasFieldTextOverride(field)">
@@ -1536,6 +1584,13 @@ defineExpose<{
   min-width: 0;
   color: rgba(17, 24, 39, 0.72);
   font-kerning: none;
+}
+
+.unchecked-strike-line {
+  width: 100%;
+  align-self: center;
+  background: rgba(17, 24, 39, 0.78);
+  border-radius: 9999px;
 }
 
 .instance-num {
