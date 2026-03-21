@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
         status: request.status,
         createdBy: request.createdBy,
         requesterName: sql<string>`CONCAT(${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+        studentId: request.userId,
         submittedAt: request.submittedAt,
         filledDocumentUrl: request.filledDocumentUrl,
         createdAt: request.createdAt,
