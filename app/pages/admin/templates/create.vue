@@ -969,6 +969,7 @@ function removeSelectedField(): void {
     }
 
     placedFields.value.splice(idx, 1);
+    resetVisibilityRulesAfterFieldRemoval(removedField);
     selectedFieldInstanceId.value = null;
 
     if (shouldRefreshPreview) {
@@ -1129,11 +1130,50 @@ function handleFieldRemoval(instanceId: string): void {
     }
 
     placedFields.value.splice(idx, 1);
+    resetVisibilityRulesAfterFieldRemoval(removedField);
     selectedFieldInstanceId.value = null;
 
     if (shouldRefreshPreview) {
       schedulePreviewRefresh();
     }
+  }
+}
+
+function resetVisibilityRulesAfterFieldRemoval(removedField: FieldInstance | null | undefined): void {
+  if (!removedField) {
+    return;
+  }
+
+  const removedInstanceId = String(removedField.instanceId || '').trim();
+  const removedGroupId = String((removedField as any).groupId || '').trim();
+  const isRemovedCheckbox = isCheckboxField(removedField);
+
+  for (const field of placedFields.value) {
+    const currentRule = getFieldVisibilityRule(field);
+    if (!currentRule) {
+      continue;
+    }
+
+    const sourceInstanceId = String(currentRule.sourceFieldInstanceId || '').trim();
+    const sourceGroupId = String(currentRule.sourceGroupId || '').trim();
+
+    const referencesRemovedInstance = removedInstanceId.length > 0 && sourceInstanceId === removedInstanceId;
+    const referencesRemovedGroup = Boolean(
+      isRemovedCheckbox
+      && removedGroupId.length > 0
+      && sourceGroupId === removedGroupId
+      && !placedFields.value.some(candidate =>
+        isCheckboxField(candidate) && String((candidate as any).groupId || '').trim() === removedGroupId,
+      ),
+    );
+
+    if (!referencesRemovedInstance && !referencesRemovedGroup) {
+      continue;
+    }
+
+    (field as any).visibilityRule = null;
+    delete previewFieldValues.value[getPreviewFieldKey(field)];
+    delete previewSyncedFieldValues.value[getPreviewFieldKey(field)];
   }
 }
 
