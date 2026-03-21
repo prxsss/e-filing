@@ -10,6 +10,7 @@ definePageMeta({
 // --- Types ---
 type FieldValue = {
   fieldId: number;
+  instanceId?: string;
   value: string;
 };
 
@@ -316,7 +317,8 @@ function getVisibleStudentFields(): any[] {
 }
 
 function buildManualFieldValuesPayload(): FieldValue[] {
-  const fieldValuesById = new Map<number, string>();
+  const fieldValuesArray: FieldValue[] = [];
+  const dedupeByFieldId = new Set<number>();
 
   for (const field of getVisibleStudentFields()) {
     const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
@@ -324,13 +326,29 @@ function buildManualFieldValuesPayload(): FieldValue[] {
       continue;
     }
 
-    fieldValuesById.set(fieldId, resolveCurrentFieldValue(field) || '');
+    const value = resolveCurrentFieldValue(field) || '';
+    if (isCheckboxField(field)) {
+      fieldValuesArray.push({
+        fieldId,
+        instanceId: String(field?.instanceId ?? '').trim() || undefined,
+        value,
+      });
+      continue;
+    }
+
+    if (dedupeByFieldId.has(fieldId)) {
+      const idx = fieldValuesArray.findIndex(v => v.fieldId === fieldId && !v.instanceId);
+      if (idx !== -1) {
+        fieldValuesArray[idx] = { fieldId, value };
+      }
+      continue;
+    }
+
+    dedupeByFieldId.add(fieldId);
+    fieldValuesArray.push({ fieldId, value });
   }
 
-  return Array.from(fieldValuesById.entries()).map(([fieldId, value]) => ({
-    fieldId,
-    value,
-  }));
+  return fieldValuesArray;
 }
 
 // Fetch request and field values
@@ -594,27 +612,6 @@ const previewOverlayFields = computed(() => {
     const syncedValue = normalizeFieldValue(key ? previewSyncedFieldValues.value[key] : '');
     return currentValue.length === 0 || currentValue !== syncedValue;
   });
-});
-
-const previewOverlayFieldValues = computed<Record<string, string>>(() => {
-  const values: Record<string, string> = {};
-
-  for (const field of previewOverlayFields.value) {
-    const key = getPreviewFieldKey(field);
-    if (!key) {
-      continue;
-    }
-
-    const currentValue = resolveCurrentFieldValue(field);
-    const normalizedCurrent = normalizeFieldValue(currentValue);
-    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
-
-    if (normalizedCurrent.length > 0 && normalizedCurrent !== normalizedSynced) {
-      values[key] = currentValue;
-    }
-  }
-
-  return values;
 });
 
 async function refreshPreviewPdf() {
@@ -1030,11 +1027,12 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
             <template-pdf-create
               :pdf-file="previewDisplayFile"
               :placed-fields="previewOverlayFields"
+              :strike-group-context-fields="visibleFillableFields"
               :selected-field="undefined"
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
-              :field-values="previewOverlayFieldValues"
+              :field-values="fieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...

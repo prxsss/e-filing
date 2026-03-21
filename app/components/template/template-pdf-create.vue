@@ -17,6 +17,8 @@ const props = defineProps({
   signingSteps: { type: Array as () => { id: string; color: string; roleName: string }[], default: () => [] }, // Signing steps for color-coding fields
   fieldValues: { type: Object as () => Record<string, string>, default: () => ({}) }, // Live typed values or overlay values for WYSIWYG preview
   fillMode: { type: Boolean, default: false }, // Show typed values in field boxes for WYSIWYG
+  /** Full template fields for strike-group detection when `placedFields` is a filtered overlay subset */
+  strikeGroupContextFields: { type: Array as () => Field[], default: null },
 });
 
 const emit = defineEmits<{
@@ -101,6 +103,46 @@ function isStrikeThroughGroupField(field: Field): boolean {
   }
 
   return isStrikeThroughGroupModeEnabled(field);
+}
+
+function getStrikeGroupContextPool(): Field[] {
+  const extra = props.strikeGroupContextFields;
+  if (extra != null && Array.isArray(extra) && extra.length > 0) {
+    return extra;
+  }
+  return props.placedFields as Field[];
+}
+
+function normalizeCheckboxRawValue(raw: string): boolean {
+  return String(raw ?? '').trim().toLowerCase() === 'true';
+}
+
+function hasCheckedCheckboxInStrikeGroup(groupId: string): boolean {
+  const id = String(groupId ?? '').trim();
+  if (!id) {
+    return false;
+  }
+
+  return getStrikeGroupContextPool().some((candidate) => {
+    if (!isCheckboxField(candidate) || String(candidate?.groupId ?? '').trim() !== id) {
+      return false;
+    }
+    const { value } = resolveFieldValueEntry(candidate);
+    return normalizeCheckboxRawValue(value);
+  });
+}
+
+/** Student fill overlay: unchecked strike option while another in the group is checked — PDF shows dash only; hide HTML frame */
+function isStrikeThroughUncheckedShowingDash(field: Field): boolean {
+  const groupId = String(field?.groupId ?? '').trim();
+  if (!isStrikeThroughGroupField(field) || !groupId) {
+    return false;
+  }
+  if (!hasCheckedCheckboxInStrikeGroup(groupId)) {
+    return false;
+  }
+  const { value } = resolveFieldValueEntry(field);
+  return !normalizeCheckboxRawValue(value);
 }
 
 function getCheckboxBadgeText(field: Field): string {
@@ -1202,6 +1244,7 @@ defineExpose<{
               :class="{
                 'field-selected': selectedField?.instanceId === field.instanceId && !props.readOnly,
                 'fill-mode': props.readOnly && props.fillMode,
+                'fill-mode--strike-omit': props.readOnly && props.fillMode && isStrikeThroughUncheckedShowingDash(field),
                 'read-only': props.readOnly && !props.fillMode && !props.signingSteps.length,
                 'field-unassigned': props.signingSteps.length > 0 && !field.signerStepId,
                 'field-clickable': props.readOnly && props.signingSteps.length > 0,
@@ -1515,6 +1558,14 @@ defineExpose<{
   border: none !important;
   outline: 1px dashed rgba(59, 130, 246, 0.35) !important;
   outline-offset: 0;
+}
+
+/* Strike-through siblings: PDF already draws the line — hide overlay box so it looks “filled” */
+.placed-field.fill-mode.fill-mode--strike-omit {
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .placed-field.signature-field {

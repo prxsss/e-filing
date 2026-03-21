@@ -1119,6 +1119,31 @@ function handleKeyDown(event: KeyboardEvent): void {
 }
 
 function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
+  const hasAnyStrikeUpdate = (updates: any) => {
+    const keys = ['strikeThroughGroupMode', 'strike_through_group_mode', 'strikeLineThickness', 'strike_line_thickness'];
+    return keys.some(key => Object.prototype.hasOwnProperty.call(updates || {}, key));
+  };
+
+  const syncStrikeConfigToGroup = (sourceField: any) => {
+    const groupId = String(sourceField?.groupId || '').trim();
+    if (!isCheckboxField(sourceField) || !groupId) {
+      return;
+    }
+
+    const nextMode = Boolean(sourceField.strikeThroughGroupMode ?? sourceField.strike_through_group_mode ?? false);
+    const nextThickness = Math.min(8, Math.max(0.5, parseFiniteNumber(sourceField.strikeLineThickness ?? sourceField.strike_line_thickness, 1.5)));
+
+    placedFields.value.forEach((field) => {
+      if (!isCheckboxField(field) || String((field as any).groupId || '').trim() !== groupId) {
+        return;
+      }
+      (field as any).strikeThroughGroupMode = nextMode;
+      (field as any).strike_through_group_mode = nextMode;
+      (field as any).strikeLineThickness = nextThickness;
+      (field as any).strike_line_thickness = nextThickness;
+    });
+  };
+
   const idx = placedFields.value.findIndex(
     field => field.instanceId === data.instanceId,
   );
@@ -1129,6 +1154,11 @@ function handleFieldUpdate(data: { instanceId: string; updates: any }): void {
 
     if (Object.prototype.hasOwnProperty.call(data.updates || {}, 'visibilityRule')) {
       placedFields.value[idx]!.visibilityRule = sanitizeFieldVisibilityRule(data.updates.visibilityRule);
+    }
+
+    const updatedField = placedFields.value[idx]!;
+    if (hasAnyStrikeUpdate(data.updates)) {
+      syncStrikeConfigToGroup(updatedField);
     }
 
     const updateKeys = Object.keys(data.updates || {});

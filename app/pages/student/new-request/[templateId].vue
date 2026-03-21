@@ -612,27 +612,6 @@ const previewOverlayFields = computed(() => {
   return [...overlayFields, ...signatureOverlayFields];
 });
 
-const previewOverlayFieldValues = computed<Record<string, string>>(() => {
-  const values: Record<string, string> = {};
-
-  for (const field of previewOverlayFields.value) {
-    const key = getPreviewFieldKey(field);
-    if (!key) {
-      continue;
-    }
-
-    const currentValue = resolveCurrentFieldValue(field);
-    const normalizedCurrent = normalizeFieldValue(currentValue);
-    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
-
-    if (normalizedCurrent.length > 0 && normalizedCurrent !== normalizedSynced) {
-      values[key] = currentValue;
-    }
-  }
-
-  return values;
-});
-
 async function refreshPreviewPdf() {
   if (!pdfFile.value) {
     previewPdfFile.value = null;
@@ -1115,11 +1094,12 @@ watch([pdfFile, placedFields, fieldValues], () => {
             <template-pdf-create
               :pdf-file="previewDisplayFile"
               :placed-fields="previewOverlayFields"
+              :strike-group-context-fields="getVisiblePlacedFields()"
               :selected-field="undefined"
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
-              :field-values="previewOverlayFieldValues"
+              :field-values="fieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...

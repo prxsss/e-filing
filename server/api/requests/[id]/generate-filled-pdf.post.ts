@@ -243,7 +243,15 @@ function isCheckboxField(field: any): boolean {
 }
 
 function isStrikeThroughGroupField(field: any): boolean {
-  return isCheckboxField(field) && (field?.strikeThroughGroupMode === true || field?.strike_through_group_mode === true);
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(field || {}, 'strikeThroughGroupMode')) {
+    return field?.strikeThroughGroupMode === true;
+  }
+
+  return field?.strike_through_group_mode === true;
 }
 
 function getStrikeLineThickness(field: any): number {
@@ -407,12 +415,27 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
       });
     }
 
+    function hasCheckedCheckboxInGroup(groupId: string): boolean {
+      if (!groupId) {
+        return false;
+      }
+
+      return fields.some((candidate) => {
+        if (!isCheckboxField(candidate) || String(candidate?.groupId ?? '').trim() !== groupId) {
+          return false;
+        }
+        return normalizeCheckboxValue(candidate?.value ?? '') === 'true';
+      });
+    }
+
     // Process each field
     for (const field of fields) {
       const normalizedFieldValue = applyFieldCharacterLimit(field.value, field);
       const normalizedCheckboxValue = normalizeCheckboxValue(normalizedFieldValue);
+      const groupId = String(field?.groupId ?? '').trim();
       const shouldDrawStrikeLine = isStrikeThroughGroupField(field)
-        && String(field?.groupId ?? '').trim().length > 0
+        && groupId.length > 0
+        && hasCheckedCheckboxInGroup(groupId)
         && normalizedCheckboxValue !== 'true';
       if (!normalizedFieldValue.trim() && !shouldDrawStrikeLine)
         continue;
