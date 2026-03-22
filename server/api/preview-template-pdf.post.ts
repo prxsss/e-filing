@@ -85,6 +85,26 @@ function isCheckboxField(field: any): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function isStrikeThroughGroupField(field: any): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(field || {}, 'strikeThroughGroupMode')) {
+    return field?.strikeThroughGroupMode === true;
+  }
+
+  return field?.strike_through_group_mode === true;
+}
+
+function getStrikeLineThickness(field: any): number {
+  const parsed = Number.parseFloat(String(field?.strikeLineThickness ?? field?.strike_line_thickness ?? 1.5));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1.5;
+  }
+  return Math.min(8, Math.max(0.5, parsed));
+}
+
 function getVisibilityRule(field: any) {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -92,13 +112,15 @@ function getVisibilityRule(field: any) {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
   };
 }
@@ -230,6 +252,16 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
       });
     }
 
+    function drawUncheckedStrikeLine(targetPage: any, fieldX: number, fieldYBottom: number, fieldW: number, fieldH: number, field: any) {
+      const lineY = fieldYBottom + (fieldH / 2);
+      targetPage.drawLine({
+        start: { x: fieldX, y: lineY },
+        end: { x: fieldX + fieldW, y: lineY },
+        thickness: getStrikeLineThickness(field),
+        color: PDFLib.rgb(0.1, 0.3, 0.7),
+      });
+    }
+
     function resolveFieldInputValue(field: any): string {
       const rawPreviewValue = field.sampleValue ?? field.value ?? '';
       const limitedPreviewValue = applyFieldCharacterLimit(rawPreviewValue, field).trim();
@@ -245,17 +277,40 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         return true;
       }
 
-      const sourceField = fields.find(
-        candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-      );
+      let isChecked = false;
+      if (rule.sourceGroupId) {
+        const groupFields = fields.filter((candidate) => {
+          return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+        });
+        isChecked = groupFields.some(candidate => normalizeCheckboxValue(resolveFieldInputValue(candidate)) === 'true');
+      }
+      else {
+        const sourceField = fields.find(
+          candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+        );
 
-      if (!sourceField) {
-        return true;
+        if (!sourceField) {
+          return true;
+        }
+
+        const sourceValue = normalizeCheckboxValue(resolveFieldInputValue(sourceField));
+        isChecked = sourceValue === 'true';
       }
 
-      const sourceValue = normalizeCheckboxValue(resolveFieldInputValue(sourceField));
-      const isChecked = sourceValue === 'true';
       return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+    }
+
+    function hasCheckedCheckboxInGroup(groupId: string): boolean {
+      if (!groupId) {
+        return false;
+      }
+
+      return fields.some((candidate) => {
+        if (!isCheckboxField(candidate) || String(candidate?.groupId ?? '').trim() !== groupId) {
+          return false;
+        }
+        return normalizeCheckboxValue(resolveFieldInputValue(candidate)) === 'true';
+      });
     }
 
     for (const field of fields) {
@@ -270,7 +325,12 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
       const sampleValue = isCheckbox
         ? (isCheckboxChecked ? '__checked__' : '')
         : (resolvedFieldValue || (field.useFallbackLabel === false ? '' : fallbackValue));
-      if (!sampleValue?.trim())
+      const groupId = String(field?.groupId ?? '').trim();
+      const shouldDrawStrikeLine = isStrikeThroughGroupField(field)
+        && groupId.length > 0
+        && hasCheckedCheckboxInGroup(groupId)
+        && !isCheckboxChecked;
+      if (!sampleValue?.trim() && !shouldDrawStrikeLine)
         continue;
 
       try {
@@ -304,7 +364,8 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         const fieldYBottom = pageHeight - fieldYTop - fieldH;
 
         // ── Background highlight for preview ──────────────────────────────
-        if (field.showFieldHighlight !== false) {
+        // Strike-only unchecked options: line is enough; skip box so output matches student fill view
+        if (field.showFieldHighlight !== false && !(isCheckbox && shouldDrawStrikeLine)) {
           targetPage.drawRectangle({
             x: fieldX,
             y: fieldYBottom,
@@ -315,6 +376,16 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
             borderWidth: 0.5,
             opacity: 0.6,
           });
+        }
+
+        if (isCheckbox && shouldDrawStrikeLine) {
+          drawUncheckedStrikeLine(targetPage, fieldX, fieldYBottom, fieldW, fieldH, field);
+          continue;
+        }
+
+        if (isCheckbox && isStrikeThroughGroupField(field)) {
+          // Strike-through mode: checked option should remain empty (no tick, no text).
+          continue;
         }
 
         if (isCheckbox) {

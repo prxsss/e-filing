@@ -6,7 +6,10 @@ import { h, resolveComponent } from 'vue';
 
 definePageMeta({
   title: 'faculties',
+  middleware: ['permission'],
+  permission: 'faculty.view',
 });
+
 const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
 
@@ -16,8 +19,12 @@ const router = useRouter();
 const toast = useToast();
 const overlay = useOverlay();
 
+const authStore = useAuthStore();
+
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const deletingFacultyId = ref<number | null>(null);
+const searchInput = ref('');
+const appliedSearch = ref('');
 
 type FacultyListItem = {
   id: number;
@@ -29,7 +36,14 @@ type FacultyListItem = {
   deanNameTh: string;
 };
 
-const { rows, isLoading, page, pageSize, total, refresh } = useFaculties();
+const { rows, isLoading, page, pageSize, total, refresh } = useFaculties({
+  search: appliedSearch,
+});
+
+function applySearch() {
+  appliedSearch.value = searchInput.value.trim();
+  page.value = 1;
+}
 
 const columns: TableColumn<FacultyListItem>[] = [
   {
@@ -65,63 +79,77 @@ const columns: TableColumn<FacultyListItem>[] = [
       },
     },
     cell: ({ row }) => {
-      return h('div', { class: 'flex items-center justify-end gap-2' }, [
-        h(UButton, {
-          color: 'primary',
-          variant: 'ghost',
-          icon: 'i-lucide-pencil',
-          onClick: () => router.push(localPath(`/admin/faculties/${row.original.id}/edit`)),
-        }),
-        h(UButton, {
-          color: 'error',
-          variant: 'ghost',
-          icon: 'i-lucide-trash-2',
-          loading: deletingFacultyId.value === row.original.id,
-          disabled: deletingFacultyId.value === row.original.id,
-          onClick: async () => {
-            const instance = confirmDialog.open({
-              title: 'Confirm Deletion',
-              description: `Are you sure you want to delete the faculty "${locale.value === 'en' ? row.original.nameEn : row.original.nameTh}"? This action cannot be undone.`,
-              cancelButton: {
-                label: 'Cancel',
-              },
-              confirmButton: {
-                label: 'Delete',
-                color: 'error',
-              },
-            });
+      const canEditFaculty = authStore.can('faculty.edit');
+      const canDeleteFaculty = authStore.can('faculty.delete');
 
-            const shouldDelete = await instance.result;
-            if (shouldDelete) {
-              try {
-                deletingFacultyId.value = row.original.id;
+      const actionButtons = [];
 
-                await $fetch(`/api/admin/faculties/${row.original.id}`, {
-                  method: 'DELETE',
-                });
+      if (canEditFaculty) {
+        actionButtons.push(
+          h(UButton, {
+            color: 'primary',
+            variant: 'ghost',
+            icon: 'i-lucide-pencil',
+            onClick: () => router.push(localPath(`/admin/faculties/${row.original.id}/edit`)),
+          }),
+        );
+      }
 
-                toast.add({
-                  title: 'Success',
-                  description: 'Faculty has been deleted successfully.',
-                  color: 'success',
-                });
-
-                await refresh();
-              }
-              catch (error: any) {
-                toast.add({
-                  title: 'Cannot delete faculty',
-                  description: error?.data?.message || 'Failed to delete faculty. Please try again.',
+      if (canDeleteFaculty) {
+        actionButtons.push(
+          h(UButton, {
+            color: 'error',
+            variant: 'ghost',
+            icon: 'i-lucide-trash-2',
+            loading: deletingFacultyId.value === row.original.id,
+            disabled: deletingFacultyId.value === row.original.id,
+            onClick: async () => {
+              const instance = confirmDialog.open({
+                title: 'Confirm Deletion',
+                description: `Are you sure you want to delete the faculty "${locale.value === 'en' ? row.original.nameEn : row.original.nameTh}"? This action cannot be undone.`,
+                cancelButton: {
+                  label: 'Cancel',
+                },
+                confirmButton: {
+                  label: 'Delete',
                   color: 'error',
-                });
+                },
+              });
+
+              const shouldDelete = await instance.result;
+              if (shouldDelete) {
+                try {
+                  deletingFacultyId.value = row.original.id;
+
+                  await $fetch(`/api/admin/faculties/${row.original.id}`, {
+                    method: 'DELETE',
+                  });
+
+                  toast.add({
+                    title: 'Success',
+                    description: 'Faculty has been deleted successfully.',
+                    color: 'success',
+                  });
+
+                  await refresh();
+                }
+                catch (error: any) {
+                  toast.add({
+                    title: 'Cannot delete faculty',
+                    description: error?.data?.message || 'Failed to delete faculty. Please try again.',
+                    color: 'error',
+                  });
+                }
+                finally {
+                  deletingFacultyId.value = null;
+                }
               }
-              finally {
-                deletingFacultyId.value = null;
-              }
-            }
-          },
-        }),
-      ]);
+            },
+          }),
+        );
+      }
+
+      return h('div', { class: 'flex items-center justify-end gap-2' }, actionButtons);
     },
   },
 ];
@@ -138,14 +166,17 @@ const columns: TableColumn<FacultyListItem>[] = [
           View and organize all university faculties and their respective deans.
         </p>
       </div>
-      <UButton icon="i-lucide-plus" size="md" :to="localPath('/admin/faculties/create')">
-        Add New Faculty
+      <UButton v-if="authStore.can('faculty.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/faculties/create')">
+        Add Faculty
       </UButton>
     </div>
 
     <div class="w-full">
-      <div class="max-w-sm">
-        <UInput class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by faculty name..." />
+      <div class="max-w-sm ml-auto">
+        <UFieldGroup class="w-full">
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by faculty / dean name, or ID" @keyup.enter="applySearch" />
+          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+        </UFieldGroup>
       </div>
     </div>
 

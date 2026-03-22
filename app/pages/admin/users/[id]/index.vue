@@ -9,16 +9,22 @@ import type { RequestStatus } from '~/utils/request-status';
 
 import { getRequestStatusColor } from '~/utils/request-status';
 
+definePageMeta({
+  title: 'user-detail',
+  middleware: ['permission'],
+  permission: 'user.view',
+});
+
 const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
 
 const route = useRoute();
 const router = useRouter();
-
 const localPath = useLocalePath();
-
 const overlay = useOverlay();
 const toast = useToast();
+
+const authStore = useAuthStore();
 
 const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
 
@@ -149,17 +155,21 @@ type DropdownMenuItemWithVisibility = {
 } & DropdownMenuItem;
 
 const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
+  // For any menu that will be added in the future,
+  // make sure to check the permission at UDropdownMenu level with v-if,
+  // so that the menu will be hidden if the user doesn't have permission to do any action in the menu.
+  // This is to prevent confusion for users when they see an empty "Actions" dropdown.
   {
     label: 'Reset Password',
     icon: 'i-lucide-rotate-ccw',
     color: 'neutral',
-    visible: computed(() => true), // Always visible
+    visible: computed(() => authStore.can('user.reset_password')),
   },
   {
     label: 'Ban User',
     icon: 'i-lucide-user-x',
     color: 'error',
-    visible: computed(() => !user.value?.banned),
+    visible: computed(() => !user.value?.banned && authStore.can('user.status')),
     onSelect: async () => {
       const instance = confirmDialogWithReason.open({
         title: 'Ban User',
@@ -199,7 +209,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     label: 'Unban User',
     icon: 'i-lucide-user-check',
     color: 'success',
-    visible: computed(() => user.value?.banned),
+    visible: computed(() => user.value?.banned && authStore.can('user.status')),
     onSelect: async () => {
       await $fetch(`/api/users/${user.value?.id}/unban`, {
         method: 'PATCH',
@@ -263,6 +273,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
         </div>
         <div class="flex items-center gap-2">
           <UButton
+            v-if="authStore.can('user.edit')"
             color="primary"
             icon="i-lucide-pencil"
             :to="localPath(`/admin/users/${user.id}/edit`)"
@@ -270,6 +281,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
             Edit
           </UButton>
           <UDropdownMenu
+            v-if="authStore.canAny(['user.reset_password', 'user.status'])"
             :items="actionMenuItems"
             :content="{
               align: 'end',

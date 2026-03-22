@@ -139,7 +139,7 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
                 v-model="localDescription"
                 placeholder="ระบุรายละเอียด..."
                 :rows="3"
-                class="mt-1"
+                class="mt-1 w-full"
                 autofocus
               />
             </UFormGroup>

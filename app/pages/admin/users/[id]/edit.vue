@@ -7,6 +7,12 @@ import * as z from 'zod';
 
 import type { Role, UserDetail } from '~/types/user';
 
+definePageMeta({
+  title: 'edit-user',
+  middleware: ['permission'],
+  permission: 'user.edit',
+});
+
 const UButton = resolveComponent('UButton');
 
 const localPath = useLocalePath();
@@ -373,13 +379,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                   <div class="relative">
                     <div class="w-32 h-32 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                       <UIcon
-                        name="i-heroicons-user-plus-20-solid"
+                        name="i-lucide-user-round"
                         class="w-16 h-16 text-slate-400"
                       />
                     </div>
                     <UButton
                       type="button"
-                      icon="i-heroicons-camera-20-solid"
+                      icon="i-lucide-camera"
                       size="sm"
                       color="primary"
                       class="absolute bottom-2 right-1 rounded-full shadow-lg"
@@ -404,8 +410,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               <template #header>
                 <div class="flex items-center gap-3">
                   <UIcon
-                    name="i-heroicons-identification-20-solid"
-                    class="text-gray-400"
+                    name="i-lucide-id-card"
+                    class="text-primary"
                   />
                   <h2 class="font-semibold text-base">
                     Basic Information
@@ -470,8 +476,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-3">
                     <UIcon
-                      name="i-heroicons-shield-check-20-solid"
-                      class="text-gray-400"
+                      name="i-lucide-shield-user"
+                      class="text-primary"
                     />
                     <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
                       Role Assignments
@@ -530,40 +536,6 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 :data="roleAssignments" :columns="columns" class=""
               />
             </UCard>
-            <!-- Initial Signature Setup Card -->
-            <UCard>
-              <template #header>
-                <div class="flex items-center gap-3">
-                  <UIcon
-                    name="i-heroicons-pencil-square-20-solid"
-                    class="text-gray-400"
-                  />
-                  <h2 class="font-semibold text-base">
-                    Initial Signature Setup
-                  </h2>
-                </div>
-              </template>
-              <div class="space-y-4">
-                <!-- Upload Area -->
-                <div
-                  class="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-8 text-center bg-slate-50 dark:bg-slate-900/50 hover:border-primary-400 transition-colors cursor-pointer"
-                >
-                  <UIcon
-                    name="i-heroicons-cloud-arrow-up-20-solid"
-                    class="w-12 h-12 text-slate-400 mx-auto mb-2"
-                  />
-                  <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Drop signature image here, or
-                    <span class="text-primary-500 hover:text-primary-600">
-                      browse
-                    </span>
-                  </p>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Supports PNG with transparent background
-                  </p>
-                </div>
-              </div>
-            </UCard>
           </div>
         </div>
         <div class="flex items-center justify-end gap-4">
@@ -578,7 +550,6 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
             type="button"
             color="primary"
             label="Update User"
-            icon="i-heroicons-check-20-solid"
             :loading="loading"
             @click="handleSubmit"
           />

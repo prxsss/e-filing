@@ -9,84 +9,120 @@ const localePath = useLocalePath();
 
 const open = ref(false);
 
-const sidebarItems = computed(() => [{
-  label: t('dashboard'),
-  icon: 'i-lucide-layout-dashboard',
-  to: localePath('/student/dashboard'),
-  onSelect: () => {
-    open.value = false;
+type NavigationMenuItemWithVisibility = {
+  visible: ComputedRef<boolean>;
+} & NavigationMenuItem;
+
+const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
+  {
+    label: t('dashboard'),
+    icon: 'i-lucide-layout-dashboard',
+    to: localePath('/'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('dashboard.student.view')),
   },
-}, {
-  label: t('newRequest'),
-  icon: 'i-lucide-plus',
-  to: localePath('/student/new-request'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('dashboard'),
+    icon: 'i-lucide-layout-dashboard',
+    to: localePath('/signer'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('dashboard.signer.view')),
   },
-}, {
-  label: t('myRequests'),
-  icon: 'i-lucide-file-pen-line',
-  to: localePath('/student/my-requests'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('newRequest'),
+    icon: 'i-lucide-plus',
+    to: localePath('/student/new-request'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('request.create')),
   },
-}, {
-  label: t('toSign'),
-  icon: 'i-lucide-pen-tool',
-  to: localePath('/teacher/to-sign'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('myRequests'),
+    icon: 'i-lucide-file-pen-line',
+    to: localePath('/student/my-requests'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('request.view_own')),
   },
-}, {
-  label: t('signedHistory'),
-  icon: 'i-lucide-circle-check',
-  to: localePath('/teacher/signed-history'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('toSign'),
+    icon: 'i-lucide-pen-tool',
+    to: localePath('/signer/to-sign'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('request.to_sign.view')),
   },
-}, {
-  label: t('templates'),
-  icon: 'i-lucide-file',
-  to: localePath('/admin/templates'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('signedHistory'),
+    icon: 'i-lucide-circle-check',
+    to: localePath('/signer/signed-history'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('request.sign_history.view')),
   },
-}, {
-  label: t('requests'),
-  icon: 'i-lucide-files',
-  to: localePath('/admin/requests'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('requests'),
+    icon: 'i-lucide-files',
+    to: localePath('/admin/requests'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('request.view')),
   },
-}, {
-  label: t('users'),
-  icon: 'i-lucide-users',
-  to: localePath('/admin/users'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('templates'),
+    icon: 'i-lucide-file',
+    to: localePath('/admin/templates'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('template.view')),
   },
-}, {
-  label: t('accessControl'),
-  icon: 'i-lucide-shield-check',
-  to: localePath('/admin/access-control'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('users'),
+    icon: 'i-lucide-users',
+    to: localePath('/admin/users'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('user.view')),
   },
-}, {
-  label: t('faculties'),
-  icon: 'i-lucide-building',
-  to: localePath('/admin/faculties'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('accessControl'),
+    icon: 'i-lucide-shield-check',
+    to: localePath('/admin/access-control'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('role.view') && authStore.can('permission.view')),
   },
-}, {
-  label: t('departments'),
-  icon: 'i-lucide-building-2',
-  to: localePath('/admin/departments'),
-  onSelect: () => {
-    open.value = false;
+  {
+    label: t('faculties'),
+    icon: 'i-lucide-building',
+    to: localePath('/admin/faculties'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('faculty.view')),
   },
-}] satisfies NavigationMenuItem[]);
+  {
+    label: t('departments'),
+    icon: 'i-lucide-building-2',
+    to: localePath('/admin/departments'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('department.view')),
+  },
+] as NavigationMenuItemWithVisibility[]).filter(item => item.visible.value));
 
 const languageItems = computed(() =>
   locales.value.map(l => ({
@@ -158,7 +194,7 @@ const selectedLanguageIcon = computed(() =>
             <USelect :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
 
             <!-- Color Mode Button -->
-            <UColorModeButton />
+            <!-- <UColorModeButton /> -->
 
             <!-- Notifications Button -->
             <UButton

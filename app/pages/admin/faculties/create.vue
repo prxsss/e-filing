@@ -5,6 +5,8 @@ import * as z from 'zod';
 
 definePageMeta({
   title: 'create-faculty',
+  middleware: ['permission'],
+  permission: 'faculty.create',
 });
 
 const localPath = useLocalePath();
@@ -81,16 +83,22 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
 
     <div class="space-y-2">
       <h1 class="text-3xl font-bold tracking-tight">
-        Create New Faculty
+        Add New Faculty
       </h1>
       <p class="text-muted">
-        Establish a new academic division within the university ecosystem.
+        Fill in the details below to add a new faculty.
       </p>
     </div>
 
     <UCard>
       <template #header>
         <div class="h-1.5 -mx-6 -mt-6 mb-5 bg-linear-to-r from-primary/80 via-primary to-cyan-500 rounded-t-[calc(var(--ui-radius)*1.2)]" />
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-building" class="text-primary size-5" />
+          <h2 class="font-semibold">
+            Faculty Information
+          </h2>
+        </div>
       </template>
 
       <UForm
@@ -141,8 +149,7 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
           <UButton
             type="submit"
             color="primary"
-            label="Create Faculty"
-            icon="i-lucide-plus"
+            label="Add Faculty"
             :loading="loading"
           />
         </div>

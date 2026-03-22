@@ -17,6 +17,8 @@ const props = defineProps({
   signingSteps: { type: Array as () => { id: string; color: string; roleName: string }[], default: () => [] }, // Signing steps for color-coding fields
   fieldValues: { type: Object as () => Record<string, string>, default: () => ({}) }, // Live typed values or overlay values for WYSIWYG preview
   fillMode: { type: Boolean, default: false }, // Show typed values in field boxes for WYSIWYG
+  /** Full template fields for strike-group detection when `placedFields` is a filtered overlay subset */
+  strikeGroupContextFields: { type: Array as () => Field[], default: null },
 });
 
 const emit = defineEmits<{
@@ -88,6 +90,69 @@ function isCheckboxField(field: Field): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function isStrikeThroughGroupModeEnabled(field: Field): boolean {
+  if (Object.prototype.hasOwnProperty.call(field || {}, 'strikeThroughGroupMode')) {
+    return field?.strikeThroughGroupMode === true;
+  }
+  return field?.strike_through_group_mode === true;
+}
+
+function isStrikeThroughGroupField(field: Field): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  return isStrikeThroughGroupModeEnabled(field);
+}
+
+function getStrikeGroupContextPool(): Field[] {
+  const extra = props.strikeGroupContextFields;
+  if (extra != null && Array.isArray(extra) && extra.length > 0) {
+    return extra;
+  }
+  return props.placedFields as Field[];
+}
+
+function normalizeCheckboxRawValue(raw: string): boolean {
+  return String(raw ?? '').trim().toLowerCase() === 'true';
+}
+
+function hasCheckedCheckboxInStrikeGroup(groupId: string): boolean {
+  const id = String(groupId ?? '').trim();
+  if (!id) {
+    return false;
+  }
+
+  return getStrikeGroupContextPool().some((candidate) => {
+    if (!isCheckboxField(candidate) || String(candidate?.groupId ?? '').trim() !== id) {
+      return false;
+    }
+    const { value } = resolveFieldValueEntry(candidate);
+    return normalizeCheckboxRawValue(value);
+  });
+}
+
+/** Student fill overlay: unchecked strike option while another in the group is checked — PDF shows dash only; hide HTML frame */
+function isStrikeThroughUncheckedShowingDash(field: Field): boolean {
+  const groupId = String(field?.groupId ?? '').trim();
+  if (!isStrikeThroughGroupField(field) || !groupId) {
+    return false;
+  }
+  if (!hasCheckedCheckboxInStrikeGroup(groupId)) {
+    return false;
+  }
+  const { value } = resolveFieldValueEntry(field);
+  return !normalizeCheckboxRawValue(value);
+}
+
+function getCheckboxBadgeText(field: Field): string {
+  const baseText = getFieldDisplayBadgeText(field, props.placedFields);
+  if (isStrikeThroughGroupField(field)) {
+    return `${baseText} -`;
+  }
+  return baseText;
+}
+
 function isSignatureField(field: Field): boolean {
   const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
   return fieldType === 'signature';
@@ -108,12 +173,14 @@ function getFieldVisibilityRule(field: Field) {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
   };
 }
@@ -136,6 +203,19 @@ function getVisibilitySourceLabel(sourceFieldInstanceId: string): string {
   return `${baseLabel}${instanceSuffix}`;
 }
 
+function getVisibilityGroupSourceLabel(sourceGroupId: string): string {
+  const sourceField = props.placedFields.find(
+    candidate => String(candidate?.groupId ?? '').trim() === sourceGroupId && isCheckboxField(candidate),
+  );
+
+  if (!sourceField) {
+    return `Checkbox Group (${sourceGroupId.slice(0, 8)})`;
+  }
+
+  const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox Group').trim();
+  return `${baseLabel} (ทั้งกลุ่ม)`;
+}
+
 function getVisibilityOperatorText(operator: string): string {
   return operator === 'isUnchecked' ? 'ไม่ติ๊ก' : 'ติ๊ก';
 }
@@ -146,7 +226,9 @@ function getVisibilityConditionText(field: Field): string {
     return '';
   }
 
-  const sourceLabel = getVisibilitySourceLabel(rule.sourceFieldInstanceId);
+  const sourceLabel = rule.sourceGroupId
+    ? getVisibilityGroupSourceLabel(rule.sourceGroupId)
+    : getVisibilitySourceLabel(String(rule.sourceFieldInstanceId || ''));
   const operatorText = getVisibilityOperatorText(rule.operator);
   return `แสดงช่องใส่ข้อมูลเมื่อ ${sourceLabel} ${operatorText}`;
 }
@@ -838,6 +920,8 @@ async function saveTemplate() {
       label: field.label,
       fontSize: field.fontSize || 14,
       fontFamily: field.fontFamily || 'Arial',
+      strikeThroughGroupMode: Boolean(field.strikeThroughGroupMode ?? field.strike_through_group_mode ?? false),
+      strikeLineThickness: Math.min(8, Math.max(0.5, Number(field.strikeLineThickness ?? field.strike_line_thickness ?? 1.5) || 1.5)),
       // Normalize coordinates to 0-1 scale based on PDF dimensions
       normalizedX: Math.round((field.x / pdfNaturalDimensions.value.width) * 10000) / 10000,
       normalizedY: Math.round((field.y / pdfNaturalDimensions.value.height) * 10000) / 10000,
@@ -856,7 +940,6 @@ async function saveTemplate() {
     const templatePayload = {
       name: templateName,
       description: null,
-      category: null,
       version: '1.0.0',
       isActive: true,
       createdBy: null,
@@ -1161,6 +1244,7 @@ defineExpose<{
               :class="{
                 'field-selected': selectedField?.instanceId === field.instanceId && !props.readOnly,
                 'fill-mode': props.readOnly && props.fillMode,
+                'fill-mode--strike-omit': props.readOnly && props.fillMode && isStrikeThroughUncheckedShowingDash(field),
                 'read-only': props.readOnly && !props.fillMode && !props.signingSteps.length,
                 'field-unassigned': props.signingSteps.length > 0 && !field.signerStepId,
                 'field-clickable': props.readOnly && props.signingSteps.length > 0,
@@ -1194,6 +1278,7 @@ defineExpose<{
               <div
                 v-if="!props.readOnly && hasVisibilityRule(field)"
                 class="condition-tag"
+                :class="{ 'condition-tag--stacked': isCheckboxField(field) }"
                 :title="getVisibilityBadgeTitle(field)"
               >
                 {{ getVisibilityConditionText(field) }}
@@ -1202,9 +1287,10 @@ defineExpose<{
               <div
                 v-if="!props.readOnly && isCheckboxField(field)"
                 class="checkbox-tag"
-                :title="getFieldDisplayBadgeText(field, props.placedFields)"
+                :class="{ 'checkbox-tag--stacked': hasVisibilityRule(field) }"
+                :title="getCheckboxBadgeText(field)"
               >
-                {{ getFieldDisplayBadgeText(field, props.placedFields) }}
+                {{ getCheckboxBadgeText(field) }}
               </div>
 
               <div class="field-content">
@@ -1216,10 +1302,7 @@ defineExpose<{
                   >
                 </template>
                 <template v-else-if="isCheckboxField(field)">
-                  <span
-                    v-if="!props.fillMode"
-                    class="field-label-text"
-                  >{{ field.label || field.name }}</span>
+                  <!-- Keep checkbox box visually empty in builder preview -->
                 </template>
                 <template v-else>
                   <template v-if="hasFieldTextOverride(field)">
@@ -1230,7 +1313,10 @@ defineExpose<{
                     class="field-label-text"
                   >{{ field.label || field.name }}</span>
                 </template>
-                <span v-if="field.isGrouped && !hasSignatureImage(field)" class="instance-num">#{{ field.instanceNumber }}</span>
+                <span
+                  v-if="field.isGrouped && !hasSignatureImage(field) && !isCheckboxField(field) && !isStrikeThroughGroupField(field)"
+                  class="instance-num"
+                >#{{ field.instanceNumber }}</span>
               </div>
               <!-- Signer role tag (visible in read-only mode with signing steps) -->
               <div
@@ -1432,6 +1518,14 @@ defineExpose<{
   z-index: 1002;
 }
 
+.condition-tag--stacked {
+  top: -8px;
+}
+
+.checkbox-tag--stacked {
+  top: -22px;
+}
+
 .field-selected {
   border: 2px dashed rgba(0, 0, 255, 0.3) !important;
   background: rgba(0, 0, 255, 0.05) !important;
@@ -1464,6 +1558,14 @@ defineExpose<{
   border: none !important;
   outline: 1px dashed rgba(59, 130, 246, 0.35) !important;
   outline-offset: 0;
+}
+
+/* Strike-through siblings: PDF already draws the line — hide overlay box so it looks “filled” */
+.placed-field.fill-mode.fill-mode--strike-omit {
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 .placed-field.signature-field {

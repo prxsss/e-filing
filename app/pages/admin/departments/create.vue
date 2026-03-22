@@ -5,6 +5,8 @@ import * as z from 'zod';
 
 definePageMeta({
   title: 'create-department',
+  middleware: ['permission'],
+  permission: 'department.create',
 });
 
 type FacultyItem = {
@@ -120,10 +122,10 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
 
     <div class="space-y-2">
       <h1 class="text-2xl font-bold mb-1">
-        Create New Department
+        Add New Department
       </h1>
       <p class="text-sm text-muted">
-        Fill in the administrative details to register a new academic department within the university structure.
+        Fill in the details below to add a new department.
       </p>
     </div>
 
@@ -133,7 +135,7 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-building-2" class="text-primary size-5" />
           <h2 class="font-semibold">
-            Department
+            Department Information
           </h2>
         </div>
       </template>
@@ -195,8 +197,7 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
           <UButton
             type="submit"
             color="primary"
-            icon="i-lucide-save"
-            label="Save Department"
+            label="Add Department"
             :loading="loading"
           />
         </div>

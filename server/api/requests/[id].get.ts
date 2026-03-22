@@ -1,14 +1,14 @@
+import db from '~~/lib/db';
+// import { request, requestTemplateValues, signatureFlow, userRoles } from '~~/lib/db/schema';
+import { request, requestTemplateValues } from '~~/lib/db/schema';
 import { eq } from 'drizzle-orm';
-
-import db from '../../../lib/db';
-import { request, requestTemplateValues, signatureFlow, userRoles } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
 
   try {
     const requestId = Number.parseInt(getRouterParam(event, 'id') || '0');
-    const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
+    // const userId = event.context.user!.id;
 
     if (!requestId) {
       return {
@@ -34,26 +34,26 @@ export default defineEventHandler(async (event) => {
     const record = requestData[0];
 
     // Access control: the requester must be the owner OR have a signing role in this request
-    const isOwner = record.userId === userId;
-    if (!isOwner) {
-      const userRoleRows = await db
-        .select({ roleId: userRoles.roleId })
-        .from(userRoles)
-        .where(eq(userRoles.userId, userId));
-      const userRoleIds = userRoleRows.map(r => r.roleId);
+    // const isOwner = record.userId === userId;
+    // if (!isOwner) {
+    //   const userRoleRows = await db
+    //     .select({ roleId: userRoles.roleId })
+    //     .from(userRoles)
+    //     .where(eq(userRoles.userId, userId));
+    //   const userRoleIds = userRoleRows.map(r => r.roleId);
 
-      const hasSigningRole = userRoleIds.length > 0
-        ? (await db
-            .select({ roleId: signatureFlow.roleId })
-            .from(signatureFlow)
-            .where(eq(signatureFlow.requestId, requestId))
-            .then(rows => rows.some(r => userRoleIds.includes(r.roleId))))
-        : false;
+    //   const hasSigningRole = userRoleIds.length > 0
+    //     ? (await db
+    //         .select({ roleId: signatureFlow.roleId })
+    //         .from(signatureFlow)
+    //         .where(eq(signatureFlow.requestId, requestId))
+    //         .then(rows => rows.some(r => userRoleIds.includes(r.roleId))))
+    //     : false;
 
-      if (!hasSigningRole) {
-        throw createError({ statusCode: 403, message: 'Forbidden' });
-      }
-    }
+    //   if (!hasSigningRole) {
+    //     throw createError({ statusCode: 403, message: 'Forbidden' });
+    //   }
+    // }
 
     // Get field values for this request
     const fieldValues = await db

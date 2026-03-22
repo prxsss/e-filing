@@ -3,6 +3,8 @@ import { LazyAdminEditRoleModal, LazyBaseConfirmDialog } from '#components';
 
 definePageMeta({
   title: 'accessControl',
+  middleware: ['permission'],
+  permission: 'role.view',
 });
 
 const { t, locale } = useI18n();
@@ -16,7 +18,7 @@ const authStore = useAuthStore();
 const roleIcons: Record<string, string> = {
   'Super Admin': 'i-lucide-user-cog',
   'Admin': 'i-lucide-users',
-  'Teacher': 'i-lucide-graduation-cap',
+  'Signer': 'i-lucide-graduation-cap',
   'Student': 'i-lucide-user',
   'Registrar': 'i-lucide-files',
 };
@@ -63,7 +65,29 @@ async function handleEditRole(role: { id: number; name: string; descriptionEn: s
 // ── Delete Role ──
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
-async function handleDeleteRole(role: { id: number; name: string }) {
+function isAdminRole(roleName: string) {
+  return roleName.toLowerCase() === 'admin';
+}
+
+async function handleDeleteRole(role: { id: number; name: string; userCount: number }) {
+  if (isAdminRole(role.name)) {
+    toast.add({
+      title: t('deleteRole'),
+      description: t('adminRoleDeleteLocked'),
+      color: 'error',
+    });
+    return;
+  }
+
+  if (role.userCount > 0) {
+    toast.add({
+      title: t('deleteRole'),
+      description: t('roleDeleteInUse', { count: role.userCount }),
+      color: 'error',
+    });
+    return;
+  }
+
   const instance = confirmDialog.open({
     title: t('deleteRole'),
     description: t('deleteRoleConfirm', { name: role.name }),
@@ -86,7 +110,28 @@ async function handleDeleteRole(role: { id: number; name: string }) {
 
     await refreshRoles();
   }
-  catch {
+  catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number })?.statusCode;
+    const errorData = (error as { data?: { code?: string; userCount?: number } })?.data;
+
+    if (statusCode === 409 && errorData?.code === 'ROLE_IN_USE') {
+      toast.add({
+        title: t('deleteRole'),
+        description: t('roleDeleteInUse', { count: errorData.userCount ?? role.userCount }),
+        color: 'error',
+      });
+      return;
+    }
+
+    if (statusCode === 409 && errorData?.code === 'ADMIN_ROLE_DELETE_LOCKED') {
+      toast.add({
+        title: t('deleteRole'),
+        description: t('adminRoleDeleteLocked'),
+        color: 'error',
+      });
+      return;
+    }
+
     toast.add({ title: t('error'), description: t('roleDeleteFailed'), color: 'error' });
   }
 }
@@ -106,6 +151,13 @@ watch(rolePermissionIds, (ids) => {
 const selectedRole = computed(() =>
   roles.value?.find(r => r.id === selectedRoleId.value) ?? null,
 );
+
+const isAdminRoleSelected = computed(() => selectedRole.value?.name.toLowerCase() === 'admin');
+
+function isAdminRolePermissionLocked(permissionCode: string) {
+  return isAdminRoleSelected.value
+    && (permissionCode.startsWith('role.') || permissionCode.startsWith('permission.'));
+}
 
 // ── Group permissions by module (code prefix before the dot) ──
 const permissionModules = computed(() => {
@@ -155,7 +207,11 @@ const filteredModules = computed(() => {
 });
 
 // ── Toggle permission ──
-function togglePermission(permId: number) {
+function togglePermission(permId: number, permissionCode: string) {
+  if (isAdminRolePermissionLocked(permissionCode)) {
+    return;
+  }
+
   const s = new Set(localPermissionIds.value);
   if (s.has(permId)) {
     s.delete(permId);
@@ -198,7 +254,20 @@ async function saveChanges() {
     await refreshRolePermissions();
     toast.add({ title: t('saveChanges'), description: 'Permissions updated successfully.', color: 'success' });
   }
-  catch {
+  catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number })?.statusCode;
+    const errorData = (error as { data?: { code?: string } })?.data;
+
+    if (statusCode === 409 && errorData?.code === 'ADMIN_CRITICAL_PERMISSIONS_LOCKED') {
+      toast.add({
+        title: t('permissionSettings'),
+        description: t('adminRolePermissionLocked'),
+        color: 'error',
+      });
+      await refreshRolePermissions();
+      return;
+    }
+
     toast.add({ title: 'Error', description: 'Failed to save permission changes.', color: 'error' });
   }
   finally {
@@ -263,7 +332,7 @@ function selectRole(roleId: number) {
                 </span>
               </div>
               <UDropdownMenu
-                v-if="authStore.can('role.edit') || authStore.can('role.delete')"
+                v-if="authStore.canAny(['role.edit', 'role.delete'])"
                 :items="[
                   {
                     label: t('editRole'),
@@ -276,7 +345,7 @@ function selectRole(roleId: number) {
                     icon: 'i-lucide-trash',
                     color: 'error' as const,
                     onSelect: () => handleDeleteRole(role),
-                    visible: authStore.can('role.delete'),
+                    visible: authStore.can('role.delete') && !isAdminRole(role.name),
                   },
                 ].filter((i) => i.visible)"
               >
@@ -321,7 +390,7 @@ function selectRole(roleId: number) {
         </div>
 
         <!-- Scrollable Content -->
-        <div v-if="selectedRole && authStore.can('role.view') && authStore.can('permission.view')" class="p-6 space-y-8 pb-32">
+        <div v-if="selectedRole" class="p-6 space-y-8 pb-32">
           <!-- No results -->
           <div v-if="filteredModules.length === 0" class="text-center py-12">
             <UIcon name="i-lucide-search-x" class="size-12 text-muted mx-auto mb-3" />
@@ -343,35 +412,35 @@ function selectRole(roleId: number) {
               <label
                 v-for="perm in mod.permissions"
                 :key="perm.id"
-                class="flex items-start p-4 border border-default rounded-xl hover:bg-elevated/50 transition-all cursor-pointer group"
-                :class="{ 'bg-elevated/30': localPermissionIds.has(perm.id) }"
+                class="flex p-4 border border-default rounded-xl hover:bg-elevated/50 transition-all group"
+                :class="{
+                  'bg-elevated/30': localPermissionIds.has(perm.id),
+                  'items-start': authStore.can('role.assign_permission'),
+                  'items-center': !authStore.can('role.assign_permission'),
+                  'justify-between': !authStore.can('role.assign_permission'),
+                  'cursor-pointer': authStore.can('role.assign_permission'),
+                }"
               >
                 <UCheckbox
-                  :disabled="!authStore.can('role.assign_permission')"
+                  v-if="authStore.can('role.assign_permission')"
                   :model-value="localPermissionIds.has(perm.id)"
+                  :disabled="isAdminRolePermissionLocked(perm.code)"
                   class="mt-0.5"
-                  @update:model-value="togglePermission(perm.id)"
+                  @update:model-value="togglePermission(perm.id, perm.code)"
                 />
                 <div class="ml-3">
                   <span class="block text-sm font-semibold">{{ perm.code }}</span>
                   <span class="block text-xs text-dimmed italic mt-0.5">
                     {{ locale === 'en' ? perm.descriptionEn : perm.descriptionTh }}
                   </span>
+                  <span v-if="isAdminRolePermissionLocked(perm.code)" class="block text-xs text-error mt-1">
+                    {{ t('adminRolePermissionLocked') }}
+                  </span>
                 </div>
+                <UBadge v-if="!authStore.can('role.assign_permission') && localPermissionIds.has(perm.id)" icon="i-lucide-dot" color="primary" variant="soft" class="rounded-full">Granted</UBadge>
               </label>
             </div>
           </section>
-        </div>
-
-        <div v-else-if="!authStore.can('role.view') || !authStore.can('permission.view')">
-          <div class="flex items-center justify-center py-24">
-            <div class="text-center">
-              <UIcon name="i-lucide-lock" class="size-12 text-muted mx-auto mb-3" />
-              <p class="text-sm text-muted">
-                {{ !authStore.can('role.view') ? t('noRolesPermission') : t('noPermissionView') }}
-              </p>
-            </div>
-          </div>
         </div>
 
         <!-- Empty State -->

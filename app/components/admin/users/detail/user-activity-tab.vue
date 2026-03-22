@@ -65,7 +65,7 @@ const columns: TableColumn<ActivityLog>[] = [
     <template #header>
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <UIcon name="i-heroicons-clock-20-solid" class="text-gray-400" />
+          <UIcon name="i-lucide-history" class="text-primary" />
           <h2 class="font-semibold">
             Activity Log
           </h2>

@@ -16,6 +16,9 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css'],
+  ui: {
+    colorMode: false,
+  },
   runtimeConfig: {
     session: {
       password: env.NUXT_SESSION_PASSWORD,

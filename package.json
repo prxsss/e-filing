@@ -13,6 +13,8 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@flows/js": "^1.20.0",
+    "@flows/js-components": "^2.6.0",
     "@nuxt/eslint": "^1.12.1",
     "@nuxt/ui": "^4.5.0",
     "@nuxtjs/i18n": "^10.2.1",
@@ -25,6 +27,7 @@
     "eslint": "^9.39.2",
     "nuxt": "^4.2.2",
     "nuxt-auth-utils": "^0.5.29",
+    "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.530",
     "pinia": "^3.0.4",
@@ -39,6 +42,7 @@
     "@iconify-json/heroicons": "^1.2.3",
     "@iconify-json/lucide": "^1.2.86",
     "@types/node": "^25.0.8",
+    "@types/papaparse": "^5.5.2",
     "drizzle-kit": "^0.31.8",
     "eslint-plugin-format": "^1.2.0",
     "husky": "^9.1.7",

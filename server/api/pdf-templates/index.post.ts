@@ -21,7 +21,6 @@ export default defineEventHandler(async (event: H3Event) => {
     const result = await db.insert(requestTemplate).values({
       name: body.name,
       description: body.description || null,
-      category: body.category || null,
       version: body.version || '1.0.0',
       isActive: body.isActive !== undefined ? body.isActive : true,
       createdBy: body.createdBy || null,

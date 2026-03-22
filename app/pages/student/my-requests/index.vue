@@ -1,16 +1,18 @@
 <script lang="ts" setup>
 import type { TableRow } from '@nuxt/ui';
 
-import { h, resolveComponent } from 'vue';
-
 definePageMeta({
   title: 'myRequests',
+  middleware: ['permission'],
+  permission: 'request.view_own',
 });
 
 // === Composables ===
 const { t, locale } = useI18n();
 const router = useRouter();
 const localePath = useLocalePath();
+
+const authStore = useAuthStore();
 
 // === Type Definitions ===
 type RequestStatus = 'draft' | 'submitted' | 'pending' | 'in_progress' | 'rejected' | 'completed';
@@ -139,6 +141,7 @@ function handleNewRequest() {
         </p>
       </div>
       <UButton
+        v-if="authStore.can('request.create')"
         icon="i-heroicons-plus"
         color="primary"
         size="md"

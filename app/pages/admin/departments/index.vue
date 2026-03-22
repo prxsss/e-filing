@@ -2,10 +2,12 @@
 import type { TableColumn } from '@nuxt/ui';
 
 import { LazyBaseConfirmDialog } from '#components';
-import { h, resolveComponent, watch } from 'vue';
+import { h, resolveComponent } from 'vue';
 
 definePageMeta({
   title: 'departments',
+  middleware: ['permission'],
+  permission: 'department.view',
 });
 
 type DepartmentListItem = {
@@ -29,15 +31,35 @@ const { locale } = useI18n();
 const toast = useToast();
 const overlay = useOverlay();
 
-const searchTerm = ref('');
-const selectedFacultyId = ref<number | 'all'>('all');
-const page = ref(1);
-const pageSize = ref(5);
+const authStore = useAuthStore();
+
 const deletingDepartmentId = ref<number | null>(null);
+const searchInput = ref('');
+const appliedSearch = ref('');
+const selectedFacultyId = ref<number | undefined>(undefined);
+const appliedFacultyId = ref<number | undefined>(undefined);
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
-const { data: departmentsData, status, refresh } = await useFetch<DepartmentListItem[]>('/api/admin/departments');
+const { data: faculties } = useFetch('/api/faculties');
+
+const facultyOptions = computed(() => {
+  return (faculties.value ?? []).map(faculty => ({
+    label: locale.value === 'en' ? faculty.nameEn : faculty.nameTh,
+    value: faculty.id,
+  }));
+});
+
+const { rows, isLoading, page, pageSize, total, refresh } = useDepartments({
+  search: appliedSearch,
+  facultyId: appliedFacultyId,
+});
+
+function applySearch() {
+  appliedSearch.value = searchInput.value.trim();
+  appliedFacultyId.value = selectedFacultyId.value;
+  page.value = 1;
+}
 
 function getFacultyName(row: DepartmentListItem) {
   if (!row.faculty)
@@ -45,41 +67,6 @@ function getFacultyName(row: DepartmentListItem) {
 
   return locale.value === 'en' ? row.faculty.nameEn : row.faculty.nameTh;
 }
-
-const filteredRows = computed(() => {
-  const rows = departmentsData.value ?? [];
-  const term = searchTerm.value.trim().toLowerCase();
-
-  return rows.filter((row) => {
-    const departmentName = locale.value === 'en' ? row.nameEn : row.nameTh;
-    const facultyName = getFacultyName(row);
-
-    const matchFaculty = selectedFacultyId.value === 'all' || row.faculty?.id === selectedFacultyId.value;
-    const matchSearch = !term
-      || row.departmentCode.toLowerCase().includes(term)
-      || departmentName.toLowerCase().includes(term)
-      || facultyName.toLowerCase().includes(term);
-
-    return matchFaculty && matchSearch;
-  });
-});
-
-const total = computed(() => filteredRows.value.length);
-
-const paginatedRows = computed(() => {
-  const start = (page.value - 1) * pageSize.value;
-  return filteredRows.value.slice(start, start + pageSize.value);
-});
-
-watch([searchTerm, selectedFacultyId, pageSize], () => {
-  page.value = 1;
-});
-
-watch(total, () => {
-  const maxPage = Math.max(1, Math.ceil(total.value / pageSize.value));
-  if (page.value > maxPage)
-    page.value = maxPage;
-});
 
 function handleAddDepartment() {
   navigateTo(localPath('/admin/departments/create'));
@@ -154,41 +141,53 @@ const columns: TableColumn<DepartmentListItem>[] = [
     },
   },
   {
-    accessorKey: 'headOfDeptEn',
+    id: 'headOfDepartment',
     header: 'Head of Dept.',
     cell: ({ row }) => {
-      return h('div', null, row.original.headOfDeptEn ?? '-');
+      const headOfDepartment = locale.value === 'en' ? row.original.headOfDeptEn : row.original.headOfDeptTh;
+      return h('div', null, headOfDepartment ?? '-');
     },
 
   },
   {
     id: 'actions',
-    header: 'Actions',
     meta: {
       class: {
-        th: 'text-right',
         td: 'text-right',
       },
     },
     cell: ({ row }) => {
       const departmentName = locale.value === 'en' ? row.original.nameEn : row.original.nameTh;
+      const canEditDepartment = authStore.can('department.edit');
+      const canDeleteDepartment = authStore.can('department.delete');
 
-      return h('div', { class: 'flex items-center justify-end gap-1' }, [
-        h(UButton, {
-          color: 'primary',
-          variant: 'ghost',
-          icon: 'i-lucide-pencil',
-          onClick: () => handleEditDepartment(row.original.id),
-        }),
-        h(UButton, {
-          color: 'error',
-          variant: 'ghost',
-          icon: 'i-lucide-trash-2',
-          loading: deletingDepartmentId.value === row.original.id,
-          disabled: deletingDepartmentId.value === row.original.id,
-          onClick: async () => await handleDeleteDepartment(row.original.id, departmentName),
-        }),
-      ]);
+      const actionButtons = [];
+
+      if (canEditDepartment) {
+        actionButtons.push(
+          h(UButton, {
+            color: 'primary',
+            variant: 'ghost',
+            icon: 'i-lucide-pencil',
+            onClick: () => handleEditDepartment(row.original.id),
+          }),
+        );
+      }
+
+      if (canDeleteDepartment) {
+        actionButtons.push(
+          h(UButton, {
+            color: 'error',
+            variant: 'ghost',
+            icon: 'i-lucide-trash-2',
+            loading: deletingDepartmentId.value === row.original.id,
+            disabled: deletingDepartmentId.value === row.original.id,
+            onClick: async () => await handleDeleteDepartment(row.original.id, departmentName),
+          }),
+        );
+      }
+
+      return h('div', { class: 'flex items-center justify-end gap-1' }, actionButtons);
     },
   },
 ];
@@ -205,19 +204,51 @@ const columns: TableColumn<DepartmentListItem>[] = [
           Manage and organize university academic departments.
         </p>
       </div>
-      <UButton icon="i-lucide-plus" @click="handleAddDepartment">
+      <UButton v-if="authStore.can('department.create')" icon="i-lucide-plus" @click="handleAddDepartment">
         Add Department
       </UButton>
     </div>
 
     <div class="w-full">
-      <div class="max-w-sm">
-        <UInput class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by name, email, or ID..." />
+      <div class="max-w-2xl ml-auto">
+        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <!--
+            Issue: Hover doesn't work for USelectMenu (unless `search-input` is enabled).
+            Workaround: Keep `search-input` enabled and hide it via CSS.
+            TODO: Investigate root cause and replace this workaround.
+          -->
+          <USelectMenu
+            v-model="selectedFacultyId"
+            class="w-full sm:w-64"
+            :items="facultyOptions"
+            label-key="label"
+            value-key="value"
+            placeholder="All faculties"
+            clear
+            :ui="{
+              input: 'hidden',
+              content: 'min-w-fit',
+            }"
+          />
+
+          <UFieldGroup class="w-full sm:max-w-md">
+            <UInput
+              v-model="searchInput"
+              class="w-full"
+              icon="i-lucide-search"
+              size="lg"
+              variant="outline"
+              placeholder="Search by department / head name, or ID"
+              @keyup.enter="applySearch"
+            />
+            <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+          </UFieldGroup>
+        </div>
       </div>
     </div>
 
     <UCard>
-      <UTable :data="paginatedRows" :columns="columns" :loading="status === 'pending'" class="flex-1" />
+      <UTable :data="rows" :columns="columns" :loading="isLoading" class="flex-1" />
 
       <div class="flex justify-center gap-2 border-t border-default pt-4 px-4">
         <UPagination
