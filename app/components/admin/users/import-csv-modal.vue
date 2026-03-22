@@ -7,8 +7,12 @@ import { h, resolveComponent } from 'vue';
 
 type SystemFieldKey
   = | 'id'
+    | 'academic_rank_en'
+    | 'title_en'
     | 'first_name_en'
     | 'last_name_en'
+    | 'academic_rank_th'
+    | 'title_th'
     | 'first_name_th'
     | 'last_name_th'
     | 'email'
@@ -59,8 +63,12 @@ const UInput = resolveComponent('UInput');
 const UFormField = resolveComponent('UFormField');
 const systemFields: Array<{ key: SystemFieldKey; label: string; required: boolean }> = [
   { key: 'id', label: 'ID', required: true },
+  { key: 'academic_rank_en', label: 'Academic Rank (EN)', required: false },
+  { key: 'title_en', label: 'Title (EN)', required: false },
   { key: 'first_name_en', label: 'First Name (EN)', required: true },
   { key: 'last_name_en', label: 'Last Name (EN)', required: true },
+  { key: 'academic_rank_th', label: 'Academic Rank (TH)', required: false },
+  { key: 'title_th', label: 'Title (TH)', required: false },
   { key: 'first_name_th', label: 'First Name (TH)', required: true },
   { key: 'last_name_th', label: 'Last Name (TH)', required: true },
   { key: 'email', label: 'Email', required: true },
@@ -84,8 +92,12 @@ const parseError = ref<string | null>(null);
 
 const mapping = ref<Record<SystemFieldKey, string | null>>({
   id: null,
+  academic_rank_en: null,
+  title_en: null,
   first_name_en: null,
   last_name_en: null,
+  academic_rank_th: null,
+  title_th: null,
   first_name_th: null,
   last_name_th: null,
   email: null,
@@ -426,26 +438,12 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
     columns.push({
       id: field.key,
       header: field.label,
-      ...(field.key === 'first_name_en' || field.key === 'last_name_en' || field.key === 'first_name_th' || field.key === 'last_name_th'
-        ? {
-            meta: {
-              class: {
-                th: 'min-w-44',
-                td: 'min-w-44',
-              },
-            },
-          }
-        : {}),
-      ...(field.key === 'image'
-        ? {
-            meta: {
-              class: {
-                th: 'min-w-72',
-                td: 'min-w-72',
-              },
-            },
-          }
-        : {}),
+      meta: {
+        class: {
+          th: 'min-w-44',
+          td: 'min-w-44',
+        },
+      },
       cell: ({ row }) => wrapCellWithFieldError(row.original, field.key, row.original.values[field.key] || '-'),
     });
   }
@@ -759,8 +757,12 @@ function resetWizardState() {
 
   mapping.value = {
     id: null,
+    academic_rank_en: null,
+    title_en: null,
     first_name_en: null,
     last_name_en: null,
+    academic_rank_th: null,
+    title_th: null,
     first_name_th: null,
     last_name_th: null,
     email: null,
@@ -980,8 +982,12 @@ async function importData() {
         users: validRows.value.map(row => ({
           rowNumber: row.rowNumber,
           id: row.values.id,
+          academicRankEn: normalizeOptionalValue(row.values.academic_rank_en) || undefined,
+          titleEn: normalizeOptionalValue(row.values.title_en) || undefined,
           firstNameEn: row.values.first_name_en,
           lastNameEn: row.values.last_name_en,
+          academicRankTh: normalizeOptionalValue(row.values.academic_rank_th) || undefined,
+          titleTh: normalizeOptionalValue(row.values.title_th) || undefined,
           firstNameTh: row.values.first_name_th,
           lastNameTh: row.values.last_name_th,
           email: row.emailValue,
