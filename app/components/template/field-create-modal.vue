@@ -476,7 +476,7 @@ async function handleDelete() {
                 >
                 เปิดโหมดขีดฆ่าช่องที่ไม่ติ๊กในกลุ่ม
               </label>
-              <div v-if="formData.strikeThroughGroupMode" class="max-w-[11rem]">
+              <div v-if="formData.strikeThroughGroupMode" class="max-w-44">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                   ความหนาเส้นขีดฆ่า
                 </label>
