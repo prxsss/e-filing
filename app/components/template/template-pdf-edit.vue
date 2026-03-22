@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { FieldInstance, PdfDimensions } from '~/types/template';
 
-import { getFieldDisplayBadgeText } from '../../../shared/field-instance-number';
+import { getFieldDisplayBadgeText, getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+
+type Field = FieldInstance;
 
 type Props = {
   pdfBytes?: Uint8Array | null;
@@ -184,6 +186,105 @@ const placedFieldsOnCurrentPage = computed<FieldInstance[]>(() => {
 function supportsLetterSpacing(field: FieldInstance): boolean {
   const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
   return fieldType !== 'date' && fieldType !== 'time';
+}
+
+function isCheckboxField(field: Field): boolean {
+  const fieldType = String(field?.type || field?.fieldType || '').toLowerCase();
+  const fieldName = String(field?.name || '').trim().toLowerCase();
+  return fieldType === 'checkbox' || fieldName === 'check mark';
+}
+
+function isStrikeThroughGroupModeEnabled(field: Field): boolean {
+  if (Object.prototype.hasOwnProperty.call(field || {}, 'strikeThroughGroupMode')) {
+    return field?.strikeThroughGroupMode === true;
+  }
+  return field?.strike_through_group_mode === true;
+}
+
+function isStrikeThroughGroupField(field: Field): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+  return isStrikeThroughGroupModeEnabled(field);
+}
+
+function getCheckboxBadgeText(field: Field): string {
+  const baseText = getFieldDisplayBadgeText(field, props.placedFields);
+  if (isStrikeThroughGroupField(field)) {
+    return `${baseText} -`;
+  }
+  return baseText;
+}
+
+function getFieldVisibilityRule(field: Field) {
+  const rawRule = field?.visibilityRule ?? field?.visibility_rule;
+  if (!rawRule || typeof rawRule !== 'object') {
+    return null;
+  }
+
+  const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
+    return null;
+  }
+
+  return {
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
+    operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
+  };
+}
+
+function hasVisibilityRule(field: Field): boolean {
+  return Boolean(getFieldVisibilityRule(field));
+}
+
+function getVisibilitySourceLabel(sourceFieldInstanceId: string): string {
+  const sourceField = props.placedFields.find(
+    candidate => String(candidate?.instanceId ?? '').trim() === sourceFieldInstanceId,
+  );
+
+  if (!sourceField) {
+    return `Checkbox (${sourceFieldInstanceId.slice(0, 8)})`;
+  }
+
+  const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox').trim();
+  const instanceSuffix = ` #${getFieldDisplayInstanceNumber(sourceField, props.placedFields)}`;
+  return `${baseLabel}${instanceSuffix}`;
+}
+
+function getVisibilityGroupSourceLabel(sourceGroupId: string): string {
+  const sourceField = props.placedFields.find(
+    candidate => String(candidate?.groupId ?? '').trim() === sourceGroupId && isCheckboxField(candidate),
+  );
+
+  if (!sourceField) {
+    return `Checkbox Group (${sourceGroupId.slice(0, 8)})`;
+  }
+
+  const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox Group').trim();
+  return `${baseLabel} (ทั้งกลุ่ม)`;
+}
+
+function getVisibilityOperatorText(operator: string): string {
+  return operator === 'isUnchecked' ? 'ไม่ติ๊ก' : 'ติ๊ก';
+}
+
+function getVisibilityConditionText(field: Field): string {
+  const rule = getFieldVisibilityRule(field);
+  if (!rule) {
+    return '';
+  }
+
+  const sourceLabel = rule.sourceGroupId
+    ? getVisibilityGroupSourceLabel(rule.sourceGroupId)
+    : getVisibilitySourceLabel(String(rule.sourceFieldInstanceId || ''));
+  const operatorText = getVisibilityOperatorText(rule.operator);
+  return `แสดงช่องใส่ข้อมูลเมื่อ ${sourceLabel} ${operatorText}`;
+}
+
+function getVisibilityBadgeTitle(field: Field): string {
+  return getVisibilityConditionText(field);
 }
 
 // Converts normalized coords → display coords for rendering
@@ -596,6 +697,8 @@ async function saveTemplate(): Promise<void> {
       const validation = validateNormalizedField(field);
       if (!validation.valid)
         continue;
+      const rawThickness = (field as any).strikeLineThickness ?? (field as any).strike_line_thickness;
+      const strikeThickness = Math.min(8, Math.max(0.5, Number(rawThickness) || 1.5));
       normalizedFields.push({
         id: field.id,
         instanceId: field.instanceId,
@@ -613,6 +716,8 @@ async function saveTemplate(): Promise<void> {
         label: field.label?.substring(0, 255) || '',
         fontSize: Math.max(8, Math.min(72, field.fontSize || 14)),
         fontFamily: field.fontFamily || 'Arial',
+        strikeThroughGroupMode: Boolean((field as any).strikeThroughGroupMode ?? (field as any).strike_through_group_mode ?? false),
+        strikeLineThickness: strikeThickness,
       });
     }
 
@@ -773,31 +878,34 @@ defineExpose({
               @click="selectField(field)"
             >
               <div
-                v-if="field.name === 'Check Mark'"
-                class="checkbox-tag"
-                :title="getFieldDisplayBadgeText(field, props.placedFields)"
+                v-if="hasVisibilityRule(field)"
+                class="condition-tag"
+                :class="{ 'condition-tag--stacked': isCheckboxField(field) }"
+                :title="getVisibilityBadgeTitle(field)"
               >
-                {{ getFieldDisplayBadgeText(field, props.placedFields) }}
+                {{ getVisibilityConditionText(field) }}
+              </div>
+
+              <div
+                v-if="isCheckboxField(field)"
+                class="checkbox-tag"
+                :class="{ 'checkbox-tag--stacked': hasVisibilityRule(field) }"
+                :title="getCheckboxBadgeText(field)"
+              >
+                {{ getCheckboxBadgeText(field) }}
               </div>
 
               <div class="field-content">
-                <svg
-                  v-if="field.name === 'Check Mark'"
-                  class="w-4 h-4 shrink-0 text-gray-900"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M5 13L9 17L19 7"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-                <span v-if="field.label">{{ field.label }}</span>
-                <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
+                <template v-if="isCheckboxField(field)">
+                  <!-- Keep checkbox box visually empty in builder preview -->
+                </template>
+                <template v-else>
+                  <span v-if="field.label">{{ field.label }}</span>
+                  <span
+                    v-if="field.isGrouped && !isStrikeThroughGroupField(field)"
+                    class="instance-num"
+                  >#{{ field.instanceNumber }}</span>
+                </template>
               </div>
 
               <!-- Resize handles (only when selected) -->
@@ -904,6 +1012,28 @@ defineExpose({
   pointer-events: none;
 }
 
+.condition-tag {
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  font-size: 0.55rem;
+  color: #78350f;
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.2;
+  letter-spacing: normal;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1002;
+}
+
+.condition-tag--stacked {
+  top: -8px;
+}
+
 .checkbox-tag {
   position: absolute;
   top: -8px;
@@ -920,6 +1050,10 @@ defineExpose({
   font-weight: 700;
   pointer-events: none;
   z-index: 1002;
+}
+
+.checkbox-tag--stacked {
+  top: -22px;
 }
 
 .placed-field:hover {

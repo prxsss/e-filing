@@ -8,14 +8,12 @@ definePageMeta({
 });
 
 // --- Types ---
-type FieldValue = {
-  fieldId: number;
-  value: string;
-};
+// NOTE: request field values payload is built inline (see submitRequest()).
 
 type VisibilityRule = {
   enabled?: boolean;
   sourceFieldInstanceId?: string | null;
+  sourceGroupId?: string | null;
   operator?: 'isChecked' | 'isUnchecked';
   clearWhenHidden?: boolean;
 };
@@ -62,7 +60,6 @@ const templateId = Number(route.params.templateId);
 const isLoading = ref(true);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
-const successMessage = ref('');
 
 const templateData = ref<TemplateData | null>(null);
 const pdfFile = ref<File | null>(null);
@@ -76,7 +73,6 @@ const submitterSignatureDataUrl = ref<string | null>(null);
 const showSubmitterSignaturePopup = ref(false);
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
-const isUploadingAttachment = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -401,13 +397,15 @@ function getVisibilityRule(field: any): VisibilityRule | null {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
     clearWhenHidden: false,
   };
@@ -419,17 +417,94 @@ function isFieldVisible(field: any): boolean {
     return true;
   }
 
-  const sourceField = placedFields.value.find(
-    candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-  );
+  let isChecked = false;
+  if (rule.sourceGroupId) {
+    const groupCheckboxes = placedFields.value.filter((candidate) => {
+      return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+    });
+    isChecked = groupCheckboxes.some(candidate => normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true');
+  }
+  else {
+    const sourceField = placedFields.value.find(
+      candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+    );
 
-  if (!sourceField) {
-    return true;
+    if (!sourceField) {
+      return true;
+    }
+
+    const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
+    isChecked = sourceValue === 'true';
   }
 
-  const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
-  const isChecked = sourceValue === 'true';
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+}
+
+function getCheckboxGroupId(field: any): string {
+  return String(field?.groupId ?? '').trim();
+}
+
+function handleFieldValueUpdate(field: any, nextValue: string) {
+  const key = getFieldValueKey(field);
+  if (!key) {
+    return;
+  }
+
+  if (!isCheckboxField(field)) {
+    fieldValues.value[key] = String(nextValue ?? '');
+    return;
+  }
+
+  const normalizedNextValue = normalizeCheckboxValue(nextValue);
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId) {
+    fieldValues.value[key] = normalizedNextValue;
+    return;
+  }
+
+  if (normalizedNextValue === 'true') {
+    for (const candidate of placedFields.value) {
+      if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+        continue;
+      }
+      const candidateKey = getFieldValueKey(candidate);
+      if (!candidateKey) {
+        continue;
+      }
+      fieldValues.value[candidateKey] = candidateKey === key ? 'true' : '';
+    }
+    return;
+  }
+
+  fieldValues.value[key] = '';
+}
+
+function isCheckboxTemporarilyDisabled(field: any): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId) {
+    return false;
+  }
+
+  const currentKey = getFieldValueKey(field);
+  const isCurrentChecked = normalizeCheckboxValue(resolveCurrentFieldValue(field)) === 'true';
+  if (isCurrentChecked) {
+    return false;
+  }
+
+  return placedFields.value.some((candidate) => {
+    if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+      return false;
+    }
+    const candidateKey = getFieldValueKey(candidate);
+    if (!candidateKey || candidateKey === currentKey) {
+      return false;
+    }
+    return normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true';
+  });
 }
 
 function hydrateFieldValueKeys() {
@@ -533,27 +608,6 @@ const previewOverlayFields = computed(() => {
     }));
 
   return [...overlayFields, ...signatureOverlayFields];
-});
-
-const previewOverlayFieldValues = computed<Record<string, string>>(() => {
-  const values: Record<string, string> = {};
-
-  for (const field of previewOverlayFields.value) {
-    const key = getPreviewFieldKey(field);
-    if (!key) {
-      continue;
-    }
-
-    const currentValue = resolveCurrentFieldValue(field);
-    const normalizedCurrent = normalizeFieldValue(currentValue);
-    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
-
-    if (normalizedCurrent.length > 0 && normalizedCurrent !== normalizedSynced) {
-      values[key] = currentValue;
-    }
-  }
-
-  return values;
 });
 
 async function refreshPreviewPdf() {
@@ -731,20 +785,37 @@ async function submitRequest() {
     }
 
     // 3. Save field values (manual and currently visible only)
-    const fieldValuesById = new Map<number, string>();
+    // IMPORTANT: checkbox groups/repeated fields share the same fieldId, so we must send instanceId to persist each checkbox independently.
+    const fieldValuesArray: Array<{ fieldId: number; instanceId?: string; value: string }> = [];
+    const dedupeByFieldId = new Set<number>();
+
     for (const field of getVisibleFillableFields()) {
       const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
       if (!Number.isFinite(fieldId) || isAutoGeneratedField(field)) {
         continue;
       }
 
-      fieldValuesById.set(fieldId, resolveCurrentFieldValue(field) || '');
-    }
+      const value = resolveCurrentFieldValue(field) || '';
+      if (isCheckboxField(field)) {
+        fieldValuesArray.push({
+          fieldId,
+          instanceId: String(field?.instanceId ?? '').trim() || undefined,
+          value,
+        });
+        continue;
+      }
 
-    const fieldValuesArray: FieldValue[] = Array.from(fieldValuesById.entries()).map(([fieldId, value]) => ({
-      fieldId,
-      value,
-    }));
+      // Non-checkbox fields: keep the last value per fieldId (legacy storage model)
+      if (dedupeByFieldId.has(fieldId)) {
+        const idx = fieldValuesArray.findIndex(v => v.fieldId === fieldId && !v.instanceId);
+        if (idx !== -1) {
+          fieldValuesArray[idx] = { fieldId, value };
+        }
+        continue;
+      }
+      dedupeByFieldId.add(fieldId);
+      fieldValuesArray.push({ fieldId, value });
+    }
 
     const saveResult: any = await $fetch(`/api/requests/${activeRequestId}/field-values`, {
       method: 'POST',
@@ -788,12 +859,12 @@ async function submitRequest() {
           });
 
           if (!signResult.success) {
-            navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+            error.value = signResult.error ?? 'Failed to process signature';
             return;
           }
         }
         else {
-          navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+          error.value = 'Signature is required but was not provided';
           return;
         }
       }
@@ -1009,7 +1080,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
-              :field-values="previewOverlayFieldValues"
+              :field-values="fieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...
@@ -1019,14 +1090,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
 
         <!-- Right: Form Fields -->
         <div class="space-y-6">
-          <!-- Success Message -->
-          <UCard v-if="successMessage" class="bg-green-50 border-green-200">
-            <div class="flex items-center gap-2 text-green-800">
-              <i class="fas fa-check-circle" />
-              <span class="font-medium">{{ successMessage }}</span>
-            </div>
-          </UCard>
-
           <!-- Error Message -->
           <UCard v-if="error" class="bg-red-50 border-red-200">
             <div class="flex items-center gap-2 text-red-800">
@@ -1050,9 +1113,10 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 class="field-group"
               >
                 <form-field-input
-                  v-model="fieldValues[getFieldValueKey(field)]"
+                  :model-value="fieldValues[getFieldValueKey(field)]"
                   :field="field"
-                  :disabled="isSaving"
+                  :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
+                  @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
 
@@ -1076,7 +1140,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
                   size="xs"
                   color="primary"
                   icon="i-heroicons-paper-clip"
-                  :loading="isUploadingAttachment"
                   @click="triggerFileUpload"
                 >
                   Add File

@@ -10,12 +10,14 @@ definePageMeta({
 // --- Types ---
 type FieldValue = {
   fieldId: number;
+  instanceId?: string;
   value: string;
 };
 
 type VisibilityRule = {
   enabled?: boolean;
   sourceFieldInstanceId?: string | null;
+  sourceGroupId?: string | null;
   operator?: 'isChecked' | 'isUnchecked';
   clearWhenHidden?: boolean;
 };
@@ -161,13 +163,15 @@ function getVisibilityRule(field: any): VisibilityRule | null {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
     clearWhenHidden: false,
   };
@@ -179,17 +183,94 @@ function isFieldVisible(field: any): boolean {
     return true;
   }
 
-  const sourceField = placedFields.value.find(
-    candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-  );
+  let isChecked = false;
+  if (rule.sourceGroupId) {
+    const groupCheckboxes = placedFields.value.filter((candidate) => {
+      return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+    });
+    isChecked = groupCheckboxes.some(candidate => normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true');
+  }
+  else {
+    const sourceField = placedFields.value.find(
+      candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+    );
 
-  if (!sourceField) {
-    return true;
+    if (!sourceField) {
+      return true;
+    }
+
+    const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
+    isChecked = sourceValue === 'true';
   }
 
-  const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
-  const isChecked = sourceValue === 'true';
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+}
+
+function getCheckboxGroupId(field: any): string {
+  return String(field?.groupId ?? '').trim();
+}
+
+function handleFieldValueUpdate(field: any, nextValue: string) {
+  const key = getFieldValueKey(field);
+  if (!key) {
+    return;
+  }
+
+  if (!isCheckboxField(field)) {
+    fieldValues.value[key] = String(nextValue ?? '');
+    return;
+  }
+
+  const normalizedNextValue = normalizeCheckboxValue(nextValue);
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId) {
+    fieldValues.value[key] = normalizedNextValue;
+    return;
+  }
+
+  if (normalizedNextValue === 'true') {
+    for (const candidate of placedFields.value) {
+      if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+        continue;
+      }
+      const candidateKey = getFieldValueKey(candidate);
+      if (!candidateKey) {
+        continue;
+      }
+      fieldValues.value[candidateKey] = candidateKey === key ? 'true' : '';
+    }
+    return;
+  }
+
+  fieldValues.value[key] = '';
+}
+
+function isCheckboxTemporarilyDisabled(field: any): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId) {
+    return false;
+  }
+
+  const currentKey = getFieldValueKey(field);
+  const isCurrentChecked = normalizeCheckboxValue(resolveCurrentFieldValue(field)) === 'true';
+  if (isCurrentChecked) {
+    return false;
+  }
+
+  return placedFields.value.some((candidate) => {
+    if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+      return false;
+    }
+    const candidateKey = getFieldValueKey(candidate);
+    if (!candidateKey || candidateKey === currentKey) {
+      return false;
+    }
+    return normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true';
+  });
 }
 
 function hydrateFieldValueKeys() {
@@ -236,7 +317,8 @@ function getVisibleStudentFields(): any[] {
 }
 
 function buildManualFieldValuesPayload(): FieldValue[] {
-  const fieldValuesById = new Map<number, string>();
+  const fieldValuesArray: FieldValue[] = [];
+  const dedupeByFieldId = new Set<number>();
 
   for (const field of getVisibleStudentFields()) {
     const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
@@ -244,13 +326,29 @@ function buildManualFieldValuesPayload(): FieldValue[] {
       continue;
     }
 
-    fieldValuesById.set(fieldId, resolveCurrentFieldValue(field) || '');
+    const value = resolveCurrentFieldValue(field) || '';
+    if (isCheckboxField(field)) {
+      fieldValuesArray.push({
+        fieldId,
+        instanceId: String(field?.instanceId ?? '').trim() || undefined,
+        value,
+      });
+      continue;
+    }
+
+    if (dedupeByFieldId.has(fieldId)) {
+      const idx = fieldValuesArray.findIndex(v => v.fieldId === fieldId && !v.instanceId);
+      if (idx !== -1) {
+        fieldValuesArray[idx] = { fieldId, value };
+      }
+      continue;
+    }
+
+    dedupeByFieldId.add(fieldId);
+    fieldValuesArray.push({ fieldId, value });
   }
 
-  return Array.from(fieldValuesById.entries()).map(([fieldId, value]) => ({
-    fieldId,
-    value,
-  }));
+  return fieldValuesArray;
 }
 
 // Fetch request and field values
@@ -268,7 +366,9 @@ async function fetchRequestData() {
       // Load existing field values
       if (requestResult.data.fieldValues) {
         requestResult.data.fieldValues.forEach((fv: any) => {
-          fieldValues.value[String(fv.fieldId)] = fv.value || '';
+          const instanceKey = String(fv.fieldInstanceId ?? '').trim();
+          const key = instanceKey.length > 0 ? instanceKey : String(fv.fieldId);
+          fieldValues.value[key] = fv.value || '';
         });
       }
 
@@ -303,6 +403,9 @@ async function fetchRequestData() {
             hydrateFieldValueKeys();
             clearHiddenFieldValues();
           }
+
+          // Load PDF file for preview
+          await loadPdfFile();
         }
       }
     }
@@ -316,6 +419,34 @@ async function fetchRequestData() {
   }
   finally {
     isLoading.value = false;
+  }
+}
+
+async function loadPdfFile() {
+  // For submitted/completed requests, use filledDocumentUrl
+  const pdfUrl = requestData.value?.filledDocumentUrl || templateData.value?.documentUrl;
+
+  if (!pdfUrl) {
+    pdfFile.value = null;
+    return;
+  }
+
+  try {
+    const response = await fetch(pdfUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const fileName = requestData.value?.filledDocumentUrl
+      ? `request-${requestId}.pdf`
+      : templateData.value?.documentUrl?.split('/').pop() || 'template.pdf';
+
+    pdfFile.value = new File([arrayBuffer], fileName, { type: 'application/pdf' });
+  }
+  catch (err) {
+    console.error('Failed to load PDF file:', err);
+    pdfFile.value = null;
   }
 }
 
@@ -415,9 +546,25 @@ const visibleFillableFields = computed(() => {
   return fillableFields.value.filter(field => isFieldVisible(field));
 });
 
+const requestFormSectionTitle = computed(() => {
+  const fieldWithTitle = visibleFillableFields.value.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
+  return String(fieldWithTitle?.formSectionTitle || 'ข้อมูลคำร้อง');
+});
+
 // Student-fillable fields: exclude Signature fields (those belong to signing roles, not the student)
 const studentFields = computed(() => {
   return getVisibleStudentFields();
+});
+
+const orderedStudentFields = computed(() => {
+  return [...studentFields.value].sort((a: any, b: any) => {
+    const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    return String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
+  });
 });
 
 const canSaveOrSubmitDraft = computed(() => fillableFields.value.length > 0);
@@ -465,27 +612,6 @@ const previewOverlayFields = computed(() => {
     const syncedValue = normalizeFieldValue(key ? previewSyncedFieldValues.value[key] : '');
     return currentValue.length === 0 || currentValue !== syncedValue;
   });
-});
-
-const previewOverlayFieldValues = computed<Record<string, string>>(() => {
-  const values: Record<string, string> = {};
-
-  for (const field of previewOverlayFields.value) {
-    const key = getPreviewFieldKey(field);
-    if (!key) {
-      continue;
-    }
-
-    const currentValue = resolveCurrentFieldValue(field);
-    const normalizedCurrent = normalizeFieldValue(currentValue);
-    const normalizedSynced = normalizeFieldValue(previewSyncedFieldValues.value[key]);
-
-    if (normalizedCurrent.length > 0 && normalizedCurrent !== normalizedSynced) {
-      values[key] = currentValue;
-    }
-  }
-
-  return values;
 });
 
 async function refreshPreviewPdf() {
@@ -901,11 +1027,12 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
             <template-pdf-create
               :pdf-file="previewDisplayFile"
               :placed-fields="previewOverlayFields"
+              :strike-group-context-fields="visibleFillableFields"
               :selected-field="undefined"
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
-              :field-values="previewOverlayFieldValues"
+              :field-values="fieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...
@@ -1072,20 +1199,21 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
           <UCard>
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                ข้อมูลคำร้อง
+                {{ requestFormSectionTitle }}
               </h3>
             </template>
 
             <!-- DRAFT: editable inputs -->
             <div v-if="requestData?.status === 'draft'" class="space-y-4">
-              <div v-for="field in studentFields" :key="field.instanceId">
+              <div v-for="field in orderedStudentFields" :key="field.instanceId">
                 <form-field-input
-                  v-model="fieldValues[getFieldValueKey(field)]"
-                  :field="field"
-                  :disabled="isSaving"
+                  :model-value="fieldValues[getFieldValueKey(field)]"
+                  :field="{ ...field, label: field.formQuestionLabel || field.label }"
+                  :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
+                  @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
-              <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
                 ไม่มีฟิลด์ที่ต้องกรอก
               </div>
             </div>
@@ -1093,7 +1221,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
             <!-- SUBMITTED / IN_PROGRESS / COMPLETED / REJECTED: read-only display -->
             <div v-else class="space-y-3">
               <div
-                v-for="field in studentFields"
+                v-for="field in orderedStudentFields"
                 :key="field.instanceId"
                 class="flex flex-col gap-0.5"
               >
@@ -1102,7 +1230,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                   {{ resolveCurrentFieldValue(field) || '—' }}
                 </span>
               </div>
-              <div v-if="studentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
                 ไม่มีข้อมูลที่กรอก
               </div>
             </div>
@@ -1157,7 +1285,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                     size="xs"
                     variant="ghost"
                     icon="i-heroicons-eye"
-                    @click="openPdfInNewTab(attachment.fileUrl!)"
+                    @click="attachment.fileUrl ? openPdfInNewTab(attachment.fileUrl) : undefined"
                   >
                     ดู
                   </UButton>

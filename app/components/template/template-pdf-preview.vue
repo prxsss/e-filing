@@ -13,7 +13,15 @@ const props = defineProps({
   openInNewTabUrl: { type: String, default: null },
   /** Label for the open-in-new-tab button */
   openInNewTabLabel: { type: String, default: 'เปิด PDF ในแท็บใหม่' },
+  /** Highlight specific field on preview by instanceId */
+  highlightedFieldInstanceId: { type: String, default: '' },
+  /** Enable field click interactions on preview */
+  interactiveFields: { type: Boolean, default: false },
 });
+
+const emit = defineEmits<{
+  fieldClicked: [instanceId: string];
+}>();
 
 // --- Refs ---
 const viewerArea = ref<HTMLDivElement | null>(null);
@@ -427,7 +435,10 @@ onUnmounted(() => {
               v-for="field in fieldsWithDisplayCoords"
               :key="field.instanceId"
               class="placed-field"
-              :class="{ 'signature-field': field.imageUrl || field.type === 'Signature' }"
+              :class="{
+                'signature-field': field.imageUrl || field.type === 'Signature',
+                'highlighted-field': String(props.highlightedFieldInstanceId || '').trim() === String(field.instanceId || '').trim(),
+              }"
               :style="{
                 left: `${field.displayX}px`,
                 top: `${field.displayY}px`,
@@ -435,7 +446,9 @@ onUnmounted(() => {
                 height: `${field.displayHeight}px`,
                 fontSize: `${field.fontSize || 14}px`,
                 fontFamily: field.fontFamily || 'Arial',
+                cursor: props.interactiveFields ? 'pointer' : 'default',
               }"
+              @click="props.interactiveFields ? emit('fieldClicked', String(field.instanceId || '')) : undefined"
             >
               <div class="field-content">
                 <!-- Signature image overlay when user has confirmed signature -->
@@ -526,7 +539,7 @@ onUnmounted(() => {
   padding: 0.25rem;
   z-index: 100;
   box-sizing: border-box;
-  pointer-events: none;
+  pointer-events: auto;
   cursor: default;
 }
 
@@ -573,5 +586,12 @@ onUnmounted(() => {
   height: 100%;
   object-fit: contain;
   display: block;
+}
+
+.highlighted-field {
+  border: 2px solid #facc15 !important;
+  background: rgba(254, 240, 138, 0.25) !important;
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35);
+  z-index: 1200;
 }
 </style>
