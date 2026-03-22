@@ -31,14 +31,16 @@ const formRef = ref<any>(null);
 
 const createUserSchema = z.object({
   id: z.string().min(1, 'ID is required'),
+  academicRankEn: z.string(),
+  titleEn: z.string(),
   firstNameEn: z.string().min(1, 'First name (English) is required'),
   lastNameEn: z.string().min(1, 'Last name (English) is required'),
+  academicRankTh: z.string(),
+  titleTh: z.string(),
   firstNameTh: z.string().min(1, 'First name (Thai) is required'),
   lastNameTh: z.string().min(1, 'Last name (Thai) is required'),
   email: z.email('Invalid email'),
-  faculty: z.number().nullable(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  // roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
 });
 
 type CreateUserSchema = z.output<typeof createUserSchema>;
@@ -51,12 +53,15 @@ type RoleAssignment = {
 
 const form = ref<Partial<CreateUserSchema>>({
   id: '',
+  academicRankEn: '',
+  titleEn: '',
   firstNameEn: '',
   lastNameEn: '',
+  academicRankTh: '',
+  titleTh: '',
   firstNameTh: '',
   lastNameTh: '',
   email: '',
-  faculty: null,
   password: '',
 });
 
@@ -210,12 +215,15 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
       method: 'POST',
       body: {
         id: event.data.id,
+        academicRankEn: event.data.academicRankEn,
+        titleEn: event.data.titleEn,
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
+        academicRankTh: event.data.academicRankTh,
+        titleTh: event.data.titleTh,
         firstNameTh: event.data.firstNameTh,
         lastNameTh: event.data.lastNameTh,
         email: event.data.email,
-        facultyId: event.data.faculty,
         password: event.data.password,
         roleAssignments: roleAssignments.value,
       },
@@ -260,12 +268,16 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 watch(form, (newData) => {
   isDirty.value = JSON.stringify(newData) !== JSON.stringify({
     id: '',
+    academicRankEn: '',
+    titleEn: '',
     firstNameEn: '',
     lastNameEn: '',
+    academicRankTh: '',
+    titleTh: '',
+    firstNameTh: '',
+    lastNameTh: '',
     email: '',
-    faculty: null,
     password: '',
-    roles: [] as number[],
   });
 }, { deep: true });
 
@@ -318,8 +330,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
       <!-- Form Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Left Sidebar - Profile Picture Section -->
-        <div class="lg:col-span-4 space-y-6">
-          <!-- Profile Picture Card -->
+        <!-- Profile Picture Card -->
+        <!-- <div class="lg:col-span-4 space-y-6">
           <UCard class="text-center">
             <template #header>
               <div class="flex items-center justify-center">
@@ -350,10 +362,10 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               </p>
             </div>
           </UCard>
-        </div>
+        </div> -->
 
         <!-- Right Section - Form Fields -->
-        <div class="lg:col-span-8 space-y-8">
+        <div class="lg:col-span-12 space-y-8">
           <!-- Basic Information Card -->
           <UCard>
             <template #header>
@@ -368,12 +380,14 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               </div>
             </template>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="col-span-2">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div class="col-span-1 md:col-span-4 grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- ID -->
                 <UFormField
                   label="ID"
                   name="id"
                   required
+                  class="col-span-1"
                 >
                   <UInput
                     v-model="form.id"
@@ -381,6 +395,28 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                   />
                 </UFormField>
               </div>
+
+              <!--  Academic Rank (EN) -->
+              <UFormField
+                label="Academic Rank (EN)"
+                name="academicRankEn"
+              >
+                <UInput
+                  v-model="form.academicRankEn"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <!-- Title (EN) -->
+              <UFormField
+                label="Title (EN)"
+                name="titleEn"
+              >
+                <UInput
+                  v-model="form.titleEn"
+                  class="w-full"
+                />
+              </UFormField>
 
               <!-- First Name (EN) -->
               <UFormField
@@ -402,6 +438,28 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               >
                 <UInput
                   v-model="form.lastNameEn"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <!-- Academic Rank (TH) -->
+              <UFormField
+                label="Academic Rank (TH)"
+                name="academicRankTh"
+              >
+                <UInput
+                  v-model="form.academicRankTh"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <!-- Title (TH) -->
+              <UFormField
+                label="Title (TH)"
+                name="titleTh"
+              >
+                <UInput
+                  v-model="form.titleTh"
                   class="w-full"
                 />
               </UFormField>

@@ -4,8 +4,12 @@ import * as zod from 'zod';
 
 const createUserSchema = zod.object({
   id: zod.string().min(1, 'ID is required'),
+  academicRankEn: zod.string().max(20).optional(),
+  titleEn: zod.string().max(20).optional(),
   firstNameEn: zod.string().min(1, 'First name (EN) is required'),
   lastNameEn: zod.string().min(1, 'Last name (EN) is required'),
+  academicRankTh: zod.string().max(20).optional(),
+  titleTh: zod.string().max(20).optional(),
   firstNameTh: zod.string().min(1, 'First name (Thai) is required'),
   lastNameTh: zod.string().min(1, 'Last name (Thai) is required'),
   email: zod.email(),
@@ -28,13 +32,17 @@ export default defineEventHandler(async (event) => {
   const user = await db.transaction(async (tx) => {
     const [createdUser] = await tx.insert(users).values({
       id: body.id,
-      firstNameEn: body.firstNameEn,
-      lastNameEn: body.lastNameEn,
+      academicRankEn: body.academicRankEn?.trim() || null,
+      titleEn: body.titleEn?.trim() || null,
+      firstNameEn: body.firstNameEn.trim(),
+      lastNameEn: body.lastNameEn.trim(),
+      academicRankTh: body.academicRankTh?.trim() || null,
+      titleTh: body.titleTh?.trim() || null,
+      firstNameTh: body.firstNameTh.trim(),
+      lastNameTh: body.lastNameTh.trim(),
       email: body.email,
       passwordHash: hashedPassword,
-      firstNameTh: body.firstNameTh,
-      lastNameTh: body.lastNameTh,
-      image: body.image,
+      image: body.image || null,
     }).returning();
 
     if (!createdUser) {

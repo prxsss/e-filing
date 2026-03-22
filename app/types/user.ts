@@ -8,6 +8,7 @@ export type Role = {
 export type UserListItem = {
   id: string;
   fullNameEn: string;
+  fullNameTh: string;
   email: string;
   faculties: { nameEn: string; nameTh: string }[];
   roles: { name: string; count: number }[];
@@ -16,9 +17,13 @@ export type UserListItem = {
 
 export type UserDetail = {
   id: string;
+  academicRankEn?: string | null;
+  titleEn?: string | null;
   firstNameEn: string;
   lastNameEn: string;
   fullNameEn: string;
+  academicRankTh?: string | null;
+  titleTh?: string | null;
   firstNameTh: string;
   lastNameTh: string;
   fullNameTh: string;

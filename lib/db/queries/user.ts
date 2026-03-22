@@ -23,8 +23,8 @@ function getUsersWhere(filters: UserListFilters): SQL | undefined {
       or(
         ilike(users.id, keyword),
         ilike(users.email, keyword),
-        ilike(sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`, keyword),
-        ilike(sql<string>`concat(${users.firstNameTh}, ' ', ${users.lastNameTh})`, keyword),
+        ilike(sql<string>`concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`, keyword),
+        ilike(sql<string>`concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`, keyword),
       )!,
     );
   }
@@ -88,7 +88,11 @@ export async function getUsers({
       id: users.id,
 
       fullNameEn: sql<string>`
-          concat(${users.firstNameEn}, ' ', ${users.lastNameEn})
+          concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+        `,
+
+      fullNameTh: sql<string>`
+          concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
         `,
 
       email: users.email,
@@ -157,16 +161,20 @@ export async function getUserById(id: string) {
     .select({
       id: users.id,
 
+      academicRankEn: users.academicRankEn,
+      titleEn: users.titleEn,
       firstNameEn: users.firstNameEn,
       lastNameEn: users.lastNameEn,
       fullNameEn: sql<string>`
-        concat(${users.firstNameEn}, ' ', ${users.lastNameEn})
+        concat(${users.academicRankEn}, ' ', ${users.titleEn}, ' ', ${users.firstNameEn}, ' ', ${users.lastNameEn})
       `,
 
+      academicRankTh: users.academicRankTh,
+      titleTh: users.titleTh,
       firstNameTh: users.firstNameTh,
       lastNameTh: users.lastNameTh,
       fullNameTh: sql<string>`
-        concat(${users.firstNameTh}, ' ', ${users.lastNameTh})
+        concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
       `,
 
       email: users.email,
