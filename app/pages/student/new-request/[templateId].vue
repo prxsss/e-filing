@@ -60,7 +60,6 @@ const templateId = Number(route.params.templateId);
 const isLoading = ref(true);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
-const successMessage = ref('');
 
 const templateData = ref<TemplateData | null>(null);
 const pdfFile = ref<File | null>(null);
@@ -74,7 +73,6 @@ const submitterSignatureDataUrl = ref<string | null>(null);
 const showSubmitterSignaturePopup = ref(false);
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
-const isUploadingAttachment = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -861,12 +859,12 @@ async function submitRequest() {
           });
 
           if (!signResult.success) {
-            navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+            error.value = signResult.error ?? 'Failed to process signature';
             return;
           }
         }
         else {
-          navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+          error.value = 'Signature is required but was not provided';
           return;
         }
       }
@@ -898,22 +896,6 @@ const fillableFields = computed(() => {
 
 const visibleFillableFields = computed(() => {
   return fillableFields.value.filter(field => isFieldVisible(field));
-});
-
-const requestFormSectionTitle = computed(() => {
-  const fieldWithTitle = visibleFillableFields.value.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
-  return String(fieldWithTitle?.formSectionTitle || 'Request Information');
-});
-
-const orderedVisibleFillableFields = computed(() => {
-  return [...visibleFillableFields.value].sort((a: any, b: any) => {
-    const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
-    const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
-    if (aOrder !== bOrder) {
-      return aOrder - bOrder;
-    }
-    return String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
-  });
 });
 
 function triggerFileUpload() {
@@ -1094,7 +1076,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
             <template-pdf-create
               :pdf-file="previewDisplayFile"
               :placed-fields="previewOverlayFields"
-              :strike-group-context-fields="getVisiblePlacedFields()"
               :selected-field="undefined"
               :ui-scale="scale"
               :read-only="true"
@@ -1109,14 +1090,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
 
         <!-- Right: Form Fields -->
         <div class="space-y-6">
-          <!-- Success Message -->
-          <UCard v-if="successMessage" class="bg-green-50 border-green-200">
-            <div class="flex items-center gap-2 text-green-800">
-              <i class="fas fa-check-circle" />
-              <span class="font-medium">{{ successMessage }}</span>
-            </div>
-          </UCard>
-
           <!-- Error Message -->
           <UCard v-if="error" class="bg-red-50 border-red-200">
             <div class="flex items-center gap-2 text-red-800">
@@ -1129,25 +1102,25 @@ watch([pdfFile, placedFields, fieldValues], () => {
           <UCard>
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                {{ requestFormSectionTitle }}
+                Request Information
               </h3>
             </template>
 
             <div class="space-y-4">
               <div
-                v-for="field in orderedVisibleFillableFields"
+                v-for="field in visibleFillableFields"
                 :key="field.instanceId"
                 class="field-group"
               >
                 <form-field-input
                   :model-value="fieldValues[getFieldValueKey(field)]"
-                  :field="{ ...field, label: field.formQuestionLabel || field.label }"
+                  :field="field"
                   :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
                   @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
 
-              <div v-if="orderedVisibleFillableFields.length === 0" class="text-center py-8 text-gray-500">
+              <div v-if="visibleFillableFields.length === 0" class="text-center py-8 text-gray-500">
                 <i class="fas fa-inbox text-3xl mb-2" />
                 <p class="text-sm">
                   No fillable fields in this template
@@ -1167,7 +1140,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
                   size="xs"
                   color="primary"
                   icon="i-heroicons-paper-clip"
-                  :loading="isUploadingAttachment"
                   @click="triggerFileUpload"
                 >
                   Add File
