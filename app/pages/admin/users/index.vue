@@ -160,8 +160,11 @@ const columns: TableColumn<UserListItem>[] = [
     header: 'ID',
   },
   {
-    accessorKey: 'fullNameEn',
     header: 'Full Name',
+    cell: ({ row }) => {
+      const fullName = locale.value === 'en' ? row.original.fullNameEn : row.original.fullNameTh;
+      return h('div', null, fullName);
+    },
   },
   {
     accessorKey: 'email',

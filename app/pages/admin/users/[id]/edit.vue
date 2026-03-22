@@ -179,17 +179,27 @@ function addRoleAssignment() {
 const { data: userData } = await useFetch<UserDetail>(`/api/users/${userId}`);
 
 const updateUserSchema = z.object({
+  academicRankEn: z.string().max(20),
+  titleEn: z.string().max(20),
   firstNameEn: z.string().min(1, 'First name is required'),
   lastNameEn: z.string().min(1, 'Last name is required'),
-  // roles: z.array(z.number()).min(1, 'At least one role must be assigned'),
+  academicRankTh: z.string().max(20),
+  titleTh: z.string().max(20),
+  firstNameTh: z.string().min(1, 'First name (TH) is required'),
+  lastNameTh: z.string().min(1, 'Last name (TH) is required'),
 });
 
 type UpdateUserSchema = z.output<typeof updateUserSchema>;
 
 const form = ref<Partial<UpdateUserSchema>>({
+  academicRankEn: '',
+  titleEn: '',
   firstNameEn: '',
   lastNameEn: '',
-  // roles: [] as number[],
+  academicRankTh: '',
+  titleTh: '',
+  firstNameTh: '',
+  lastNameTh: '',
 });
 
 // const isDirty = computed(() => {
@@ -207,6 +217,12 @@ watch([userData, roles], ([newData]) => {
     form.value = {
       firstNameEn: newData.firstNameEn || '',
       lastNameEn: newData.lastNameEn || '',
+      academicRankEn: newData.academicRankEn || '',
+      titleEn: newData.titleEn || '',
+      firstNameTh: newData.firstNameTh || '',
+      lastNameTh: newData.lastNameTh || '',
+      academicRankTh: newData.academicRankTh || '',
+      titleTh: newData.titleTh || '',
     };
 
     roleAssignments.value = mapAssignmentsToRoleAssignments(newData.assignments || []);
@@ -221,6 +237,12 @@ watch([form, roleAssignments], ([newForm, newRoles]) => {
   const formDirty = JSON.stringify(newForm) !== JSON.stringify({
     firstNameEn: userData.value?.firstNameEn,
     lastNameEn: userData.value?.lastNameEn,
+    academicRankEn: userData.value?.academicRankEn,
+    titleEn: userData.value?.titleEn,
+    firstNameTh: userData.value?.firstNameTh,
+    lastNameTh: userData.value?.lastNameTh,
+    academicRankTh: userData.value?.academicRankTh,
+    titleTh: userData.value?.titleTh,
   });
 
   const rolesDirty = JSON.stringify(newRoles) !== JSON.stringify(initialRoles);
@@ -258,6 +280,12 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
       body: {
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
+        academicRankEn: event.data.academicRankEn,
+        titleEn: event.data.titleEn,
+        firstNameTh: event.data.firstNameTh,
+        lastNameTh: event.data.lastNameTh,
+        academicRankTh: event.data.academicRankTh,
+        titleTh: event.data.titleTh,
       },
     });
 
@@ -371,8 +399,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
         <!-- Form Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <!-- Left Sidebar - Profile Picture Section -->
-          <div class="lg:col-span-4 space-y-6">
-            <!-- Profile Picture Card -->
+          <!-- Profile Picture Card -->
+          <!-- <div class="lg:col-span-4 space-y-6">
             <UCard class="text-center">
               <template #header>
                 <div class="flex items-center justify-center">
@@ -402,9 +430,9 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 </p>
               </div>
             </UCard>
-          </div>
+          </div> -->
           <!-- Right Section - Form Fields -->
-          <div class="lg:col-span-8 space-y-8">
+          <div class="lg:col-span-12 space-y-8">
             <!-- Basic Information Card -->
             <UCard>
               <template #header>
@@ -418,12 +446,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                   </h2>
                 </div>
               </template>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="col-span-2">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="col-span-1 md:col-span-4 grid grid-cols-1 md:grid-cols-4 gap-6">
                   <UFormField
                     label="ID"
                     name="id"
                     required
+                    class="col-span-1"
                   >
                     <UInput
                       v-model="userData.id"
@@ -433,9 +462,32 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                     />
                   </UFormField>
                 </div>
+
+                <!-- Academic Rank (EN) -->
+                <UFormField
+                  label="Academic Rank (EN)"
+                  name="academicRankEn"
+                >
+                  <UInput
+                    v-model="form.academicRankEn"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <!-- Title (EN) -->
+                <UFormField
+                  label="Title (EN)"
+                  name="titleEn"
+                >
+                  <UInput
+                    v-model="form.titleEn"
+                    class="w-full"
+                  />
+                </UFormField>
+
                 <!-- First Name (EN) -->
                 <UFormField
-                  label="First Name"
+                  label="First Name (EN)"
                   name="firstNameEn"
                   required
                 >
@@ -444,6 +496,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                     class="w-full"
                   />
                 </UFormField>
+
+                <!-- Last Name (EN) -->
                 <UFormField
                   label="Last Name (EN)"
                   name="lastNameEn"
@@ -454,6 +508,53 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                     class="w-full"
                   />
                 </UFormField>
+
+                <!-- Academic Rank (TH) -->
+                <UFormField
+                  label="Academic Rank (TH)"
+                  name="academicRankTh"
+                >
+                  <UInput
+                    v-model="form.academicRankTh"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <!-- Title (TH) -->
+                <UFormField
+                  label="Title (TH)"
+                  name="titleTh"
+                >
+                  <UInput
+                    v-model="form.titleTh"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <!-- First Name (TH) -->
+                <UFormField
+                  label="First Name (TH)"
+                  name="firstNameTh"
+                  required
+                >
+                  <UInput
+                    v-model="form.firstNameTh"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <!-- Last Name (TH) -->
+                <UFormField
+                  label="Last Name (TH)"
+                  name="lastNameTh"
+                  required
+                >
+                  <UInput
+                    v-model="form.lastNameTh"
+                    class="w-full"
+                  />
+                </UFormField>
+
                 <!-- Email -->
                 <UFormField
                   label="Email Address"
