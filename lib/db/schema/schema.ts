@@ -223,11 +223,6 @@ export const requestTemplateValues = pgTable("request_template_values", {
 	requestId: bigint("request_id", { mode: "number" }),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	fieldId: bigint("field_id", { mode: "number" }),
-	/**
-	 * Optional per-instance key (needed for checkbox groups / repeated fields).
-	 * When present, values should be resolved by instanceId first, then fieldId fallback.
-	 */
-	fieldInstanceId: text("field_instance_id"),
 	value: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	fieldInstanceId: text("field_instance_id"),
@@ -248,13 +243,6 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	label: text().notNull(),
 	font: text().default('Prompt'),
 	fontSize: integer("font_size").default(14),
-	fontWeight: text("font_weight").default('normal'),
-	fontStyle: text("font_style").default('normal'),
-	textDecoration: text("text_decoration").default('none'),
-	textAlign: text("text_align").default('left'),
-	letterSpacing: real("letter_spacing").default(0),
-	lineHeight: real("line_height").default(1.5),
-	maxLength: integer("max_length"),
 	isFillable: boolean("is_fillable").default(true),
 	width: integer().notNull(),
 	height: integer().notNull(),
