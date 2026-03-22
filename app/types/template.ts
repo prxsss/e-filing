@@ -15,6 +15,8 @@ export type Field = {
   amount?: number;
   fontSize?: number;
   fontFamily?: string;
+  strikeThroughGroupMode?: boolean;
+  strikeLineThickness?: number;
   [key: string]: any;
 };
 
@@ -23,6 +25,7 @@ export type ConditionalVisibilityOperator = 'isChecked' | 'isUnchecked';
 export type FieldVisibilityRule = {
   enabled?: boolean;
   sourceFieldInstanceId?: string | null;
+  sourceGroupId?: string | null;
   operator?: ConditionalVisibilityOperator;
   clearWhenHidden?: boolean;
 };
@@ -74,6 +77,8 @@ export type FieldInstance = Field & {
   timeSeparatorSpacing?: number;
   timeShowHour?: boolean;
   timeShowMinute?: boolean;
+  strikeThroughGroupMode?: boolean;
+  strikeLineThickness?: number;
 };
 
 /**
