@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { departments, userRoles, faculties, roles, users, request, signatureFlow, attachments, requestTemplateValues, permissions, rolePermissions } from "../migrations/schema";
+import { departments, userRoles, faculties, roles, users, request, signatureFlow, attachments, requestTemplateValues, permissions, rolePermissions } from "./schema";
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({
 	department: one(departments, {
