@@ -76,12 +76,20 @@ const iconOptions = [
   { value: 'i-heroicons-building-office', label: 'Office', icon: 'i-heroicons-building-office' },
 ];
 
-const fontOptions = ['Sarabun', 'Prompt', 'Mitr', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma'];
+const fontOptions = ['Sarabun'];
 
 const selectedFieldType = computed(() => String(formData.value.type || '').toLowerCase());
 
 const supportsTextSettings = computed(() => {
   return !['signature', 'icon', 'checkbox'].includes(selectedFieldType.value);
+});
+
+const supportsFontControls = computed(() => {
+  if (['signature', 'checkbox'].includes(selectedFieldType.value)) {
+    return false;
+  }
+
+  return true;
 });
 
 const supportsAmountSetting = computed(() => selectedFieldType.value === 'checkbox');
@@ -397,7 +405,7 @@ async function handleDelete() {
             </div>
 
             <!-- Font & Font Size -->
-            <div class="grid grid-cols-2 gap-1.5">
+            <div v-if="supportsFontControls" class="grid grid-cols-2 gap-1.5">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                   ฟอนต์
