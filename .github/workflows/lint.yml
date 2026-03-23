@@ -10,11 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     environment: Build
     env:
+      APP_URL: ${{ secrets.APP_URL }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       NUXT_SESSION_PASSWORD: ${{ secrets.NUXT_SESSION_PASSWORD}}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       IMPORT_USER_PASSWORD: ${{ secrets.IMPORT_USER_PASSWORD }}
+      EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
 
     steps:
       - uses: actions/checkout@v5
