@@ -1,7 +1,9 @@
 import db from '~~/lib/db';
-import { request, requestTemplate, signatureFlow, signatures, userRoles } from '~~/lib/db/schema';
+import { request, requestTemplate, signatureFlow, signatures, userRoles, users } from '~~/lib/db/schema';
 import { supabaseAdmin } from '~~/lib/supabase/client';
-import { and, asc, eq } from 'drizzle-orm';
+import { signNotificationService } from '~~/server/services/sign-notification.service';
+import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 export default defineEventHandler(async (event) => {
@@ -193,10 +195,14 @@ export default defineEventHandler(async (event) => {
     });
 
     // Mark current step as signed
-    await db
+    const [updatedFlowEntry] = await db
       .update(signatureFlow)
       .set({ status: 'signed', signedBy: userId, signedAt: new Date().toISOString() })
-      .where(eq(signatureFlow.id, flowEntry.id));
+      .where(eq(signatureFlow.id, flowEntry.id))
+      .returning();
+
+    // Get context for notification
+    const context = await getSignRequestContext(requestId);
 
     // ── Advance workflow ─────────────────────────────────────────────────────
     const [nextStep] = await db
@@ -220,6 +226,37 @@ export default defineEventHandler(async (event) => {
         .set({ status: 'in_progress' })
         .where(eq(request.id, requestId));
 
+      // Skip notification for the initial step (student submission).
+      // Notifications should only be sent to actual signers (stepOrder > 1).
+      if (flowEntry.stepOrder > 1) {
+        const [[currentSigner], [nextSigner]] = await Promise.all([
+
+          // Get current signer name for notification
+          db.select({
+            signerName: sql<string>`
+            concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+          `,
+          }).from(users).where(eq(users.id, userId)),
+
+          // Get next signer email and name for notification
+          db.select({
+            signerEmail: users.email,
+            signerName: sql<string>`
+            concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+          `,
+          }).from(users).where(eq(users.id, nextStep.assignedUserId!)),
+        ]);
+
+        await Promise.all([
+
+          // Notify requester about the signed step
+          signNotificationService.notifySigned({ signerName: currentSigner.signerName, stepOrder: updatedFlowEntry.stepOrder }, context),
+
+          // Notify next signer
+          signNotificationService.notifySigner({ signerEmail: nextSigner.signerEmail, signerName: nextSigner.signerName, stepOrder: nextStep.stepOrder }, context),
+        ]);
+      }
+
       return {
         success: true,
         data: {
@@ -234,6 +271,15 @@ export default defineEventHandler(async (event) => {
         .update(request)
         .set({ status: 'completed' })
         .where(eq(request.id, requestId));
+
+      const [{ signerName }] = await db.select({
+        signerName: sql<string>`
+          concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+        `,
+      }).from(users).where(eq(users.id, userId));
+
+      // Notify requester about completion
+      await signNotificationService.notifyCompleted(signerName, context);
 
       return {
         success: true,

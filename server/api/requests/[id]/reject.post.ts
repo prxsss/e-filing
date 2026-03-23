@@ -1,7 +1,9 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { signNotificationService } from '~~/server/services/sign-notification.service';
+import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, signatureFlow, userRoles } from '../../../../lib/db/schema';
+import { request, signatureFlow, userRoles, users } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -93,6 +95,24 @@ export default defineEventHandler(async (event) => {
       .update(request)
       .set({ status: 'rejected', note: reason })
       .where(eq(request.id, requestId));
+
+    // Send notification to requester about rejection
+    const [context, [signer], [template]] = await Promise.all([
+      getSignRequestContext(requestId),
+
+      db.select({
+        signerName: sql<string>`
+      concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+    `,
+      })
+        .from(users)
+        .where(eq(users.id, userId)),
+
+      db.select({ templateId: request.templateId })
+        .from(request)
+        .where(eq(request.id, requestId)),
+    ]);
+    await signNotificationService.notifyRejected({ signerName: signer.signerName }, { ...context, templateId: template.templateId }, reason);
 
     return {
       success: true,
