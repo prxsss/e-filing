@@ -1,0 +1,56 @@
+// server/utils/email/templates/notify-completed.ts
+import type { EmailPayload, SignRequestContext } from '../types';
+
+export function notifyCompletedTemplate(options: {
+  signerName: string;
+  trackUrl: string;
+} & SignRequestContext): EmailPayload {
+  return {
+    to: options.studentEmail,
+    subject: `[ลงนามครบแล้ว] ${options.documentTitle}`,
+    text: [
+      `เรียน ${options.studentName}`,
+      `${options.signerName} ได้ลงนามในเอกสาร "${options.documentTitle}" แล้ว`,
+      `เอกสารได้รับลายเซ็นครบทุกขั้นตอนแล้ว`,
+      `ติดตามสถานะ: ${options.trackUrl}`,
+    ].join('\n\n'),
+    html: `
+<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+  <tr><td align="center">
+    <table width="560" cellpadding="0" cellspacing="0"
+      style="background:#fff;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+      <tr>
+        <td style="padding:24px 32px;border-bottom:1px solid #e0e0e0;">
+          <p style="margin:0 0 2px;font-size:12px;color:#888;">ดำเนินการเสร็จสิ้น</p>
+          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${options.documentTitle}</h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 32px;">
+          <p style="margin:0 0 16px;color:#333;">เรียน <strong>${options.studentName}</strong></p>
+          <p style="margin:0 0 16px;color:#333;">
+            <strong>${options.signerName}</strong> ได้ลงนามเรียบร้อยแล้ว
+          </p>
+          <p style="margin:0 0 24px;color:#333;">
+            เอกสารของคุณได้รับลายเซ็นครบทุกขั้นตอนแล้ว สามารถดูคำร้องได้ที่ลิงก์ด้านล่าง
+          </p>
+          <a href="${options.trackUrl}"
+            style="display:inline-block;padding:12px 28px;background:#111;color:#fff;
+                  text-decoration:none;border-radius:4px;font-size:14px;">
+            ดูคำร้อง
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 32px;border-top:1px solid #e0e0e0;background:#fafafa;">
+          <p style="margin:0;font-size:12px;color:#aaa;">อีเมลนี้ส่งโดยอัตโนมัติ กรุณาอย่าตอบกลับ</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`,
+  };
+}
