@@ -200,26 +200,30 @@ const columns: TableColumn<DepartmentListItem>[] = [
         <h1 class="text-2xl font-bold mb-4">
           Departments
         </h1>
-        <p>
-          Manage and organize university academic departments.
-        </p>
+        <p>Manage and organize university academic departments.</p>
       </div>
-      <UButton v-if="authStore.can('department.create')" icon="i-lucide-plus" @click="handleAddDepartment">
-        Add Department
-      </UButton>
+      <div class="flex items-center gap-2">
+        <UButton v-if="authStore.can('department.create')" icon="i-lucide-plus" size="md" @click="handleAddDepartment">
+          Add Department
+        </UButton>
+      </div>
     </div>
-
     <div class="w-full">
-      <div class="max-w-2xl ml-auto">
-        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <!--
-            Issue: Hover doesn't work for USelectMenu (unless `search-input` is enabled).
-            Workaround: Keep `search-input` enabled and hide it via CSS.
-            TODO: Investigate root cause and replace this workaround.
-          -->
+      <div class="max-w-md ml-auto">
+        <UFieldGroup class="w-full">
+          <UInput
+            v-model="searchInput"
+            class="w-full"
+            icon="i-lucide-search"
+            size="lg"
+            variant="outline"
+            placeholder="Search by department / head name, or ID"
+            @keyup.enter="applySearch"
+          />
+          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
           <USelectMenu
             v-model="selectedFacultyId"
-            class="w-full sm:w-64"
+            class="w-full"
             :items="facultyOptions"
             label-key="label"
             value-key="value"
@@ -230,20 +234,7 @@ const columns: TableColumn<DepartmentListItem>[] = [
               content: 'min-w-fit',
             }"
           />
-
-          <UFieldGroup class="w-full sm:max-w-md">
-            <UInput
-              v-model="searchInput"
-              class="w-full"
-              icon="i-lucide-search"
-              size="lg"
-              variant="outline"
-              placeholder="Search by department / head name, or ID"
-              @keyup.enter="applySearch"
-            />
-            <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
-          </UFieldGroup>
-        </div>
+        </UFieldGroup>
       </div>
     </div>
 

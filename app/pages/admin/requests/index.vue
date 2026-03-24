@@ -24,6 +24,10 @@ type RequestItem = {
   createdAt: string | null;
   submittedAt: string | null;
   filledDocumentUrl?: string | null;
+  studentId: string | null;
+  studentNameEn: string | null;
+  studentNameTh: string | null;
+  studentName: string;
 };
 
 type SelectableRow = {
@@ -75,8 +79,6 @@ function formatDate(dateStr: string | null): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -107,7 +109,13 @@ const columns: TableColumn<RequestItem>[] = [
     enableSorting: false,
     enableHiding: false,
   },
-  { accessorKey: 'id', header: t('requestId'), size: 80 },
+  { accessorKey: 'studentId', header: t('studentId'), size: 120 },
+  {
+    accessorKey: 'studentName',
+    header: t('studentName'),
+    size: 180,
+    cell: (ctx: { row: TableRow<RequestItem> }) => ctx.row.original.studentName,
+  },
   { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
   { accessorKey: 'status', header: t('status'), size: 150 },
   { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
@@ -310,7 +318,21 @@ const { data: response, status: fetchStatus, refresh } = await useFetch('/api/re
   query: queryParams,
 });
 
-const requests = computed<RequestItem[]>(() => response.value?.data ?? []);
+const requests = computed<RequestItem[]>(() => {
+  const raw = response.value?.data ?? [];
+  return raw.map((item: any) => {
+    const studentName = locale.value === 'th'
+      ? (item.studentNameTh ?? '')
+      : (item.studentNameEn ?? '');
+    return {
+      ...item,
+      studentId: item.studentId ?? '',
+      studentNameEn: item.studentNameEn ?? '',
+      studentNameTh: item.studentNameTh ?? '',
+      studentName,
+    };
+  });
+});
 const total = computed(() => response.value?.meta?.total ?? 0);
 
 // === Stats ===
@@ -328,25 +350,24 @@ const statsMap = computed(() => {
 <template>
   <div class="space-y-6 min-h-screen pb-10">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div class="flex justify-between items-end">
       <div>
-        <h2 class="text-2xl font-bold flex items-center gap-2">
-          <UIcon name="i-heroicons-clipboard-document-list" class="text-primary-500" />
+        <h1 class="text-2xl font-bold mb-4">
           คำร้องทั้งหมด
-        </h2>
-        <p class="text-sm mt-1 text-gray-500">
-          ตรวจสอบและติดตามสถานะคำร้องของผู้ใช้ทุกคน
-        </p>
+        </h1>
+        <p>ตรวจสอบและติดตามสถานะคำร้องของผู้ใช้ทุกคน</p>
       </div>
-      <UButton
-        icon="i-heroicons-arrow-path"
-        color="neutral"
-        variant="outline"
-        size="sm"
-        @click="refresh()"
-      >
-        รีเฟรช
-      </UButton>
+      <div class="flex items-center gap-2">
+        <UButton
+          icon="i-heroicons-arrow-path"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="refresh()"
+        >
+          รีเฟรช
+        </UButton>
+      </div>
     </div>
 
     <!-- Stats Row -->
@@ -388,15 +409,8 @@ const statsMap = computed(() => {
     <!-- Table Card -->
     <UCard>
       <!-- Filters -->
-      <div class="flex flex-col sm:flex-row justify-between gap-3 mb-5">
-        <UInput
-          v-model="searchQuery"
-          icon="i-heroicons-magnifying-glass"
-          placeholder="ค้นหาตามรหัสคำร้อง หรือชื่อเรื่อง..."
-          class="w-full sm:w-80"
-          :loading="fetchStatus === 'pending'"
-        />
-        <div class="flex gap-2 items-center flex-wrap sm:flex-nowrap">
+      <div class="w-full mb-5">
+        <div class="max-w-md ml-auto flex gap-2 items-center">
           <UTooltip text="กรุณาเลือกรายการก่อน" :prevent="canBulkDownload">
             <UButton
               icon="i-heroicons-arrow-down-tray"
@@ -404,71 +418,102 @@ const statsMap = computed(() => {
               variant="soft"
               size="sm"
               :disabled="!canBulkDownload"
+              class="min-w-30"
               @click="onBulkDownload"
             >
-              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด PDF (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด PDF' }}
+              <span class="whitespace-nowrap">
+                {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด PDF (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด PDF' }}
+              </span>
             </UButton>
           </UTooltip>
-
-          <!-- Month / Year selectors (always visible, default = current month) -->
-          <div class="flex items-center gap-1">
-            <USelect
-              v-model="selectedMonth"
-              :items="monthOptions"
-              size="sm"
-              class="w-32"
+          <UFieldGroup class="w-full">
+            <UInput
+              v-model="searchQuery"
+              class="w-full"
+              icon="i-heroicons-magnifying-glass"
+              size="lg"
+              variant="outline"
+              placeholder="ค้นหาตามรหัสคำร้อง หรือชื่อเรื่อง..."
+              :loading="fetchStatus === 'pending'"
             />
-            <USelect
-              v-model="selectedYear"
-              :items="yearOptions"
-              size="sm"
-              class="w-20"
-            />
-          </div>
-
-          <!-- Day picker — optional, narrows within the selected month -->
-          <UPopover arrow :content="{ align: 'center', side: 'bottom' }">
-            <UButton
-              :color="selectedDate ? 'primary' : 'neutral'"
-              :variant="selectedDate ? 'subtle' : 'outline'"
-              size="sm"
-              class="font-normal gap-1.5"
-            >
-              <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 shrink-0" />
-              <span>{{ selectedDate ? `วันที่ ${formattedSelectedDate}` : 'ทุกวัน' }}</span>
-              <UIcon
-                v-if="selectedDate"
-                name="i-heroicons-x-mark"
-                class="w-3.5 h-3.5 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
-                @click.stop="clearDayFilter"
+            <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />
+          </UFieldGroup>
+          <UPopover :content="{ align: 'end', side: 'bottom' }">
+            <template #default="{ open }">
+              <UButton
+                color="primary"
+                variant="ghost"
+                :leading-icon="open ? 'i-lucide-x' : 'i-lucide-sliders-horizontal'"
+                :ui="{ leadingIcon: `${open ? 'rotate-180' : ''} transition-transform duration-200` }"
               />
-              <UIcon v-else name="i-heroicons-chevron-down" class="w-3.5 h-3.5 shrink-0 opacity-50" />
-            </UButton>
+            </template>
             <template #content>
-              <div class="p-1">
-                <UCalendar v-model="calendarModel" />
+              <div class="w-lg p-4 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                  <UFormField label="สถานะ">
+                    <USelect
+                      v-model="selectedStatus"
+                      :items="statusOptions"
+                      option-attribute="label"
+                      placeholder="สถานะ"
+                      class="w-full"
+                      size="sm"
+                    />
+                  </UFormField>
+                  <UFormField label="เดือน">
+                    <USelect
+                      v-model="selectedMonth"
+                      :items="monthOptions"
+                      size="sm"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField label="ปี">
+                    <USelect
+                      v-model="selectedYear"
+                      :items="yearOptions"
+                      size="sm"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField label="วันที่">
+                    <UPopover arrow :content="{ align: 'center', side: 'bottom' }">
+                      <template #default>
+                        <UButton
+                          :color="selectedDate ? 'primary' : 'neutral'"
+                          :variant="selectedDate ? 'subtle' : 'outline'"
+                          size="sm"
+                          class="font-normal gap-1.5 w-full"
+                        >
+                          <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 shrink-0" />
+                          <span>{{ selectedDate ? `วันที่ ${formattedSelectedDate}` : 'ทุกวัน' }}</span>
+                          <UIcon
+                            v-if="selectedDate"
+                            name="i-heroicons-x-mark"
+                            class="w-3.5 h-3.5 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                            @click.stop="clearDayFilter"
+                          />
+                          <UIcon v-else name="i-heroicons-chevron-down" class="w-3.5 h-3.5 shrink-0 opacity-50" />
+                        </UButton>
+                      </template>
+                      <template #content>
+                        <div class="p-1">
+                          <UCalendar v-model="calendarModel" />
+                        </div>
+                      </template>
+                    </UPopover>
+                  </UFormField>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-default">
+                  <UButton
+                    color="neutral" variant="ghost" :ui="{ base: 'rounded-md!' }" @click="clearFilters"
+                  >
+                    ล้าง
+                  </UButton>
+                </div>
               </div>
             </template>
           </UPopover>
-
-          <USelect
-            v-model="selectedStatus"
-            :items="statusOptions"
-            option-attribute="label"
-            placeholder="สถานะ"
-            class="w-32 sm:w-36"
-            size="sm"
-          />
-          <UButton
-            v-if="hasActiveFilters"
-            icon="i-heroicons-x-mark"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            ล้าง
-          </UButton>
         </div>
       </div>
 

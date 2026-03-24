@@ -132,45 +132,47 @@ onMounted(() => {
     <!-- Main Content -->
     <UContainer v-else class="space-y-6">
       <!-- 1. Header & Actions -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div class="flex justify-between items-end">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">
+          <h1 class="text-2xl font-bold mb-4">
             ต้นแบบเอกสาร (Templates)
           </h1>
         </div>
-        <UButton
-          v-if="authStore.can('template.create')"
-          icon="i-heroicons-plus"
-          color="info"
-          label="สร้างต้นแบบใหม่"
-          size="lg"
-          class="shadow-sm"
-          @click="navigateToCreate"
-        />
+        <div class="flex items-center gap-2">
+          <UButton
+            v-if="authStore.can('template.create')"
+            icon="i-heroicons-plus"
+            color="info"
+            label="สร้างต้นแบบใหม่"
+            size="lg"
+            class="shadow-sm"
+            @click="navigateToCreate"
+          />
+        </div>
       </div>
 
       <!-- 2. Filters & Search Bar -->
-      <div class="p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-4">
-        <!-- Search -->
-        <div class="relative w-full">
-          <UInput
-            v-model="searchQuery"
-            icon="i-heroicons-magnifying-glass"
-            placeholder="ค้นหาชื่อเอกสาร, รหัส, หรือรายละเอียด..."
-            class="w-full"
-            size="md"
-          />
-        </div>
-
-        <!-- Filter Status -->
-        <div class="w-full md:w-64">
-          <USelect
-            v-model="statusFilter"
-            :items="statusOptions"
-            option-attribute="label"
-            icon="i-heroicons-funnel"
-            size="md"
-          />
+      <div class="w-full">
+        <div class="max-w-md ml-auto">
+          <UFieldGroup class="w-full">
+            <UInput
+              v-model="searchQuery"
+              class="w-full"
+              icon="i-heroicons-magnifying-glass"
+              size="lg"
+              variant="outline"
+              placeholder="ค้นหาชื่อเอกสาร, รหัส, หรือรายละเอียด..."
+            />
+            <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="isLoading" @click="fetchTemplates" />
+            <USelect
+              v-model="statusFilter"
+              :items="statusOptions"
+              option-attribute="label"
+              icon="i-heroicons-funnel"
+              size="md"
+              class="w-full"
+            />
+          </UFieldGroup>
         </div>
       </div>
 

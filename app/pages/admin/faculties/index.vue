@@ -162,17 +162,16 @@ const columns: TableColumn<FacultyListItem>[] = [
         <h1 class="text-2xl font-bold mb-4">
           Faculties
         </h1>
-        <p>
-          View and organize all university faculties and their respective deans.
-        </p>
+        <p>View and organize all university faculties and their respective deans.</p>
       </div>
-      <UButton v-if="authStore.can('faculty.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/faculties/create')">
-        Add Faculty
-      </UButton>
+      <div class="flex items-center gap-2">
+        <UButton v-if="authStore.can('faculty.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/faculties/create')">
+          Add Faculty
+        </UButton>
+      </div>
     </div>
-
     <div class="w-full">
-      <div class="max-w-sm ml-auto">
+      <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
           <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by faculty / dean name, or ID" @keyup.enter="applySearch" />
           <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
