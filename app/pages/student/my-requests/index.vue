@@ -131,56 +131,59 @@ function handleNewRequest() {
 </script>
 
 <template>
-  <div class="space-y-6 min-h-screen pb-10">
-    <!-- 1. Page Header -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-end">
       <div>
-        <h2 class="text-2xl font-bold flex items-center gap-2">
-          <UIcon name="i-heroicons-folder-open" class="text-primary-500" />
-          {{ t('myRequests') || 'รายการคำร้องของฉัน' }}
-        </h2>
-        <p class="text-sm mt-1">
-          ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด
-        </p>
+        <h1 class="text-2xl font-bold mb-4">
+          {{ t('myRequests') || 'My Requests' }}
+        </h1>
+        <p>ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด</p>
       </div>
-      <UButton
-        v-if="authStore.can('request.create')"
-        icon="i-heroicons-plus"
-        color="primary"
-        size="md"
-        class="shadow-sm"
-        @click="handleNewRequest"
-      >
-        {{ t('newRequest') || 'สร้างคำร้องใหม่' }}
-      </UButton>
+      <div class="flex items-center gap-2">
+        <UButton
+          v-if="authStore.can('request.create')"
+          icon="i-heroicons-plus"
+          size="md"
+          color="primary"
+          class="shadow-sm"
+          @click="handleNewRequest"
+        >
+          {{ t('newRequest') || 'สร้างคำร้องใหม่' }}
+        </UButton>
+      </div>
     </div>
-
-    <!-- 2. Main Table Card -->
-    <UCard>
-      <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
-        <!-- Left: Search -->
-        <UInput
-          v-model="searchQuery"
-          icon="i-heroicons-magnifying-glass"
-          placeholder="ค้นหาตามรหัส หรือชื่อเรื่อง..."
-          class="w-full sm:w-72"
-        />
-
-        <!-- Right: Filter -->
-        <USelect
-          v-model="selectedStatus"
-          :items="statusOptions"
-          option-attribute="label"
-          placeholder="สถานะ"
-          class="w-full sm:w-48"
-        />
+    <!-- Search and Filter Row -->
+    <div class="w-full">
+      <div class="max-w-md ml-auto">
+        <UFieldGroup class="w-full">
+          <UInput
+            v-model="searchQuery"
+            class="w-full"
+            icon="i-heroicons-magnifying-glass"
+            size="lg"
+            variant="outline"
+            placeholder="ค้นหาตามรหัส หรือชื่อเรื่อง..."
+            @keyup.enter="page = 1"
+          />
+          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="page = 1" />
+          <USelect
+            v-model="selectedStatus"
+            :items="statusOptions"
+            option-attribute="label"
+            placeholder="สถานะ"
+            class="w-40"
+          />
+        </UFieldGroup>
       </div>
-
-      <!-- Table Content -->
+    </div>
+    <!-- Table Card -->
+    <UCard>
       <UTable
         :data="requests"
         :columns="columns"
         :loading="fetchStatus === 'pending'"
+        class="flex-1"
         :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
         @select="onRowSelect"
@@ -201,7 +204,6 @@ function handleNewRequest() {
           </UBadge>
         </template>
       </UTable>
-
       <!-- Empty State -->
       <div v-if="requests.length === 0 && fetchStatus !== 'pending'" class="py-12 text-center">
         <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -211,7 +213,6 @@ function handleNewRequest() {
           ไม่พบข้อมูลคำร้อง
         </h3>
       </div>
-
       <!-- Pagination Footer -->
       <template v-if="total > 0" #footer>
         <div class="justify-items-center py-2">
