@@ -13,6 +13,7 @@
   "inProgress": "กำลังดำเนินการ",
   "approved": "อนุมัติ",
   "rejected": "ปฏิเสธ",
+  "completed": "เสร็จสิ้น",
   "recentRequests": "คำร้องล่าสุด",
   "viewAll": "ดูทั้งหมด",
   "requestTitle": "ชื่อคำร้อง",

@@ -45,8 +45,6 @@ function formatDate(dateStr: string | null): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -54,11 +52,10 @@ function formatDate(dateStr: string | null): string {
 const UIcon = resolveComponent('UIcon');
 
 const columns = [
-  { accessorKey: 'id', header: t('requestId') || 'ID' },
-  { accessorKey: 'templateName', header: t('requestTitle') || 'Title' },
-  { accessorKey: 'status', header: t('status') || 'Status' },
-  { accessorKey: 'createdAt', header: t('submittedDate') || 'Date' },
-  { accessorKey: 'submittedAt', header: t('lastUpdated') || 'Date' },
+  { accessorKey: 'templateName', header: t('requestTitle') },
+  { accessorKey: 'status', header: t('status') },
+  { accessorKey: 'createdAt', header: t('submittedDate') },
+  { accessorKey: 'submittedAt', header: t('lastUpdated') },
   {
     id: 'navigate',
     header: '',

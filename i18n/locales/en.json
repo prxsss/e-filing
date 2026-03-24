@@ -13,6 +13,7 @@
   "inProgress": "In Progress",
   "approved": "Approved",
   "rejected": "Rejected",
+  "completed": "Completed",
   "recentRequests": "Recent Requests",
   "viewAll": "View All",
   "requestTitle": "Request Title",

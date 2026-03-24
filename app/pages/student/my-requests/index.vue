@@ -52,8 +52,6 @@ function formatDate(dateStr: string | null): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -61,12 +59,23 @@ function formatDate(dateStr: string | null): string {
 const UBadge = resolveComponent('UBadge');
 const UIcon = resolveComponent('UIcon');
 
+// === Reactive State ===
+const searchQuery = ref('');
+const selectedStatus = ref<string | undefined>(undefined);
+const page = ref(1);
+const pageCount = 10;
+
 const columns: any[] = [
-  { accessorKey: 'id', header: t('requestId') || 'Request ID' },
-  { accessorKey: 'templateName', header: t('requestTitle') || 'Topic' },
-  { accessorKey: 'createdAt', header: t('submittedDate') || 'Created Date' },
-  { accessorKey: 'submittedAt', header: t('lastUpdated') || 'Last Updated' },
-  { accessorKey: 'status', header: t('status') || 'Status' },
+  {
+    id: 'rowNumber',
+    header: '#',
+    size: 40,
+    cell: (ctx: { row: TableRow<any> }) => (page.value - 1) * pageCount + ctx.row.index + 1,
+  },
+  { accessorKey: 'templateName', header: t('requestTitle') },
+  { accessorKey: 'status', header: t('status') },
+  { accessorKey: 'createdAt', header: t('submittedDate') },
+  { accessorKey: 'submittedAt', header: t('lastUpdated') },
   {
     id: 'navigate',
     header: '',
@@ -92,12 +101,6 @@ const statusOptions = [
   { label: t('rejected'), value: 'rejected' },
   { label: t('completed'), value: 'completed' },
 ];
-
-// === Reactive State ===
-const searchQuery = ref('');
-const selectedStatus = ref<string | undefined>(undefined);
-const page = ref(1);
-const pageCount = 10;
 
 // Reset to page 1 when filters change
 watch([searchQuery, selectedStatus], () => {

@@ -15,7 +15,7 @@ const router = useRouter();
 const localePath = useLocalePath();
 
 // === Types ===
-type RequestStatus = 'in_progress' | 'rejected' | 'completed';
+type RequestStatus = 'draft' | 'in_progress' | 'rejected' | 'completed';
 
 type RequestItem = {
   id: number;
@@ -53,15 +53,17 @@ type RequestsTableApi = {
 
 // === Status Helpers ===
 const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
+  draft: 'neutral',
   in_progress: 'warning',
   rejected: 'error',
   completed: 'success',
 };
 
 const statusLabelMap: Record<RequestStatus, string> = {
-  in_progress: 'กำลังดำเนินการ',
-  rejected: 'ปฏิเสธ',
-  completed: 'เสร็จสิ้น',
+  draft: t('draft'),
+  in_progress: t('inProgress'),
+  rejected: t('rejected'),
+  completed: t('completed'),
 };
 
 function getStatusColor(status: string) {
