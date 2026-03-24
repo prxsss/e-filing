@@ -1,4 +1,4 @@
-const PUBLIC_ROUTES = ['/api/auth/login'];
+const PUBLIC_ROUTES = ['/api/auth/login', '/api/auth/activation/request-otp', '/api/auth/activation/verify', '/api/auth/activation/verify-otp'];
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname;

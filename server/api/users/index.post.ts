@@ -13,7 +13,7 @@ const createUserSchema = zod.object({
   firstNameTh: zod.string().min(1, 'First name (Thai) is required'),
   lastNameTh: zod.string().min(1, 'Last name (Thai) is required'),
   email: zod.email(),
-  password: zod.string().min(8, 'Password must be at least 8 characters long'),
+  // password: zod.string().min(8, 'Password must be at least 8 characters long'),
   image: zod.string().optional(),
   roleAssignments: zod.array(zod.object({
     roleId: zod.number(),
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readValidatedBody(event, createUserSchema.parse);
 
-  const hashedPassword = await hashPassword(body.password);
+  // const hashedPassword = await hashPassword(body.password);
 
   const user = await db.transaction(async (tx) => {
     const [createdUser] = await tx.insert(users).values({
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
       firstNameTh: body.firstNameTh.trim(),
       lastNameTh: body.lastNameTh.trim(),
       email: body.email,
-      passwordHash: hashedPassword,
+      // passwordHash: hashedPassword,
       image: body.image || null,
     }).returning();
 

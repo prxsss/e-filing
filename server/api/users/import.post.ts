@@ -1,6 +1,6 @@
 import db from '~~/lib/db';
 import { userRoles, users } from '~~/lib/db/schema';
-import env from '~~/lib/env';
+// import env from '~~/lib/env';
 import * as zod from 'zod';
 
 const bulkImportUserSchema = zod.object({
@@ -31,16 +31,16 @@ export default defineEventHandler(async (event) => {
   await requirePermission(event, 'user.import');
 
   const body = await readValidatedBody(event, bulkImportSchema.parse);
-  const defaultPassword = env.IMPORT_USER_PASSWORD;
+  // const defaultPassword = env.IMPORT_USER_PASSWORD;
 
-  if (!defaultPassword || defaultPassword.length < 8) {
-    throw createError({
-      statusCode: 500,
-      message: 'Import default password is not configured or too short',
-    });
-  }
+  // if (!defaultPassword || defaultPassword.length < 8) {
+  //   throw createError({
+  //     statusCode: 500,
+  //     message: 'Import default password is not configured or too short',
+  //   });
+  // }
 
-  const hashedPassword = await hashPassword(defaultPassword);
+  // const hashedPassword = await hashPassword(defaultPassword);
   const failedRows: string[] = [];
   let success = 0;
   let failed = 0;
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
           firstNameTh: item.firstNameTh.trim(),
           lastNameTh: item.lastNameTh.trim(),
           email: item.email,
-          passwordHash: hashedPassword,
+          // passwordHash: hashedPassword,
           image: item.image,
         }).returning();
 
