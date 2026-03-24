@@ -14,18 +14,24 @@ const localePath = useLocalePath();
 
 const authStore = useAuthStore();
 
+if (authStore.session.loggedIn) {
+  navigateTo(localePath('/'), { replace: true });
+}
+
 const fields: AuthFormField[] = [{
   name: 'email',
   type: 'email',
   label: t('email'),
   placeholder: 'Enter your email',
   required: true,
+  size: 'xl',
 }, {
   name: 'password',
   label: t('password'),
   type: 'password',
   placeholder: 'Enter your password',
   required: true,
+  size: 'xl',
 }];
 
 const schema = z.object({
@@ -59,20 +65,19 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
         v-model="formState"
         :schema="schema"
         :fields="fields"
-        :submit="{ label: $t('login'), loading: authStore.loading, loadingIcon: 'i-lucide-loader' }"
+        :submit="{ label: $t('login'), loading: authStore.loading, loadingIcon: 'i-lucide-loader', size: 'xl' }"
         @submit="onSubmit"
       >
         <template #header>
-          <KuSrcLogo class="h-auto w-75 mx-auto" />
+          <KuSrcLogo class="h-auto w-75 mx-auto mb-4" />
         </template>
         <template #validation>
           <UAlert v-if="authStore.errorMessage" color="error" variant="subtle" icon="i-lucide-info" :title="authStore.errorMessage" />
         </template>
         <template #footer>
-          <USeparator class="mb-4" />
-          <UButton icon="i-lucide-arrow-left" color="neutral" variant="link" :to="localePath('/')">
-            {{ $t('backToHome') }}
-          </UButton>
+          First time logging in? <ULink :to="localePath('/auth/activate')" class="text-primary font-medium">
+            Activate your account
+          </ULink>.
         </template>
       </UAuthForm>
     </UPageCard>

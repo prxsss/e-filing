@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { departments, userRoles, faculties, roles, users, request, signatureFlow, attachments, requestTemplateValues, permissions, rolePermissions } from "./schema";
+import { departments, userRoles, faculties, roles, users, request, signatureFlow, attachments, requestTemplateValues, activationOtps, permissions, rolePermissions } from "./schema";
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({
 	department: one(departments, {
@@ -41,6 +41,7 @@ export const rolesRelations = relations(roles, ({many}) => ({
 
 export const usersRelations = relations(users, ({many}) => ({
 	userRoles: many(userRoles),
+	activationOtps: many(activationOtps),
 }));
 
 export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
@@ -71,6 +72,13 @@ export const requestTemplateValuesRelations = relations(requestTemplateValues, (
 	request: one(request, {
 		fields: [requestTemplateValues.requestId],
 		references: [request.id]
+	}),
+}));
+
+export const activationOtpsRelations = relations(activationOtps, ({one}) => ({
+	user: one(users, {
+		fields: [activationOtps.userId],
+		references: [users.id]
 	}),
 }));
 

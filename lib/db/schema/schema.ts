@@ -7,11 +7,11 @@ export const users = pgTable("users", {
 	id: text().primaryKey().notNull(),
 	firstNameEn: text("first_name_en").notNull(),
 	lastNameEn: text("last_name_en").notNull(),
-	firstNameTh: text("first_name_th"),
-	lastNameTh: text("last_name_th"),
+	firstNameTh: text("first_name_th").notNull(),
+	lastNameTh: text("last_name_th").notNull(),
 	email: text().notNull(),
 	emailVerified: boolean("email_verified").default(false).notNull(),
-	passwordHash: text("password_hash").notNull(),
+	passwordHash: text("password_hash"),
 	image: text(),
 	banned: boolean().default(false).notNull(),
 	banReason: text("ban_reason"),
@@ -23,6 +23,7 @@ export const users = pgTable("users", {
 	titleEn: varchar("title_en", { length: 20 }),
 	academicRankTh: varchar("academic_rank_th", { length: 20 }),
 	academicRankEn: varchar("academic_rank_en", { length: 20 }),
+	isActive: boolean("is_active").default(false),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
 ]);
@@ -232,6 +233,21 @@ export const requestTemplateValues = pgTable("request_template_values", {
 			foreignColumns: [request.id],
 			name: "request_template_values_request_id_fkey"
 		}).onUpdate("cascade").onDelete("cascade"),
+]);
+
+export const activationOtps = pgTable("activation_otps", {
+	id: serial().primaryKey().notNull(),
+	userId: text("user_id"),
+	otp: text().notNull(),
+	expiresAt: timestamp("expires_at", { mode: 'string' }).notNull(),
+	usedAt: timestamp("used_at", { mode: 'string' }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "activation_otps_user_id_fkey"
+		}),
 ]);
 
 export const requestTemplateFields = pgTable("request_template_fields", {

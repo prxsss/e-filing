@@ -18,14 +18,20 @@ export default defineEventHandler(async (event) => {
       passwordHash: users.passwordHash,
       firstNameEn: users.firstNameEn,
       lastNameEn: users.lastNameEn,
+      isActive: users.isActive,
+      banned: users.banExpires,
     })
     .from(users)
     .where(eq(users.email, body.email));
   if (!user) {
     throw createError({ statusCode: 401, message: 'Invalid email or password' });
   }
+  if (!user.isActive) {
+    throw createError({ statusCode: 403, message: 'Account is not activated.' });
+  }
 
-  const passwordMatch = await verifyPassword(user.passwordHash, body.password);
+  // We can assert that passwordHash is not null here because the user must have a password to be active
+  const passwordMatch = await verifyPassword(user.passwordHash!, body.password);
   if (!passwordMatch) {
     throw createError({ statusCode: 401, message: 'Invalid email or password' });
   }

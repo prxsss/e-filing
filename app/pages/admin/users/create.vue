@@ -23,7 +23,7 @@ const overlay = useOverlay();
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
 const open = ref(false);
-const show = ref(false);
+// const show = ref(false);
 const loading = ref(false);
 const isDirty = ref(false);
 
@@ -40,7 +40,7 @@ const createUserSchema = z.object({
   firstNameTh: z.string().min(1, 'First name (Thai) is required'),
   lastNameTh: z.string().min(1, 'Last name (Thai) is required'),
   email: z.email('Invalid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  // password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 type CreateUserSchema = z.output<typeof createUserSchema>;
@@ -62,7 +62,7 @@ const form = ref<Partial<CreateUserSchema>>({
   firstNameTh: '',
   lastNameTh: '',
   email: '',
-  password: '',
+  // password: '',
 });
 
 const roleAssignments = ref<RoleAssignment[]>([]);
@@ -224,7 +224,7 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
         firstNameTh: event.data.firstNameTh,
         lastNameTh: event.data.lastNameTh,
         email: event.data.email,
-        password: event.data.password,
+        // password: event.data.password,
         roleAssignments: roleAssignments.value,
       },
     });
@@ -277,7 +277,7 @@ watch(form, (newData) => {
     firstNameTh: '',
     lastNameTh: '',
     email: '',
-    password: '',
+    // password: '',
   });
 }, { deep: true });
 
@@ -509,13 +509,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 <BaseSelect v-model="form.faculty" :items="faculties" value-key="value" placeholder="Select Faculty" :clear="true" />
               </UFormField> -->
 
-              <UFormField label="Password" name="password" required>
+              <!-- <UFormField label="Password" name="password" required>
                 <UInput
                   v-model="form.password"
                   :type="show ? 'text' : 'password'"
                   class="w-full"
                 />
-              </UFormField>
+              </UFormField> -->
             </div>
           </UCard>
 
