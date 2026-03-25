@@ -19,44 +19,36 @@ type Notification = {
   createdAt: string;
 };
 
-// === Fetch real notifications on page load (unread by default) ===
+// === Fetch notifications on page load and sync with socket ===
 type NotificationsResponse = {
   success: boolean;
   data?: Notification[];
   error?: string;
 };
 
-const { data: notifResponse, refresh } = await useFetch<NotificationsResponse>('/api/notifications', {
-  query: { isRead: false },
+const { notifications, connect, disconnect } = useSocket();
+const loading = ref(true);
+
+async function refresh() {
+  loading.value = true;
+  const res = await $fetch<NotificationsResponse>('/api/notifications');
+  if (res.success && res.data && notifications.value) {
+    // Replace notifications array in-place for reactivity
+    notifications.value.splice(0, notifications.value.length, ...res.data);
+  }
+  loading.value = false;
+}
+
+onMounted(() => {
+  connect();
+  refresh();
 });
 
-// Local list so we can prepend socket-pushed notifications without a full refetch
-const localNotifications = ref<Notification[]>(notifResponse.value?.data ?? []);
+onUnmounted(() => {
+  disconnect();
+});
 
-// Keep in sync whenever useFetch refreshes (e.g. after mark-as-read)
-watch(
-  () => notifResponse.value?.data,
-  (fresh) => { localNotifications.value = fresh ?? []; },
-);
-
-const unreadCount = computed(() => localNotifications.value.filter(n => !n.isRead).length);
-
-// === Socket.io — real-time push ===
-// Only runs on the client (no SSR socket connection needed)
-if (import.meta.client) {
-  const { $io } = useNuxtApp();
-
-  onMounted(() => {
-    // When the server pushes a new notification, prepend it to the list instantly
-    $io.on('notification', (incoming: Notification) => {
-      localNotifications.value = [incoming, ...localNotifications.value];
-    });
-  });
-
-  onUnmounted(() => {
-    $io.off('notification');
-  });
-}
+const unreadCount = computed(() => notifications.value.filter(n => !n.isRead).length);
 
 // === Table ===
 const UBadge = resolveComponent('UBadge');
@@ -134,9 +126,16 @@ async function onRowSelect(_e: Event, row: any) {
   const notif: Notification = row.original;
 
   // Mark as read via API if still unread
+
   if (!notif.isRead) {
     await $fetch(`/api/notifications/${notif.id}/read`, { method: 'patch' });
-    await refresh();
+    // Update local state
+    if (notifications.value) {
+      const idx = notifications.value.findIndex(n => n.id === notif.id);
+      if (idx !== -1 && notifications.value[idx]) {
+        notifications.value[idx].isRead = true;
+      }
+    }
   }
 
   // Navigate using the link column if present
@@ -147,7 +146,12 @@ async function onRowSelect(_e: Event, row: any) {
 
 async function markAllRead() {
   await $fetch('/api/notifications/read-all', { method: 'patch' });
-  await refresh();
+  // Update all as read locally
+  if (notifications.value) {
+    notifications.value.forEach((n) => {
+      n.isRead = true;
+    });
+  }
 }
 </script>
 
@@ -199,7 +203,7 @@ async function markAllRead() {
         </template>
 
         <UTable
-          :data="localNotifications"
+          :data="notifications"
           :columns="columns"
           class="w-full"
           empty="ไม่มีการแจ้งเตือน"
