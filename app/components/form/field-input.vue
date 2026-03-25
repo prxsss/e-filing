@@ -20,6 +20,21 @@ const fieldType = computed(() => String(props.field?.type || props.field?.fieldT
 const isNumericField = computed(() => fieldType.value === 'number');
 const isCheckboxField = computed(() => fieldType.value === 'checkbox');
 
+/** From template Form Layout (`formRequired`); default required when unset */
+const showRequiredAsterisk = computed(() => {
+  const f = props.field;
+  if (!f || typeof f !== 'object') {
+    return true;
+  }
+  if (Object.prototype.hasOwnProperty.call(f, 'formRequired')) {
+    return f.formRequired !== false;
+  }
+  if (Object.prototype.hasOwnProperty.call(f, 'form_required')) {
+    return f.form_required !== false;
+  }
+  return true;
+});
+
 function normalizeCheckboxValue(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   return ['true', '1', 'yes', 'y', 'checked', 'on'].includes(normalized) ? 'true' : '';
@@ -129,6 +144,7 @@ const currentLength = computed(() => localValue.value.length);
         <span class="field-label mb-0">
           <i v-if="field.icon" :class="field.icon" class="mr-2" />
           {{ field.label || field.name }}
+          <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
         </span>
       </label>
     </template>
@@ -136,6 +152,7 @@ const currentLength = computed(() => localValue.value.length);
       <label v-if="field.label || field.name" class="field-label">
         <i v-if="field.icon" :class="field.icon" class="mr-2" />
         {{ field.label || field.name }}
+        <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
       </label>
 
       <input

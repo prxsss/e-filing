@@ -79,6 +79,12 @@ export type FieldInstance = Field & {
   timeShowMinute?: boolean;
   strikeThroughGroupMode?: boolean;
   strikeLineThickness?: number;
+  // Student form layout (/admin/templates/[id] Form Layout + template save)
+  formOrder?: number;
+  formQuestionLabel?: string;
+  formSectionTitle?: string;
+  /** false = optional (no *); omitted defaults to required on student forms */
+  formRequired?: boolean;
 };
 
 /**

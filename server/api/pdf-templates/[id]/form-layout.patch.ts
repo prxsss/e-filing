@@ -7,6 +7,8 @@ type LayoutFieldInput = {
   instanceId: string;
   questionLabel?: string;
   order?: number;
+  /** When false, field is optional on student form; default true */
+  required?: boolean;
 };
 
 function getPlacedFieldInstanceId(field: Record<string, unknown> | null | undefined): string {
@@ -38,7 +40,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{ sectionTitle?: string; fields?: LayoutFieldInput[] } | null>(event);
   const sectionTitle = String(body?.sectionTitle || 'Request Information').trim() || 'Request Information';
   const fields = Array.isArray(body?.fields) ? body!.fields! : [];
-  const fieldConfigMap = new Map<string, { questionLabel: string; order: number }>();
+  const fieldConfigMap = new Map<string, { questionLabel: string; order: number; required: boolean }>();
 
   for (const field of fields) {
     const instanceId = String(field?.instanceId || '').trim();
@@ -48,6 +50,7 @@ export default defineEventHandler(async (event) => {
     fieldConfigMap.set(instanceId, {
       questionLabel: String(field?.questionLabel || '').trim(),
       order: Number.isFinite(Number(field?.order)) ? Number(field!.order) : Number.MAX_SAFE_INTEGER,
+      required: field?.required !== false,
     });
   }
 
@@ -73,11 +76,15 @@ export default defineEventHandler(async (event) => {
       return field;
     }
     const config = fieldConfigMap.get(instanceId);
+    const formRequired = config !== undefined
+      ? config.required
+      : (field?.formRequired !== false && field?.form_required !== false);
     return {
       ...field,
       formSectionTitle: sectionTitle,
       formQuestionLabel: config?.questionLabel || String(field?.formQuestionLabel || field?.label || field?.name || ''),
       formOrder: config?.order ?? field?.formOrder ?? Number.MAX_SAFE_INTEGER,
+      formRequired,
     };
   });
 
