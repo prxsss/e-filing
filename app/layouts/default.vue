@@ -17,7 +17,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
   {
     label: t('dashboard'),
     icon: 'i-lucide-layout-dashboard',
-    to: localePath('/'),
+    to: localePath('/student'),
     onSelect: () => {
       open.value = false;
     },

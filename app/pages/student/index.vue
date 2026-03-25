@@ -3,6 +3,8 @@ import type { TableRow } from '@nuxt/ui';
 
 definePageMeta({
   title: 'dashboard',
+  middleware: ['permission'],
+  permission: 'dashboard.student.view',
 });
 
 const { t, locale } = useI18n();
