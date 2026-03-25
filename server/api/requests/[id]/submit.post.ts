@@ -175,32 +175,36 @@ export default defineEventHandler(async (event) => {
 
       const insertedFlowEntries = await db.insert(signatureFlow).values(flowEntries).returning();
 
+      // Some requests may have no signing steps at all —
+      // in that case, skip notifications and directly mark the request as submitted
+      if (insertedFlowEntries.length > 1) {
       // Notify the first signer (teacher)
-      const [context, [firstStep]] = await Promise.all([
-        getSignRequestContext(requestId),
-        db
-          .select({
-            signerEmail: users.email,
-            signerName: sql<string>`
+        const [context, [firstStep]] = await Promise.all([
+          getSignRequestContext(requestId),
+          db
+            .select({
+              signerEmail: users.email,
+              signerName: sql<string>`
             concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
-            stepOrder: signatureFlow.stepOrder,
-          })
-          .from(signatureFlow)
-          .innerJoin(users, eq(signatureFlow.assignedUserId, users.id))
-          .where(and(
+              stepOrder: signatureFlow.stepOrder,
+            })
+            .from(signatureFlow)
+            .innerJoin(users, eq(signatureFlow.assignedUserId, users.id))
+            .where(and(
 
-            // The first position ([0]) is a student who is the first signer, so index [1] (next signer -> teacher) must be used
-            // instead of [0]
-            eq(signatureFlow.id, insertedFlowEntries[1].id),
+              // The first position ([0]) is a student who is the first signer, so index [1] (next signer -> teacher) must be used
+              // instead of [0]
+              eq(signatureFlow.id, insertedFlowEntries[1].id),
 
-            eq(signatureFlow.requestId, requestId),
-          ))
-          .orderBy(asc(signatureFlow.stepOrder))
-          .limit(1),
-      ]);
-      if (firstStep) {
-        await signNotificationService.notifySigner(firstStep, context);
+              eq(signatureFlow.requestId, requestId),
+            ))
+            .orderBy(asc(signatureFlow.stepOrder))
+            .limit(1),
+        ]);
+        if (firstStep) {
+          await signNotificationService.notifySigner(firstStep, context);
+        }
       }
 
       // Request status mirrors the flow state:
