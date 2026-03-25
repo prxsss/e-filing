@@ -830,7 +830,7 @@ async function submitRequest() {
     }
 
     // 4. Generate filled PDF
-    const pdfResult = await $fetch(`/api/requests/${activeRequestId}/generate-filled-pdf`, {
+    const pdfResult: any = await $fetch(`/api/requests/${activeRequestId}/generate-filled-pdf`, {
       method: 'POST',
     });
 
@@ -850,6 +850,25 @@ async function submitRequest() {
     });
 
     if (updateResult.success) {
+      // Notify the next step's user (first recipient)
+      const firstRecipient = recipients.length > 0 ? recipients[0] : null;
+      if (firstRecipient && firstRecipient.userId) {
+        try {
+          await $fetch('/api/notifications/notify', {
+            method: 'POST',
+            body: JSON.stringify({
+              userId: firstRecipient.userId,
+              message: 'You have a new request to sign.',
+              type: 'sign_request',
+              link: `/signer/sign/${activeRequestId}`,
+            }),
+          });
+        }
+        catch (notifyErr) {
+          console.error('Failed to send notification:', notifyErr);
+        }
+      }
+
       const needsSubmitterSignature = Boolean(updateResult?.data?.requiresSubmitterSignature);
       if (needsSubmitterSignature) {
         if (submitterSignatureDataUrl.value) {

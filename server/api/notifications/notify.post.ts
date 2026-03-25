@@ -1,28 +1,54 @@
 import db from '~~/lib/db';
-import { notifications } from '~~/lib/db/schema';
+import { notifications, notificationType } from '~~/lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
-    const io = (event.context.nitro as any).io;
+    const nitroApp = useNitroApp() as any;
+
+    // Allowed notification types from enum
+    const allowedTypes = notificationType.enumValues;
+
     // Validate required fields
-    if (!body.userId || !body.message) {
+    if (!body.userId || !body.message || !body.type) {
       return {
         success: false,
-        error: 'userId and message are required',
+        error: 'userId, message, and type are required',
       };
     }
 
-    // Insert notification into DB
-    const [notification] = await db.insert(notifications).values({
-      userId: Number(body.userId),
-      message: body.message,
-      authUserId: event.context.user?.id ?? null,
-      isRead: false,
-    }).returning();
+    if (!allowedTypes.includes(body.type)) {
+      return {
+        success: false,
+        error: `Invalid notification type. Allowed types: ${allowedTypes.join(', ')}`,
+      };
+    }
 
-    // Emit notification via socket
-    io.to(body.userId).emit('notification', notification);
+    // Prepare notification data
+    const notificationData = {
+      userId: String(body.userId),
+      message: body.message,
+      type: body.type,
+      link: body.link ?? null,
+      isRead: false,
+    };
+
+    // Insert notification into DB
+    const [notification] = await db.insert(notifications).values(notificationData).returning();
+
+    // Emit notification via socket with error handling
+    try {
+      nitroApp.io.to(body.userId).emit('notification', notification);
+    }
+    catch (socketErr: any) {
+      if (socketErr && socketErr.code === 'ECONNABORTED') {
+        console.error('[Socket ECONNABORTED]', socketErr);
+      }
+      else {
+        console.error('[Socket emit error]', socketErr);
+      }
+      // Optionally, you could return a more descriptive error here
+    }
 
     return {
       success: true,

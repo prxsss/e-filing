@@ -13,8 +13,13 @@ export const signNotificationService = {
     step: { signerEmail: string; signerName: string; stepOrder: number },
     context: SignRequestContext,
   ) {
+    const signUrl = `${env.APP_URL}/signer/sign/${context.requestId}`;
+    // Validate required email fields
+    if (!step.signerEmail) {
+      console.error('[notification] notifySigner: Missing signerEmail');
+      return;
+    }
     try {
-      const signUrl = `${env.APP_URL}/signer/sign/${context.requestId}`;
       await emailService.send(notifySignerTemplate({
         to: step.signerEmail,
         signerName: step.signerName,
@@ -32,6 +37,10 @@ export const signNotificationService = {
     step: { signerName: string; stepOrder: number },
     context: SignRequestContext,
   ) {
+    if (!context.studentEmail) {
+      console.error('[notification] notifySigned: Missing studentEmail');
+      return;
+    }
     try {
       await emailService.send(notifySignedTemplate({
         signerName: step.signerName,
@@ -46,6 +55,10 @@ export const signNotificationService = {
   },
 
   async notifyCompleted(signerName: string, context: SignRequestContext) {
+    if (!context.studentEmail) {
+      console.error('[notification] notifyCompleted: Missing studentEmail');
+      return;
+    }
     try {
       await emailService.send(notifyCompletedTemplate({
         signerName,
@@ -63,6 +76,10 @@ export const signNotificationService = {
     context: SignRequestContext & { templateId: number | null },
     reason: string,
   ) {
+    if (!context.studentEmail) {
+      console.error('[notification] notifyRejected: Missing studentEmail');
+      return;
+    }
     try {
       await emailService.send(notifyRejectedTemplate({
         rejectedBy: `${step.signerName}`,

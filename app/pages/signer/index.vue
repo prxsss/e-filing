@@ -7,135 +7,122 @@ definePageMeta({
 
 const localePath = useLocalePath();
 const router = useRouter();
+const authStore = useAuthStore();
 
 // === Types ===
-type NotificationType = 'to_sign' | 'signed' | 'rejected' | 'completed' | 'info';
+type NotificationType = 'sign_request' | 'signed' | 'completed' | 'rejected';
 
 type Notification = {
   id: number;
+  userId: string;
   type: NotificationType;
-  title: string;
-  description: string;
-  requestId: number | null;
+  message: string | null;
+  link: string | null;
   isRead: boolean;
   createdAt: string;
 };
 
-// === Notifications ===
-// To connect a real API, replace this block with:
-//   const { data: notifResponse } = await useFetch('/api/notifications', { query: { limit: 20 } })
-//   const notifications = computed<Notification[]>(() => notifResponse.value?.data ?? [])
-const notifications = ref<Notification[]>([
-  {
-    id: 1,
-    type: 'to_sign',
-    title: 'มีเอกสารรอลงนาม',
-    description: 'คำร้องขอลาออก — นายสมชาย ใจดี (รหัส #1042)',
-    requestId: 1042,
-    isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-  },
-  {
-    id: 2,
-    type: 'to_sign',
-    title: 'มีเอกสารรอลงนาม',
-    description: 'คำร้องขอเทียบโอนรายวิชา — น.ส.มาลี สวยงาม (รหัส #1039)',
-    requestId: 1039,
-    isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-  },
-  {
-    id: 3,
-    type: 'signed',
-    title: 'ลงนามเอกสารสำเร็จ',
-    description: 'คำร้องขอหนังสือรับรอง — นายวิชัย มั่นคง (รหัส #1035)',
-    requestId: 1035,
-    isRead: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-  },
-  {
-    id: 4,
-    type: 'completed',
-    title: 'คำร้องดำเนินการเสร็จสมบูรณ์',
-    description: 'คำร้องขอผ่อนผันค่าธรรมเนียม — น.ส.ณัฐนรี ขยัน (รหัส #1031)',
-    requestId: 1031,
-    isRead: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-  },
-  {
-    id: 5,
-    type: 'rejected',
-    title: 'เอกสารถูกปฏิเสธในขั้นตอนถัดไป',
-    description: 'คำร้องขอลงทะเบียนล่าช้า — นายประเสริฐ ตั้งใจ (รหัส #1028)',
-    requestId: 1028,
-    isRead: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-  },
-  {
-    id: 6,
-    type: 'info',
-    title: 'ระบบแจ้งเตือน',
-    description: 'มีการอัปเดตนโยบายการลงนามเอกสาร กรุณาตรวจสอบ',
-    requestId: null,
-    isRead: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-  },
-]);
+// === Fetch notifications on page load and sync with socket ===
+type NotificationsResponse = {
+  success: boolean;
+  data?: Notification[];
+  error?: string;
+};
+
+const { notifications, connect, disconnect } = useSocket();
+const loading = ref(true);
+
+async function refresh() {
+  loading.value = true;
+  const res = await $fetch<NotificationsResponse>('/api/notifications');
+  if (res.success && res.data && notifications.value) {
+    // Replace notifications array in-place for reactivity
+    notifications.value.splice(0, notifications.value.length, ...res.data);
+  }
+  loading.value = false;
+}
+
+onMounted(() => {
+  if (authStore.session.user?.id) {
+    connect(authStore.session.user.id);
+  }
+
+  refresh();
+});
+
+onUnmounted(() => {
+  disconnect();
+});
 
 const unreadCount = computed(() => notifications.value.filter(n => !n.isRead).length);
 
 // === Table ===
-const UIcon = resolveComponent('UIcon');
 const UBadge = resolveComponent('UBadge');
+const UIcon = resolveComponent('UIcon');
 
 const notifTypeLabel: Record<NotificationType, string> = {
-  to_sign: 'รอลงนาม',
+  sign_request: 'รอลงนาม',
   signed: 'ลงนามแล้ว',
   rejected: 'ปฏิเสธ',
   completed: 'เสร็จสมบูรณ์',
-  info: 'ทั่วไป',
 };
 
 const notifTypeColor: Record<NotificationType, string> = {
-  to_sign: 'warning',
+  sign_request: 'warning',
   signed: 'success',
   rejected: 'error',
   completed: 'success',
-  info: 'info',
 };
 
 const columns = [
   {
     id: 'unread',
     header: '',
-    size: 12,
-    cell: (ctx: any) =>
-      !ctx.row.original.isRead
-        ? h('span', { class: 'block w-2 h-2 rounded-full bg-primary-500 mx-auto' })
-        : null,
+    size: 20,
+    cell: (ctx: any) => {
+      if (ctx.row.original.isRead) {
+        return h('span', { class: 'block w-2 h-2 rounded-full bg-gray-200 mx-auto' });
+      }
+      return h('span', { class: 'relative flex items-center justify-center mx-auto w-3 h-3' }, [
+        h('span', { class: 'animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-60' }),
+        h('span', { class: 'relative block w-2 h-2 rounded-full bg-primary-500' }),
+      ]);
+    },
   },
-  { accessorKey: 'title', header: 'การแจ้งเตือน' },
-  { accessorKey: 'description', header: 'รายละเอียด' },
+  {
+    accessorKey: 'message',
+    header: 'ข้อความ',
+  },
   {
     accessorKey: 'type',
     header: 'ประเภท',
-    cell: (ctx: any) =>
-      h(UBadge, {
+    cell: (ctx: any) => {
+      const isRead = ctx.row.original.isRead;
+      return h(UBadge, {
         color: notifTypeColor[ctx.row.original.type as NotificationType] as any,
-        variant: 'subtle',
+        variant: isRead ? 'subtle' : 'solid',
         size: 'sm',
-        label: notifTypeLabel[ctx.row.original.type as NotificationType],
-      }),
+        label: notifTypeLabel[ctx.row.original.type as NotificationType] ?? ctx.row.original.type,
+      });
+    },
   },
-  { accessorKey: 'createdAt', header: 'เวลา' },
+  {
+    accessorKey: 'createdAt',
+    header: 'เวลา',
+  },
   {
     id: 'navigate',
     header: '',
     size: 40,
-    cell: (ctx: any) =>
-      ctx.row.original.requestId
-        ? h(UIcon, { name: 'i-lucide-chevron-right', class: 'w-5 h-5 text-gray-400' })
-        : null,
+    cell: (ctx: any) => {
+      if (!ctx.row.original.link)
+        return null;
+      const isRead = ctx.row.original.isRead;
+      return h(UIcon, {
+        name: 'i-lucide-chevron-right',
+        class: isRead ? 'w-5 h-5 text-gray-300' : 'w-5 h-5 text-primary-500',
+      });
+    },
   },
 ];
 
@@ -153,16 +140,35 @@ function formatRelativeTime(dateStr: string): string {
   return `${days} วันที่แล้ว`;
 }
 
-function onRowSelect(_e: Event, row: any) {
-  const notif = notifications.value.find(n => n.id === row.original.id);
-  if (notif)
-    notif.isRead = true;
-  if (row.original.requestId)
-    router.push(localePath(`/signer/sign/${row.original.requestId}`));
+async function onRowSelect(_e: Event, row: any) {
+  const notif: Notification = row.original;
+
+  // Mark as read via API if still unread
+  if (!notif.isRead) {
+    await $fetch(`/api/notifications/${notif.id}/read`, { method: 'patch' });
+    // Update local state
+    if (notifications.value) {
+      const idx = notifications.value.findIndex(n => n.id === notif.id);
+      if (idx !== -1 && notifications.value[idx]) {
+        notifications.value[idx].isRead = true;
+      }
+    }
+  }
+
+  // Navigate using the link column if present
+  if (notif.link) {
+    router.push(localePath(notif.link));
+  }
 }
 
-function markAllRead() {
-  notifications.value.forEach(n => (n.isRead = true));
+async function markAllRead() {
+  await $fetch('/api/notifications/read-all', { method: 'patch' });
+  // Update all as read locally
+  if (notifications.value) {
+    notifications.value.forEach((n) => {
+      n.isRead = true;
+    });
+  }
 }
 </script>
 
@@ -171,7 +177,6 @@ function markAllRead() {
     <UContainer class="space-y-8 pb-8">
       <!-- Banner -->
       <div class="bg-linear-to-r from-primary-600 to-emerald-600 rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
-        <!-- Decorative Background Element (same as student dashboard) -->
         <div class="absolute right-0 top-0 h-full w-1/3 bg-white/10 skew-x-12 translate-x-12 pointer-events-none" />
 
         <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -180,7 +185,7 @@ function markAllRead() {
               ระบบจัดการเอกสาร
             </h2>
             <p class="text-white/90 max-w-lg">
-              ตรวจสอบและลงนามเอกสารคำร้องของนักศึกษา ติดตามสถานะได้ตลอด 24 ชม.
+              ตรวจสอบและลงนามเอกสารคำร้องของนิสิต ติดตามสถานะได้ตลอด 24 ชม.
             </p>
           </div>
         </div>
@@ -222,21 +227,31 @@ function markAllRead() {
           :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
           @select="onRowSelect"
         >
-          <template #title-cell="{ row }">
-            <span :class="!row.original.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'">
-              {{ row.original.title }}
+          <!-- Message cell: bold + dark for unread, muted for read -->
+          <template #message-cell="{ row }">
+            <div v-if="!row.original.isRead" class="flex items-center gap-2">
+              <span class="font-semibold text-gray-900 leading-snug">
+                {{ row.original.message ?? '—' }}
+              </span>
+            </div>
+            <span v-else class="text-gray-400 text-sm leading-snug">
+              {{ row.original.message ?? '—' }}
             </span>
           </template>
-          <template #description-cell="{ row }">
-            <span class="text-gray-500 text-sm">{{ row.original.description }}</span>
-          </template>
+
+          <!-- Time cell: primary-colored for unread, muted for read -->
           <template #createdAt-cell="{ row }">
-            {{ formatRelativeTime(row.original.createdAt) }}
+            <span
+              class="text-sm whitespace-nowrap"
+              :class="!row.original.isRead ? 'text-primary-600 font-medium' : 'text-gray-400'"
+            >
+              {{ formatRelativeTime(row.original.createdAt) }}
+            </span>
           </template>
         </UTable>
       </UCard>
 
-      <!-- Quick Links (same pattern as student dashboard help section) -->
+      <!-- Quick Links -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div
           class="bg-orange-50/50 border border-orange-100 rounded-xl p-4 flex items-start gap-4 hover:bg-orange-50 transition-colors cursor-pointer"
