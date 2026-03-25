@@ -18,8 +18,6 @@ const availableIcons = ref([
   { name: 'Clock', class: 'fas fa-clock' },
   { name: 'Building', class: 'fas fa-building' },
   { name: 'Company', class: 'fas fa-landmark' },
-  { name: 'Phone', class: 'fas fa-phone' },
-  { name: 'Email', class: 'fas fa-envelope' },
   { name: 'Location', class: 'fas fa-map-marker-alt' },
   { name: 'Document', class: 'fas fa-file-contract' },
   { name: 'Money', class: 'fas fa-money-bill' },

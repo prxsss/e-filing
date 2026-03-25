@@ -102,10 +102,6 @@ const inputType = computed(() => {
       return 'time';
     case 'number':
       return 'text';
-    case 'email':
-      return 'email';
-    case 'phone':
-      return 'tel';
     default:
       return 'text';
   }
