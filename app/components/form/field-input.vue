@@ -61,7 +61,19 @@ function normalizeInputValue(value) {
   // Number fields are rendered as text with numeric input mode so maxlength
   // can block extra typing in real-time.
   if (isNumericField.value) {
-    normalizedValue = normalizedValue.replace(/\D/g, '');
+    // Allow digits, one decimal point and an optional leading minus sign.
+    normalizedValue = normalizedValue.replace(/[^0-9.\-]/g, '');
+    // Keep only the first dot
+    const firstDot = normalizedValue.indexOf('.');
+    if (firstDot !== -1) {
+      normalizedValue = normalizedValue.slice(0, firstDot + 1) + normalizedValue.slice(firstDot + 1).replace(/\./g, '');
+    }
+    // Allow only one leading minus; move any minus to the front
+    const hasMinus = normalizedValue.includes('-');
+    normalizedValue = normalizedValue.replace(/-/g, '');
+    if (hasMinus) {
+      normalizedValue = `-${normalizedValue}`;
+    }
   }
 
   if (!maxLength.value || fieldType.value === 'date' || fieldType.value === 'time') {
@@ -109,7 +121,8 @@ const inputType = computed(() => {
 
 const inputMode = computed(() => {
   if (isNumericField.value) {
-    return 'numeric';
+    // Prefer decimal input mode on supporting browsers for decimal and minus
+    return 'decimal';
   }
 
   return undefined;

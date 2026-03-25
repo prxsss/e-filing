@@ -470,7 +470,30 @@ const selectedFieldPreviewChecked = computed<boolean>({
 
 function handlePreviewInput(event: Event) {
   const input = event.target as HTMLInputElement;
-  const filteredValue = input.value.replace(/[^\p{L}\p{M}\d\s]/gu, '');
+
+  function normalizeNumericPreviewInput(val: string) {
+    let v = String(val ?? '');
+    // Allow digits, one decimal point and optional leading minus
+    v = v.replace(/[^0-9.\-]/g, '');
+    const firstDot = v.indexOf('.');
+    if (firstDot !== -1) {
+      v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    }
+    const hasMinus = v.includes('-');
+    v = v.replace(/-/g, '');
+    if (hasMinus)
+      v = `-${v}`;
+    return v;
+  }
+
+  let filteredValue: string;
+  if (selectedField.value && getFieldType(selectedField.value) === 'number') {
+    filteredValue = normalizeNumericPreviewInput(input.value);
+  }
+  else {
+    filteredValue = input.value.replace(/[^\p{L}\p{M}\d\s]/gu, '');
+  }
+
   const limitedValue = applyFieldMaxLength(filteredValue, selectedField.value);
   if (input.value !== limitedValue) {
     input.value = limitedValue;
