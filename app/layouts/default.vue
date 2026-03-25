@@ -17,7 +17,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
   {
     label: t('dashboard'),
     icon: 'i-lucide-layout-dashboard',
-    to: localePath('/'),
+    to: localePath('/student'),
     onSelect: () => {
       open.value = false;
     },
@@ -31,6 +31,15 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
       open.value = false;
     },
     visible: computed(() => authStore.can('dashboard.signer.view')),
+  },
+  {
+    label: t('dashboard'),
+    icon: 'i-lucide-layout-dashboard',
+    to: localePath('/admin'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('dashboard.admin.view')),
   },
   {
     label: t('newRequest'),

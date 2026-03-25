@@ -12,6 +12,7 @@ export default defineNuxtConfig({
     '@nuxtjs/i18n',
     '@pinia/nuxt',
     'nuxt-auth-utils',
+    'nuxt-charts',
   ],
 
   devtools: { enabled: true },

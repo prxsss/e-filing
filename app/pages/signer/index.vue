@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({
   title: 'dashboard',
+  middleware: ['permission'],
+  permission: 'dashboard.signer.view',
 });
 
 const localePath = useLocalePath();
