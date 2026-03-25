@@ -8,7 +8,7 @@ defineOptions({
 });
 
 definePageMeta({
-  title: 'adminDashboard',
+  title: 'dashboard',
   middleware: ['permission'],
   permission: 'dashboard.admin.view',
 });
