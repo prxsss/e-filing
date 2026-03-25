@@ -58,5 +58,8 @@ export default defineNuxtConfig({
     experimental: {
       websocket: true,
     },
+    routeRules: {
+      '/socket.io/**': { ssr: false },
+    },
   },
 });
