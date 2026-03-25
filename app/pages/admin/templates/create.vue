@@ -30,6 +30,38 @@ const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<FieldInstance[]>([]);
 const selectedFieldInstanceId = ref<string | null>(null); // Store instanceId instead of field object
 const scale = ref<number>(1); // Zoom level
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2;
+const zoomPresetOptions = [
+  { label: '50%', value: 0.5 },
+  { label: '75%', value: 0.75 },
+  { label: '100%', value: 1 },
+  { label: '125%', value: 1.25 },
+  { label: '150%', value: 1.5 },
+  { label: '200%', value: 2 },
+] as const;
+const zoomCustomPercentInput = ref('100');
+
+watch(scale, (s) => {
+  zoomCustomPercentInput.value = String(Math.round(s * 100));
+}, { immediate: true });
+
+function setCanvasZoomScale(next: number) {
+  scale.value = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
+}
+
+function applyZoomCustomPercentFromInput() {
+  const raw = String(zoomCustomPercentInput.value || '').replace('%', '').replace(',', '.').trim();
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n)) {
+    zoomCustomPercentInput.value = String(Math.round(scale.value * 100));
+    return;
+  }
+  const pct = Math.min(200, Math.max(50, Math.round(n)));
+  scale.value = pct / 100;
+  zoomCustomPercentInput.value = String(pct);
+}
+
 const selectedContractId = ref<string | number | null>(null);
 const imageLoaded = ref<boolean>(false);
 const uploadedFile = ref<File | null>(null);
@@ -1818,15 +1850,55 @@ watch(
               :title="isPreviewOutputEnabled ? 'ปิด Preview Output' : 'เปิด Preview Output'"
               @click="togglePreviewOutput"
             />
-            <UButton icon="i-heroicons-minus" size="xs" color="neutral" variant="ghost" :disabled="scale <= 0.5" @click="scale = Math.max(0.5, +(scale - 0.1).toFixed(1))" />
-            <button
-              class="text-xs font-mono text-gray-500 hover:text-gray-700 w-10 text-center"
-              title="Reset zoom"
-              @click="scale = 1"
-            >
-              {{ Math.round(scale * 100) }}%
-            </button>
-            <UButton icon="i-heroicons-plus" size="xs" color="neutral" variant="ghost" :disabled="scale >= 2" @click="scale = Math.min(2, +(scale + 0.1).toFixed(1))" />
+            <UPopover :content="{ align: 'end', side: 'bottom', sideOffset: 4 }" :ui="{ content: 'w-auto min-w-0 p-0 overflow-visible' }">
+              <template #default="{ open }">
+                <UTooltip text="ซูม" :popper="{ placement: 'left' }">
+                  <UButton
+                    icon="i-heroicons-magnifying-glass"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    :class="open ? 'ring-1 ring-inset ring-primary-400 bg-primary-50/80' : ''"
+                    aria-label="ซูม"
+                  />
+                </UTooltip>
+              </template>
+              <template #content>
+                <div class="w-44 p-2.5 rounded-xl bg-white shadow-lg border border-gray-200/80">
+                  <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 px-0.5">
+                    ระดับซูม
+                  </p>
+                  <div class="flex flex-col gap-0.5">
+                    <button
+                      v-for="opt in zoomPresetOptions"
+                      :key="opt.label"
+                      type="button"
+                      class="w-full text-left text-sm px-2 py-1.5 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+                      :class="Math.round(scale * 100) === Math.round(opt.value * 100) ? 'bg-primary-50 text-primary-700 font-semibold' : ''"
+                      @click="setCanvasZoomScale(opt.value)"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                  <div class="border-t border-gray-200 mt-2 pt-2">
+                    <label class="text-[11px] text-gray-500 block mb-1 px-0.5">กำหนดเอง (%)</label>
+                    <div class="flex gap-1.5 items-center">
+                      <input
+                        v-model="zoomCustomPercentInput"
+                        type="text"
+                        inputmode="numeric"
+                        class="flex-1 min-w-0 h-8 rounded-lg border border-gray-200 px-2 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="100"
+                        @keydown.enter.prevent="applyZoomCustomPercentFromInput"
+                      >
+                      <UButton size="xs" color="neutral" variant="soft" @click="applyZoomCustomPercentFromInput">
+                        ใช้
+                      </UButton>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </UPopover>
           </div>
         </div>
 

@@ -484,6 +484,133 @@ function removeField() {
     return;
   emit('fieldRemoved', props.selectedField.instanceId);
 }
+
+function clampLetterSpacing(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(20, Math.max(-5, value));
+}
+
+function clampLineHeight(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1.5;
+  }
+  return Math.min(5, Math.max(0.5, Math.round(value * 10) / 10));
+}
+
+function onMaxLengthNumberInput(event: Event) {
+  const str = String((event.target as HTMLInputElement).value).trim();
+  if (!str.length) {
+    localField.value.maxLength = null;
+    onPropertyChange();
+    return;
+  }
+  const parsed = Number.parseInt(str, 10);
+  localField.value.maxLength = normalizeMaxLength(parsed);
+  onPropertyChange();
+}
+
+function onMaxLengthNumberBlur() {
+  localField.value.maxLength = normalizeMaxLength(localField.value.maxLength);
+  onPropertyChange();
+}
+
+function onLetterSpacingNumberPopoverInput() {
+  onPropertyChange();
+}
+
+function onLetterSpacingNumberPopoverBlur() {
+  localField.value.letterSpacing = clampLetterSpacing(Number(localField.value.letterSpacing) || 0);
+  onPropertyChange();
+}
+
+function onLineHeightNumberPopoverInput() {
+  onPropertyChange();
+}
+
+function onLineHeightNumberPopoverBlur() {
+  localField.value.lineHeight = clampLineHeight(Number(localField.value.lineHeight) || 1.5);
+  onPropertyChange();
+}
+
+const FIELD_DIM_MIN = 16;
+const FIELD_DIM_MAX = 8000;
+const LETTER_SPACING_STEP = 0.5;
+const LINE_HEIGHT_STEP = 0.1;
+const MAX_LENGTH_STEP = 1;
+const FIELD_DIM_STEP = 1;
+
+function bumpLetterSpacing(delta: number) {
+  const cur = Number(localField.value.letterSpacing) || 0;
+  localField.value.letterSpacing = clampLetterSpacing(cur + delta * LETTER_SPACING_STEP);
+  onPropertyChange();
+}
+
+function bumpLineHeight(delta: number) {
+  const cur = Number(localField.value.lineHeight) || 1.5;
+  localField.value.lineHeight = clampLineHeight(cur + delta * LINE_HEIGHT_STEP);
+  onPropertyChange();
+}
+
+function bumpMaxLength(delta: number) {
+  const cur = normalizeMaxLength(localField.value.maxLength);
+  if (delta < 0) {
+    if (cur === null) {
+      return;
+    }
+    if (cur <= 1) {
+      localField.value.maxLength = null;
+    }
+    else {
+      localField.value.maxLength = cur - MAX_LENGTH_STEP;
+    }
+  }
+  else {
+    const next = cur === null || cur < 1 ? 1 : cur + MAX_LENGTH_STEP;
+    localField.value.maxLength = Math.min(5000, next);
+  }
+  onPropertyChange();
+}
+
+function clampEditableWidth(value: number): number {
+  if (!Number.isFinite(value)) {
+    return FIELD_DIM_MIN;
+  }
+  return Math.min(FIELD_DIM_MAX, Math.max(FIELD_DIM_MIN, Math.round(value)));
+}
+
+function clampEditableHeight(value: number): number {
+  return clampEditableWidth(value);
+}
+
+function bumpFieldWidth(delta: number) {
+  editableWidth.value = clampEditableWidth(editableWidth.value + delta * FIELD_DIM_STEP);
+  onPropertyChange();
+}
+
+function bumpFieldHeight(delta: number) {
+  editableHeight.value = clampEditableHeight(editableHeight.value + delta * FIELD_DIM_STEP);
+  onPropertyChange();
+}
+
+function onFieldWidthPopoverBlur() {
+  editableWidth.value = clampEditableWidth(Number(editableWidth.value));
+  onPropertyChange();
+}
+
+function onFieldHeightPopoverBlur() {
+  editableHeight.value = clampEditableHeight(Number(editableHeight.value));
+  onPropertyChange();
+}
+
+function onFieldWidthPopoverInput() {
+  onPropertyChange();
+}
+
+function onFieldHeightPopoverInput() {
+  onPropertyChange();
+}
 </script>
 
 <template>
@@ -608,71 +735,151 @@ function removeField() {
             </UTooltip>
           </div>
 
-          <template v-if="!isDateField && !isTimeField">
-            <div class="h-5 w-px bg-gray-200" />
-
-            <!-- Letter spacing -->
-            <UTooltip text="ระยะห่างตัวอักษร (Letter Spacing)" :popper="{ placement: 'top' }">
-              <div class="toolbar-input-group">
-                <span class="toolbar-prefix text-gray-400">
-                  <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
-                </span>
-                <input
-                  v-model.number="localField.letterSpacing"
-                  type="number"
-                  class="toolbar-input w-12"
-                  min="-5"
-                  max="20"
-                  step="0.5"
-                  placeholder="0"
-                  @input="onPropertyChange"
-                >
-              </div>
-            </UTooltip>
-          </template>
-
           <div class="h-5 w-px bg-gray-200" />
 
-          <!-- Line Height -->
-          <UTooltip text="ความห่างบรรทัด (Line Height)" :popper="{ placement: 'top' }">
-            <div class="toolbar-input-group">
-              <span class="toolbar-prefix text-gray-400">
-                <UIcon name="i-heroicons-arrows-up-down" class="w-3.5 h-3.5" />
-              </span>
-              <input
-                v-model.number="localField.lineHeight"
-                type="number"
-                class="toolbar-input w-12"
-                min="0.5"
-                max="5"
-                step="0.1"
-                placeholder="1.5"
-                @input="onPropertyChange"
+          <!-- Spacing & limits: popover with numeric inputs only -->
+          <UPopover
+            :content="{ align: 'center', side: 'bottom', sideOffset: 6 }"
+            :ui="{ content: 'w-fit min-w-0 max-w-[min(100vw,18rem)] p-0 overflow-visible' }"
+          >
+            <template #default="{ open }">
+              <UTooltip
+                text="การตั้งค่าขั้นสูง — ระยะห่างตัวอักษร ความสูงบรรทัด จำนวนตัวอักษรสูงสุด"
+                :popper="{ placement: 'top' }"
               >
-            </div>
-          </UTooltip>
-
-          <template v-if="supportsMaxLength">
-            <div class="h-5 w-px bg-gray-200" />
-
-            <UTooltip text="จำนวนตัวอักษรสูงสุด (เว้นว่าง = ไม่จำกัด)" :popper="{ placement: 'top' }">
-              <div class="toolbar-input-group">
-                <span class="toolbar-prefix text-gray-400">
-                  <UIcon name="i-heroicons-hashtag" class="w-3.5 h-3.5" />
-                </span>
-                <input
-                  v-model.number="localField.maxLength"
-                  type="number"
-                  class="toolbar-input w-14"
-                  min="1"
-                  max="5000"
-                  step="1"
-                  placeholder="∞"
-                  @input="onPropertyChange"
+                <button
+                  type="button"
+                  class="toolbar-fmt-btn spacing-popover-trigger"
+                  :class="{ active: open }"
+                  aria-haspopup="dialog"
+                  :aria-expanded="open"
+                  aria-label="การตั้งค่าระยะห่างและขีดจำกัดข้อความ"
                 >
+                  <span class="spacing-trigger-icon" aria-hidden="true">
+                    <span class="spacing-trigger-t">T</span>
+                    <UIcon name="i-lucide-arrow-up-down" class="w-3 h-3 opacity-85" />
+                  </span>
+                </button>
+              </UTooltip>
+            </template>
+
+            <template #content>
+              <div class="spacing-popover-panel">
+                <template v-if="!isDateField && !isTimeField">
+                  <div class="spacing-popover-section">
+                    <label class="spacing-popover-label">ระยะห่างระหว่างตัวอักษร</label>
+                    <div class="spacing-popover-stepper">
+                      <button
+                        type="button"
+                        class="spacing-stepper-btn"
+                        aria-label="ลดระยะห่างตัวอักษร"
+                        :disabled="Number(localField.letterSpacing) <= -5"
+                        @click="bumpLetterSpacing(-1)"
+                      >
+                        −
+                      </button>
+                      <input
+                        v-model.number="localField.letterSpacing"
+                        type="number"
+                        class="spacing-popover-input-compact"
+                        min="-5"
+                        max="20"
+                        step="0.5"
+                        placeholder="0"
+                        @input="onLetterSpacingNumberPopoverInput"
+                        @blur="onLetterSpacingNumberPopoverBlur"
+                      >
+                      <button
+                        type="button"
+                        class="spacing-stepper-btn"
+                        aria-label="เพิ่มระยะห่างตัวอักษร"
+                        :disabled="Number(localField.letterSpacing) >= 20"
+                        @click="bumpLetterSpacing(1)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <div class="spacing-popover-section">
+                  <label class="spacing-popover-label">ระยะห่างระหว่างบรรทัด</label>
+                  <div class="spacing-popover-stepper">
+                    <button
+                      type="button"
+                      class="spacing-stepper-btn"
+                      aria-label="ลดระยะห่างบรรทัด"
+                      :disabled="Number(localField.lineHeight) <= 0.5"
+                      @click="bumpLineHeight(-1)"
+                    >
+                      −
+                    </button>
+                    <input
+                      v-model.number="localField.lineHeight"
+                      type="number"
+                      class="spacing-popover-input-compact"
+                      min="0.5"
+                      max="5"
+                      step="0.1"
+                      placeholder="1.5"
+                      @input="onLineHeightNumberPopoverInput"
+                      @blur="onLineHeightNumberPopoverBlur"
+                    >
+                    <button
+                      type="button"
+                      class="spacing-stepper-btn"
+                      aria-label="เพิ่มระยะห่างบรรทัด"
+                      :disabled="Number(localField.lineHeight) >= 5"
+                      @click="bumpLineHeight(1)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <template v-if="supportsMaxLength">
+                  <div class="spacing-popover-divider" />
+                  <div class="spacing-popover-section">
+                    <label class="spacing-popover-label">จำนวนตัวอักษรสูงสุด</label>
+                    <p class="spacing-popover-hint">
+                      ใส่ 0 หรือเว้นว่าง = ไม่จำกัด
+                    </p>
+                    <div class="spacing-popover-stepper">
+                      <button
+                        type="button"
+                        class="spacing-stepper-btn"
+                        aria-label="ลดจำนวนตัวอักษรสูงสุด"
+                        :disabled="localField.maxLength === null || localField.maxLength === undefined || Number(localField.maxLength) <= 0"
+                        @click="bumpMaxLength(-1)"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        class="spacing-popover-input-compact"
+                        min="0"
+                        max="5000"
+                        step="1"
+                        :value="localField.maxLength ?? ''"
+                        placeholder="∞"
+                        @input="onMaxLengthNumberInput"
+                        @blur="onMaxLengthNumberBlur"
+                      >
+                      <button
+                        type="button"
+                        class="spacing-stepper-btn"
+                        aria-label="เพิ่มจำนวนตัวอักษรสูงสุด"
+                        :disabled="Number(localField.maxLength) >= 5000"
+                        @click="bumpMaxLength(1)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </template>
               </div>
-            </UTooltip>
-          </template>
+            </template>
+          </UPopover>
 
           <template v-if="isDateField">
             <div class="h-5 w-px bg-gray-200" />
@@ -823,6 +1030,99 @@ function removeField() {
           </div>
         </UTooltip>
       </template>
+
+      <div class="h-5 w-px bg-gray-200" />
+
+      <!-- Field width × height (all field types) -->
+      <UPopover
+        :content="{ align: 'center', side: 'bottom', sideOffset: 6 }"
+        :ui="{ content: 'w-fit min-w-0 max-w-[min(100vw,18rem)] p-0 overflow-visible' }"
+      >
+        <template #default="{ open }">
+          <UTooltip text="ขนาดช่อง — ความกว้าง × ความสูง (พิกเซล)" :popper="{ placement: 'top' }">
+            <button
+              type="button"
+              class="toolbar-fmt-btn"
+              :class="{ active: open }"
+              aria-haspopup="dialog"
+              :aria-expanded="open"
+              aria-label="ปรับความกว้างและความสูงของช่อง"
+            >
+              <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
+            </button>
+          </UTooltip>
+        </template>
+        <template #content>
+          <div class="spacing-popover-panel">
+            <div class="spacing-popover-section">
+              <label class="spacing-popover-label">ความกว้าง (px)</label>
+              <div class="spacing-popover-stepper">
+                <button
+                  type="button"
+                  class="spacing-stepper-btn"
+                  aria-label="ลดความกว้าง"
+                  :disabled="editableWidth <= FIELD_DIM_MIN"
+                  @click="bumpFieldWidth(-1)"
+                >
+                  −
+                </button>
+                <input
+                  v-model.number="editableWidth"
+                  type="number"
+                  class="spacing-popover-input-compact"
+                  :min="FIELD_DIM_MIN"
+                  :max="FIELD_DIM_MAX"
+                  step="1"
+                  @input="onFieldWidthPopoverInput"
+                  @blur="onFieldWidthPopoverBlur"
+                >
+                <button
+                  type="button"
+                  class="spacing-stepper-btn"
+                  aria-label="เพิ่มความกว้าง"
+                  :disabled="editableWidth >= FIELD_DIM_MAX"
+                  @click="bumpFieldWidth(1)"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div class="spacing-popover-section">
+              <label class="spacing-popover-label">ความสูง (px)</label>
+              <div class="spacing-popover-stepper">
+                <button
+                  type="button"
+                  class="spacing-stepper-btn"
+                  aria-label="ลดความสูง"
+                  :disabled="editableHeight <= FIELD_DIM_MIN"
+                  @click="bumpFieldHeight(-1)"
+                >
+                  −
+                </button>
+                <input
+                  v-model.number="editableHeight"
+                  type="number"
+                  class="spacing-popover-input-compact"
+                  :min="FIELD_DIM_MIN"
+                  :max="FIELD_DIM_MAX"
+                  step="1"
+                  @input="onFieldHeightPopoverInput"
+                  @blur="onFieldHeightPopoverBlur"
+                >
+                <button
+                  type="button"
+                  class="spacing-stepper-btn"
+                  aria-label="เพิ่มความสูง"
+                  :disabled="editableHeight >= FIELD_DIM_MAX"
+                  @click="bumpFieldHeight(1)"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </UPopover>
 
       <div class="h-5 w-px bg-gray-200" />
 
@@ -1139,5 +1439,139 @@ function removeField() {
   background-color: #eff6ff;
   border-color: #bfdbfe;
   color: #1d4ed8;
+}
+
+/* Spacing / limits popover — tight to content */
+.spacing-popover-panel {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 1.5rem));
+  padding: 0.35rem 0.45rem 0.4rem;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.06),
+    0 12px 28px -8px rgba(0, 0, 0, 0.14);
+}
+
+.spacing-popover-section {
+  margin-bottom: 0.35rem;
+}
+
+.spacing-popover-section:last-child {
+  margin-bottom: 0;
+}
+
+.spacing-popover-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 0.15rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.spacing-popover-hint {
+  font-size: 0.6rem;
+  color: #9ca3af;
+  margin: 0 0 0.2rem;
+  line-height: 1.25;
+}
+
+.spacing-popover-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 0.2rem 0 0.35rem;
+}
+
+.spacing-popover-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.spacing-stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.spacing-stepper-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.spacing-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.spacing-popover-input-compact {
+  box-sizing: border-box;
+  width: 3.5rem;
+  min-width: 3rem;
+  max-width: 4.25rem;
+  height: 26px;
+  padding: 0 2px;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  border: none;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+}
+
+.spacing-popover-input-compact:focus {
+  outline: none;
+  background: #fafafa;
+  box-shadow: inset 0 0 0 1px #a5b4fc;
+}
+
+.spacing-popover-input-compact::-webkit-inner-spin-button,
+.spacing-popover-input-compact::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.spacing-popover-input-compact[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.spacing-trigger-icon {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  gap: 0;
+}
+
+.spacing-trigger-t {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 </style>
