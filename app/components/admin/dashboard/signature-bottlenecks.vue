@@ -1,10 +1,50 @@
 <script setup lang="ts">
-const items = ref([
-  { name: 'Head of Dept Approval', value: 1.2, avg: '1.2 days' },
-  { name: 'Dean Signature', value: 3.8, avg: '3.8 days' },
-  { name: 'Registrar Verification', value: 0.5, avg: '0.5 days' },
-  { name: 'Financial Clearance', value: 4.1, avg: '4.1 days' },
-]);
+const props = withDefaults(defineProps<{
+  period: string;
+  startDate?: string;
+  endDate?: string;
+  facultyId?: number;
+  refreshToken?: number;
+}>(), {
+  refreshToken: 0,
+});
+
+type BottleneckRow = {
+  roleName: string;
+  pendingCount: number;
+  avgWaitingHours: number;
+};
+
+const topLimit = ref<'5' | '10' | 'all'>('5');
+const topLimitOptions = ['5', '10', 'all'];
+
+const query = computed(() => ({
+  period: props.period,
+  limit: topLimit.value,
+  ...(props.startDate ? { startDate: props.startDate } : {}),
+  ...(props.endDate ? { endDate: props.endDate } : {}),
+  ...(props.facultyId ? { facultyId: props.facultyId } : {}),
+}));
+
+const { data, status, refresh } = useFetch<{ success: boolean; data: BottleneckRow[] }>('/api/admin/dashboard/signature-bottlenecks', {
+  query,
+  watch: [query],
+});
+
+const items = computed(() => {
+  return (data.value?.data ?? []).map(item => ({
+    name: item.roleName,
+    value: Math.min(5, Number((item.avgWaitingHours / 24).toFixed(2))),
+    avg: item.avgWaitingHours < 24
+      ? `${item.avgWaitingHours.toFixed(1)} hrs avg`
+      : `${(item.avgWaitingHours / 24).toFixed(1)} days avg`,
+    pendingCount: item.pendingCount,
+  }));
+});
+
+watch(() => props.refreshToken, () => {
+  refresh();
+});
 
 function getColor(value: number) {
   if (value <= 2)
@@ -17,13 +57,27 @@ function getColor(value: number) {
 
 <template>
   <UCard>
-    <h3 class="font-bold mb-6 text-text-main">
-      Signature Bottlenecks
-    </h3>
-    <div class="space-y-6">
+    <div class="mb-6 flex items-center justify-between gap-3">
+      <h3 class="font-bold text-text-main">
+        Signature Bottlenecks
+      </h3>
+      <USelect
+        v-model="topLimit"
+        size="sm"
+        :items="topLimitOptions"
+        :ui="{ content: 'min-w-fit' }"
+      />
+    </div>
+    <div v-if="status === 'pending'" class="h-55 flex items-center justify-center">
+      <UIcon name="i-lucide-loader" class="size-6 animate-spin text-text-secondary" />
+    </div>
+    <div v-else-if="!items.length" class="h-55 flex items-center justify-center text-sm text-text-secondary">
+      No bottleneck data for selected filters.
+    </div>
+    <div v-else class="space-y-6 h-80 overflow-y-auto">
       <div v-for="(item, index) in items" :key="index">
         <div class="flex justify-between text-xs font-medium mb-1.5">
-          <span class="text-text-main">{{ item.name }}</span>
+          <span class="text-text-main">{{ item.name }} ({{ item.pendingCount }})</span>
           <span class="text-text-secondary">{{ item.avg }}</span>
         </div>
         <UProgress v-model="item.value" :max="5" :color="getColor(item.value)" />

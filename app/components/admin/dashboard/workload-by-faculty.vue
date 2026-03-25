@@ -3,19 +3,67 @@ defineOptions({
   tags: ['barcharts', 'stackedhorizontal'],
 });
 
+const props = withDefaults(defineProps<{
+  period: string;
+  startDate?: string;
+  endDate?: string;
+  facultyId?: number;
+  refreshToken?: number;
+}>(), {
+  refreshToken: 0,
+});
+
 type FacultyWorkloadItem = {
   faculty: string;
   completed: number;
   pending: number;
 };
 
-const chartData: FacultyWorkloadItem[] = [
-  { faculty: 'Management Sciences', completed: 186, pending: 80 },
-  { faculty: 'Engineering at Sriracha', completed: 305, pending: 200 },
-  { faculty: 'Science at Sriracha', completed: 237, pending: 120 },
-  { faculty: 'Economics at Sriracha', completed: 73, pending: 190 },
-  { faculty: 'International Maritime Studies', completed: 209, pending: 130 },
-];
+type WorkloadRow = {
+  facultyId: number;
+  facultyNameEn: string;
+  facultyNameTh: string;
+  completed: number;
+  pending: number;
+  rejected: number;
+  total: number;
+};
+
+const { locale } = useI18n();
+
+const query = computed(() => ({
+  period: props.period,
+  ...(props.startDate ? { startDate: props.startDate } : {}),
+  ...(props.endDate ? { endDate: props.endDate } : {}),
+  ...(props.facultyId ? { facultyId: props.facultyId } : {}),
+}));
+
+const { data, status, refresh } = useFetch<{ success: boolean; data: WorkloadRow[] }>('/api/admin/dashboard/workload-by-faculty', {
+  query,
+  watch: [query],
+});
+
+const workloadRows = computed<WorkloadRow[]>(() => data.value?.data ?? []);
+
+const shouldShowEmptyState = computed(() => {
+  if (!workloadRows.value.length)
+    return true;
+
+  return workloadRows.value.every(row => row.completed === 0 && row.pending === 0 && row.rejected === 0 && row.total === 0);
+});
+
+const chartData = computed<FacultyWorkloadItem[]>(() => {
+  const rows = workloadRows.value;
+  return rows.map(row => ({
+    faculty: locale.value === 'th' ? row.facultyNameTh : row.facultyNameEn,
+    completed: row.completed,
+    pending: row.pending,
+  }));
+});
+
+watch(() => props.refreshToken, () => {
+  refresh();
+});
 
 const categories = {
   completed: { name: 'Completed', color: '#3b82f6' },
@@ -23,7 +71,7 @@ const categories = {
 };
 
 function yFormatter(tick: number, _i?: number, _ticks?: number[]) {
-  return `${chartData[tick]?.faculty ?? ''}`;
+  return `${chartData.value[tick]?.faculty ?? ''}`;
 }
 </script>
 
@@ -37,7 +85,14 @@ function yFormatter(tick: number, _i?: number, _ticks?: number[]) {
           Workload by Faculty
         </h3>
       </div>
+      <div v-if="status === 'pending'" class="h-75 flex items-center justify-center">
+        <UIcon name="i-lucide-loader" class="size-6 animate-spin text-text-secondary" />
+      </div>
+      <div v-else-if="shouldShowEmptyState" class="h-75 flex items-center justify-center text-sm text-text-secondary">
+        No workload data for selected filters.
+      </div>
       <BarChart
+        v-else
         :data="chartData"
         :stacked="true"
         :height="300"

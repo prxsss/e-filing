@@ -269,7 +269,7 @@ export default defineEventHandler(async (event) => {
     else {
       await db
         .update(request)
-        .set({ status: 'completed' })
+        .set({ status: 'completed', completedAt: new Date().toISOString() })
         .where(eq(request.id, requestId));
 
       const [{ signerName }] = await db.select({
