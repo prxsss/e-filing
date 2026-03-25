@@ -1,9 +1,7 @@
-import type { SQL } from 'drizzle-orm';
-
 import db from '~~/lib/db';
 import { faculties, request } from '~~/lib/db/schema';
 import { resolveDashboardRange } from '~~/server/utils/dashboard-period';
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 
 function parseFacultyId(value: unknown): number | undefined {
   const parsed = Number(value);
@@ -21,52 +19,33 @@ export default defineEventHandler(async (event) => {
   const { startDate, endDate } = resolveDashboardRange(period, customStartDate, customEndDate);
 
   const facultyWhere = facultyId ? eq(faculties.id, facultyId) : undefined;
-  const facultyRows = await db
+  const data = await db
     .select({
-      id: faculties.id,
-      nameEn: faculties.nameEn,
-      nameTh: faculties.nameTh,
+      facultyId: faculties.id,
+      facultyNameEn: faculties.nameEn,
+      facultyNameTh: faculties.nameTh,
+      total: sql<number>`COUNT(DISTINCT ${request.id})::int`,
+      completed: sql<number>`COUNT(DISTINCT CASE WHEN ${request.status} = 'completed' THEN ${request.id} END)::int`,
+      pending: sql<number>`COUNT(DISTINCT CASE WHEN ${request.status} IN ('submitted', 'in_progress', 'pending') THEN ${request.id} END)::int`,
+      rejected: sql<number>`COUNT(DISTINCT CASE WHEN ${request.status} = 'rejected' THEN ${request.id} END)::int`,
     })
     .from(faculties)
+    .leftJoin(
+      request,
+      sql`
+        ${request.createdAt} >= ${startDate}
+        AND ${request.createdAt} <= ${endDate}
+        AND EXISTS (
+          SELECT 1
+          FROM user_roles ur
+          WHERE ur.user_id = ${request.userId}
+          AND ur.faculty_id = ${faculties.id}
+        )
+      `,
+    )
     .where(facultyWhere)
+    .groupBy(faculties.id)
     .orderBy(asc(faculties.nameEn));
-
-  const data = await Promise.all(
-    facultyRows.map(async (faculty) => {
-      const conditions: SQL[] = [
-        gte(request.createdAt, startDate),
-        lte(request.createdAt, endDate),
-        sql`
-          EXISTS (
-            SELECT 1
-            FROM user_roles ur
-            WHERE ur.user_id = ${request.userId}
-            AND ur.faculty_id = ${faculty.id}
-          )
-        `,
-      ];
-
-      const [counts] = await db
-        .select({
-          total: sql<number>`COUNT(*)::int`,
-          completed: sql<number>`COUNT(CASE WHEN ${request.status} = 'completed' THEN 1 END)::int`,
-          inProgress: sql<number>`COUNT(CASE WHEN ${request.status} IN ('submitted', 'in_progress', 'pending') THEN 1 END)::int`,
-          rejected: sql<number>`COUNT(CASE WHEN ${request.status} = 'rejected' THEN 1 END)::int`,
-        })
-        .from(request)
-        .where(and(...conditions));
-
-      return {
-        facultyId: faculty.id,
-        facultyNameEn: faculty.nameEn,
-        facultyNameTh: faculty.nameTh,
-        total: counts?.total ?? 0,
-        completed: counts?.completed ?? 0,
-        pending: counts?.inProgress ?? 0,
-        rejected: counts?.rejected ?? 0,
-      };
-    }),
-  );
 
   return {
     success: true,
