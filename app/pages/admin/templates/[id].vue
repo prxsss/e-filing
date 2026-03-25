@@ -619,6 +619,61 @@ async function deleteTemplate() {
   }
 }
 
+// Local switch state mirrors template.isActive so we can intercept toggles
+const switchState = ref<boolean>(false);
+
+watch(
+  () => template.value && template.value.isActive,
+  (v) => {
+    switchState.value = Boolean(v);
+  },
+  { immediate: true },
+);
+
+async function onSwitchChange(newValue: boolean) {
+  if (!templateId.value || !template.value) {
+    // revert
+    switchState.value = false;
+    return;
+  }
+
+  const prev = Boolean(template.value.isActive);
+  const desired = Boolean(newValue);
+  if (prev === desired) {
+    return;
+  }
+
+  const instance = confirmDialog.open({
+    title: desired ? 'เปิดใช้งาน Template' : 'ปิดใช้งาน Template',
+    description: `คุณต้องการ ${desired ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} เอกสาร "${template.value.name}" หรือไม่?`,
+    cancelButton: { label: 'ยกเลิก' },
+    confirmButton: { label: desired ? 'เปิดใช้งาน' : 'ปิดใช้งาน', color: desired ? 'primary' : 'error' },
+  });
+
+  const confirmed = await instance.result;
+  if (!confirmed) {
+    // revert UI
+    switchState.value = prev;
+    return;
+  }
+
+  try {
+    await $fetch(`/api/pdf-templates/${templateId.value}/active`, {
+      method: 'PATCH',
+      body: { isActive: desired },
+    });
+
+    template.value.isActive = desired;
+    switchState.value = desired;
+    toast.add({ title: desired ? 'เปิดใช้งานเรียบร้อย' : 'ปิดใช้งานเรียบร้อย', color: 'success' });
+  }
+  catch (err) {
+    console.error('Failed to update template active state:', err);
+    switchState.value = prev;
+    toast.add({ title: 'เกิดข้อผิดพลาด', description: err instanceof Error ? err.message : 'ไม่สามารถเปลี่ยนสถานะเทมเพลตได้', color: 'error' });
+  }
+}
+
 onMounted(() => {
   fetchTemplate();
 });
@@ -651,7 +706,46 @@ watch(layoutEditorFillableFields, () => {
               {{ templateDescriptionPreview }}
             </p>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-4 items-center">
+            <div class="flex items-center gap-3">
+              <template v-if="authStore.can('template.edit')">
+                <button
+                  type="button"
+                  role="switch"
+                  :aria-checked="switchState"
+                  class="inline-flex items-center gap-3 rounded-full border-2 px-3 py-1 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                  :class="switchState ? 'bg-green-50 border-green-200 hover:bg-green-100 focus:ring-green-200' : 'bg-red-50 border-red-200 hover:bg-red-100 focus:ring-red-200'"
+                  @click="onSwitchChange(!switchState)"
+                >
+                  <span class="sr-only">Toggle template active</span>
+
+                  <!-- Track + sliding knob -->
+                  <span class="relative inline-block w-14 h-7 rounded-full p-1">
+                    <!-- visible track line so user knows it's a slider -->
+                    <span class="absolute inset-0 flex items-center justify-center">
+                      <span class="w-8 h-0.5 rounded-full bg-gray-400" />
+                    </span>
+
+                    <span
+                      class="absolute top-1 left-1 w-5 h-5 rounded-full shadow transform transition-transform duration-150 border-2 border-white"
+                      :class="switchState ? 'translate-x-6 bg-green-500' : 'translate-x-0 bg-red-500'"
+                    />
+                  </span>
+
+                  <span :class="switchState ? 'text-green-600 font-semibold text-sm' : 'text-red-600 font-semibold text-sm'">
+                    {{ switchState ? 'Active' : 'Inactive' }}
+                  </span>
+                </button>
+              </template>
+              <template v-else>
+                <div class="inline-flex items-center gap-3">
+                  <div class="h-7 w-16 rounded-full p-1" :class="[switchState ? 'bg-green-500' : 'bg-red-500']">
+                    <span class="block w-6 h-6 bg-white rounded-full shadow" :class="switchState ? 'ml-8' : 'ml-0'" />
+                  </div>
+                  <span class="text-sm font-medium text-gray-700">{{ switchState ? 'Active' : 'Inactive' }}</span>
+                </div>
+              </template>
+            </div>
             <UButton
               icon="i-heroicons-arrow-down-tray"
               variant="ghost"
