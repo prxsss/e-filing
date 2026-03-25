@@ -60,14 +60,12 @@ const formData = ref({
   strikeLineThickness: 1.5,
 });
 
-const fieldTypes = ['Text', 'Date', 'Time', 'Checkbox', 'Signature', 'Number', 'Email', 'Phone'];
+const fieldTypes = ['Text', 'Number', 'Checkbox', 'Signature', 'Date', 'Time'];
 
 const iconOptions = [
   { value: 'i-heroicons-document', label: 'Document', icon: 'i-heroicons-document' },
   { value: 'i-heroicons-user', label: 'User', icon: 'i-heroicons-user' },
   { value: 'i-heroicons-identification', label: 'ID', icon: 'i-heroicons-identification' },
-  { value: 'i-heroicons-envelope', label: 'Email', icon: 'i-heroicons-envelope' },
-  { value: 'i-heroicons-phone', label: 'Phone', icon: 'i-heroicons-phone' },
   { value: 'i-heroicons-calendar', label: 'Calendar', icon: 'i-heroicons-calendar' },
   { value: 'i-heroicons-clock', label: 'Time', icon: 'i-heroicons-clock' },
   { value: 'i-heroicons-pencil-square', label: 'Signature', icon: 'i-heroicons-pencil-square' },
