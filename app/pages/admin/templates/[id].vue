@@ -62,14 +62,14 @@ const placedFields = ref<any[]>([]);
 const previewFieldValues = ref<Record<string, string>>({});
 const isEditingFormLayout = ref(false);
 const formSectionTitle = ref('Request Information');
-const formFieldLayout = ref<Array<{ instanceId: string; questionLabel: string }>>([]);
+const formFieldLayout = ref<Array<{ instanceId: string; questionLabel: string; required: boolean }>>([]);
 const isSavingFormLayout = ref(false);
 const activeEditingFieldId = ref<string | null>(null);
 
 /** Snapshot when entering layout edit (for cancel restore). */
 type FormLayoutEditSnapshot = {
   sectionTitle: string;
-  layout: Array<{ instanceId: string; questionLabel: string }>;
+  layout: Array<{ instanceId: string; questionLabel: string; required: boolean }>;
 };
 const formLayoutEditSnapshot = ref<FormLayoutEditSnapshot | null>(null);
 
@@ -214,9 +214,11 @@ function syncFormFieldLayout() {
   formFieldLayout.value = sourceFields.map((field: any) => {
     const key = String(field.instanceId);
     const existingItem = existing.get(key);
+    const fromTemplate = field.formRequired !== false && field.form_required !== false;
     return {
       instanceId: key,
       questionLabel: existingItem?.questionLabel || String(field.formQuestionLabel || field.label || field.name || 'Question'),
+      required: typeof existingItem?.required === 'boolean' ? existingItem.required : fromTemplate,
     };
   });
 
@@ -245,6 +247,25 @@ function setQuestionLabel(instanceId: string, value: string) {
     return;
   }
   item.questionLabel = value;
+}
+
+function getLayoutEntry(instanceId: string) {
+  return formFieldLayout.value.find(layout => layout.instanceId === instanceId);
+}
+
+function setLayoutRequired(instanceId: string, value: boolean) {
+  const item = formFieldLayout.value.find(layout => layout.instanceId === instanceId);
+  if (item) {
+    item.required = value;
+  }
+}
+
+function getPreviewFormRequired(field: any): boolean {
+  if (isEditingFormLayout.value) {
+    const item = getLayoutEntry(String(field.instanceId));
+    return item ? item.required !== false : true;
+  }
+  return field.formRequired !== false && field.form_required !== false;
 }
 
 function revertQuestionLabelIfEmpty(instanceId: string) {
@@ -322,7 +343,7 @@ function moveLayoutItem(index: number, direction: -1 | 1) {
   const layoutById = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
   formFieldLayout.value = reorderedIds
     .map(id => layoutById.get(id))
-    .filter((item): item is { instanceId: string; questionLabel: string } => Boolean(item));
+    .filter((item): item is { instanceId: string; questionLabel: string; required: boolean } => Boolean(item));
 }
 
 function getFieldCardClass(field: any): string {
@@ -354,6 +375,7 @@ async function saveFormLayout(): Promise<boolean> {
         instanceId: item.instanceId,
         questionLabel: String(item.questionLabel || '').trim(),
         order: index + 1,
+        required: item.required !== false,
       })),
     };
 
@@ -785,10 +807,20 @@ watch(layoutEditorFillableFields, () => {
                         @click="moveLayoutItem(index, 1)"
                       />
                     </div>
+                    <div
+                      v-if="isEditingFormLayout"
+                      class="flex items-center gap-2 mb-2"
+                    >
+                      <UCheckbox
+                        :model-value="getLayoutEntry(String(field.instanceId))?.required !== false"
+                        label="ต้องกรอก (แสดง * สีแดงฝั่งนิสิต)"
+                        @update:model-value="(v) => setLayoutRequired(String(field.instanceId), Boolean(v))"
+                      />
+                    </div>
                     <form-field-input
                       v-if="isFieldVisible(field)"
                       :model-value="previewFieldValues[getFieldValueKey(field)]"
-                      :field="{ ...field, label: getQuestionLabel(field) }"
+                      :field="{ ...field, label: getQuestionLabel(field), formRequired: getPreviewFormRequired(field) }"
                       :disabled="isPreviewCheckboxDisabled(field)"
                       @update:model-value="(value) => updatePreviewValue(field, String(value ?? ''))"
                     />
