@@ -1,6 +1,7 @@
-import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, doublePrecision, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
+export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 
 
 export const users = pgTable("users", {
@@ -154,13 +155,19 @@ export const attachments = pgTable("attachments", {
 export const notifications = pgTable("notifications", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "notifications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	userId: bigint("user_id", { mode: "number" }),
+	userId: text("user_id"),
 	message: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	authUserId: text("auth_user_id"),
 	isRead: boolean("is_read").default(false).notNull(),
-});
+	type: notificationType().notNull(),
+	link: text(),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "notifications_user_id_fkey"
+		}),
+]);
 
 export const auditLogs = pgTable("audit_logs", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -172,21 +179,6 @@ export const auditLogs = pgTable("audit_logs", {
 	action: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	authPerformedBy: text("auth_performed_by"),
-});
-
-export const request = pgTable("request", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	templateId: bigint("template_id", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	createdBy: bigint("created_by", { mode: "number" }),
-	status: text(),
-	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	filledDocumentUrl: text("filled_document_url"),
-	userId: text("user_id"),
-	note: text(),
 });
 
 export const requestTemplate = pgTable("request_template", {
@@ -206,6 +198,22 @@ export const requestTemplate = pgTable("request_template", {
 	documentWidth: bigint("document_width", { mode: "number" }),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	documentHeight: bigint("document_height", { mode: "number" }),
+});
+
+export const request = pgTable("request", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	templateId: bigint("template_id", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	createdBy: bigint("created_by", { mode: "number" }),
+	status: text(),
+	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	filledDocumentUrl: text("filled_document_url"),
+	userId: text("user_id"),
+	note: text(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
 });
 
 export const roles = pgTable("roles", {
