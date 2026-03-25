@@ -4,7 +4,8 @@ import { notifications, notificationType } from '~~/lib/db/schema';
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
-    const io = (event.context.nitro as any).io;
+    const nitroApp = useNitroApp() as any;
+
     // Allowed notification types from enum
     const allowedTypes = notificationType.enumValues;
 
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
     const [notification] = await db.insert(notifications).values(notificationData).returning();
 
     // Emit notification via socket
-    io.to(body.userId).emit('notification', notification);
+    nitroApp.io.to(body.userId).emit('notification', notification);
 
     return {
       success: true,
