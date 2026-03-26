@@ -1,7 +1,6 @@
+import db from '~~/lib/db';
+import { notifications } from '~~/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-
-import db from '../../../lib/db';
-import { notifications } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   try {

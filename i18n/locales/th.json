@@ -172,5 +172,12 @@
   "confirmSave": "ยืนยันและบันทึกเทมเพลต",
   "faculties": "คณะ",
   "departments": "สาขาวิชา",
-  "assignPersonTooltip": "ถ้าไม่เลือกจะเป็นการให้คนแรกเป็นผู้เลือกแทน"
+  "assignPersonTooltip": "ถ้าไม่เลือกจะเป็นการให้คนแรกเป็นผู้เลือกแทน",
+  "noNotifications": "ไม่มีการแจ้งเตือน",
+  "notifications": "การแจ้งเตือน",
+  "signRequest": "รอลงนาม",
+  "justNow": "เมื่อกี้",
+  "minutesAgo": "{count} นาทีที่แล้ว",
+  "hoursAgo": "{count} ชั่วโมงที่แล้ว",
+  "daysAgo": "{count} วันที่แล้ว"
 }

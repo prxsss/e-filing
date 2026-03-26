@@ -172,5 +172,12 @@
   "confirmSave": "Confirm & Save Template",
   "faculties": "Faculties",
   "departments": "Departments",
-  "assignPersonTooltip": "If no choice is made, the first person will choose instead."
+  "assignPersonTooltip": "If no choice is made, the first person will choose instead.",
+  "noNotifications": "No notifications",
+  "notifications": "Notifications",
+  "signRequest": "Sign Request",
+  "justNow": "just now",
+  "minutesAgo": "{count} minutes ago",
+  "hoursAgo": "{count} hours ago",
+  "daysAgo": "{count} days ago"
 }

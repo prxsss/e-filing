@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui';
 
+import NotificationBell from '../components/notification-bell.vue';
+
 const authStore = useAuthStore();
 
 const route = useRoute();
@@ -197,16 +199,7 @@ const selectedLanguageIcon = computed(() =>
             <!-- <UColorModeButton /> -->
 
             <!-- Notifications Button -->
-            <UButton
-              v-if="authStore.session.loggedIn"
-              color="neutral"
-              variant="ghost"
-              square
-            >
-              <UChip color="error" inset>
-                <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
-              </UChip>
-            </UButton>
+            <NotificationBell v-if="authStore.session.loggedIn" />
 
             <div class="pl-4 border-l-2 border-slate-200">
               <div v-if="false" class="flex items-center gap-3">
