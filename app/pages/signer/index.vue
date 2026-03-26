@@ -5,6 +5,7 @@ definePageMeta({
 
 const localePath = useLocalePath();
 const router = useRouter();
+const authStore = useAuthStore();
 
 // === Types ===
 type NotificationType = 'sign_request' | 'signed' | 'completed' | 'rejected';
@@ -40,7 +41,10 @@ async function refresh() {
 }
 
 onMounted(() => {
-  connect();
+  if (authStore.session.user?.id) {
+    connect(authStore.session.user.id);
+  }
+
   refresh();
 });
 

@@ -1,18 +1,37 @@
+import type { IncomingMessage } from 'node:http';
+
 import { Server } from 'socket.io';
 
 export default defineNitroPlugin((nitroApp) => {
-  const io = new Server(nitroApp.h3App as any, {
-    cors: { origin: '*' },
-  })
+  let io: Server | null = null;
 
-  // Make io available globally on nitroApp
-  ;(nitroApp as any).io = io;
+  // Grab the http.Server from the first incoming request's socket,
+  // which is the only reliable way to access it inside a Nitro runtime plugin.
+  nitroApp.hooks.hook('request', (event) => {
+    if (io)
+      return; // already initialised, skip all subsequent requests
 
-  io.on('connection', (socket) => {
-    console.warn('Client connected:', socket.id);
+    const req = event.node.req as IncomingMessage;
+    // Fix: Cast req.socket to any before accessing .server to avoid TS error
+    const httpServer = (req.socket as any)?.server;
 
-    socket.on('disconnect', () => {
-      console.warn('Client disconnected:', socket.id);
+    if (!httpServer)
+      return;
+
+    io = new Server(httpServer, {
+      cors: { origin: '*' },
+      transports: ['polling', 'websocket'],
+    });
+
+    // Make io available globally on nitroApp for use in API routes
+    ;(nitroApp as any).io = io;
+
+    io.on('connection', (socket) => {
+      socket.on('join', (userId: string) => {
+        socket.join(userId);
+      });
+
+      socket.on('disconnect', () => {});
     });
   });
 });
