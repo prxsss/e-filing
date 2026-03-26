@@ -14,10 +14,14 @@ export default defineEventHandler(async (event) => {
   const [user] = await db
     .select({
       id: users.id,
+      fullNameEn: sql<string>`
+          concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+        `,
+      fullNameTh: sql<string>`
+          concat_ws(' ', ${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
+        `,
       email: users.email,
       passwordHash: users.passwordHash,
-      firstNameEn: users.firstNameEn,
-      lastNameEn: users.lastNameEn,
       isActive: users.isActive,
       banned: users.banExpires,
     })
@@ -50,7 +54,8 @@ export default defineEventHandler(async (event) => {
   await setUserSession(event, {
     user: {
       id: user.id,
-      fullName: `${user.firstNameEn} ${user.lastNameEn}`,
+      fullNameEn: user.fullNameEn,
+      fullNameTh: user.fullNameTh,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
@@ -64,7 +69,8 @@ export default defineEventHandler(async (event) => {
     {
       id: user.id,
       email: user.email,
-      fullName: `${user.firstNameEn} ${user.lastNameEn}`,
+      fullNameEn: user.fullNameEn,
+      fullNameTh: user.fullNameTh,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,

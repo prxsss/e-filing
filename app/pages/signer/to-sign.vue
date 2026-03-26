@@ -13,7 +13,8 @@ type SigningTask = {
   stepOrder: number;
   roleName: string;
   createdAt: string;
-  studentName: string;
+  studentNameEn: string;
+  studentNameTh: string;
   request: {
     id: number;
     status: string;
@@ -26,6 +27,7 @@ type SigningTask = {
 // const authStore = useAuthStore();
 
 const router = useRouter();
+const { locale } = useI18n();
 
 const { data, status, refresh } = await useFetch<{ success: boolean; data: SigningTask[] }>(
   '/api/requests/for-signing',
@@ -59,12 +61,14 @@ const filteredTasks = computed(() => {
 
   return tableData.value.filter((task) => {
     const templateName = task.templateName?.toLowerCase() ?? '';
-    const studentName = task.studentName?.toLowerCase() ?? '';
+    const studentNameEn = task.studentNameEn?.toLowerCase() ?? '';
+    const studentNameTh = task.studentNameTh?.toLowerCase() ?? '';
     const stepInfo = task.stepInfo?.toLowerCase() ?? '';
 
     return (
       templateName.includes(q)
-      || studentName.includes(q)
+      || studentNameEn.includes(q)
+      || studentNameTh.includes(q)
       || stepInfo.includes(q)
     );
   });
@@ -94,7 +98,13 @@ const UIcon = resolveComponent('UIcon');
 
 const columns: any[] = [
   { accessorKey: 'templateName', header: 'ชื่อเอกสาร' },
-  { accessorKey: 'studentName', header: 'นักศึกษา' },
+  {
+    header: 'นักศึกษา',
+    cell: ({ row }: { row: TableRow<SigningTask> }) => {
+      const studentName = locale.value === 'th' ? row.original.studentNameTh : row.original.studentNameEn;
+      return studentName || '-';
+    },
+  },
   { accessorKey: 'stepInfo', header: 'ขั้นตอน' },
   { accessorKey: 'submittedAt', header: 'วันที่ยื่น' },
   {

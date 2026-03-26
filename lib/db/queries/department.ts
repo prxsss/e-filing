@@ -57,8 +57,8 @@ export async function getDepartments({
 
   const headOfDepartment = db
     .select({
-      headOfDeptEn: sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`.as('head_of_dept_en'),
-      headOfDeptTh: sql<string>`concat(${users.firstNameTh}, ' ', ${users.lastNameTh})`.as('head_of_dept_th'),
+      headOfDeptEn: sql<string>`concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`.as('head_of_dept_en'),
+      headOfDeptTh: sql<string>`concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`.as('head_of_dept_th'),
     })
     .from(userRoles)
     .leftJoin(roles, eq(userRoles.roleId, roles.id))

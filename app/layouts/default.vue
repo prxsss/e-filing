@@ -223,7 +223,7 @@ const selectedLanguageIcon = computed(() =>
               <div v-else-if="authStore.session.loggedIn" class="flex items-center gap-3">
                 <div class="text-right hidden md:block">
                   <p class="font-semibold text-sm">
-                    {{ authStore.session.user?.fullName }}
+                    {{ locale === 'en' ? authStore.session.user?.fullNameEn : authStore.session.user?.fullNameTh }}
                   </p>
                   <p class="text-xs capitalize">
                     {{ authStore.session.user?.currentRole }}
