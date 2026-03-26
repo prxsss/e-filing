@@ -22,7 +22,7 @@ export default defineEventHandler(async (event: H3Event) => {
       name: body.name,
       description: body.description || null,
       version: body.version || '1.0.0',
-      isActive: body.isActive !== undefined ? body.isActive : true,
+      isActive: body.isActive !== undefined ? body.isActive : false,
       createdBy: body.createdBy || null,
       documentUrl: body.documentUrl || null,
       documentWidth: body.documentWidth || null,

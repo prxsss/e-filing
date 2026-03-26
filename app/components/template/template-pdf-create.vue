@@ -941,7 +941,7 @@ async function saveTemplate() {
       name: templateName,
       description: null,
       version: '1.0.0',
-      isActive: true,
+      isActive: false,
       createdBy: null,
       documentUrl,
       documentWidth: Math.round(pdfNaturalDimensions.value.width),

@@ -20,6 +20,21 @@ const fieldType = computed(() => String(props.field?.type || props.field?.fieldT
 const isNumericField = computed(() => fieldType.value === 'number');
 const isCheckboxField = computed(() => fieldType.value === 'checkbox');
 
+/** From template Form Layout (`formRequired`); default required when unset */
+const showRequiredAsterisk = computed(() => {
+  const f = props.field;
+  if (!f || typeof f !== 'object') {
+    return true;
+  }
+  if (Object.prototype.hasOwnProperty.call(f, 'formRequired')) {
+    return f.formRequired !== false;
+  }
+  if (Object.prototype.hasOwnProperty.call(f, 'form_required')) {
+    return f.form_required !== false;
+  }
+  return true;
+});
+
 function normalizeCheckboxValue(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   return ['true', '1', 'yes', 'y', 'checked', 'on'].includes(normalized) ? 'true' : '';
@@ -46,7 +61,19 @@ function normalizeInputValue(value) {
   // Number fields are rendered as text with numeric input mode so maxlength
   // can block extra typing in real-time.
   if (isNumericField.value) {
-    normalizedValue = normalizedValue.replace(/\D/g, '');
+    // Allow digits, one decimal point and an optional leading minus sign.
+    normalizedValue = normalizedValue.replace(/[^0-9.\-]/g, '');
+    // Keep only the first dot
+    const firstDot = normalizedValue.indexOf('.');
+    if (firstDot !== -1) {
+      normalizedValue = normalizedValue.slice(0, firstDot + 1) + normalizedValue.slice(firstDot + 1).replace(/\./g, '');
+    }
+    // Allow only one leading minus; move any minus to the front
+    const hasMinus = normalizedValue.includes('-');
+    normalizedValue = normalizedValue.replace(/-/g, '');
+    if (hasMinus) {
+      normalizedValue = `-${normalizedValue}`;
+    }
   }
 
   if (!maxLength.value || fieldType.value === 'date' || fieldType.value === 'time') {
@@ -87,10 +114,6 @@ const inputType = computed(() => {
       return 'time';
     case 'number':
       return 'text';
-    case 'email':
-      return 'email';
-    case 'phone':
-      return 'tel';
     default:
       return 'text';
   }
@@ -98,7 +121,8 @@ const inputType = computed(() => {
 
 const inputMode = computed(() => {
   if (isNumericField.value) {
-    return 'numeric';
+    // Prefer decimal input mode on supporting browsers for decimal and minus
+    return 'decimal';
   }
 
   return undefined;
@@ -129,6 +153,7 @@ const currentLength = computed(() => localValue.value.length);
         <span class="field-label mb-0">
           <i v-if="field.icon" :class="field.icon" class="mr-2" />
           {{ field.label || field.name }}
+          <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
         </span>
       </label>
     </template>
@@ -136,6 +161,7 @@ const currentLength = computed(() => localValue.value.length);
       <label v-if="field.label || field.name" class="field-label">
         <i v-if="field.icon" :class="field.icon" class="mr-2" />
         {{ field.label || field.name }}
+        <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
       </label>
 
       <input

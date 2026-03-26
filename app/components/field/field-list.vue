@@ -6,8 +6,6 @@ const emit = defineEmits(['fieldAdded']);
 const availableFields = ref([
   { id: 1, name: 'Student Name', label: 'Student Name', type: 'Text', icon: 'fas fa-user', is_fillable: true, default_width: 200, default_height: 40 },
   { id: 2, name: 'Student ID', label: 'Student ID', type: 'Text', icon: 'fas fa-id-card', is_fillable: true, default_width: 150, default_height: 40 },
-  { id: 3, name: 'Email', label: 'Email Address', type: 'Text', icon: 'fas fa-envelope', is_fillable: true, default_width: 250, default_height: 40 },
-  { id: 4, name: 'Phone', label: 'Phone Number', type: 'Text', icon: 'fas fa-phone', is_fillable: true, default_width: 150, default_height: 40 },
   { id: 5, name: 'Date', label: 'Date', type: 'Date', icon: 'fas fa-calendar', is_fillable: true, default_width: 150, default_height: 40 },
   { id: 'default-signature', name: 'Signature Box', label: 'Signature', type: 'Signature', icon: 'fas fa-signature', is_fillable: false, default_width: 200, default_height: 80 },
   { id: 'default-checkmark', name: 'Check Mark', label: 'Check Mark', type: 'Icon', icon: 'fas fa-check', is_fillable: false, default_width: 30, default_height: 30 },

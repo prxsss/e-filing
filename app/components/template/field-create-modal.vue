@@ -60,14 +60,12 @@ const formData = ref({
   strikeLineThickness: 1.5,
 });
 
-const fieldTypes = ['Text', 'Date', 'Time', 'Checkbox', 'Signature', 'Number', 'Email', 'Phone'];
+const fieldTypes = ['Text', 'Number', 'Checkbox', 'Signature', 'Date', 'Time'];
 
 const iconOptions = [
   { value: 'i-heroicons-document', label: 'Document', icon: 'i-heroicons-document' },
   { value: 'i-heroicons-user', label: 'User', icon: 'i-heroicons-user' },
   { value: 'i-heroicons-identification', label: 'ID', icon: 'i-heroicons-identification' },
-  { value: 'i-heroicons-envelope', label: 'Email', icon: 'i-heroicons-envelope' },
-  { value: 'i-heroicons-phone', label: 'Phone', icon: 'i-heroicons-phone' },
   { value: 'i-heroicons-calendar', label: 'Calendar', icon: 'i-heroicons-calendar' },
   { value: 'i-heroicons-clock', label: 'Time', icon: 'i-heroicons-clock' },
   { value: 'i-heroicons-pencil-square', label: 'Signature', icon: 'i-heroicons-pencil-square' },
@@ -76,12 +74,20 @@ const iconOptions = [
   { value: 'i-heroicons-building-office', label: 'Office', icon: 'i-heroicons-building-office' },
 ];
 
-const fontOptions = ['Sarabun', 'Prompt', 'Mitr', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma'];
+const fontOptions = ['Sarabun'];
 
 const selectedFieldType = computed(() => String(formData.value.type || '').toLowerCase());
 
 const supportsTextSettings = computed(() => {
   return !['signature', 'icon', 'checkbox'].includes(selectedFieldType.value);
+});
+
+const supportsFontControls = computed(() => {
+  if (['signature', 'checkbox'].includes(selectedFieldType.value)) {
+    return false;
+  }
+
+  return true;
 });
 
 const supportsAmountSetting = computed(() => selectedFieldType.value === 'checkbox');
@@ -397,7 +403,7 @@ async function handleDelete() {
             </div>
 
             <!-- Font & Font Size -->
-            <div class="grid grid-cols-2 gap-1.5">
+            <div v-if="supportsFontControls" class="grid grid-cols-2 gap-1.5">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                   ฟอนต์
