@@ -48,10 +48,10 @@ const columns: TableColumn<UserAssignment>[] = [
         <div class="divide-y divide-gray-200 dark:divide-gray-800">
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              ID
+              Email
             </p>
             <p class="text-sm font-medium">
-              {{ user.id }}
+              {{ user.email }}
             </p>
           </div>
           <!-- <div class="p-5">

@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui';
+import type { TableColumn, TableRow } from '@nuxt/ui';
 
 import type { RequestStatus } from '~/utils/request-status';
+
+defineProps<{
+  requests: Request[];
+  total: number | undefined;
+  columns: TableColumn<Request>[];
+}>();
+
+const localePath = useLocalePath();
 
 type Request = {
   id: string;
   title: string;
   status: RequestStatus;
-  role: string;
+  submittedAt: string;
 };
 
-defineProps<{
-  requests: Request[];
-  columns: TableColumn<Request>[];
-}>();
+const page = defineModel('page', { type: Number, default: 1 });
+const pageSize = defineModel('pageSize', { type: Number, default: 5 });
+
+function onRowSelect(_e: Event, row: TableRow<Request>) {
+  navigateTo(localePath(`/admin/requests/${row.original.id}`));
+}
 </script>
 
 <template>
@@ -27,28 +37,23 @@ defineProps<{
       </div>
     </template>
 
-    <UTable :data="requests" :columns="columns" />
-
-    <template #footer>
-      <div class="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-800">
-        <p class="text-sm text-gray-500">
-          Showing 3 of 12 documents
-        </p>
-        <div class="flex items-center gap-2">
-          <UButton
-            icon="i-heroicons-chevron-left-20-solid"
-            color="neutral"
-            variant="soft"
-            size="sm"
-          />
-          <UButton
-            icon="i-heroicons-chevron-right-20-solid"
-            color="neutral"
-            variant="soft"
-            size="sm"
-          />
-        </div>
-      </div>
-    </template>
+    <UTable
+      :data="requests" :columns="columns" :ui="{
+        tr: 'cursor-pointer',
+      }" @select="onRowSelect"
+    >
+      <template #actions-cell>
+        <UIcon name="i-lucide-chevron-right" class="w-5 h-5" />
+      </template>
+    </UTable>
+    <div class="flex justify-center gap-2 border-t border-default pt-4 px-4">
+      <UPagination
+        v-model:page="page"
+        :items-per-page="pageSize"
+        :total="total"
+        show-edges
+      />
+      <USelect v-model="pageSize" :items="[5, 10, 20, 50]" />
+    </div>
   </UCard>
 </template>
