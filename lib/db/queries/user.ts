@@ -3,7 +3,7 @@ import type { SQL } from 'drizzle-orm';
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '..';
-import { departments, faculties, roles, userRoles, users } from '../schema';
+import { departments, faculties, request, roles, userRoles, users } from '../schema';
 
 type UserListFilters = {
   search?: string;
@@ -187,7 +187,7 @@ export async function getUserById(id: string) {
       assignments: sql<{ role: string; faculty: { id: string; nameEn: string; nameTh: string } | null; department: { id: string; nameEn: string; nameTh: string } | null }[]>`
       coalesce(
         json_agg(
-          jsonb_build_object(
+          distinct jsonb_build_object(
             'role', ${roles.name},
 
             'faculty',
@@ -214,12 +214,16 @@ export async function getUserById(id: string) {
         '[]'
       )
     `,
+      totalRequests: sql<number>`count(${request.id})::int`,
+      pendingRequests: sql<number>`count(case when ${request.status} in ('submitted', 'in_progress') then ${request.id} end)::int`,
+      approvedRequests: sql<number>`count(case when ${request.status} = 'completed' then ${request.id} end)::int`,
     })
     .from(users)
     .leftJoin(userRoles, eq(users.id, userRoles.userId))
     .leftJoin(roles, eq(userRoles.roleId, roles.id))
     .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
     .leftJoin(departments, eq(userRoles.departmentId, departments.id))
+    .leftJoin(request, eq(users.id, request.userId))
     .where(eq(users.id, id))
     .groupBy(users.id)
     .then(results => results[0] || null);

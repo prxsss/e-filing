@@ -7,11 +7,6 @@ import { formatDate } from '~/utils/formatters';
 
 defineProps<{
   user: UserDetail;
-  statusSummary: {
-    totalRequests: number;
-    pendingAction: number;
-    approved: number;
-  };
 }>();
 
 type UserAssignment = UserDetail['assignments'][number];
@@ -53,10 +48,10 @@ const columns: TableColumn<UserAssignment>[] = [
         <div class="divide-y divide-gray-200 dark:divide-gray-800">
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              ID
+              Email
             </p>
             <p class="text-sm font-medium">
-              {{ user.id }}
+              {{ user.email }}
             </p>
           </div>
           <!-- <div class="p-5">
@@ -107,7 +102,7 @@ const columns: TableColumn<UserAssignment>[] = [
               Total Requests
             </p>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">
-              {{ statusSummary.totalRequests }}
+              {{ user.totalRequests.toLocaleString() }}
             </p>
           </div>
 
@@ -117,7 +112,7 @@ const columns: TableColumn<UserAssignment>[] = [
               Pending Action
             </p>
             <p class="text-2xl font-bold text-amber-700 dark:text-amber-400">
-              {{ statusSummary.pendingAction }}
+              {{ user.pendingRequests.toLocaleString() }}
             </p>
           </div>
 
@@ -127,7 +122,7 @@ const columns: TableColumn<UserAssignment>[] = [
               Approved
             </p>
             <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-              {{ statusSummary.approved }}
+              {{ user.approvedRequests.toLocaleString() }}
             </p>
           </div>
         </div>

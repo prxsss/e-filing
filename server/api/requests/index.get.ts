@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
     const search = query.search as string | undefined;
     const dateParam = query.date as string | undefined; // Added date query
     const mine = query.mine === 'true' || query.mine === '1';
+    const requesterId = query.requesterId as string | undefined;
 
     // Build WHERE conditions
     const conditions = [];
@@ -51,6 +52,10 @@ export default defineEventHandler(async (event) => {
       );
     }
 
+    if (requesterId) {
+      conditions.push(eq(request.userId, requesterId));
+    }
+
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Get total count
@@ -76,10 +81,10 @@ export default defineEventHandler(async (event) => {
         templateName: requestTemplate.name,
         status: request.status,
         createdBy: request.createdBy,
-        requesterName: sql<string>`CONCAT_WS(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+        requesterName: sql<string>`CONCAT_WS(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`,
         requesterNameTh: sql<string>`CONCAT(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
         studentId: users.id,
-        studentNameEn: sql<string>`CONCAT_WS(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+        studentNameEn: sql<string>`CONCAT_WS(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`,
         studentNameTh: sql<string>`CONCAT(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
         submittedAt: request.submittedAt,
         filledDocumentUrl: request.filledDocumentUrl,

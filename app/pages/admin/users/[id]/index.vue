@@ -7,6 +7,7 @@ import { h, resolveComponent } from 'vue';
 import type { UserDetail } from '~/types/user';
 import type { RequestStatus } from '~/utils/request-status';
 
+import { formatDate } from '~/utils/formatters';
 import { getRequestStatusColor } from '~/utils/request-status';
 
 definePageMeta({
@@ -23,6 +24,7 @@ const router = useRouter();
 const localPath = useLocalePath();
 const overlay = useOverlay();
 const toast = useToast();
+const { locale } = useI18n();
 
 const authStore = useAuthStore();
 
@@ -30,53 +32,53 @@ const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
 
 const { data: user, execute: refreshUser } = await useFetch<UserDetail>(`/api/users/${route.params.id}`);
 
-const statusSummary = reactive({
-  totalRequests: 12,
-  pendingAction: 3,
-  approved: 7,
-});
-
 type Request = {
   id: string;
   title: string;
   status: RequestStatus;
-  role: string;
+  submittedAt: string;
 };
 
-const requests = ref<Request[]>([
-  {
-    id: 'REQ-001',
-    title: 'Research Grant Application_Q4.pdf',
-    status: 'pending',
-    role: 'Created by user',
-  },
-  {
-    id: 'REQ-002',
-    title: 'Annual Lab Safety Report.docx',
-    status: 'approved',
-    role: 'Signed by user',
-  },
-  {
-    id: 'REQ-003',
-    title: 'Staff Reimbursement #RE-901',
-    status: 'action_required',
-    role: 'Waiting action',
-  },
-  {
-    id: 'REQ-004',
-    title: 'Equipment Purchase Request #EQ-456',
-    status: 'rejected',
-    role: 'Created by user',
-  },
-]);
+type RequestApiResult = {
+  success: boolean;
+  data: Request[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    statusCounts: {
+      in_progress: number;
+      rejected: number;
+      completed: number;
+    };
+  };
+};
+
+const page = ref(1);
+const pageSize = ref(10);
+
+const { data: requestApiResult } = await useFetch<RequestApiResult> ('/api/requests', {
+  query: computed(() => ({
+    page: page.value,
+    limit: pageSize.value,
+    requesterId: route.params.id as string,
+  })),
+});
 
 const columns: TableColumn<Request>[] = [
   {
-    accessorKey: 'id',
-    header: 'Request ID',
+    header: 'No.',
+    meta: {
+      class: {
+        th: 'w-12 text-right',
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => row.index + 1 + (requestApiResult.value ? (requestApiResult.value.meta.page - 1) * requestApiResult.value.meta.limit : 0),
   },
   {
-    accessorKey: 'title',
+    accessorKey: 'templateName',
     header: 'Title',
   },
   {
@@ -86,17 +88,29 @@ const columns: TableColumn<Request>[] = [
       const color = getRequestStatusColor(row.getValue('status'));
 
       const label = ({
-        pending: 'Pending',
-        approved: 'Approved',
-        action_required: 'Action Required',
+        in_progress: 'In Progress',
+        completed: 'Completed',
         rejected: 'Rejected',
       })[row.getValue('status') as string];
       return h(UBadge, { class: 'capitalize', variant: 'soft', color }, label);
     },
   },
   {
-    accessorKey: 'role',
-    header: 'Role',
+    accessorKey: 'submittedAt',
+    header: 'Submitted At',
+    cell: ({ row }) => {
+      const date = new Date(row.getValue('submittedAt'));
+      return formatDate(date, locale.value);
+    },
+  },
+  {
+    id: 'actions',
+    header: '',
+    meta: {
+      class: {
+        td: 'text-right',
+      },
+    },
   },
 ];
 
@@ -129,13 +143,13 @@ const items = [
     slot: 'requests' as const,
     value: 'requests',
   },
-  {
-    label: 'Activity',
-    description: 'Review the activity log for this user, including recent actions, logins, and changes made to their account.',
-    icon: 'i-lucide-history',
-    slot: 'activity' as const,
-    value: 'activity',
-  },
+  // {
+  //   label: 'Activity',
+  //   description: 'Review the activity log for this user, including recent actions, logins, and changes made to their account.',
+  //   icon: 'i-lucide-history',
+  //   slot: 'activity' as const,
+  //   value: 'activity',
+  // },
 ] satisfies TabsItem[];
 
 const active = computed({
@@ -266,7 +280,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
                 </UBadge>
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400">
-                {{ user.email }}
+                ID: {{ user.id }}
               </p>
             </div>
           </div>
@@ -303,7 +317,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
         }" class="gap-8 w-full"
       >
         <template #overview>
-          <AdminUsersDetailUserOverviewTab :user="user" :status-summary="statusSummary" />
+          <AdminUsersDetailUserOverviewTab :user="user" />
         </template>
         <!-- <template #permissions>
             <AdminUsersDetailUserPermissionsTab :roles="user.roles" />
@@ -312,11 +326,11 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
             <AdminUsersDetailUserSignatureTab :user="user" :signature-details="signatureDetails" />
           </template> -->
         <template #requests>
-          <AdminUsersDetailUserRequestsTab :requests="requests" :columns="columns" />
+          <AdminUsersDetailUserRequestsTab v-model:page="page" v-model:page-size="pageSize" :requests="requestApiResult?.data ?? []" :total="requestApiResult?.meta.total" :columns="columns" />
         </template>
-        <template #activity>
+        <!-- <template #activity>
           <AdminUsersDetailUserActivityTab />
-        </template>
+        </template> -->
       </UTabs>
     </div>
     <div v-else>

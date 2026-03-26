@@ -1,4 +1,4 @@
-export type RequestStatus = 'approved' | 'pending' | 'rejected' | 'action_required';
+export type RequestStatus = 'completed' | 'in_progress' | 'rejected';
 
 /**
  * Gets the color variant for a given request status.
@@ -9,10 +9,9 @@ export type RequestStatus = 'approved' | 'pending' | 'rejected' | 'action_requir
  */
 export function getRequestStatusColor(status: RequestStatus): string {
   const colors: Record<RequestStatus, string> = {
-    approved: 'success',
-    pending: 'warning',
+    completed: 'success',
+    in_progress: 'warning',
     rejected: 'error',
-    action_required: 'info',
   };
   return colors[status] || 'neutral';
 }
