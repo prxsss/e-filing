@@ -42,6 +42,7 @@ export const rolesRelations = relations(roles, ({many}) => ({
 export const usersRelations = relations(users, ({many}) => ({
 	userRoles: many(userRoles),
 	notifications: many(notifications),
+	requests: many(request),
 	activationOtps: many(activationOtps),
 }));
 
@@ -56,9 +57,13 @@ export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
 	}),
 }));
 
-export const requestRelations = relations(request, ({many}) => ({
+export const requestRelations = relations(request, ({one, many}) => ({
 	signatureFlows: many(signatureFlow),
 	attachments: many(attachments),
+	user: one(users, {
+		fields: [request.userId],
+		references: [users.id]
+	}),
 	requestTemplateValues: many(requestTemplateValues),
 }));
 

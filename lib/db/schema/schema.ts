@@ -214,7 +214,13 @@ export const request = pgTable("request", {
 	userId: text("user_id"),
 	note: text(),
 	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
-});
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "request_user_id_fkey"
+		}),
+]);
 
 export const roles = pgTable("roles", {
 	id: serial().primaryKey().notNull(),
