@@ -52,8 +52,8 @@ export async function getFaculties({
 
   const dean = db
     .select({
-      deanNameEn: sql<string>`concat(${users.firstNameEn}, ' ', ${users.lastNameEn})`.as('dean_name_en'),
-      deanNameTh: sql<string>`concat(${users.firstNameTh}, ' ', ${users.lastNameTh})`.as('dean_name_th'),
+      deanNameEn: sql<string>`concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})`.as('dean_name_en'),
+      deanNameTh: sql<string>`concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`.as('dean_name_th'),
     })
     .from(userRoles)
     .leftJoin(roles, eq(userRoles.roleId, roles.id))

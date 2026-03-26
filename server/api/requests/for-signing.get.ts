@@ -1,6 +1,6 @@
 import db from '~~/lib/db';
 import { request, requestTemplate, signatureFlow, userRoles, users } from '~~/lib/db/schema';
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -60,10 +60,8 @@ export default defineEventHandler(async (event) => {
         filledDocumentUrl: request.filledDocumentUrl,
         templateName: requestTemplate.name,
         templateId: request.templateId,
-        requesterFirstNameTh: users.firstNameTh,
-        requesterLastNameTh: users.lastNameTh,
-        requesterFirstNameEn: users.firstNameEn,
-        requesterLastNameEn: users.lastNameEn,
+        requesterNameEn: sql<string>`concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+        requesterNameTh: sql<string>`concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
       })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
@@ -72,13 +70,6 @@ export default defineEventHandler(async (event) => {
 
     const data = allPendingFlows.map((flow) => {
       const req = requestRows.find(r => r.id === flow.requestId);
-
-      // Prefer Thai name; fall back to English name
-      const studentName = req
-        ? (req.requesterFirstNameTh && req.requesterLastNameTh
-            ? `${req.requesterFirstNameTh} ${req.requesterLastNameTh}`
-            : `${req.requesterFirstNameEn ?? ''} ${req.requesterLastNameEn ?? ''}`.trim())
-        : '-';
 
       return {
         flowId: flow.id,
@@ -89,7 +80,8 @@ export default defineEventHandler(async (event) => {
         roleName: flow.roleName,
         assignedFieldInstanceIds: flow.assignedFieldInstanceIds as string[],
         createdAt: flow.createdAt,
-        studentName,
+        studentNameEn: req?.requesterNameEn ?? '-',
+        studentNameTh: req?.requesterNameTh ?? '-',
         request: req
           ? {
               id: req.id,
