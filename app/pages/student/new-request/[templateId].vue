@@ -734,6 +734,18 @@ async function fetchTemplateData() {
           },
         );
 
+        // Ensure each placed field has a unique instanceId on the client so
+        // each placement can have its own UI state. This prevents text typed
+        // into one placement from appearing in all placements that share the
+        // same server-side field id.
+        for (let i = 0; i < placedFields.value.length; i++) {
+          const f = placedFields.value[i] as any;
+          const existing = String(f?.instanceId ?? '').trim();
+          if (!existing) {
+            f.instanceId = `inst-${String(f?.id ?? i)}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+          }
+        }
+
         hydrateFieldValueKeys();
         clearHiddenFieldValues();
       }
@@ -809,16 +821,26 @@ async function submitRequest() {
       }
 
       const value = resolveCurrentFieldValue(field) || '';
+      const instanceId = String(field?.instanceId ?? '').trim();
+
       if (isCheckboxField(field)) {
         fieldValuesArray.push({
           fieldId,
-          instanceId: String(field?.instanceId ?? '').trim() || undefined,
+          instanceId: instanceId || undefined,
           value,
         });
         continue;
       }
 
-      // Non-checkbox fields: keep the last value per fieldId (legacy storage model)
+      // If this placement has an instanceId, send it so the server can persist
+      // values per placement. Otherwise fallback to legacy dedupe-by-fieldId
+      // behavior (single value per fieldId).
+      if (instanceId) {
+        fieldValuesArray.push({ fieldId, instanceId, value });
+        continue;
+      }
+
+      // Non-checkbox fields without instanceId: keep the last value per fieldId (legacy storage model)
       if (dedupeByFieldId.has(fieldId)) {
         const idx = fieldValuesArray.findIndex(v => v.fieldId === fieldId && !v.instanceId);
         if (idx !== -1) {
