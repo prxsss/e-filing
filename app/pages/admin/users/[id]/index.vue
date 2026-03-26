@@ -30,12 +30,6 @@ const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
 
 const { data: user, execute: refreshUser } = await useFetch<UserDetail>(`/api/users/${route.params.id}`);
 
-const statusSummary = reactive({
-  totalRequests: 12,
-  pendingAction: 3,
-  approved: 7,
-});
-
 type Request = {
   id: string;
   title: string;
@@ -129,13 +123,13 @@ const items = [
     slot: 'requests' as const,
     value: 'requests',
   },
-  {
-    label: 'Activity',
-    description: 'Review the activity log for this user, including recent actions, logins, and changes made to their account.',
-    icon: 'i-lucide-history',
-    slot: 'activity' as const,
-    value: 'activity',
-  },
+  // {
+  //   label: 'Activity',
+  //   description: 'Review the activity log for this user, including recent actions, logins, and changes made to their account.',
+  //   icon: 'i-lucide-history',
+  //   slot: 'activity' as const,
+  //   value: 'activity',
+  // },
 ] satisfies TabsItem[];
 
 const active = computed({
@@ -303,7 +297,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
         }" class="gap-8 w-full"
       >
         <template #overview>
-          <AdminUsersDetailUserOverviewTab :user="user" :status-summary="statusSummary" />
+          <AdminUsersDetailUserOverviewTab :user="user" />
         </template>
         <!-- <template #permissions>
             <AdminUsersDetailUserPermissionsTab :roles="user.roles" />
@@ -314,9 +308,9 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
         <template #requests>
           <AdminUsersDetailUserRequestsTab :requests="requests" :columns="columns" />
         </template>
-        <template #activity>
+        <!-- <template #activity>
           <AdminUsersDetailUserActivityTab />
-        </template>
+        </template> -->
       </UTabs>
     </div>
     <div v-else>

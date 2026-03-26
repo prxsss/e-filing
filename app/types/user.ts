@@ -45,4 +45,7 @@ export type UserDetail = {
       nameTh: string;
     } | null;
   }[];
+  totalRequests: number;
+  pendingRequests: number;
+  approvedRequests: number;
 };
