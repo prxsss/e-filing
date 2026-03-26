@@ -1466,7 +1466,7 @@ async function performSave(): Promise<void> {
       description: newTemplateDescription.value.trim(),
       category: null,
       version: '1.0.0',
-      isActive: true,
+      isActive: false,
       createdBy: null,
       documentUrl,
       documentWidth: docWidth,
