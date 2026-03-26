@@ -76,11 +76,16 @@ const columns = [
   {
     id: 'unread',
     header: '',
-    size: 12,
-    cell: (ctx: any) =>
-      !ctx.row.original.isRead
-        ? h('span', { class: 'block w-2 h-2 rounded-full bg-primary-500 mx-auto' })
-        : null,
+    size: 20,
+    cell: (ctx: any) => {
+      if (ctx.row.original.isRead) {
+        return h('span', { class: 'block w-2 h-2 rounded-full bg-gray-200 mx-auto' });
+      }
+      return h('span', { class: 'relative flex items-center justify-center mx-auto w-3 h-3' }, [
+        h('span', { class: 'animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-60' }),
+        h('span', { class: 'relative block w-2 h-2 rounded-full bg-primary-500' }),
+      ]);
+    },
   },
   {
     accessorKey: 'message',
@@ -89,13 +94,15 @@ const columns = [
   {
     accessorKey: 'type',
     header: 'ประเภท',
-    cell: (ctx: any) =>
-      h(UBadge, {
+    cell: (ctx: any) => {
+      const isRead = ctx.row.original.isRead;
+      return h(UBadge, {
         color: notifTypeColor[ctx.row.original.type as NotificationType] as any,
-        variant: 'subtle',
+        variant: isRead ? 'subtle' : 'solid',
         size: 'sm',
         label: notifTypeLabel[ctx.row.original.type as NotificationType] ?? ctx.row.original.type,
-      }),
+      });
+    },
   },
   {
     accessorKey: 'createdAt',
@@ -105,10 +112,15 @@ const columns = [
     id: 'navigate',
     header: '',
     size: 40,
-    cell: (ctx: any) =>
-      ctx.row.original.link
-        ? h(UIcon, { name: 'i-lucide-chevron-right', class: 'w-5 h-5 text-gray-400' })
-        : null,
+    cell: (ctx: any) => {
+      if (!ctx.row.original.link)
+        return null;
+      const isRead = ctx.row.original.isRead;
+      return h(UIcon, {
+        name: 'i-lucide-chevron-right',
+        class: isRead ? 'w-5 h-5 text-gray-300' : 'w-5 h-5 text-primary-500',
+      });
+    },
   },
 ];
 
@@ -130,7 +142,6 @@ async function onRowSelect(_e: Event, row: any) {
   const notif: Notification = row.original;
 
   // Mark as read via API if still unread
-
   if (!notif.isRead) {
     await $fetch(`/api/notifications/${notif.id}/read`, { method: 'patch' });
     // Update local state
@@ -214,13 +225,26 @@ async function markAllRead() {
           :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
           @select="onRowSelect"
         >
+          <!-- Message cell: bold + dark for unread, muted for read -->
           <template #message-cell="{ row }">
-            <span :class="!row.original.isRead ? 'font-semibold text-gray-900' : 'text-gray-500 text-sm'">
+            <div v-if="!row.original.isRead" class="flex items-center gap-2">
+              <span class="font-semibold text-gray-900 leading-snug">
+                {{ row.original.message ?? '—' }}
+              </span>
+            </div>
+            <span v-else class="text-gray-400 text-sm leading-snug">
               {{ row.original.message ?? '—' }}
             </span>
           </template>
+
+          <!-- Time cell: primary-colored for unread, muted for read -->
           <template #createdAt-cell="{ row }">
-            <span class="text-gray-500 text-sm">{{ formatRelativeTime(row.original.createdAt) }}</span>
+            <span
+              class="text-sm whitespace-nowrap"
+              :class="!row.original.isRead ? 'text-primary-600 font-medium' : 'text-gray-400'"
+            >
+              {{ formatRelativeTime(row.original.createdAt) }}
+            </span>
           </template>
         </UTable>
       </UCard>

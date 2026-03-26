@@ -36,8 +36,19 @@ export default defineEventHandler(async (event) => {
     // Insert notification into DB
     const [notification] = await db.insert(notifications).values(notificationData).returning();
 
-    // Emit notification via socket
-    nitroApp.io.to(body.userId).emit('notification', notification);
+    // Emit notification via socket with error handling
+    try {
+      nitroApp.io.to(body.userId).emit('notification', notification);
+    }
+    catch (socketErr: any) {
+      if (socketErr && socketErr.code === 'ECONNABORTED') {
+        console.error('[Socket ECONNABORTED]', socketErr);
+      }
+      else {
+        console.error('[Socket emit error]', socketErr);
+      }
+      // Optionally, you could return a more descriptive error here
+    }
 
     return {
       success: true,

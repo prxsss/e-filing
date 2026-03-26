@@ -45,6 +45,13 @@ export function useSocket() {
     socket.value.on('notification', (data: Notification) => {
       notifications.value.unshift(data);
     });
+
+    // Add error event handler for diagnostics
+    socket.value.on('error', (err: any) => {
+      // Log error for diagnostics, including ECONNABORTED
+      // Optionally, show a user notification or handle reconnection here
+      console.error('[Socket error]', err);
+    });
   }
 
   function disconnect() {
