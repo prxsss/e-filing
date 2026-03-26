@@ -1,55 +1,31 @@
-import type { IncomingMessage } from 'node:http';
-
+import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 
 export default defineNitroPlugin((nitroApp) => {
-  let io: Server | null = null;
+  // In Nuxt dev mode, Nitro runs behind Vite's HMR server.
+  // Attaching Socket.io to req.socket.server hands it Vite's server,
+  // which conflicts with Vite's own WebSocket upgrade handler and causes
+  // "Invalid frame header" + server crash.
+  // Running Socket.io on a dedicated HTTP server on a separate port
+  // is the only reliable approach in the Nuxt dev environment.
+  const httpServer = createServer();
+  const io = new Server(httpServer, {
+    cors: { origin: '*' },
+    transports: ['polling', 'websocket'],
+  });
 
-  nitroApp.hooks.hook('request', (event) => {
-    if (io)
-      return;
+  const SOCKET_PORT = 3001;
+  httpServer.listen(SOCKET_PORT, () => {
+    console.warn(`[socket.io] Listening on port ${SOCKET_PORT}`);
+  });
 
-    const req = event.node.req as IncomingMessage;
+  ;(nitroApp as any).io = io;
 
-    // Skip initialisation if this request is already a Socket.io handshake.
-    // Without this guard, Socket.io tries to attach mid-handshake on its own
-    // polling request, writes to a half-closed socket, and throws ECONNABORTED
-    // which crashes the Nitro dev server.
-    if (req.url?.startsWith('/socket.io'))
-      return;
-
-    const httpServer = (req.socket as any)?.server;
-    if (!httpServer)
-      return;
-
-    // Swallow connection-level write errors (ECONNABORTED, EPIPE, ECONNRESET)
-    // so a single dropped client can't bring down the whole dev server.
-    httpServer.on('error', (err: NodeJS.ErrnoException) => {
-      if (['ECONNABORTED', 'EPIPE', 'ECONNRESET'].includes(err.code ?? ''))
-        return;
-      console.error('[http server error]', err);
+  io.on('connection', (socket) => {
+    socket.on('join', (userId: string) => {
+      socket.join(userId);
     });
 
-    io = new Server(httpServer, {
-      cors: { origin: '*' },
-      transports: ['polling', 'websocket'],
-    });
-
-    ;(nitroApp as any).io = io;
-
-    io.on('connection', (socket) => {
-      socket.on('join', (userId: string) => {
-        socket.join(userId);
-      });
-
-      // Absorb per-socket errors so they don't bubble up to the server
-      socket.on('error', (err: NodeJS.ErrnoException) => {
-        if (['ECONNABORTED', 'EPIPE', 'ECONNRESET'].includes(err.code ?? ''))
-          return;
-        console.error('[socket error]', err);
-      });
-
-      socket.on('disconnect', () => {});
-    });
+    socket.on('disconnect', () => {});
   });
 });

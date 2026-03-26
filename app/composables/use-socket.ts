@@ -9,9 +9,8 @@ export function useSocket() {
   const notifications = useState<Notification[]>('notifications', () => []);
 
   function connect(userId: string) {
-    if (socket.value?.connected) {
+    if (socket.value?.connected)
       return;
-    }
 
     if (socket.value) {
       socket.value.removeAllListeners();
@@ -19,11 +18,13 @@ export function useSocket() {
       socket.value = null;
     }
 
-    socket.value = io('/', {
-      path: '/socket.io',
-      // Allow polling first so the HTTP handshake can complete,
-      // then upgrade to WebSocket. Pure 'websocket' fails silently
-      // on Nitro's h3App because the upgrade isn't handled the same way.
+    // Connect to the dedicated Socket.io port, not the Nuxt dev server port.
+    // In production, change this to your actual domain/port.
+    const SOCKET_URL = import.meta.dev
+      ? 'http://localhost:3001'
+      : window.location.origin;
+
+    socket.value = io(SOCKET_URL, {
       transports: ['polling', 'websocket'],
     });
 
@@ -32,24 +33,15 @@ export function useSocket() {
     });
 
     socket.value.on('connect_error', (_err) => {
-      // Optionally, you can show a user notification or log the error
-      // For now, just disconnect to avoid stale state
       socket.value?.disconnect();
       socket.value = null;
-    });
-
-    socket.value.on('disconnect', (_reason) => {
-      // Optionally handle disconnect reason
     });
 
     socket.value.on('notification', (data: Notification) => {
       notifications.value.unshift(data);
     });
 
-    // Add error event handler for diagnostics
     socket.value.on('error', (err: any) => {
-      // Log error for diagnostics, including ECONNABORTED
-      // Optionally, show a user notification or handle reconnection here
       console.error('[Socket error]', err);
     });
   }
