@@ -13,7 +13,7 @@ definePageMeta({
   permission: 'dashboard.admin.view',
 });
 
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const selectedFacultyId = ref<number | 'all'>('all');
 
@@ -30,7 +30,7 @@ const facultyOptions = computed(() => {
     value: faculty.id,
   }));
 
-  return [{ label: 'All Faculties', value: 'all' as const }, ...options];
+  return [{ label: t('common.allFaculties'), value: 'all' as const }, ...options];
 });
 
 const selectedPeriod = ref('Last 30 days');
@@ -408,10 +408,10 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
     <div class="flex flex-col justify-center lg:flex-row lg:items-center lg:justify-between mb-8 gap-6">
       <div>
         <h2 class="text-2xl font-bold tracking-tight text-text-main mb-2">
-          Academic Oversight Dashboard
+          {{ $t('adminDashboard.title') }}
         </h2>
         <p class="text-text-secondary">
-          Monitoring real-time request flow and signature bottlenecks across departments.
+          {{ $t('adminDashboard.description') }}
         </p>
       </div>
       <div class="self-end lg:self-auto flex gap-3">
@@ -477,10 +477,10 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
       <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          Total Requests
+          {{ $t('adminDashboard.totalRequests') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
@@ -493,7 +493,7 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
 
       <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          Completed Requests
+          {{ $t('adminDashboard.completedRequests') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
@@ -507,7 +507,7 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
 
       <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          Median Turnaround
+          {{ $t('adminDashboard.medianTurnaround') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
@@ -521,7 +521,7 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
 
       <UCard>
         <p class="text-xs font-semibold text-error uppercase tracking-wider mb-1">
-          Rejected Requests
+          {{ $t('adminDashboard.rejectedRequests') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-error">
@@ -533,19 +533,19 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
         </div>
       </UCard>
 
-      <UCard>
+      <!-- <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          Active Users
+          {{ $t('adminDashboard.activeUsers') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
             {{ summaryCards.activeUsers }}
           </h3>
-          <!-- <span class="text-success text-xs font-bold flex items-center mb-1">
+          <span class="text-success text-xs font-bold flex items-center mb-1">
             <UIcon name="i-lucide-trending-up" class="mr-1" /> 8%
-          </span> -->
+          </span>
         </div>
-      </UCard>
+      </UCard> -->
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
