@@ -4,11 +4,9 @@ import * as zod from 'zod';
 
 const createUserSchema = zod.object({
   id: zod.string().min(1, 'ID is required'),
-  academicRankEn: zod.string().max(20).optional(),
   titleEn: zod.string().max(20).optional(),
   firstNameEn: zod.string().min(1, 'First name (EN) is required'),
   lastNameEn: zod.string().min(1, 'Last name (EN) is required'),
-  academicRankTh: zod.string().max(20).optional(),
   titleTh: zod.string().max(20).optional(),
   firstNameTh: zod.string().min(1, 'First name (Thai) is required'),
   lastNameTh: zod.string().min(1, 'Last name (Thai) is required'),
@@ -32,11 +30,9 @@ export default defineEventHandler(async (event) => {
   const user = await db.transaction(async (tx) => {
     const [createdUser] = await tx.insert(users).values({
       id: body.id,
-      academicRankEn: body.academicRankEn?.trim() || null,
       titleEn: body.titleEn?.trim() || null,
       firstNameEn: body.firstNameEn.trim(),
       lastNameEn: body.lastNameEn.trim(),
-      academicRankTh: body.academicRankTh?.trim() || null,
       titleTh: body.titleTh?.trim() || null,
       firstNameTh: body.firstNameTh.trim(),
       lastNameTh: body.lastNameTh.trim(),

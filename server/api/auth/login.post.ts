@@ -15,10 +15,10 @@ export default defineEventHandler(async (event) => {
     .select({
       id: users.id,
       fullNameEn: sql<string>`
-          concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+          concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
         `,
       fullNameTh: sql<string>`
-          concat_ws(' ', ${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
+          concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
         `,
       email: users.email,
       passwordHash: users.passwordHash,

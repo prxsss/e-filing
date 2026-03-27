@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
       id: users.id,
       email: users.email,
       fullNameTh: sql<string>`
-          concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+          concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
       `,
       isActive: users.isActive,
     })

@@ -60,8 +60,8 @@ export default defineEventHandler(async (event) => {
         filledDocumentUrl: request.filledDocumentUrl,
         templateName: requestTemplate.name,
         templateId: request.templateId,
-        requesterNameEn: sql<string>`concat_ws(' ', ${users.academicRankEn}, ${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})`,
-        requesterNameTh: sql<string>`concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
+        requesterNameEn: sql<string>`concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})`,
+        requesterNameTh: sql<string>`concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
       })
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
