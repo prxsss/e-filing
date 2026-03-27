@@ -156,14 +156,32 @@ const { rows: data, isLoading, page, pageSize, total, refresh } = useUsers({
 
 const columns: TableColumn<UserListItem>[] = [
   {
-    accessorKey: 'id',
-    header: 'ID',
-  },
-  {
     header: 'Full Name',
     cell: ({ row }) => {
       const fullName = locale.value === 'en' ? row.original.fullNameEn : row.original.fullNameTh;
       return h('div', null, fullName);
+    },
+  },
+  {
+    accessorKey: 'studentId',
+    header: 'Student ID',
+    cell: ({ getValue }) => {
+      const studentId = getValue() as string | null;
+      if (!studentId) {
+        return h('div', { class: 'text-slate-500' }, '-');
+      }
+      return h('div', null, studentId);
+    },
+  },
+  {
+    accessorKey: 'staffId',
+    header: 'Staff ID',
+    cell: ({ getValue }) => {
+      const staffId = getValue() as string | null;
+      if (!staffId) {
+        return h('div', { class: 'text-slate-500' }, '-');
+      }
+      return h('div', null, staffId);
     },
   },
   {
@@ -291,7 +309,7 @@ function applyAdvancedSearch() {
     <div class="w-full">
       <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
-          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by full name, email, or ID" @keyup.enter="applySearch" />
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by name, email, student / staff ID" @keyup.enter="applySearch" />
           <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
           <UPopover
             v-model:open="advancedSearchOpen"

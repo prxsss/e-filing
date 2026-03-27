@@ -179,6 +179,8 @@ function addRoleAssignment() {
 const { data: userData } = await useFetch<UserDetail>(`/api/users/${userId}`);
 
 const updateUserSchema = z.object({
+  studentId: z.string().optional(),
+  staffId: z.string().optional(),
   titleEn: z.string().max(20),
   firstNameEn: z.string().min(1, 'First name is required'),
   lastNameEn: z.string().min(1, 'Last name is required'),
@@ -190,6 +192,8 @@ const updateUserSchema = z.object({
 type UpdateUserSchema = z.output<typeof updateUserSchema>;
 
 const form = ref<Partial<UpdateUserSchema>>({
+  studentId: '',
+  staffId: '',
   titleEn: '',
   firstNameEn: '',
   lastNameEn: '',
@@ -211,6 +215,8 @@ const form = ref<Partial<UpdateUserSchema>>({
 watch([userData, roles], ([newData]) => {
   if (newData) {
     form.value = {
+      studentId: newData.studentId || '',
+      staffId: newData.staffId || '',
       firstNameEn: newData.firstNameEn || '',
       lastNameEn: newData.lastNameEn || '',
       titleEn: newData.titleEn || '',
@@ -229,6 +235,8 @@ watch([form, roleAssignments], ([newForm, newRoles]) => {
   const initialRoles = mapAssignmentsToRoleAssignments(userData.value?.assignments || []);
 
   const formDirty = JSON.stringify(newForm) !== JSON.stringify({
+    studentId: userData.value?.studentId,
+    staffId: userData.value?.staffId,
     firstNameEn: userData.value?.firstNameEn,
     lastNameEn: userData.value?.lastNameEn,
     titleEn: userData.value?.titleEn,
@@ -270,12 +278,14 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
     await $fetch(`/api/users/${userId}`, {
       method: 'PUT',
       body: {
+        studentId: event.data.studentId,
+        staffId: event.data.staffId,
+        titleEn: event.data.titleEn,
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
-        titleEn: event.data.titleEn,
+        titleTh: event.data.titleTh,
         firstNameTh: event.data.firstNameTh,
         lastNameTh: event.data.lastNameTh,
-        titleTh: event.data.titleTh,
       },
     });
 
@@ -449,6 +459,30 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                       v-model="userData.id"
                       disabled
                       variant="subtle"
+                      class="w-full"
+                    />
+                  </UFormField>
+
+                  <!-- Student ID -->
+                  <UFormField
+                    label="Student ID"
+                    name="studentId"
+                    class="col-span-1 md:col-span-2"
+                  >
+                    <UInput
+                      v-model="form.studentId"
+                      class="w-full"
+                    />
+                  </UFormField>
+
+                  <!-- Staff ID -->
+                  <UFormField
+                    label="Staff ID"
+                    name="staffId"
+                    class="col-span-1 md:col-span-2"
+                  >
+                    <UInput
+                      v-model="form.staffId"
                       class="w-full"
                     />
                   </UFormField>

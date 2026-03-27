@@ -280,7 +280,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
                 </UBadge>
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400">
-                ID: {{ user.id }}
+                {{ [user.studentId ? `Student ID: ${user.studentId}` : null, user.staffId ? `Staff ID: ${user.staffId}` : null].filter(Boolean).join(' / ') || user.email }}
               </p>
             </div>
           </div>

@@ -46,6 +46,22 @@ const columns: TableColumn<UserAssignment>[] = [
         </template>
 
         <div class="divide-y divide-gray-200 dark:divide-gray-800">
+          <div v-if="user.studentId" class="p-5">
+            <p class="text-xs text-gray-500 font-medium uppercase mb-1">
+              Student ID
+            </p>
+            <p class="text-sm font-medium">
+              {{ user.studentId || '-' }}
+            </p>
+          </div>
+          <div v-if="user.staffId" class="p-5">
+            <p class="text-xs text-gray-500 font-medium uppercase mb-1">
+              Staff ID
+            </p>
+            <p class="text-sm font-medium">
+              {{ user.staffId || '-' }}
+            </p>
+          </div>
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
               Email
