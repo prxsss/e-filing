@@ -6,7 +6,15 @@ export default defineEventHandler(async (event) => {
   const { email, otp, password } = await readBody(event);
 
   const [existingUser] = await db
-    .select()
+    .select({
+      id: users.id,
+      fullNameEn: sql<string>`
+          concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+        `,
+      fullNameTh: sql<string>`
+          concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
+        `,
+    })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
@@ -61,7 +69,8 @@ export default defineEventHandler(async (event) => {
   await setUserSession(event, {
     user: {
       id: existingUser.id,
-      fullName: `${existingUser.firstNameEn} ${existingUser.lastNameEn}`,
+      fullNameEn: existingUser.fullNameEn,
+      fullNameTh: existingUser.fullNameTh,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,

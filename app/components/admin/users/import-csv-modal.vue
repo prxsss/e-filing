@@ -6,7 +6,8 @@ import Papa from 'papaparse';
 import { h, resolveComponent } from 'vue';
 
 type SystemFieldKey
-  = | 'id'
+  = | 'student_id'
+    | 'staff_id'
     | 'title_en'
     | 'first_name_en'
     | 'last_name_en'
@@ -60,7 +61,8 @@ const USelectMenu = resolveComponent('USelectMenu');
 const UInput = resolveComponent('UInput');
 const UFormField = resolveComponent('UFormField');
 const systemFields: Array<{ key: SystemFieldKey; label: string; required: boolean }> = [
-  { key: 'id', label: 'ID', required: true },
+  { key: 'student_id', label: 'Student ID', required: false },
+  { key: 'staff_id', label: 'Staff ID', required: false },
   { key: 'title_en', label: 'Title (EN)', required: false },
   { key: 'first_name_en', label: 'First Name (EN)', required: true },
   { key: 'last_name_en', label: 'Last Name (EN)', required: true },
@@ -87,7 +89,8 @@ const isParsing = ref(false);
 const parseError = ref<string | null>(null);
 
 const mapping = ref<Record<SystemFieldKey, string | null>>({
-  id: null,
+  student_id: null,
+  staff_id: null,
   title_en: null,
   first_name_en: null,
   last_name_en: null,
@@ -750,7 +753,8 @@ function resetWizardState() {
   rowTouchedFields.value = {};
 
   mapping.value = {
-    id: null,
+    student_id: null,
+    staff_id: null,
     title_en: null,
     first_name_en: null,
     last_name_en: null,
@@ -973,7 +977,8 @@ async function importData() {
       body: {
         users: validRows.value.map(row => ({
           rowNumber: row.rowNumber,
-          id: row.values.id,
+          student_id: row.values.student_id,
+          staff_id: row.values.staff_id,
           titleEn: normalizeOptionalValue(row.values.title_en) || undefined,
           firstNameEn: row.values.first_name_en,
           lastNameEn: row.values.last_name_en,

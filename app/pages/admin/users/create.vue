@@ -30,7 +30,9 @@ const isDirty = ref(false);
 const formRef = ref<any>(null);
 
 const createUserSchema = z.object({
-  id: z.string().min(1, 'ID is required'),
+  // id: z.string().min(1, 'ID is required'),
+  studentId: z.string().optional(),
+  staffId: z.string().optional(),
   titleEn: z.string(),
   firstNameEn: z.string().min(1, 'First name (English) is required'),
   lastNameEn: z.string().min(1, 'Last name (English) is required'),
@@ -50,7 +52,9 @@ type RoleAssignment = {
 };
 
 const form = ref<Partial<CreateUserSchema>>({
-  id: '',
+  // id: '',
+  studentId: '',
+  staffId: '',
   titleEn: '',
   firstNameEn: '',
   lastNameEn: '',
@@ -210,7 +214,9 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
     const response = await $fetch('/api/users', {
       method: 'POST',
       body: {
-        id: event.data.id,
+        // id: event.data.id,
+        studentId: event.data.studentId,
+        staffId: event.data.staffId,
         titleEn: event.data.titleEn,
         firstNameEn: event.data.firstNameEn,
         lastNameEn: event.data.lastNameEn,
@@ -261,7 +267,9 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
 
 watch(form, (newData) => {
   isDirty.value = JSON.stringify(newData) !== JSON.stringify({
-    id: '',
+    // id: '',
+    studentId: '',
+    staffId: '',
     titleEn: '',
     firstNameEn: '',
     lastNameEn: '',
@@ -375,7 +383,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
             <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
               <div class="col-span-1 md:col-span-12 grid grid-cols-1 md:grid-cols-12 gap-6">
                 <!-- ID -->
-                <UFormField
+                <!-- <UFormField
                   label="ID"
                   name="id"
                   required
@@ -383,6 +391,30 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 >
                   <UInput
                     v-model="form.id"
+                    class="w-full"
+                  />
+                </UFormField> -->
+
+                <!-- Student ID -->
+                <UFormField
+                  label="Student ID"
+                  name="studentId"
+                  class="col-span-1 md:col-span-2"
+                >
+                  <UInput
+                    v-model="form.studentId"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <!-- Staff ID -->
+                <UFormField
+                  label="Staff ID"
+                  name="staffId"
+                  class="col-span-1 md:col-span-2"
+                >
+                  <UInput
+                    v-model="form.staffId"
                     class="w-full"
                   />
                 </UFormField>

@@ -21,7 +21,8 @@ function getUsersWhere(filters: UserListFilters): SQL | undefined {
     const keyword = `%${search}%`;
     conditions.push(
       or(
-        ilike(users.id, keyword),
+        ilike(users.studentId, keyword),
+        ilike(users.staffId, keyword),
         ilike(users.email, keyword),
         ilike(sql<string>`concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`, keyword),
         ilike(sql<string>`concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`, keyword),
@@ -86,6 +87,8 @@ export async function getUsers({
   const usersListQuery = db
     .select({
       id: users.id,
+      studentId: users.studentId,
+      staffId: users.staffId,
 
       fullNameEn: sql<string>`
           concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
@@ -160,6 +163,8 @@ export async function getUserById(id: string) {
   return db
     .select({
       id: users.id,
+      studentId: users.studentId,
+      staffId: users.staffId,
 
       titleEn: users.titleEn,
       firstNameEn: users.firstNameEn,

@@ -3,7 +3,8 @@ import { userRoles, users } from '~~/lib/db/schema';
 import * as zod from 'zod';
 
 const createUserSchema = zod.object({
-  id: zod.string().min(1, 'ID is required'),
+  studentId: zod.string().optional(),
+  staffId: zod.string().optional(),
   titleEn: zod.string().max(20).optional(),
   firstNameEn: zod.string().min(1, 'First name (EN) is required'),
   lastNameEn: zod.string().min(1, 'Last name (EN) is required'),
@@ -29,7 +30,8 @@ export default defineEventHandler(async (event) => {
 
   const user = await db.transaction(async (tx) => {
     const [createdUser] = await tx.insert(users).values({
-      id: body.id,
+      studentId: body.studentId?.trim() || null,
+      staffId: body.staffId?.trim() || null,
       titleEn: body.titleEn?.trim() || null,
       firstNameEn: body.firstNameEn.trim(),
       lastNameEn: body.lastNameEn.trim(),
