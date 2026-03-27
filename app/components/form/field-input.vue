@@ -19,6 +19,15 @@ const emit = defineEmits(['update:modelValue']);
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
 const isNumericField = computed(() => fieldType.value === 'number');
 const isCheckboxField = computed(() => fieldType.value === 'checkbox');
+const isDateField = computed(() => fieldType.value === 'date');
+const isTimeField = computed(() => fieldType.value === 'time');
+
+const isMultilineTextField = computed(() =>
+  !isCheckboxField.value
+  && !isNumericField.value
+  && !isDateField.value
+  && !isTimeField.value,
+);
 
 /** From template Form Layout (`formRequired`); default required when unset */
 const showRequiredAsterisk = computed(() => {
@@ -137,6 +146,30 @@ const placeholder = computed(() => {
 });
 
 const currentLength = computed(() => localValue.value.length);
+
+const textAreaRef = ref(null);
+
+function adjustTextareaHeight() {
+  const el = textAreaRef.value;
+  if (!el || !isMultilineTextField.value) {
+    return;
+  }
+  el.style.height = 'auto';
+  const minPx = 40;
+  el.style.height = `${Math.max(minPx, el.scrollHeight)}px`;
+}
+
+watch(localValue, () => {
+  nextTick(adjustTextareaHeight);
+});
+
+watch(isMultilineTextField, () => {
+  nextTick(adjustTextareaHeight);
+});
+
+onMounted(() => {
+  nextTick(adjustTextareaHeight);
+});
 </script>
 
 <template>
@@ -164,7 +197,20 @@ const currentLength = computed(() => localValue.value.length);
         <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
       </label>
 
+      <textarea
+        v-if="isMultilineTextField"
+        :id="field.instanceId ? `field-text-${field.instanceId}` : undefined"
+        ref="textAreaRef"
+        v-model="localValue"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        :maxlength="maxLength || undefined"
+        rows="1"
+        class="form-input form-textarea"
+        @input="adjustTextareaHeight"
+      />
       <input
+        v-else
         v-model="localValue"
         :type="inputType"
         :inputmode="inputMode"
@@ -212,6 +258,18 @@ const currentLength = computed(() => localValue.value.length);
   border-radius: 0.375rem;
   font-size: 0.875rem;
   transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-textarea {
+  display: block;
+  resize: none;
+  overflow-y: hidden;
+  min-height: 2.5rem;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .form-input:focus {

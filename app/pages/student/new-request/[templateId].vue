@@ -1111,9 +1111,11 @@ watch([pdfFile, placedFields, fieldValues], () => {
       </UCard>
 
       <!-- Form Content -->
-      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left: PDF Preview (Read-only) -->
-        <div class="lg:col-span-2">
+      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <!-- Left: PDF Preview (sticky on large screens while scrolling the form) -->
+        <div
+          class="lg:col-span-2 lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-1"
+        >
           <!-- Zoom Controls -->
           <div class="mb-4 flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2">
             <span class="text-sm text-gray-600">Zoom:</span>

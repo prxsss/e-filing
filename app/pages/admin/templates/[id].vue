@@ -331,19 +331,142 @@ function focusLayoutInputByInstanceId(instanceId: string) {
   }
 }
 
+function reorderLayoutItems(fromIndex: number, toIndex: number) {
+  const orderedFields = orderedLayoutEditorFields.value;
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+    return;
+  }
+  if (fromIndex >= orderedFields.length || toIndex > orderedFields.length) {
+    return;
+  }
+  const arr = [...orderedFields];
+  const [moved] = arr.splice(fromIndex, 1);
+  if (!moved) {
+    return;
+  }
+  const insertAt = Math.min(toIndex, arr.length);
+  arr.splice(insertAt, 0, moved);
+  const reorderedIds = arr.map(field => String(field.instanceId));
+  const layoutById = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
+  formFieldLayout.value = reorderedIds
+    .map(id => layoutById.get(id))
+    .filter((item): item is { instanceId: string; questionLabel: string; required: boolean } => Boolean(item));
+}
+
 function moveLayoutItem(index: number, direction: -1 | 1) {
   const orderedFields = orderedLayoutEditorFields.value;
   const nextIndex = index + direction;
   if (nextIndex < 0 || nextIndex >= orderedFields.length) {
     return;
   }
-  const reorderedIds = orderedFields.map(field => String(field.instanceId));
-  const [moved] = reorderedIds.splice(index, 1);
-  reorderedIds.splice(nextIndex, 0, moved!);
-  const layoutById = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
-  formFieldLayout.value = reorderedIds
-    .map(id => layoutById.get(id))
-    .filter((item): item is { instanceId: string; questionLabel: string; required: boolean } => Boolean(item));
+  reorderLayoutItems(index, nextIndex);
+}
+
+const layoutDragFromIndex = ref<number | null>(null);
+const layoutDragOverIndex = ref<number | null>(null);
+const layoutDropIndex = ref<number | null>(null);
+
+function resetLayoutDragState() {
+  layoutDragFromIndex.value = null;
+  layoutDragOverIndex.value = null;
+  layoutDropIndex.value = null;
+}
+
+function onLayoutDragStart(event: DragEvent, index: number) {
+  if (!isEditingFormLayout.value) {
+    event.preventDefault();
+    return;
+  }
+  layoutDragFromIndex.value = index;
+  layoutDragOverIndex.value = null;
+  layoutDropIndex.value = null;
+  event.dataTransfer?.setData('text/plain', String(index));
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+}
+
+function onLayoutDragOver(event: DragEvent, index: number) {
+  if (!isEditingFormLayout.value || layoutDragFromIndex.value === null) {
+    return;
+  }
+  event.preventDefault();
+  layoutDragOverIndex.value = index;
+
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) {
+    return;
+  }
+
+  const rect = target.getBoundingClientRect();
+  const offsetY = event.clientY - rect.top;
+  const insertBefore = offsetY < rect.height / 2;
+
+  const nextDropIndex = insertBefore ? index : index + 1;
+  layoutDropIndex.value = nextDropIndex;
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+}
+
+function onLayoutDropZoneDragOver(event: DragEvent, toIndex: number) {
+  if (!isEditingFormLayout.value || layoutDragFromIndex.value === null) {
+    return;
+  }
+  event.preventDefault();
+  layoutDropIndex.value = toIndex;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+}
+
+function onLayoutDropZone(event: DragEvent, toIndex: number) {
+  if (!isEditingFormLayout.value) {
+    return;
+  }
+  event.preventDefault();
+  const raw = event.dataTransfer?.getData('text/plain');
+  const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
+  const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
+  if (
+    fromIndex === null
+    || fromIndex === undefined
+    || Number.isNaN(fromIndex)
+  ) {
+    resetLayoutDragState();
+    return;
+  }
+  reorderLayoutItems(fromIndex, toIndex);
+  resetLayoutDragState();
+}
+
+function onLayoutDrop(event: DragEvent) {
+  if (!isEditingFormLayout.value) {
+    return;
+  }
+  event.preventDefault();
+  const raw = event.dataTransfer?.getData('text/plain');
+  const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
+  const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
+  const toIndex = layoutDropIndex.value;
+
+  if (
+    fromIndex === null
+    || fromIndex === undefined
+    || Number.isNaN(fromIndex)
+    || toIndex === null
+    || toIndex === undefined
+  ) {
+    resetLayoutDragState();
+    return;
+  }
+  reorderLayoutItems(fromIndex, toIndex);
+  resetLayoutDragState();
+}
+
+function onLayoutDragEnd() {
+  resetLayoutDragState();
 }
 
 function getFieldCardClass(field: any): string {
@@ -800,9 +923,11 @@ watch(layoutEditorFillableFields, () => {
       </UCard>
 
       <!-- Template Content -->
-      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left: PDF Preview -->
-        <div class="lg:col-span-2">
+      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 gap-5 items-start lg:grid-cols-[minmax(0,1.7fr)_minmax(24rem,1fr)]">
+        <!-- Left: PDF Preview (sticky on large screens while editing the form column) -->
+        <div
+          class="lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-0"
+        >
           <template-pdf-preview
             :pdf-url="template.documentUrl"
             :placed-fields="placedFields"
@@ -871,60 +996,96 @@ watch(layoutEditorFillableFields, () => {
                   {{ formSectionTitle || 'Request Information' }}
                 </h4>
                 <div class="space-y-3">
-                  <div
+                  <template
                     v-for="(field, index) in orderedLayoutEditorFields"
-                    :id="`form-layout-row-${field.instanceId}`"
                     :key="field.instanceId"
-                    :class="getFieldCardClass(field)"
                   >
-                    <div class="flex items-center gap-2 mb-2">
-                      <UInput
-                        :model-value="getQuestionLabel(field)"
-                        :disabled="!isEditingFormLayout"
-                        class="flex-1"
-                        @focus="activeEditingFieldId = String(field.instanceId)"
-                        @blur="() => { activeEditingFieldId = null; revertQuestionLabelIfEmpty(String(field.instanceId)); }"
-                        @update:model-value="(value) => setQuestionLabel(String(field.instanceId), String(value ?? ''))"
-                      />
-                      <UButton
-                        size="xs"
-                        icon="i-heroicons-chevron-up"
-                        variant="ghost"
-                        :disabled="!isEditingFormLayout || index === 0"
-                        @click="moveLayoutItem(index, -1)"
-                      />
-                      <UButton
-                        size="xs"
-                        icon="i-heroicons-chevron-down"
-                        variant="ghost"
-                        :disabled="!isEditingFormLayout || index === orderedLayoutEditorFields.length - 1"
-                        @click="moveLayoutItem(index, 1)"
-                      />
-                    </div>
+                    <!-- Drop zone before this row -->
                     <div
-                      v-if="isEditingFormLayout"
-                      class="flex items-center gap-2 mb-2"
-                    >
-                      <UCheckbox
-                        :model-value="getLayoutEntry(String(field.instanceId))?.required !== false"
-                        label="ต้องกรอก (แสดง * สีแดงฝั่งนิสิต)"
-                        @update:model-value="(v) => setLayoutRequired(String(field.instanceId), Boolean(v))"
-                      />
-                    </div>
-                    <form-field-input
-                      v-if="isFieldVisible(field)"
-                      :model-value="previewFieldValues[getFieldValueKey(field)]"
-                      :field="{ ...field, label: getQuestionLabel(field), formRequired: getPreviewFormRequired(field) }"
-                      :disabled="isPreviewCheckboxDisabled(field)"
-                      @update:model-value="(value) => updatePreviewValue(field, String(value ?? ''))"
+                      v-if="isEditingFormLayout && layoutDropIndex === index"
+                      class="layout-drop-divider"
+                      @dragover="onLayoutDropZoneDragOver($event, index)"
+                      @drop="onLayoutDropZone($event, index)"
                     />
-                    <p
-                      v-else
-                      class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
+
+                    <div
+                      :id="`form-layout-row-${field.instanceId}`"
+                      :class="[
+                        getFieldCardClass(field),
+                        isEditingFormLayout && layoutDragFromIndex === index ? 'layout-row-dragging' : '',
+                      ]"
+                      @dragover="onLayoutDragOver($event, index)"
+                      @drop="onLayoutDrop"
                     >
-                      ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
-                    </p>
-                  </div>
+                      <div class="flex items-center gap-2 mb-2">
+                        <button
+                          v-if="isEditingFormLayout"
+                          type="button"
+                          class="layout-drag-handle shrink-0 flex items-center justify-center w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-manipulation"
+                          title="ลากเพื่อสลับลำดับ"
+                          aria-label="ลากเพื่อสลับลำดับคำถาม"
+                          draggable="true"
+                          @dragstart="onLayoutDragStart($event, index)"
+                          @dragend="onLayoutDragEnd"
+                        >
+                          <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+                        </button>
+                        <UInput
+                          :model-value="getQuestionLabel(field)"
+                          :disabled="!isEditingFormLayout"
+                          class="flex-1 min-w-0"
+                          @focus="activeEditingFieldId = String(field.instanceId)"
+                          @blur="() => { activeEditingFieldId = null; revertQuestionLabelIfEmpty(String(field.instanceId)); }"
+                          @update:model-value="(value) => setQuestionLabel(String(field.instanceId), String(value ?? ''))"
+                        />
+                        <UButton
+                          size="xs"
+                          icon="i-heroicons-chevron-up"
+                          variant="ghost"
+                          :disabled="!isEditingFormLayout || index === 0"
+                          @click="moveLayoutItem(index, -1)"
+                        />
+                        <UButton
+                          size="xs"
+                          icon="i-heroicons-chevron-down"
+                          variant="ghost"
+                          :disabled="!isEditingFormLayout || index === orderedLayoutEditorFields.length - 1"
+                          @click="moveLayoutItem(index, 1)"
+                        />
+                      </div>
+                      <div
+                        v-if="isEditingFormLayout"
+                        class="flex items-center gap-2 mb-2"
+                      >
+                        <UCheckbox
+                          :model-value="getLayoutEntry(String(field.instanceId))?.required !== false"
+                          label="ต้องกรอก (แสดง * สีแดงฝั่งนิสิต)"
+                          @update:model-value="(v) => setLayoutRequired(String(field.instanceId), Boolean(v))"
+                        />
+                      </div>
+                      <form-field-input
+                        v-if="isFieldVisible(field)"
+                        :model-value="previewFieldValues[getFieldValueKey(field)]"
+                        :field="{ ...field, label: getQuestionLabel(field), formRequired: getPreviewFormRequired(field) }"
+                        :disabled="isPreviewCheckboxDisabled(field)"
+                        @update:model-value="(value) => updatePreviewValue(field, String(value ?? ''))"
+                      />
+                      <p
+                        v-else
+                        class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
+                      >
+                        ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
+                      </p>
+                    </div>
+                  </template>
+
+                  <!-- Drop zone after last row -->
+                  <div
+                    v-if="isEditingFormLayout && layoutDropIndex === orderedLayoutEditorFields.length"
+                    class="layout-drop-divider"
+                    @dragover="onLayoutDropZoneDragOver($event, orderedLayoutEditorFields.length)"
+                    @drop="onLayoutDropZone($event, orderedLayoutEditorFields.length)"
+                  />
                   <p v-if="orderedLayoutEditorFields.length === 0" class="text-sm text-gray-400 text-center py-3">
                     ไม่มีฟิลด์ที่นิสิตต้องกรอก
                   </p>
@@ -1062,5 +1223,20 @@ watch(layoutEditorFillableFields, () => {
 </template>
 
 <style scoped>
-/* Additional custom styles if needed */
+.layout-drag-handle {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.layout-row-dragging {
+  opacity: 0.65;
+}
+
+.layout-drop-divider {
+  height: 50px;
+  border-radius: 9999px;
+  border: 2px dashed #3b82f6;
+  background-color: rgba(239, 246, 255, 0.95);
+  margin: 0.25rem 0;
+}
 </style>
