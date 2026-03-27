@@ -10,7 +10,7 @@ export async function getSignRequestContext(requestId: number): Promise<SignRequ
       .select({
         documentTitle: requestTemplate.name,
         studentName: sql<string>`
-          concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+          concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
         `,
         studentEmail: users.email,
         studentId: users.id,

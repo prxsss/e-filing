@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
 
       db.select({
         signerName: sql<string>`
-      concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+      concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
     `,
       })
         .from(users)

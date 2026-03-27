@@ -234,7 +234,7 @@ export default defineEventHandler(async (event) => {
           // Get current signer name for notification
           db.select({
             signerName: sql<string>`
-            concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+            concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
           }).from(users).where(eq(users.id, userId)),
 
@@ -242,7 +242,7 @@ export default defineEventHandler(async (event) => {
           db.select({
             signerEmail: users.email,
             signerName: sql<string>`
-            concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+            concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
           }).from(users).where(eq(users.id, nextStep.assignedUserId!)),
         ]);
@@ -274,7 +274,7 @@ export default defineEventHandler(async (event) => {
 
       const [{ signerName }] = await db.select({
         signerName: sql<string>`
-          concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+          concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
         `,
       }).from(users).where(eq(users.id, userId));
 

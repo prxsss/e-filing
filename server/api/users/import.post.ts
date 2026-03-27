@@ -6,11 +6,9 @@ import * as zod from 'zod';
 const bulkImportUserSchema = zod.object({
   rowNumber: zod.number().int().positive(),
   id: zod.string().min(1, 'ID is required'),
-  academicRankEn: zod.string().max(20).optional(),
   titleEn: zod.string().max(20).optional(),
   firstNameEn: zod.string().min(1, 'First name (EN) is required'),
   lastNameEn: zod.string().min(1, 'Last name (EN) is required'),
-  academicRankTh: zod.string().max(20).optional(),
   titleTh: zod.string().max(20).optional(),
   firstNameTh: zod.string().min(1, 'First name (Thai) is required'),
   lastNameTh: zod.string().min(1, 'Last name (Thai) is required'),
@@ -50,11 +48,9 @@ export default defineEventHandler(async (event) => {
       await db.transaction(async (tx) => {
         const [createdUser] = await tx.insert(users).values({
           id: item.id,
-          academicRankEn: item.academicRankEn?.trim() || null,
           titleEn: item.titleEn?.trim() || null,
           firstNameEn: item.firstNameEn.trim(),
           lastNameEn: item.lastNameEn.trim(),
-          academicRankTh: item.academicRankTh?.trim() || null,
           titleTh: item.titleTh?.trim() || null,
           firstNameTh: item.firstNameTh.trim(),
           lastNameTh: item.lastNameTh.trim(),

@@ -194,7 +194,7 @@ export default defineEventHandler(async (event) => {
             .select({
               signerEmail: users.email,
               signerName: sql<string>`
-            concat(${users.academicRankTh}, ${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+            concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
               stepOrder: signatureFlow.stepOrder,
             })
