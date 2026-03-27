@@ -29,13 +29,7 @@ type SigningTask = {
 // const authStore = useAuthStore();
 
 const router = useRouter();
-const { locale } = useI18n();
-
-// const { t } = useI18n();
-
-// const { t } = useI18n();
-
-// const { t } = useI18n();
+// const { locale } = useI18n();
 
 // const { t } = useI18n();
 
