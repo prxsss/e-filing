@@ -67,7 +67,7 @@ const error = ref<string | null>(null);
 
 const requestData = ref<RequestData | null>(null);
 const templateData = ref<TemplateData | null>(null);
-const fieldValues = ref<Record<number, string>>({});
+const fieldValues = ref<Record<string, string>>({});
 const allFields = ref<any[]>([]);
 const signingStatus = ref<SigningStatus | null>(null);
 const attachments = ref<Attachment[]>([]);
@@ -479,7 +479,7 @@ onMounted(loadAll);
                   {{ index + 1 }}. {{ field.label || field.name }}
                 </div>
                 <div class="text-gray-600 mt-1">
-                  {{ fieldValues[field.id] || '—' }}
+                  {{ fieldValues[String(field.id)] || '—' }}
                 </div>
               </div>
               <div v-if="allFillableFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">

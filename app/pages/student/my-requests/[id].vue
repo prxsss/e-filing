@@ -30,6 +30,7 @@ type RequestData = {
   filledDocumentUrl: string | null;
   createdAt: string;
   submittedAt: string | null;
+  note?: string | null;
 };
 
 type TemplateData = {
@@ -1007,10 +1008,10 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
         <!-- ── Left: PDF Preview ── -->
         <div class="lg:col-span-2 space-y-4">
           <!-- Zoom Controls -->
-          <div class="flex items-center gap-3 bg-white rounded-xl border px-4 py-2.5">
-            <span class="text-sm text-gray-500">Zoom:</span>
+          <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-2.5">
+            <span class="text-sm font-medium text-gray-500">Zoom:</span>
             <UButton
-              icon="i-lucide-minus"
+              icon="i-heroicons-minus"
               size="xs"
               variant="ghost"
               :disabled="scale <= 0.5"
@@ -1018,7 +1019,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
             />
             <span class="text-sm font-semibold w-12 text-center">{{ Math.round(scale * 100) }}%</span>
             <UButton
-              icon="i-lucide-plus"
+              icon="i-heroicons-plus"
               size="xs"
               variant="ghost"
               :disabled="scale >= 3"
@@ -1032,7 +1033,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
           <!-- PDF Viewer -->
           <div
             v-if="previewDisplayFile"
-            class="bg-gray-100/50 overflow-auto p-6 rounded-xl border"
+            class="bg-gray-100/50 overflow-auto p-6 rounded-xl border border-gray-200 shadow-sm"
             style="min-height: 600px"
           >
             <template-pdf-create
@@ -1051,10 +1052,10 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
           </div>
           <div
             v-else
-            class="flex items-center justify-center h-64 bg-white rounded-xl border text-gray-400"
+            class="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-200 text-gray-400 shadow-sm"
           >
             <div class="text-center">
-              <UIcon name="i-lucide-file" class="w-12 h-12 mb-2 mx-auto opacity-40" />
+              <UIcon name="i-heroicons-document" class="w-12 h-12 mb-2 mx-auto opacity-40" />
               <p class="text-sm">
                 ไม่พบไฟล์เอกสาร
               </p>
@@ -1076,6 +1077,14 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
               </h3>
             </template>
             <dl class="space-y-3 text-sm">
+              <div class="flex justify-between items-center">
+                <dt class="text-gray-500 font-medium">
+                  รหัสคำร้อง
+                </dt>
+                <dd class="font-mono font-medium text-gray-900">
+                  #{{ requestData.id }}
+                </dd>
+              </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
                   สถานะ
@@ -1100,6 +1109,14 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.submittedAt) }}
+                </dd>
+              </div>
+              <div v-if="requestData.note" class="flex flex-col gap-1.5 mt-2">
+                <dt class="text-gray-500 font-medium">
+                  หมายเหตุ
+                </dt>
+                <dd class="text-sm bg-gray-50 rounded border border-gray-200 px-3 py-2 text-gray-800">
+                  {{ requestData.note }}
                 </dd>
               </div>
             </dl>
@@ -1224,24 +1241,26 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                   @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
                 />
               </div>
-              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
                 ไม่มีฟิลด์ที่ต้องกรอก
               </div>
             </div>
 
             <!-- SUBMITTED / IN_PROGRESS / COMPLETED / REJECTED: read-only display -->
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-2">
               <div
-                v-for="field in orderedStudentFields"
+                v-for="(field, index) in orderedStudentFields"
                 :key="field.instanceId"
-                class="flex flex-col gap-0.5"
+                class="p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200"
               >
-                <span class="text-xs text-gray-400 font-medium">{{ field.label || field.name }}</span>
-                <span class="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 min-h-9 flex items-center">
+                <div class="font-medium text-gray-900">
+                  {{ index + 1 }}. {{ field.label || field.name }}
+                </div>
+                <div class="text-gray-600 mt-1">
                   {{ resolveCurrentFieldValue(field) || '—' }}
-                </span>
+                </div>
               </div>
-              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm">
+              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
                 ไม่มีข้อมูลที่กรอก
               </div>
             </div>
@@ -1333,7 +1352,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                 block
                 color="primary"
                 size="lg"
-                icon="i-lucide-save"
+                icon="i-heroicons-document-check"
                 :loading="isSaving"
                 :disabled="!canSaveOrSubmitDraft"
                 @click="saveFieldValues"
@@ -1344,7 +1363,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                 block
                 color="success"
                 size="lg"
-                icon="i-lucide-send"
+                icon="i-heroicons-paper-airplane"
                 :loading="isSaving"
                 :disabled="!canSaveOrSubmitDraft"
                 @click="submitRequest"
@@ -1356,7 +1375,7 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
               block
               variant="outline"
               color="neutral"
-              icon="i-lucide-arrow-left"
+              icon="i-heroicons-arrow-left"
               :to="localePath('/student/my-requests')"
             >
               กลับไปยังคำร้องของฉัน
