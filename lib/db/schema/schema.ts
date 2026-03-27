@@ -22,8 +22,6 @@ export const users = pgTable("users", {
 	deletedAt: timestamp("deleted_at", { withTimezone: true, mode: 'string' }),
 	titleTh: varchar("title_th", { length: 20 }),
 	titleEn: varchar("title_en", { length: 20 }),
-	academicRankTh: varchar("academic_rank_th", { length: 20 }),
-	academicRankEn: varchar("academic_rank_en", { length: 20 }),
 	isActive: boolean("is_active").default(false),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
