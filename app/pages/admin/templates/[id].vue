@@ -426,7 +426,7 @@ function onLayoutDropZone(event: DragEvent, toIndex: number) {
     return;
   }
   event.preventDefault();
-  const raw = event.dataTransfer?.getData('text/plain');
+  const raw = event.dataTransfer?.getData('text/plain') ?? '';
   const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
   const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
   if (
@@ -446,7 +446,7 @@ function onLayoutDrop(event: DragEvent) {
     return;
   }
   event.preventDefault();
-  const raw = event.dataTransfer?.getData('text/plain');
+  const raw = event.dataTransfer?.getData('text/plain') ?? '';
   const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
   const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
   const toIndex = layoutDropIndex.value;
