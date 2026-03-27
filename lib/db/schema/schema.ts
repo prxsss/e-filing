@@ -95,19 +95,6 @@ export const departments = pgTable("departments", {
 	unique("departments_department_code_key").on(table.departmentCode),
 ]);
 
-export const signatures = pgTable("signatures", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signatures_id_seq1", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	requestId: bigint("request_id", { mode: "number" }).notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	signatureFlowId: bigint("signature_flow_id", { mode: "number" }),
-	userId: text("user_id").notNull(),
-	fieldInstanceId: text("field_instance_id"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	pdfHash: text("pdf_hash"),
-});
-
 export const signatureFlow = pgTable("signature_flow", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signature_flow_id_seq1", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -123,6 +110,7 @@ export const signatureFlow = pgTable("signature_flow", {
 	signedAt: timestamp("signed_at", { withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	assignedUserId: text("assigned_user_id"),
+	pendingAt: timestamp("pending_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	foreignKey({
 			columns: [table.requestId],
@@ -135,6 +123,19 @@ export const signatureFlow = pgTable("signature_flow", {
 			name: "signature_flow_role_id_fkey"
 		}),
 ]);
+
+export const signatures = pgTable("signatures", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signatures_id_seq1", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	requestId: bigint("request_id", { mode: "number" }).notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	signatureFlowId: bigint("signature_flow_id", { mode: "number" }),
+	userId: text("user_id").notNull(),
+	fieldInstanceId: text("field_instance_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	pdfHash: text("pdf_hash"),
+});
 
 export const attachments = pgTable("attachments", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
