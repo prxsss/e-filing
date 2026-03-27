@@ -168,7 +168,16 @@ export default defineEventHandler(async (event) => {
         }
         if (!firstPendingAssigned) {
           firstPendingAssigned = true;
-          return { ...entry, status: 'pending' };
+          return {
+            ...entry,
+            status: 'pending',
+
+            // roleId 1 = student (submitter) → skip pendingAt
+            // Documents that require student signatures before submission will cause the student's flow status to be pending
+            // and will later be changed to signed at the API sign.post file.
+            // Therefore, assigning a value to pendingAt must be skipped in this case.
+            pendingAt: entry.roleId === 1 ? null : now,
+          };
         }
         return { ...entry, status: 'waiting' };
       });

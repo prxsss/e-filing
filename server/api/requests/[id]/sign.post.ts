@@ -218,7 +218,7 @@ export default defineEventHandler(async (event) => {
     if (nextStep) {
       await db
         .update(signatureFlow)
-        .set({ status: 'pending' })
+        .set({ status: 'pending', pendingAt: new Date().toISOString() })
         .where(eq(signatureFlow.id, nextStep.id));
 
       await db
