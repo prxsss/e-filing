@@ -37,7 +37,7 @@ const deletingDepartmentId = ref<number | null>(null);
 const searchInput = ref('');
 const appliedSearch = ref('');
 const selectedFacultyId = ref<number | undefined>(undefined);
-const appliedFacultyId = ref<number | undefined>(undefined);
+// const appliedFacultyId = ref<number | undefined>(undefined);
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 
@@ -52,12 +52,12 @@ const facultyOptions = computed(() => {
 
 const { rows, isLoading, page, pageSize, total, refresh } = useDepartments({
   search: appliedSearch,
-  facultyId: appliedFacultyId,
+  facultyId: selectedFacultyId,
 });
 
 function applySearch() {
   appliedSearch.value = searchInput.value.trim();
-  appliedFacultyId.value = selectedFacultyId.value;
+  // appliedFacultyId.value = selectedFacultyId.value;
   page.value = 1;
 }
 
@@ -121,8 +121,19 @@ async function handleDeleteDepartment(id: number, name: string) {
 
 const columns: TableColumn<DepartmentListItem>[] = [
   {
-    accessorKey: 'id',
-    header: 'ID',
+    accessorKey: 'rowNo',
+    header: 'No.',
+    meta: {
+      class: {
+        th: 'w-12 text-right',
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => row.index + 1 + (page.value - 1) * pageSize.value,
+  },
+  {
+    accessorKey: 'departmentCode',
+    header: 'Department Code',
   },
   {
     id: 'name',
@@ -217,28 +228,35 @@ const columns: TableColumn<DepartmentListItem>[] = [
             icon="i-lucide-search"
             size="lg"
             variant="outline"
-            placeholder="Search by department / head name, or ID"
+            placeholder="Department code, name, or head of department"
             @keyup.enter="applySearch"
           />
           <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
-          <USelectMenu
-            v-model="selectedFacultyId"
-            class="w-full"
-            :items="facultyOptions"
-            label-key="label"
-            value-key="value"
-            placeholder="All faculties"
-            clear
-            :ui="{
-              input: 'hidden',
-              content: 'min-w-fit',
-            }"
-          />
         </UFieldGroup>
       </div>
     </div>
 
     <UCard>
+      <div class="flex justify-end">
+        <!--
+            Issue: Hover doesn't work for USelectMenu (unless `search-input` is enabled).
+            Workaround: Keep `search-input` enabled and hide it via CSS.
+            TODO: Investigate root cause and replace this workaround.
+          -->
+        <USelectMenu
+          v-model="selectedFacultyId"
+          :items="facultyOptions"
+          label-key="label"
+          value-key="value"
+          placeholder="All faculties"
+          clear
+          :ui="{
+            input: 'hidden',
+            content: 'min-w-fit',
+          }"
+        />
+      </div>
+
       <UTable :data="rows" :columns="columns" :loading="isLoading" class="flex-1" />
 
       <div class="flex justify-center gap-2 border-t border-default pt-4 px-4">

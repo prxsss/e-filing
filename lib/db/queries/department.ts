@@ -1,6 +1,6 @@
 import type { SQL } from 'drizzle-orm';
 
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, roles, userRoles, users } from '../schema';
@@ -22,7 +22,7 @@ function getDepartmentsWhere(filters: DepartmentListFilters): SQL | undefined {
     const keyword = `%${search}%`;
     conditions.push(
       or(
-        ilike(sql<string>`${departments.id}::text`, keyword),
+        ilike(departments.departmentCode, keyword),
         ilike(departments.nameEn, keyword),
         ilike(departments.nameTh, keyword),
         sql`exists (
@@ -33,8 +33,8 @@ function getDepartmentsWhere(filters: DepartmentListFilters): SQL | undefined {
           where ur.department_id = ${departments.id}
             and lower(r.name) in ('head of dept', 'head of the department', 'department head')
             and (
-              concat(u.first_name_en, ' ', u.last_name_en) ilike ${keyword}
-              or concat(u.first_name_th, ' ', u.last_name_th) ilike ${keyword}
+              concat_ws(' ', u.title_en, u.first_name_en, u.last_name_en) ilike ${keyword}
+              or concat(u.title_th, u.first_name_th, ' ', u.last_name_th) ilike ${keyword}
             )
         )`,
       )!,
@@ -88,7 +88,7 @@ export async function getDepartments({
     .from(departments)
     .leftJoin(faculties, eq(departments.facultyId, faculties.id))
     .leftJoinLateral(headOfDepartment, sql`true`)
-    .orderBy(desc(departments.id))
+    .orderBy(asc(departments.id))
     .limit(pageSize)
     .offset(offset);
 
