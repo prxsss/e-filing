@@ -1,0 +1,21 @@
+{
+  "common": {
+    "allFaculties": "ทุกคณะ",
+    "periods": {
+      "today": "วันนี้",
+      "yesterday": "เมื่อวาน",
+      "last7Days": "7 วันที่แล้ว",
+      "last14Days": "14 วันที่แล้ว",
+      "last30Days": "30 วันที่แล้ว",
+      "thisWeek": "สัปดาห์นี้",
+      "lastWeek": "สัปดาห์ที่แล้ว",
+      "thisMonth": "เดือนนี้",
+      "lastMonth": "เดือนที่แล้ว",
+      "thisQuarter": "ไตรมาสนี้",
+      "lastQuarter": "ไตรมาสที่แล้ว",
+      "yearToDate": "ต้นปีถึงวันนี้",
+      "last12Months": "12 เดือนที่แล้ว",
+      "custom": "กำหนดเอง"
+    }
+  }
+}

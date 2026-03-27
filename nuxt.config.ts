@@ -38,12 +38,12 @@ export default defineNuxtConfig({
     locales: [{
       code: 'en',
       name: 'English',
-      file: 'en.json',
+      file: './en/index.ts',
       icon: 'i-flag-us-4x3',
     }, {
       code: 'th',
       name: 'ไทย',
-      file: 'th.json',
+      file: './th/index.ts',
       icon: 'i-flag-th-4x3',
     }],
   },

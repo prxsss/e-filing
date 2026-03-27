@@ -1,0 +1,10 @@
+{
+  "adminDashboard": {
+    "title": "Admin Dashboard",
+    "description": "Monitoring real-time request flow and signature bottlenecks across departments.",
+    "totalRequests": "Total Requests",
+    "completedRequests": "Completed Requests",
+    "medianTurnaround": "Median Turnaround",
+    "rejectedRequests": "Rejected Requests"
+  }
+}
