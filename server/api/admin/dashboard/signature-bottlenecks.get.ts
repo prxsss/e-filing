@@ -3,7 +3,7 @@ import type { SQL } from 'drizzle-orm';
 import db from '~~/lib/db';
 import { request, signatureFlow } from '~~/lib/db/schema';
 import { resolveDashboardRange } from '~~/server/utils/dashboard-period';
-import { and, gte, lte, sql } from 'drizzle-orm';
+import { and, gte, lte, ne, sql } from 'drizzle-orm';
 
 function parseFacultyId(value: unknown): number | undefined {
   const parsed = Number(value);
@@ -39,6 +39,11 @@ export default defineEventHandler(async (event) => {
   const conditions: SQL[] = [
     gte(signatureFlow.createdAt, startDate),
     lte(signatureFlow.createdAt, endDate),
+
+    // role id 1 is the requester (student)
+    // Since we're analyzing bottlenecks in the signing process,
+    // we want to exclude the requester role from this analysis
+    ne(signatureFlow.roleId, 1),
   ];
 
   if (facultyId) {
@@ -62,7 +67,13 @@ export default defineEventHandler(async (event) => {
       AVG(
         CASE
           WHEN ${signatureFlow.status} = 'pending'
-          THEN EXTRACT(EPOCH FROM (NOW() - ${signatureFlow.createdAt})) / 3600
+            AND ${signatureFlow.pendingAt} IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (NOW() - ${signatureFlow.pendingAt})) / 3600
+
+          WHEN ${signatureFlow.status} = 'signed'
+            AND ${signatureFlow.pendingAt} IS NOT NULL
+            AND ${signatureFlow.signedAt} IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (${signatureFlow.signedAt} - ${signatureFlow.pendingAt})) / 3600
         END
       ),
       0
