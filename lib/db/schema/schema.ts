@@ -23,8 +23,12 @@ export const users = pgTable("users", {
 	titleTh: varchar("title_th", { length: 20 }),
 	titleEn: varchar("title_en", { length: 20 }),
 	isActive: boolean("is_active").default(false),
+	studentId: text("student_id"),
+	staffId: text("staff_id"),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
+	unique("users_student_id_key").on(table.studentId),
+	unique("users_staff_id_key").on(table.staffId),
 ]);
 
 export const permissions = pgTable("permissions", {
