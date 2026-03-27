@@ -1,0 +1,133 @@
+// Minimal serializer for placed field objects before persisting to DB
+// Keeps only properties that are required for rendering and behavior per field type.
+export function placeField(field: any, options?: { preserveFormLayout?: boolean }) {
+  const preserveFormLayout = options?.preserveFormLayout ?? true;
+  const typeRaw = String(field?.type ?? field?.fieldType ?? '').trim();
+  const type = typeRaw.toLowerCase();
+
+  const result: any = {
+    id: field?.id,
+    instanceId: String(field?.instanceId ?? ''),
+    instanceNumber: Number(field?.instanceNumber ?? 1),
+    type: field?.type ?? field?.fieldType ?? typeRaw,
+    fieldType: field?.fieldType ?? field?.type ?? typeRaw,
+    normalizedX: Number(field?.normalizedX ?? field?.x ?? 0),
+    normalizedY: Number(field?.normalizedY ?? field?.y ?? 0),
+    normalizedWidth: Number(field?.normalizedWidth ?? field?.width ?? 0),
+    normalizedHeight: Number(field?.normalizedHeight ?? field?.height ?? 0),
+    pageNumber: Number(field?.pageNumber ?? 1),
+    label: String(field?.label ?? field?.name ?? '').substring(0, 255),
+  };
+
+  // Grouping
+  if (field?.groupId)
+    result.groupId = field.groupId;
+  if (field?.isGrouped)
+    result.isGrouped = Boolean(field.isGrouped);
+  if (Number.isFinite(field?.groupSize))
+    result.groupSize = Number(field.groupSize);
+  if (Number.isFinite(field?.groupPosition))
+    result.groupPosition = Number(field.groupPosition);
+
+  // Common behavior props
+  if (field?.signerStepId)
+    result.signerStepId = field.signerStepId;
+  if (typeof field?.isFillable !== 'undefined')
+    result.isFillable = Boolean(field.isFillable);
+  if (typeof field?.isAutoGenerate !== 'undefined')
+    result.isAutoGenerate = Boolean(field.isAutoGenerate);
+
+  // Generic font / rendering props (include for date, checkbox, signature, etc. when present)
+  if (Number.isFinite(field?.fontSize))
+    result.fontSize = Math.max(8, Math.min(72, Number(field.fontSize)));
+  if (field?.fontFamily)
+    result.fontFamily = String(field.fontFamily);
+  if (field?.fontWeight && String(field.fontWeight) !== 'normal')
+    result.fontWeight = String(field.fontWeight);
+  if (field?.fontStyle && String(field.fontStyle) !== 'normal')
+    result.fontStyle = String(field.fontStyle);
+  if (field?.textAlign && String(field.textAlign) !== 'left')
+    result.textAlign = String(field.textAlign);
+  if (Number.isFinite(field?.letterSpacing) && Number(field.letterSpacing) !== 0)
+    result.letterSpacing = Number(field.letterSpacing);
+  if (Number.isFinite(field?.lineHeight) && Number(field.lineHeight) !== 1.5)
+    result.lineHeight = Number(field.lineHeight);
+  if (field?.textDecoration && String(field.textDecoration) !== 'none')
+    result.textDecoration = String(field.textDecoration);
+
+  // Strike-through group mode and thickness (relevant for checkbox groups)
+  const rawThicknessCommon = field?.strikeLineThickness ?? field?.strike_line_thickness;
+  if (rawThicknessCommon !== undefined)
+    result.strikeLineThickness = Math.min(8, Math.max(0.5, Number(rawThicknessCommon) || 1.5));
+  if (typeof field?.strikeThroughGroupMode !== 'undefined')
+    result.strikeThroughGroupMode = Boolean(field.strikeThroughGroupMode ?? field.strike_through_group_mode ?? false);
+
+  // Visibility rule (sanitized)
+  const rawRule = field?.visibilityRule ?? field?.visibility_rule;
+  if (rawRule && typeof rawRule === 'object') {
+    const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
+    const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+    if (sourceFieldInstanceId.length || sourceGroupId.length) {
+      result.visibilityRule = {
+        enabled: rawRule.enabled !== false,
+        sourceFieldInstanceId: sourceFieldInstanceId || null,
+        sourceGroupId: sourceGroupId || null,
+        operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
+        clearWhenHidden: Boolean(rawRule.clearWhenHidden ?? rawRule.clear_when_hidden ?? false),
+      };
+    }
+  }
+
+  // Type-specific additional fields
+  if (type === 'text' || type === 'textarea' || type === 'number') {
+    if (Number.isFinite(field?.maxLength))
+      result.maxLength = Number(field.maxLength);
+  }
+
+  if (type === 'date' || type === 'time' || type === 'datetime') {
+    if (typeof field?.dateShowDay !== 'undefined')
+      result.dateShowDay = Boolean(field.dateShowDay);
+    if (typeof field?.dateShowMonth !== 'undefined')
+      result.dateShowMonth = Boolean(field.dateShowMonth);
+    if (typeof field?.dateShowYear !== 'undefined')
+      result.dateShowYear = Boolean(field.dateShowYear);
+    if (typeof field?.timeShowHour !== 'undefined')
+      result.timeShowHour = Boolean(field.timeShowHour);
+    if (typeof field?.timeShowMinute !== 'undefined')
+      result.timeShowMinute = Boolean(field.timeShowMinute);
+    if (typeof field?.dateSeparator !== 'undefined')
+      result.dateSeparator = String(field.dateSeparator ?? '');
+    if (typeof field?.timeSeparator !== 'undefined')
+      result.timeSeparator = String(field.timeSeparator ?? '');
+    if (Number.isFinite(field?.dateSeparatorSpacing))
+      result.dateSeparatorSpacing = Number(field.dateSeparatorSpacing);
+    if (Number.isFinite(field?.timeSeparatorSpacing))
+      result.timeSeparatorSpacing = Number(field.timeSeparatorSpacing);
+  }
+
+  if (type === 'signature') {
+    // Nothing extra currently; keep normalized dims and page info
+  }
+
+  // Misc
+  if (Number.isFinite(field?.amount))
+    result.amount = Number(field.amount);
+  if (field?.name)
+    result.name = String(field.name);
+
+  // Preserve form layout metadata only when requested
+  if (preserveFormLayout) {
+    if (Number.isFinite(Number(field?.formOrder)))
+      result.formOrder = Number(field.formOrder);
+    if (field?.formQuestionLabel != null && String(field.formQuestionLabel).length)
+      result.formQuestionLabel = String(field.formQuestionLabel);
+    if (field?.formSectionTitle != null && String(field.formSectionTitle).length)
+      result.formSectionTitle = String(field.formSectionTitle);
+    if (typeof field?.formRequired !== 'undefined')
+      result.formRequired = Boolean(field.formRequired);
+  }
+
+  return result;
+}
+
+export default placeField;

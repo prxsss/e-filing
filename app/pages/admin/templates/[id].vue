@@ -922,9 +922,12 @@ watch(layoutEditorFillableFields, () => {
         </div>
       </UCard>
 
-      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left: PDF Preview -->
-        <div class="lg:col-span-2">
+      <!-- Template Content -->
+      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 gap-5 items-start lg:grid-cols-[minmax(0,1.7fr)_minmax(24rem,1fr)]">
+        <!-- Left: PDF Preview (sticky on large screens while editing the form column) -->
+        <div
+          class="lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-0"
+        >
           <template-pdf-preview
             :pdf-url="template.documentUrl"
             :placed-fields="placedFields"

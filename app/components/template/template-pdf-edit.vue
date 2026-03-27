@@ -2,6 +2,7 @@
 import type { FieldInstance, PdfDimensions } from '~/types/template';
 
 import { getFieldDisplayBadgeText, getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+import { placeField } from '../../utils/place-field';
 
 type Field = FieldInstance;
 
@@ -691,34 +692,14 @@ async function saveTemplate(): Promise<void> {
       return;
     }
 
-    // Validate and build normalized fields payload
+    // Validate and build normalized fields payload (use serializer to keep payload minimal)
     const normalizedFields: any[] = [];
     for (const field of props.placedFields as FieldInstance[]) {
       const validation = validateNormalizedField(field);
       if (!validation.valid)
         continue;
-      const rawThickness = (field as any).strikeLineThickness ?? (field as any).strike_line_thickness;
-      const strikeThickness = Math.min(8, Math.max(0.5, Number(rawThickness) || 1.5));
-      normalizedFields.push({
-        id: field.id,
-        instanceId: field.instanceId,
-        instanceNumber: field.instanceNumber,
-        normalizedX: Math.max(0, Math.min(1, field.normalizedX || 0)),
-        normalizedY: Math.max(0, Math.min(1, field.normalizedY || 0)),
-        normalizedWidth: Math.max(0, Math.min(1, field.normalizedWidth || 0)),
-        normalizedHeight: Math.max(0, Math.min(1, field.normalizedHeight || 0)),
-        type: field.fieldType,
-        groupId: field.groupId,
-        isGrouped: field.isGrouped,
-        groupSize: field.groupSize,
-        groupPosition: field.groupPosition,
-        pageNumber: field.pageNumber || 1,
-        label: field.label?.substring(0, 255) || '',
-        fontSize: Math.max(8, Math.min(72, field.fontSize || 14)),
-        fontFamily: field.fontFamily || 'Arial',
-        strikeThroughGroupMode: Boolean((field as any).strikeThroughGroupMode ?? (field as any).strike_through_group_mode ?? false),
-        strikeLineThickness: strikeThickness,
-      });
+      const serialized = placeField(field as any, { preserveFormLayout: true });
+      normalizedFields.push(serialized);
     }
 
     if (normalizedFields.length === 0) {

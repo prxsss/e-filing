@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getFieldDisplayBadgeText, getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+import { placeField } from '../../utils/place-field';
 
 type Field = any;
 type RenderTask = any;
@@ -910,31 +911,15 @@ async function saveTemplate() {
 
     const documentUrl = uploadResponse.url;
 
-    // Step 2: Normalize field coordinates
-    const normalizedFields = (props.placedFields as Field[]).map((field: Field) => ({
-      id: field.id,
-      instanceId: field.instanceId,
-      instanceNumber: field.instanceNumber,
-      type: field.type,
-      name: field.name,
-      label: field.label,
-      fontSize: field.fontSize || 14,
-      fontFamily: field.fontFamily || 'Arial',
-      strikeThroughGroupMode: Boolean(field.strikeThroughGroupMode ?? field.strike_through_group_mode ?? false),
-      strikeLineThickness: Math.min(8, Math.max(0.5, Number(field.strikeLineThickness ?? field.strike_line_thickness ?? 1.5) || 1.5)),
-      // Normalize coordinates to 0-1 scale based on PDF dimensions
-      normalizedX: Math.round((field.x / pdfNaturalDimensions.value.width) * 10000) / 10000,
-      normalizedY: Math.round((field.y / pdfNaturalDimensions.value.height) * 10000) / 10000,
-      normalizedWidth: Math.round((field.width / pdfNaturalDimensions.value.width) * 10000) / 10000,
-      normalizedHeight: Math.round((field.height / pdfNaturalDimensions.value.height) * 10000) / 10000,
-      // Grouping information
-      groupId: field.groupId || null,
-      isGrouped: field.isGrouped || false,
-      groupSize: field.groupSize || 1,
-      groupPosition: field.groupPosition || 0,
-      // Page information
-      pageNumber: field.pageNumber || 1,
-    }));
+    // Step 2: Normalize field coordinates (use serializer to keep payload minimal)
+    const normalizedFields = (props.placedFields as Field[]).map((field: Field) => {
+      const normalizedX = Math.round((field.x / pdfNaturalDimensions.value.width) * 10000) / 10000;
+      const normalizedY = Math.round((field.y / pdfNaturalDimensions.value.height) * 10000) / 10000;
+      const normalizedWidth = Math.round((field.width / pdfNaturalDimensions.value.width) * 10000) / 10000;
+      const normalizedHeight = Math.round((field.height / pdfNaturalDimensions.value.height) * 10000) / 10000;
+      const fieldCopy = { ...field, normalizedX, normalizedY, normalizedWidth, normalizedHeight };
+      return placeField(fieldCopy, { preserveFormLayout: true });
+    });
 
     // Step 3: Prepare template payload
     const templatePayload = {
