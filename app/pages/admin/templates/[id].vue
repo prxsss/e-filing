@@ -890,7 +890,7 @@ watch(layoutEditorFillableFields, () => {
               variant="solid"
               color="info"
             >
-              Edit
+              Edit Template
             </UButton>
           </div>
         </div>
@@ -922,12 +922,9 @@ watch(layoutEditorFillableFields, () => {
         </div>
       </UCard>
 
-      <!-- Template Content -->
-      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 gap-5 items-start lg:grid-cols-[minmax(0,1.7fr)_minmax(24rem,1fr)]">
-        <!-- Left: PDF Preview (sticky on large screens while editing the form column) -->
-        <div
-          class="lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-0"
-        >
+      <div v-else-if="template && template.documentUrl" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left: PDF Preview -->
+        <div class="lg:col-span-2">
           <template-pdf-preview
             :pdf-url="template.documentUrl"
             :placed-fields="placedFields"
@@ -1059,7 +1056,7 @@ watch(layoutEditorFillableFields, () => {
                       >
                         <UCheckbox
                           :model-value="getLayoutEntry(String(field.instanceId))?.required !== false"
-                          label="ต้องกรอก (แสดง * สีแดงฝั่งนิสิต)"
+                          label="ต้องกรอก"
                           @update:model-value="(v) => setLayoutRequired(String(field.instanceId), Boolean(v))"
                         />
                       </div>
