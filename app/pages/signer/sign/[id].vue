@@ -729,9 +729,10 @@ onMounted(() => {
 
             <UButton
               block
-              variant="ghost"
+              variant="outline"
               color="neutral"
               to="/signer/to-sign"
+              class="rounded-md"
             >
               <i class="fas fa-arrow-left mr-2" />
               กลับไปรายการที่ต้องลงนาม

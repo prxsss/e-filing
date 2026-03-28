@@ -461,33 +461,6 @@ onMounted(loadAll);
             </div>
           </UCard>
 
-          <!-- All Filled Fields (admin sees everything) -->
-          <UCard>
-            <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                ข้อมูลที่กรอก (ทั้งหมด)
-              </h3>
-            </template>
-
-            <div class="space-y-2">
-              <div
-                v-for="(field, index) in allFillableFields"
-                :key="field.instanceId"
-                class="p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200"
-              >
-                <div class="font-medium text-gray-900">
-                  {{ index + 1 }}. {{ field.label || field.name }}
-                </div>
-                <div class="text-gray-600 mt-1">
-                  {{ fieldValues[String(field.id)] || '—' }}
-                </div>
-              </div>
-              <div v-if="allFillableFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                ไม่มีข้อมูลที่กรอก
-              </div>
-            </div>
-          </UCard>
-
           <!-- Attachments -->
           <UCard v-if="attachments.length > 0">
             <template #header>
