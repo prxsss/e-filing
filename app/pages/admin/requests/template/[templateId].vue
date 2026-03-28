@@ -1,22 +1,29 @@
-<script setup lang="ts">
+<script lang="ts" setup>
 import type { DateValue } from '@internationalized/date';
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
 import { useDebounceFn } from '@vueuse/core';
 
+type TemplateInfo = { id: number; name: string | null };
+
 definePageMeta({
-  title: 'requests',
+  title: 'requestByTemplate',
   middleware: ['permission'],
   permission: 'request.view',
 });
 
+const route = useRoute();
 const { t, locale } = useI18n();
 const router = useRouter();
 const localePath = useLocalePath();
+const templateId = route.params.templateId as string;
+
+// Fetch template info
+const { data: templateRes } = await useFetch(`/api/pdf-templates/${templateId}`);
+const template = computed<TemplateInfo | null>(() => templateRes.value?.data ?? null);
 
 // === Types ===
 type RequestStatus = 'draft' | 'in_progress' | 'rejected' | 'completed';
-
 type RequestItem = {
   id: number;
   templateName: string | null;
@@ -29,27 +36,10 @@ type RequestItem = {
   studentNameTh: string | null;
   studentName: string;
 };
-
-type SelectableRow = {
-  getIsSelected: () => boolean;
-  toggleSelected: (value: boolean) => void;
-};
-
-type SelectableTable = {
-  getIsSomePageRowsSelected: () => boolean;
-  getIsAllPageRowsSelected: () => boolean;
-  toggleAllPageRowsSelected: (value: boolean) => void;
-};
-
-type FilteredSelectedRow = {
-  original: RequestItem;
-};
-
-type RequestsTableApi = {
-  getFilteredSelectedRowModel: () => {
-    rows: FilteredSelectedRow[];
-  };
-};
+type SelectableRow = { getIsSelected: () => boolean; toggleSelected: (value: boolean) => void };
+type SelectableTable = { getIsSomePageRowsSelected: () => boolean; getIsAllPageRowsSelected: () => boolean; toggleAllPageRowsSelected: (value: boolean) => void };
+type FilteredSelectedRow = { original: RequestItem };
+type RequestsTableApi = { getFilteredSelectedRowModel: () => { rows: FilteredSelectedRow[] } };
 
 // === Status Helpers ===
 const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
@@ -58,22 +48,18 @@ const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'su
   rejected: 'error',
   completed: 'success',
 };
-
 const statusLabelMap: Record<RequestStatus, string> = {
   draft: t('draft'),
   in_progress: t('inProgress'),
   rejected: t('rejected'),
   completed: t('completed'),
 };
-
 function getStatusColor(status: string) {
   return statusColorMap[status as RequestStatus] ?? 'neutral';
 }
-
 function getStatusLabel(status: string) {
   return statusLabelMap[status as RequestStatus] ?? status;
 }
-
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '-';
@@ -89,10 +75,8 @@ const UBadge = resolveComponent('UBadge');
 const UButton = resolveComponent('UButton');
 const UCheckbox = resolveComponent('UCheckbox');
 const UIcon = resolveComponent('UIcon');
-
 const table = ref<{ tableApi?: RequestsTableApi } | null>(null);
 const rowSelection = ref<Record<string, boolean>>({});
-
 const columns: TableColumn<RequestItem>[] = [
   {
     id: 'select',
@@ -129,7 +113,6 @@ const columns: TableColumn<RequestItem>[] = [
     meta: { class: { td: 'text-right' } },
   },
 ];
-
 function onRowSelect(_e: Event, row: TableRow<RequestItem>) {
   router.push(localePath(`/admin/requests/${row.original.id}`));
 }
@@ -153,18 +136,13 @@ async function downloadPdf(url: string, filename: string) {
       window.open(url, '_blank');
   }
 }
-
 const selectedRowsWithPdf = computed<FilteredSelectedRow[]>(() => {
   const api: RequestsTableApi | undefined = table.value?.tableApi;
   if (!api)
     return [];
-  return api.getFilteredSelectedRowModel().rows.filter(
-    row => Boolean(row.original?.filledDocumentUrl),
-  );
+  return api.getFilteredSelectedRowModel().rows.filter(row => Boolean(row.original?.filledDocumentUrl));
 });
-
 const canBulkDownload = computed<boolean>(() => selectedRowsWithPdf.value.length > 0);
-
 async function onBulkDownload() {
   const rows = selectedRowsWithPdf.value;
   for (const [index, row] of rows.entries()) {
@@ -183,30 +161,23 @@ const statusOptions = [
   { label: 'ปฏิเสธ', value: 'rejected' },
   { label: 'เสร็จสิ้น', value: 'completed' },
 ];
-
 const searchQuery = ref('');
 const debouncedSearch = ref('');
 const applySearch = useDebounceFn((val: string) => {
   debouncedSearch.value = val;
 }, 350);
 watch(searchQuery, applySearch);
-
 const selectedStatus = ref<string | undefined>(undefined);
 const selectedDate = ref<DateValue | undefined>(undefined);
 const calendarModel = computed<any>({
   get: () => selectedDate.value,
-  set: (value) => {
-    selectedDate.value = (value ?? undefined) as DateValue | undefined;
-  },
+  set: (value) => { selectedDate.value = (value ?? undefined) as DateValue | undefined; },
 });
 const page = ref(1);
 const pageSize = 15;
-
-// === Month / Year Filter ===
 const now = new Date();
-const selectedMonth = ref<number>(now.getMonth() + 1); // 1–12
+const selectedMonth = ref<number>(now.getMonth() + 1);
 const selectedYear = ref<number>(now.getFullYear());
-
 const monthOptions = [
   { label: 'มกราคม', value: 1 },
   { label: 'กุมภาพันธ์', value: 2 },
@@ -221,25 +192,16 @@ const monthOptions = [
   { label: 'พฤศจิกายน', value: 11 },
   { label: 'ธันวาคม', value: 12 },
 ];
-
 const { data: yearsData } = await useFetch('/api/requests/years');
 const yearOptions = computed(() => {
   const years: number[] = yearsData.value?.data ?? [now.getFullYear()];
-  // Always include the current year even if there's no data yet
   const merged = Array.from(new Set([...years, now.getFullYear()])).sort((a, b) => b - a);
   return merged.map(y => ({ label: String(y), value: y }));
 });
-
-// Clearing the day filter does NOT reset the month/year filter
 function clearDayFilter() {
   selectedDate.value = undefined;
 }
-
-const hasActiveFilters = computed(() =>
-  Boolean(searchQuery.value || selectedStatus.value || selectedDate.value),
-);
-
-// "Reset all" resets day filter + month/year back to current month
+const hasActiveFilters = computed(() => Boolean(searchQuery.value || selectedStatus.value || selectedDate.value));
 function clearFilters() {
   searchQuery.value = '';
   debouncedSearch.value = '';
@@ -249,29 +211,19 @@ function clearFilters() {
   selectedYear.value = now.getFullYear();
   page.value = 1;
 }
-
 const formattedSelectedDate = computed(() => {
   if (!selectedDate.value)
     return null;
-
   const parts = selectedDate.value.toString().split('-').map(Number);
   if (parts.length < 3 || parts.some(Number.isNaN))
     return selectedDate.value.toString();
-
   const [year, month, day] = parts as [number, number, number];
   const selected = new Date(year, month - 1, day);
-
-  return selected.toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
-    day: 'numeric',
-  });
+  return selected.toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', { day: 'numeric' });
 });
-
-// Reset page only when filters change (not when page itself changes) — avoids double-fetch
 watch([debouncedSearch, selectedStatus, selectedDate, selectedMonth, selectedYear], () => {
   page.value = 1;
 });
-
-// When a specific date is selected, sync the month/year selectors to match it
 watch(selectedDate, (val) => {
   if (!val)
     return;
@@ -284,48 +236,35 @@ watch(selectedDate, (val) => {
 
 // === Fetch ===
 const queryParams = computed(() => {
-  // If a specific day is selected, send only that date (backend handles it as a single-day range)
   if (selectedDate.value) {
     return {
       page: page.value,
       limit: pageSize,
       ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
       date: selectedDate.value.toString(),
-      // Use debouncedSearch here — not searchQuery — to avoid per-keystroke requests
       ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
+      templateId,
     };
   }
-
-  // Otherwise send the full month range
   const firstDay = new Date(selectedYear.value, selectedMonth.value - 1, 1);
   const lastDay = new Date(selectedYear.value, selectedMonth.value, 0);
   const pad = (n: number) => String(n).padStart(2, '0');
   const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
   return {
     page: page.value,
     limit: pageSize,
     ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
     monthStart: fmt(firstDay),
     monthEnd: fmt(lastDay),
-    // Use debouncedSearch here — not searchQuery — to avoid per-keystroke requests
     ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
+    templateId,
   };
 });
-
-// Remove watch: [queryParams] from useFetch — the queryParams ref passed as `query`
-// is already reactive. useFetch re-runs whenever it changes, so the explicit watch
-// was just causing a redundant second fetch on every filter change.
-const { data: response, status: fetchStatus, refresh } = await useFetch('/api/requests', {
-  query: queryParams,
-});
-
+const { data: response, status: fetchStatus, refresh } = await useFetch('/api/requests', { query: queryParams });
 const requests = computed<RequestItem[]>(() => {
   const raw = response.value?.data ?? [];
   return raw.map((item: any) => {
-    const studentName = locale.value === 'th'
-      ? (item.studentNameTh ?? '')
-      : (item.studentNameEn ?? '');
+    const studentName = locale.value === 'th' ? (item.studentNameTh ?? '') : (item.studentNameEn ?? '');
     return {
       ...item,
       studentId: item.studentId ?? '',
@@ -336,8 +275,6 @@ const requests = computed<RequestItem[]>(() => {
   });
 });
 const total = computed(() => response.value?.meta?.total ?? 0);
-
-// === Stats ===
 const statsMap = computed(() => {
   const counts = response.value?.meta?.statusCounts;
   return {
@@ -355,9 +292,9 @@ const statsMap = computed(() => {
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          คำร้องทั้งหมด
+          {{ template?.name ? `คำร้องสำหรับ: ${template.name}` : 'คำร้องตามแบบฟอร์ม' }}
         </h1>
-        <p>ตรวจสอบและติดตามสถานะคำร้องของผู้ใช้ทุกคน</p>
+        <p>ตรวจสอบและติดตามสถานะคำร้องสำหรับแบบฟอร์มนี้</p>
       </div>
       <div class="flex items-center gap-2">
         <UButton
@@ -611,3 +548,7 @@ const statsMap = computed(() => {
     </UCard>
   </div>
 </template>
+
+<style>
+
+</style>

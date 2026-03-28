@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui';
-
-import { h } from 'vue';
+import type { TableColumn, TableRow } from '@nuxt/ui';
 
 type TopRequestTemplate = {
   rowNo: number;
+  templateId: number;
   templateName: string;
   usage: number;
   completion: number;
@@ -46,11 +45,22 @@ const { data: response, status, refresh } = useFetch<{ success: boolean; data: T
 const data = computed<TopRequestTemplate[]>(() => {
   return (response.value?.data ?? []).map((item, index) => ({
     rowNo: index + 1,
+    templateId: item.templateId,
     templateName: item.templateName ?? 'Untitled Template',
     usage: item.usage,
     completion: item.completionRate,
   }));
 });
+
+const router = useRouter();
+const localePath = useLocalePath();
+
+function onRowSelect(_e: Event, row: TableRow<TopRequestTemplate>) {
+  const templateId = row.original.templateId;
+  if (templateId) {
+    router.push(localePath(`/admin/requests/template/${templateId}`));
+  }
+}
 
 watch(() => props.refreshToken, () => {
   refresh();
@@ -122,7 +132,13 @@ const columns: TableColumn<TopRequestTemplate>[] = [
       />
     </div>
     <UTable
-      :data :columns :loading="status === 'pending'" sticky class="flex-1 h-80"
+      :data="data"
+      :columns="columns"
+      :loading="status === 'pending'"
+      sticky
+      class="flex-1 h-80"
+      :ui="{ tr: 'cursor-pointer hover:bg-gray-50 transition-colors' }"
+      @select="onRowSelect"
     />
   </UCard>
 </template>

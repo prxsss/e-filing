@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     const dateParam = query.date as string | undefined; // Added date query
     const mine = query.mine === 'true' || query.mine === '1';
     const requesterId = query.requesterId as string | undefined;
+    const templateId = query.templateId as string | undefined;
 
     // Build WHERE conditions
     const conditions = [];
@@ -54,6 +55,13 @@ export default defineEventHandler(async (event) => {
 
     if (requesterId) {
       conditions.push(eq(request.userId, requesterId));
+    }
+
+    if (templateId) {
+      const templateIdNum = Number(templateId);
+      if (!Number.isNaN(templateIdNum)) {
+        conditions.push(eq(request.templateId, templateIdNum));
+      }
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
