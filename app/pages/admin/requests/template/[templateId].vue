@@ -386,7 +386,7 @@ const statsMap = computed(() => {
               icon="i-heroicons-magnifying-glass"
               size="lg"
               variant="outline"
-              placeholder="ค้นหาตามรหัสคำร้อง หรือชื่อเรื่อง..."
+              placeholder="ค้นหาตามชื่อคำร้อง รหัสนิสิต หรือชื่อนิสิต..."
               :loading="fetchStatus === 'pending'"
             />
             <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />

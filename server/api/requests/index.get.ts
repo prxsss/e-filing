@@ -45,10 +45,19 @@ export default defineEventHandler(async (event) => {
     }
 
     if (search) {
+      // Search by template name, student id, and student name (EN/TH, first/last/full)
       conditions.push(
         or(
           ilike(requestTemplate.name, `%${search}%`),
-          ilike(sql`CAST(${request.id} AS TEXT)`, `%${search}%`),
+          ilike(users.studentId, `%${search}%`),
+          ilike(users.firstNameEn, `%${search}%`),
+          ilike(users.lastNameEn, `%${search}%`),
+          ilike(users.firstNameTh, `%${search}%`),
+          ilike(users.lastNameTh, `%${search}%`),
+          // Full name (EN)
+          ilike(sql`CONCAT_WS(' ', ${users.firstNameEn}, ${users.lastNameEn})`, `%${search}%`),
+          // Full name (TH)
+          ilike(sql`CONCAT(${users.firstNameTh}, ' ', ${users.lastNameTh})`, `%${search}%`),
         ),
       );
     }
