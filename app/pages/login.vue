@@ -3,6 +3,14 @@ import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui';
 
 import * as z from 'zod';
 
+type AuthFormProvider = {
+  label: string;
+  color: 'error' | 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'neutral' | undefined;
+  variant: 'link' | 'solid' | 'outline' | 'soft' | 'subtle' | 'ghost' | undefined;
+  size: 'md' | 'xs' | 'sm' | 'lg' | 'xl' | undefined;
+  onClick: () => void;
+};
+
 definePageMeta({
   title: 'login',
   layout: false,
@@ -11,11 +19,22 @@ definePageMeta({
 
 const { t } = useI18n();
 const localePath = useLocalePath();
+const route = useRoute();
 
 const authStore = useAuthStore();
 
+const redirectPath = computed(() => {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//') || redirect.includes('://')) {
+    return null;
+  }
+
+  return redirect;
+});
+
 if (authStore.session.loggedIn) {
-  navigateTo(localePath('/'), { replace: true });
+  navigateTo(redirectPath.value ?? localePath('/'), { replace: true });
 }
 
 const fields: AuthFormField[] = [{
@@ -34,6 +53,14 @@ const fields: AuthFormField[] = [{
   size: 'xl',
 }];
 
+const providers: AuthFormProvider[] = [{
+  label: 'KU ALL-Login',
+  color: 'primary',
+  variant: 'solid',
+  size: 'xl',
+  onClick: () => authStore.loginWithKu(redirectPath.value ?? undefined),
+}];
+
 const schema = z.object({
   email: z.email('Invalid email'),
   password: z.string('Password is required').min(8, 'Must be at least 8 characters'),
@@ -49,7 +76,7 @@ const formState = reactive({
 const authForm = useTemplateRef('authForm');
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
-  await authStore.login(payload.data.email, payload.data.password);
+  await authStore.login(payload.data.email, payload.data.password, redirectPath.value ?? undefined);
 }
 
 watch(() => [authForm.value?.state.email, authForm.value?.state.password], () => {
@@ -65,7 +92,8 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
         v-model="formState"
         :schema="schema"
         :fields="fields"
-        :submit="{ label: $t('login'), loading: authStore.loading, loadingIcon: 'i-lucide-loader', size: 'xl' }"
+        :submit="{ label: $t('login'), loading: authStore.loading, loadingIcon: 'i-lucide-loader', variant: 'subtle', size: 'xl' }"
+        :providers
         @submit="onSubmit"
       >
         <template #header>

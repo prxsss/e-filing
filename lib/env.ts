@@ -13,6 +13,15 @@ const EnvSchema = z.object({
   SMTP_USER: z.string(),
   SMTP_PASS: z.string(),
   SMTP_FROM: z.string(),
+  SCOPE: z.string(),
+  CLIENT_SECRET: z.string(),
+  CLIENT_ID: z.string(),
+  REDIRECT_URI: z.string(),
+  LOGOUT_REDIRECT_URI: z.string(),
+  USER_INFO_ENDPOINT: z.string(),
+  AUTHORIZATION_ENDPOINT: z.string(),
+  TOKEN_ENDPOINT: z.string(),
+  END_SESSION_ENDPOINT: z.string(),
 });
 
 export type EnvSchema = z.infer<typeof EnvSchema>;

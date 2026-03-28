@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
       fullNameTh: sql<string>`
           concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
         `,
+      email: users.email,
     })
     .from(users)
     .where(eq(users.email, email))
@@ -74,6 +75,8 @@ export default defineEventHandler(async (event) => {
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
+      email: existingUser.email,
+      authProvider: 'local',
     },
     lastLoggedIn: new Date(),
   });

@@ -6,6 +6,9 @@ export default defineNuxtRouteMiddleware((to) => {
     return;
 
   if (!session.loggedIn.value) {
-    return navigateTo(localPath('/login'), { replace: true });
+    return navigateTo({
+      path: localPath('/login'),
+      query: { redirect: to.fullPath },
+    }, { replace: true });
   }
 });

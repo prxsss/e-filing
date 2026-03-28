@@ -7,6 +7,11 @@ declare module '#auth-utils' {
     roles: string[];
     currentRole: string;
     permissions: string[];
+    typePerson?: string;
+    campus?: string;
+    email?: string;
+    idToken?: string;
+    authProvider?: 'local' | 'ku-all-login';
   };
 
   interface UserSession {
