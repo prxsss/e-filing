@@ -33,8 +33,6 @@ const router = useRouter();
 
 // const { t } = useI18n();
 
-// const { t } = useI18n();
-
 const { data, status, refresh } = await useFetch<{ success: boolean; data: SigningTask[] }>(
   '/api/requests/for-signing',
 );
