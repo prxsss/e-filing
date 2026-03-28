@@ -193,6 +193,7 @@ const applySearch = useDebounceFn((val: string) => {
 watch(searchQuery, applySearch);
 
 const selectedStatus = ref<string | undefined>(undefined);
+const selectedTemplateId = ref<number | undefined>(undefined);
 const page = ref(1);
 const pageSize = 15;
 
@@ -204,20 +205,34 @@ const statusOptions = [
   { label: 'เสร็จสิ้น', value: 'completed' },
 ];
 
+const { data: templatesData } = await useFetch('/api/pdf-templates', {
+  query: { pageSize: 100 },
+});
+
+const templateOptions = computed(() => {
+  const rows = templatesData.value?.data ?? [];
+  const options = rows.map((t: { id: number; name: string | null }) => ({
+    label: t.name ?? '-',
+    value: t.id,
+  }));
+  return [{ label: 'แบบฟอร์มทั้งหมด', value: undefined }, ...options];
+});
+
 const hasActiveFilters = computed(() =>
-  Boolean(searchQuery.value || selectedStatus.value || selectedPeriod.value !== 'This month'),
+  Boolean(searchQuery.value || selectedStatus.value || selectedTemplateId.value || selectedPeriod.value !== 'This month'),
 );
 
 function clearFilters() {
   searchQuery.value = '';
   debouncedSearch.value = '';
   selectedStatus.value = undefined;
+  selectedTemplateId.value = undefined;
   filterStore.resetDateFilter();
   page.value = 1;
 }
 
 // Reset page when any filter changes
-watch([debouncedSearch, selectedStatus, dateRangeQuery], () => {
+watch([debouncedSearch, selectedStatus, selectedTemplateId, dateRangeQuery], () => {
   page.value = 1;
 }, { deep: true });
 
@@ -226,6 +241,7 @@ const queryParams = computed(() => ({
   page: page.value,
   limit: pageSize,
   ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
+  ...(selectedTemplateId.value ? { templateId: selectedTemplateId.value } : {}),
   ...dateRangeQuery.value,
   ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
 }));
@@ -368,7 +384,7 @@ const statsMap = computed(() => {
             />
             <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />
           </UFieldGroup>
-          <UPopover :content="{ align: 'end', side: 'bottom' }">
+          <UPopover arrow :content="{ align: 'end', side: 'bottom' }">
             <template #default="{ open }">
               <UButton
                 color="primary"
@@ -401,6 +417,16 @@ const statsMap = computed(() => {
                     />
                   </UFormField>
                 </div>
+                <UFormField label="ประเภทคำร้อง">
+                  <USelect
+                    v-model="selectedTemplateId"
+                    :items="templateOptions"
+                    option-attribute="label"
+                    placeholder="ประเภทคำร้องทั้งหมด"
+                    class="w-full"
+                    size="sm"
+                  />
+                </UFormField>
                 <UFormField label="กำหนดช่วงวันที่เอง">
                   <UPopover arrow :content="{ align: 'start', side: 'bottom' }">
                     <UButton color="neutral" variant="outline" size="sm" class="w-full font-normal">

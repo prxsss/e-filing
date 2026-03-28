@@ -15,7 +15,8 @@ export default defineEventHandler(async (event) => {
     const offset = (page - 1) * limit;
     const status = query.status as string | undefined;
     const search = query.search as string | undefined;
-    const dateParam = query.date as string | undefined; // Added date query
+    const startDate = query.startDate as string | undefined;
+    const endDate = query.endDate as string | undefined;
     const mine = query.mine === 'true' || query.mine === '1';
     const requesterId = query.requesterId as string | undefined;
     const templateId = query.templateId as string | undefined;
@@ -32,17 +33,11 @@ export default defineEventHandler(async (event) => {
       conditions.push(eq(request.status, status));
     }
 
-    // Handle Specific Date Filtering (from 00:00:00 to 23:59:59)
-    if (dateParam) {
-      const startOfDay = new Date(dateParam);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(dateParam);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      conditions.push(gte(request.createdAt, startOfDay.toISOString()));
-      conditions.push(lte(request.createdAt, endOfDay.toISOString()));
-    }
+    // Handle date range filtering
+    if (startDate)
+      conditions.push(gte(request.createdAt, new Date(startDate).toISOString()));
+    if (endDate)
+      conditions.push(lte(request.createdAt, new Date(endDate).toISOString()));
 
     if (search) {
       // Search by template name, student id, and student name (EN/TH, first/last/full)
