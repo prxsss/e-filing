@@ -107,7 +107,7 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
     visible: computed(() => authStore.can('user.view')),
   },
   {
-    label: t('accessControl'),
+    label: t('adminAccessControl.title'),
     icon: 'i-lucide-shield-check',
     to: localePath('/admin/access-control'),
     onSelect: () => {
