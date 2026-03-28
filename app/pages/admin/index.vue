@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui';
 
-import { CalendarDate, DateFormatter, getLocalTimeZone } from '@internationalized/date';
+import { DateFormatter, getLocalTimeZone } from '@internationalized/date';
+
+import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
 
 defineOptions({
   tags: ['barcharts', 'stacked'],
@@ -33,215 +35,17 @@ const facultyOptions = computed(() => {
   return [{ label: t('common.allFaculties'), value: 'all' as const }, ...options];
 });
 
-const selectedPeriod = ref('Last 30 days');
-const periodOptions = [
-  'Today',
-  'Yesterday',
-  'Last 7 days',
-  'Last 14 days',
-  'Last 30 days',
-  'This week',
-  'Last week',
-  'This month',
-  'Last month',
-  'This quarter',
-  'Last quarter',
-  'Year to date (YTD)',
-  'Last 12 months',
-  'Custom',
-];
-
 const selectedFacultyFilterId = computed(() => selectedFacultyId.value === 'all' ? undefined : selectedFacultyId.value);
 
-type DateRangeValue = {
-  start: CalendarDate;
-  end: CalendarDate;
-};
+// === Shared Date Filter (Pinia) ===
+const filterStore = useRequestFiltersStore();
+const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
 
-const DASHBOARD_DATE_FILTER_STORAGE_KEY = 'admin-dashboard-date-filter';
+type DateRangeQuery = { startDate?: string; endDate?: string };
 
-type StoredDateRange = {
-  period: string;
-  start: string;
-  end: string;
-};
-
-const periodOptionSet = new Set(periodOptions);
-
-function toStorageDateString(value: CalendarDate) {
-  const month = `${value.month}`.padStart(2, '0');
-  const day = `${value.day}`.padStart(2, '0');
-  return `${value.year}-${month}-${day}`;
-}
-
-function parseStorageDateString(value: string) {
-  const [yearText, monthText, dayText] = value.split('-');
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day))
-    return null;
-
-  if (month < 1 || month > 12 || day < 1 || day > 31)
-    return null;
-
-  return new CalendarDate(year, month, day);
-}
-
-function getStoredDateFilter() {
-  if (!import.meta.client)
-    return null;
-
-  const rawValue = localStorage.getItem(DASHBOARD_DATE_FILTER_STORAGE_KEY);
-  if (!rawValue)
-    return null;
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<StoredDateRange>;
-    if (!parsed.start || !parsed.end)
-      return null;
-
-    const start = parseStorageDateString(parsed.start);
-    const end = parseStorageDateString(parsed.end);
-
-    if (!start || !end)
-      return null;
-
-    const period = typeof parsed.period === 'string' && periodOptionSet.has(parsed.period)
-      ? parsed.period
-      : 'Custom';
-
-    return {
-      period,
-      range: {
-        start,
-        end,
-      } as DateRangeValue,
-    };
-  }
-  catch {
-    localStorage.removeItem(DASHBOARD_DATE_FILTER_STORAGE_KEY);
-    return null;
-  }
-}
-
-function toCalendarDate(date: Date) {
-  return new CalendarDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
-}
-
-function toIsoRangeFromCalendar(start: CalendarDate, end?: CalendarDate) {
-  const resolvedEnd = end ?? start;
-
-  const startDate = start.toDate(getLocalTimeZone());
-  startDate.setHours(0, 0, 0, 0);
-
-  const endDate = resolvedEnd.toDate(getLocalTimeZone());
-  endDate.setHours(23, 59, 59, 999);
-
-  return {
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-  };
-}
-
-function resolvePresetDateRange(period: string): DateRangeValue {
-  const now = new Date();
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-
-  let start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-
-  switch (period) {
-    case 'Today':
-      break;
-    case 'Yesterday':
-      start.setDate(start.getDate() - 1);
-      end.setDate(end.getDate() - 1);
-      break;
-    case 'Last 7 days':
-      start.setDate(start.getDate() - 6);
-      break;
-    case 'Last 14 days':
-      start.setDate(start.getDate() - 13);
-      break;
-    case 'This week': {
-      const day = start.getDay();
-      const mondayOffset = day === 0 ? -6 : 1 - day;
-      start.setDate(start.getDate() + mondayOffset);
-      break;
-    }
-    case 'Last week': {
-      const day = start.getDay();
-      const mondayOffset = day === 0 ? -6 : 1 - day;
-      start.setDate(start.getDate() + mondayOffset - 7);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      break;
-    }
-    case 'This month':
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      break;
-    case 'Last month':
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      end.setFullYear(start.getFullYear(), start.getMonth() + 1, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case 'This quarter': {
-      const quarterStartMonth = now.getMonth() - (now.getMonth() % 3);
-      start = new Date(now.getFullYear(), quarterStartMonth, 1, 0, 0, 0, 0);
-      break;
-    }
-    case 'Last quarter': {
-      const thisQuarterStartMonth = now.getMonth() - (now.getMonth() % 3);
-      const lastQuarterStart = new Date(now.getFullYear(), thisQuarterStartMonth - 3, 1, 0, 0, 0, 0);
-      start = lastQuarterStart;
-      end.setFullYear(lastQuarterStart.getFullYear(), lastQuarterStart.getMonth() + 3, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
-    }
-    case 'Year to date (YTD)':
-      start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-      break;
-    case 'Last 12 months':
-      start = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
-      break;
-    case 'Last 30 days':
-    default:
-      start.setDate(start.getDate() - 29);
-      break;
-  }
-
-  return {
-    start: toCalendarDate(start),
-    end: toCalendarDate(end),
-  };
-}
-
-const modelValue = shallowRef<DateRangeValue>(resolvePresetDateRange(selectedPeriod.value));
-const syncingFromPeriod = ref(false);
-
-const storedDateFilter = getStoredDateFilter();
-if (storedDateFilter) {
-  selectedPeriod.value = storedDateFilter.period;
-  modelValue.value = storedDateFilter.range;
-}
-
-type CustomDateRangeQuery = {
-  startDate?: string;
-  endDate?: string;
-};
-
-const customDateRangeQuery = computed<CustomDateRangeQuery>(() => {
-  if (selectedPeriod.value !== 'Custom')
-    return {};
-
-  if (!modelValue.value.start)
-    return {};
-
-  return toIsoRangeFromCalendar(modelValue.value.start, modelValue.value.end);
-});
+const customDateRangeQuery = computed<DateRangeQuery>(() =>
+  selectedPeriod.value === 'Custom' ? dateRangeQuery.value : {},
+);
 
 const summaryQuery = computed(() => ({
   period: selectedPeriod.value,
@@ -366,41 +170,6 @@ const autoRefreshOptions = computed<DropdownMenuItem[]>(() => ([
 const df = new DateFormatter('en-US', {
   dateStyle: 'medium',
 });
-
-watch(selectedPeriod, (period) => {
-  if (period === 'Custom')
-    return;
-
-  syncingFromPeriod.value = true;
-  modelValue.value = resolvePresetDateRange(period);
-  nextTick(() => {
-    syncingFromPeriod.value = false;
-  });
-});
-
-watch(modelValue, (value) => {
-  if (syncingFromPeriod.value)
-    return;
-
-  if (value?.start)
-    selectedPeriod.value = 'Custom';
-}, { deep: true });
-
-watch([modelValue, selectedPeriod], ([range, period]) => {
-  if (!import.meta.client)
-    return;
-
-  if (!range?.start)
-    return;
-
-  const payload: StoredDateRange = {
-    period,
-    start: toStorageDateString(range.start),
-    end: toStorageDateString(range.end ?? range.start),
-  };
-
-  localStorage.setItem(DASHBOARD_DATE_FILTER_STORAGE_KEY, JSON.stringify(payload));
-}, { deep: true });
 </script>
 
 <template>
@@ -429,7 +198,7 @@ watch([modelValue, selectedPeriod], ([range, period]) => {
           <USelect
             v-model="selectedPeriod"
             icon="i-lucide-calendar"
-            :items="periodOptions"
+            :items="[...PERIOD_OPTIONS]"
             :ui="{
               content: 'min-w-fit',
             }"

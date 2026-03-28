@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import type { DateValue } from '@internationalized/date';
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
+import { DateFormatter, getLocalTimeZone } from '@internationalized/date';
 import { useDebounceFn } from '@vueuse/core';
+
+import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
 
 definePageMeta({
   title: 'requests',
@@ -176,14 +178,13 @@ async function onBulkDownload() {
   }
 }
 
-// === Filter State ===
-const statusOptions = [
-  { label: 'สถานะทั้งหมด', value: undefined },
-  { label: 'กำลังดำเนินการ', value: 'in_progress' },
-  { label: 'ปฏิเสธ', value: 'rejected' },
-  { label: 'เสร็จสิ้น', value: 'completed' },
-];
+// === Shared Filter State (Pinia) ===
+const filterStore = useRequestFiltersStore();
+const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
 
+const df = new DateFormatter('en-US', { dateStyle: 'medium' });
+
+// Local-only state (not shared across pages)
 const searchQuery = ref('');
 const debouncedSearch = ref('');
 const applySearch = useDebounceFn((val: string) => {
@@ -192,130 +193,43 @@ const applySearch = useDebounceFn((val: string) => {
 watch(searchQuery, applySearch);
 
 const selectedStatus = ref<string | undefined>(undefined);
-const selectedDate = ref<DateValue | undefined>(undefined);
-const calendarModel = computed<any>({
-  get: () => selectedDate.value,
-  set: (value) => {
-    selectedDate.value = (value ?? undefined) as DateValue | undefined;
-  },
-});
 const page = ref(1);
 const pageSize = 15;
 
-// === Month / Year Filter ===
-const now = new Date();
-const selectedMonth = ref<number>(now.getMonth() + 1); // 1–12
-const selectedYear = ref<number>(now.getFullYear());
-
-const monthOptions = [
-  { label: 'มกราคม', value: 1 },
-  { label: 'กุมภาพันธ์', value: 2 },
-  { label: 'มีนาคม', value: 3 },
-  { label: 'เมษายน', value: 4 },
-  { label: 'พฤษภาคม', value: 5 },
-  { label: 'มิถุนายน', value: 6 },
-  { label: 'กรกฎาคม', value: 7 },
-  { label: 'สิงหาคม', value: 8 },
-  { label: 'กันยายน', value: 9 },
-  { label: 'ตุลาคม', value: 10 },
-  { label: 'พฤศจิกายน', value: 11 },
-  { label: 'ธันวาคม', value: 12 },
+// === Filter Helpers ===
+const statusOptions = [
+  { label: 'สถานะทั้งหมด', value: undefined },
+  { label: 'กำลังดำเนินการ', value: 'in_progress' },
+  { label: 'ปฏิเสธ', value: 'rejected' },
+  { label: 'เสร็จสิ้น', value: 'completed' },
 ];
 
-const { data: yearsData } = await useFetch('/api/requests/years');
-const yearOptions = computed(() => {
-  const years: number[] = yearsData.value?.data ?? [now.getFullYear()];
-  // Always include the current year even if there's no data yet
-  const merged = Array.from(new Set([...years, now.getFullYear()])).sort((a, b) => b - a);
-  return merged.map(y => ({ label: String(y), value: y }));
-});
-
-// Clearing the day filter does NOT reset the month/year filter
-function clearDayFilter() {
-  selectedDate.value = undefined;
-}
-
 const hasActiveFilters = computed(() =>
-  Boolean(searchQuery.value || selectedStatus.value || selectedDate.value),
+  Boolean(searchQuery.value || selectedStatus.value || selectedPeriod.value !== 'This month'),
 );
 
-// "Reset all" resets day filter + month/year back to current month
 function clearFilters() {
   searchQuery.value = '';
   debouncedSearch.value = '';
   selectedStatus.value = undefined;
-  selectedDate.value = undefined;
-  selectedMonth.value = now.getMonth() + 1;
-  selectedYear.value = now.getFullYear();
+  filterStore.resetDateFilter();
   page.value = 1;
 }
 
-const formattedSelectedDate = computed(() => {
-  if (!selectedDate.value)
-    return null;
-
-  const parts = selectedDate.value.toString().split('-').map(Number);
-  if (parts.length < 3 || parts.some(Number.isNaN))
-    return selectedDate.value.toString();
-
-  const [year, month, day] = parts as [number, number, number];
-  const selected = new Date(year, month - 1, day);
-
-  return selected.toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
-    day: 'numeric',
-  });
-});
-
-// Reset page only when filters change (not when page itself changes) — avoids double-fetch
-watch([debouncedSearch, selectedStatus, selectedDate, selectedMonth, selectedYear], () => {
+// Reset page when any filter changes
+watch([debouncedSearch, selectedStatus, dateRangeQuery], () => {
   page.value = 1;
-});
-
-// When a specific date is selected, sync the month/year selectors to match it
-watch(selectedDate, (val) => {
-  if (!val)
-    return;
-  const parts = val.toString().split('-').map(Number);
-  if (parts.length >= 2 && !parts.some(Number.isNaN)) {
-    selectedYear.value = parts[0]!;
-    selectedMonth.value = parts[1]!;
-  }
-});
+}, { deep: true });
 
 // === Fetch ===
-const queryParams = computed(() => {
-  // If a specific day is selected, send only that date (backend handles it as a single-day range)
-  if (selectedDate.value) {
-    return {
-      page: page.value,
-      limit: pageSize,
-      ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
-      date: selectedDate.value.toString(),
-      // Use debouncedSearch here — not searchQuery — to avoid per-keystroke requests
-      ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
-    };
-  }
+const queryParams = computed(() => ({
+  page: page.value,
+  limit: pageSize,
+  ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
+  ...dateRangeQuery.value,
+  ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
+}));
 
-  // Otherwise send the full month range
-  const firstDay = new Date(selectedYear.value, selectedMonth.value - 1, 1);
-  const lastDay = new Date(selectedYear.value, selectedMonth.value, 0);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-  return {
-    page: page.value,
-    limit: pageSize,
-    ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
-    monthStart: fmt(firstDay),
-    monthEnd: fmt(lastDay),
-    // Use debouncedSearch here — not searchQuery — to avoid per-keystroke requests
-    ...(debouncedSearch.value ? { search: debouncedSearch.value } : {}),
-  };
-});
-
-// Remove watch: [queryParams] from useFetch — the queryParams ref passed as `query`
-// is already reactive. useFetch re-runs whenever it changes, so the explicit watch
-// was just causing a redundant second fetch on every filter change.
 const { data: response, status: fetchStatus, refresh } = await useFetch('/api/requests', {
   query: queryParams,
 });
@@ -476,50 +390,37 @@ const statsMap = computed(() => {
                       size="sm"
                     />
                   </UFormField>
-                  <UFormField label="เดือน">
+                  <UFormField label="ช่วงเวลา">
                     <USelect
-                      v-model="selectedMonth"
-                      :items="monthOptions"
-                      size="sm"
+                      v-model="selectedPeriod"
+                      icon="i-lucide-calendar"
+                      :items="[...PERIOD_OPTIONS]"
                       class="w-full"
-                    />
-                  </UFormField>
-                  <UFormField label="ปี">
-                    <USelect
-                      v-model="selectedYear"
-                      :items="yearOptions"
                       size="sm"
-                      class="w-full"
+                      :ui="{ content: 'min-w-fit' }"
                     />
-                  </UFormField>
-                  <UFormField label="วันที่">
-                    <UPopover arrow :content="{ align: 'center', side: 'bottom' }">
-                      <template #default>
-                        <UButton
-                          :color="selectedDate ? 'primary' : 'neutral'"
-                          :variant="selectedDate ? 'subtle' : 'outline'"
-                          size="sm"
-                          class="font-normal gap-1.5 w-full"
-                        >
-                          <UIcon name="i-heroicons-calendar-days" class="w-4 h-4 shrink-0" />
-                          <span>{{ selectedDate ? `วันที่ ${formattedSelectedDate}` : 'ทุกวัน' }}</span>
-                          <UIcon
-                            v-if="selectedDate"
-                            name="i-heroicons-x-mark"
-                            class="w-3.5 h-3.5 shrink-0 opacity-60 hover:opacity-100 transition-opacity"
-                            @click.stop="clearDayFilter"
-                          />
-                          <UIcon v-else name="i-heroicons-chevron-down" class="w-3.5 h-3.5 shrink-0 opacity-50" />
-                        </UButton>
-                      </template>
-                      <template #content>
-                        <div class="p-1">
-                          <UCalendar v-model="calendarModel" />
-                        </div>
-                      </template>
-                    </UPopover>
                   </UFormField>
                 </div>
+                <UFormField label="กำหนดช่วงวันที่เอง">
+                  <UPopover arrow :content="{ align: 'start', side: 'bottom' }">
+                    <UButton color="neutral" variant="outline" size="sm" class="w-full font-normal">
+                      <template v-if="modelValue.start">
+                        <template v-if="modelValue.end">
+                          {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }} - {{ df.format(modelValue.end.toDate(getLocalTimeZone())) }}
+                        </template>
+                        <template v-else>
+                          {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }}
+                        </template>
+                      </template>
+                      <template v-else>
+                        เลือกวันที่
+                      </template>
+                    </UButton>
+                    <template #content>
+                      <UCalendar v-model="modelValue" class="p-2" :number-of-months="2" range />
+                    </template>
+                  </UPopover>
+                </UFormField>
                 <div class="flex justify-end gap-2 pt-2 border-t border-default">
                   <UButton
                     color="neutral" variant="ghost" :ui="{ base: 'rounded-md!' }" @click="clearFilters"
