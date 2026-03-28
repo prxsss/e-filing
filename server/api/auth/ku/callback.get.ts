@@ -171,6 +171,8 @@ export default defineEventHandler(async (event) => {
       .limit(1);
 
     if (!existingUser) {
+      const isStudent = userInfo['type-person'] === '3' || userInfo['type-person'] === '7' || userInfo['type-person'] === '8';
+
       await db.transaction(async (tx) => {
         const [facultyId, departmentId] = await Promise.all([
           getFacultyIdForKuAllFacultyId(userInfo['faculty-id']),
@@ -179,6 +181,8 @@ export default defineEventHandler(async (event) => {
 
         await tx.insert(users).values({
           id: userInfo.uid,
+          studentId: isStudent ? userInfo.idcode : undefined,
+          staffId: !isStudent ? userInfo['advisor-id'] : undefined,
           titleEn: getNameTitleEnForKuAllThaiPrename(userInfo.thaiprename),
           titleTh: userInfo.thaiprename,
           firstNameEn: userInfo.givenname,
