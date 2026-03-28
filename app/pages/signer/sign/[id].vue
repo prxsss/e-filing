@@ -69,7 +69,7 @@ const successMessage = ref('');
 
 const signingStatus = ref<SigningStatus | null>(null);
 const signatureDataUrl = ref<string | null>(null);
-const showSignaturePad = ref(false);
+const showSignaturePopup = ref(false);
 const attachments = ref<Attachment[]>([]);
 const previewAttachment = ref<Attachment | null>(null);
 const isPreviewOpen = ref(false);
@@ -131,6 +131,85 @@ const signatureFieldWidthPt = computed<number | undefined>(() => {
 
   return field.width;
 });
+
+const signatureFieldScale = 4;
+
+function getPositiveDimension(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getSignaturePopupFieldDimensions(
+  field: SignatureField | undefined,
+  status: SigningStatus | null,
+): { width: number | null; height: number | null } {
+  if (!field || !status) {
+    return { width: null, height: null };
+  }
+
+  const documentWidth = getPositiveDimension(status.documentWidth) ?? 595;
+  const documentHeight = getPositiveDimension(status.documentHeight) ?? 842;
+
+  const normalizedWidth = getPositiveDimension(field.normalizedWidth);
+  const normalizedHeight = getPositiveDimension(field.normalizedHeight);
+  if (normalizedWidth !== null && normalizedHeight !== null) {
+    return {
+      width: Math.round(normalizedWidth * documentWidth * signatureFieldScale),
+      height: Math.round(normalizedHeight * documentHeight * signatureFieldScale),
+    };
+  }
+
+  const displayWidth = getPositiveDimension((field as any).displayWidth);
+  const displayHeight = getPositiveDimension((field as any).displayHeight);
+  if (displayWidth !== null && displayHeight !== null) {
+    return {
+      width: Math.round(displayWidth * signatureFieldScale),
+      height: Math.round(displayHeight * signatureFieldScale),
+    };
+  }
+
+  const width = getPositiveDimension(field.width);
+  const height = getPositiveDimension(field.height);
+  if (width !== null && height !== null) {
+    return {
+      width: Math.round(width * signatureFieldScale),
+      height: Math.round(height * signatureFieldScale),
+    };
+  }
+
+  return {
+    width: null,
+    height: null,
+  };
+}
+
+const signaturePopupStyle = computed(() => {
+  const dimensions = getSignaturePopupFieldDimensions(pendingSignatureField.value, signingStatus.value);
+  const popupWidth = (dimensions.width ?? 320) + 32;
+
+  return {
+    width: `min(calc(100vw - 2rem), ${popupWidth}px)`,
+    maxHeight: 'calc(100vh - 2rem)',
+  };
+});
+
+const signatureFieldBoxStyle = computed(() => {
+  const dimensions = getSignaturePopupFieldDimensions(pendingSignatureField.value, signingStatus.value);
+
+  return {
+    width: `${dimensions.width ?? 320}px`,
+    maxWidth: '100%',
+  };
+});
+
+function openSignaturePopup() {
+  showSignaturePopup.value = true;
+}
+
+function closeSignaturePopup() {
+  showSignaturePopup.value = false;
+}
+
 // Enriches signature fields with the confirmed signature image URL so TemplatePdfPreview can overlay it
 const signatureFieldsForDisplay = computed(() => {
   const fields = signingStatus.value?.signatureFields ?? [];
@@ -150,10 +229,6 @@ async function fetchStatus() {
     );
     if (result.success) {
       signingStatus.value = result.data;
-      // Auto-show signature pad if there's a pending step
-      if (result.data.pendingStep) {
-        showSignaturePad.value = true;
-      }
     }
     else {
       error.value = result.error ?? 'Failed to load signing status';
@@ -169,6 +244,7 @@ async function fetchStatus() {
 
 function handleSignatureConfirmed(dataUrl: string) {
   signatureDataUrl.value = dataUrl;
+  showSignaturePopup.value = false;
 }
 
 async function rejectRequest() {
@@ -205,7 +281,7 @@ async function rejectRequest() {
         color: 'error',
       });
       signatureDataUrl.value = null;
-      showSignaturePad.value = false;
+      showSignaturePopup.value = false;
       await fetchStatus();
     }
     else {
@@ -247,7 +323,7 @@ async function submitSignature() {
         successMessage.value = `ลงนามสำเร็จ! ส่งต่อไปยัง ${result.data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`;
       }
       signatureDataUrl.value = null;
-      showSignaturePad.value = false;
+      showSignaturePopup.value = false;
       await fetchStatus();
     }
     else {
@@ -292,16 +368,38 @@ async function fetchAttachments() {
 
 function getFileIcon(fileName: string | null): string {
   if (!fileName)
-    return 'i-lucide-file';
+    return 'i-heroicons-document';
   const ext = fileName.split('.').pop()?.toLowerCase();
-  if (ext === 'pdf')
-    return 'i-lucide-file-text';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext ?? ''))
-    return 'i-lucide-image';
-  if (['doc', 'docx'].includes(ext ?? ''))
-    return 'i-lucide-file-type';
-  return 'i-lucide-file';
+  switch (ext) {
+    case 'pdf': return 'i-heroicons-document-text';
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif': return 'i-heroicons-photo';
+    case 'doc':
+    case 'docx': return 'i-heroicons-document-text';
+    case 'xls':
+    case 'xlsx': return 'i-heroicons-table-cells';
+    case 'zip':
+    case 'rar': return 'i-heroicons-archive-box';
+    default: return 'i-heroicons-document';
+  }
 }
+
+const breadcrumbLinks = computed(() => [
+  { label: 'รายการที่ต้องลงนาม', to: '/signer/to-sign' },
+  { label: signingStatus.value?.templateName ?? `คำร้อง #${requestId}` },
+]);
+
+const hasConfirmedSignature = computed(() => (signatureDataUrl.value ?? '').length > 0);
+
+watch(
+  () => signingStatus.value?.pendingStep,
+  (pending) => {
+    if (!pending)
+      showSignaturePopup.value = false;
+  },
+);
 
 onMounted(() => {
   fetchStatus();
@@ -311,235 +409,234 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <!-- Header -->
+    <!-- Header (aligned with student new-request) -->
     <div class="bg-white border-b">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-        <UButton
-          icon="i-lucide-arrow-left"
-          variant="ghost"
-          color="neutral"
-          to="/signer/to-sign"
-        />
-        <div>
-          <h1 class="text-xl font-bold text-slate-800">
-            {{ signingStatus?.templateName ?? 'ลงนามเอกสาร' }}
-          </h1>
-          <p class="text-sm text-slate-500">
-            คำร้อง #{{ requestId }}
-          </p>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <UBreadcrumb :links="breadcrumbLinks" />
+        <div class="mt-4 flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">
+              {{ signingStatus?.templateName ?? 'ลงนามเอกสาร' }}
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+              คำร้อง #{{ requestId }} · ดูเอกสารด้านซ้าย ดำเนินการด้านขวา
+            </p>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Loading -->
-      <div v-if="isLoading" class="flex justify-center py-20">
-        <UIcon name="i-lucide-loader-circle" class="w-10 h-10 text-green-600 animate-spin" />
+      <div v-if="isLoading" class="flex items-center justify-center h-96">
+        <div class="text-center">
+          <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
+          <p class="text-gray-500">
+            กำลังโหลดเอกสาร...
+          </p>
+        </div>
       </div>
 
-      <template v-else-if="signingStatus">
-        <!-- Success banner -->
-        <UAlert
-          v-if="successMessage"
-          icon="i-lucide-circle-check"
-          color="success"
-          variant="soft"
-          :title="successMessage"
-        />
-
-        <!-- Error banner -->
-        <UAlert
-          v-if="error"
-          icon="i-lucide-triangle-alert"
-          color="error"
-          variant="soft"
-          :title="error"
-        />
-
-        <!-- Signing flow progress -->
-        <UCard>
-          <template #header>
-            <h2 class="font-semibold text-slate-800 flex items-center gap-2">
-              <UIcon name="i-lucide-list-ordered" class="text-green-600" />
-              ลำดับการลงนาม
-            </h2>
-          </template>
-          <div class="space-y-2">
-            <div
-              v-for="step in signingStatus.flowSteps"
-              :key="step.id"
-              class="flex items-center gap-3 p-3 rounded-lg"
-              :class="step.status === 'pending' ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'"
-            >
-              <span
-                class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                :class="{
-                  'bg-green-500': step.status === 'signed',
-                  'bg-amber-500': step.status === 'pending',
-                  'bg-slate-300': step.status === 'waiting' || step.status === 'cancelled',
-                  'bg-red-500': step.status === 'rejected',
-                }"
-              >
-                <UIcon v-if="step.status === 'signed'" name="i-lucide-check" class="w-4 h-4" />
-                <UIcon v-else-if="step.status === 'rejected'" name="i-lucide-x" class="w-4 h-4" />
-                <template v-else>{{ step.stepOrder }}</template>
-              </span>
-              <span class="font-medium text-sm">{{ step.roleName }}</span>
-              <UBadge
-                :color="(statusColor[step.status] ?? 'neutral') as any"
-                :label="statusLabel[step.status] ?? step.status"
-                variant="soft"
-                size="sm"
-                class="ml-auto"
-              />
-            </div>
-          </div>
-        </UCard>
-
-        <!-- Attachments -->
-        <UCard>
-          <template #header>
-            <h2 class="font-semibold text-slate-800 flex items-center gap-2">
-              <UIcon name="i-lucide-paperclip" class="text-green-600" />
-              เอกสารแนบ
-              <UBadge v-if="attachments.length > 0" :label="String(attachments.length)" color="neutral" variant="soft" size="sm" />
-            </h2>
-          </template>
-          <!-- Empty state -->
-          <p v-if="attachments.length === 0" class="text-sm text-slate-400 py-2">
-            ไม่มีเอกสารแนบ
+      <!-- Load error -->
+      <UCard v-else-if="!signingStatus">
+        <div class="text-center py-8">
+          <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4" />
+          <p class="text-red-600 mb-4">
+            {{ error ?? 'ไม่สามารถโหลดข้อมูลได้' }}
           </p>
-          <div v-else class="divide-y divide-slate-100">
+          <UButton to="/signer/to-sign">
+            กลับไปรายการที่ต้องลงนาม
+          </UButton>
+        </div>
+      </UCard>
+
+      <template v-else>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <!-- Left: PDF preview (sticky on large screens) -->
+          <div
+            class="lg:col-span-2 lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-1"
+          >
+            <div v-if="signingStatus.filledDocumentUrl" style="min-height: 600px;">
+              <TemplatePdfPreview
+                :pdf-url="signingStatus.filledDocumentUrl"
+                :placed-fields="signatureFieldsForDisplay"
+                :open-in-new-tab-url="signingStatus.filledDocumentUrl"
+                open-in-new-tab-label="เปิดในแท็บใหม่"
+              />
+            </div>
             <div
-              v-for="att in attachments"
-              :key="att.id"
-              class="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+              v-else
+              class="flex items-center justify-center rounded-lg border border-gray-200 bg-white"
+              style="min-height: 600px;"
             >
-              <UIcon :name="getFileIcon(att.fileName)" class="w-5 h-5 text-slate-400 shrink-0" />
-              <span class="text-sm text-slate-700 truncate flex-1">{{ att.fileName ?? 'ไม่ระบุชื่อ' }}</span>
-              <div class="flex items-center gap-2 shrink-0">
-                <UButton
-                  v-if="att.fileUrl"
-                  size="xs"
-                  variant="soft"
-                  color="primary"
-                  icon="i-lucide-eye"
-                  @click="openPreview(att)"
-                >
-                  ดูไฟล์
-                </UButton>
-                <UButton
-                  v-if="att.fileUrl"
-                  size="xs"
-                  variant="outline"
-                  color="neutral"
-                  icon="i-lucide-external-link"
-                  :to="att.fileUrl"
-                  target="_blank"
-                >
-                  เปิดใหม่
-                </UButton>
-              </div>
+              <p class="text-sm text-gray-500 px-4 text-center">
+                ยังไม่มีไฟล์ PDF สำหรับแสดงตัวอย่าง
+              </p>
             </div>
           </div>
-        </UCard>
-        <UModal v-model:open="isPreviewOpen" class="max-w-4xl" @close="closePreview">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon :name="getFileIcon(previewAttachment?.fileName ?? null)" class="text-slate-500" />
-              <span class="font-semibold text-slate-800 truncate">{{ previewAttachment?.fileName ?? 'เอกสารแนบ' }}</span>
-            </div>
-          </template>
-          <template #body>
-            <div v-if="previewAttachment?.fileUrl" class="w-full">
-              <!-- PDF preview -->
-              <iframe
-                v-if="previewAttachment.fileName?.toLowerCase().endsWith('.pdf')"
-                :src="previewAttachment.fileUrl"
-                class="w-full rounded"
-                style="height: 70vh;"
-                frameborder="0"
-              />
-              <!-- Image preview -->
-              <img
-                v-else-if="/\.(jpe?g|png|gif|webp)$/i.test(previewAttachment.fileName ?? '')"
-                :src="previewAttachment.fileUrl"
-                :alt="previewAttachment.fileName ?? ''"
-                class="max-w-full mx-auto rounded"
-              >
-              <!-- Fallback -->
-              <div v-else class="text-center py-12 text-slate-500">
-                <UIcon name="i-lucide-file" class="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p class="text-sm">
-                  ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้
-                </p>
-                <UButton
-                  :to="previewAttachment.fileUrl"
-                  target="_blank"
-                  color="primary"
-                  variant="soft"
-                  icon="i-lucide-download"
-                  class="mt-3"
-                >
-                  ดาวน์โหลดไฟล์
-                </UButton>
+
+          <!-- Right: status, flow, attachments, actions -->
+          <div class="space-y-6">
+            <UCard v-if="successMessage" class="bg-green-50 border-green-200">
+              <div class="flex items-center gap-2 text-green-800">
+                <i class="fas fa-check-circle" />
+                <span class="font-medium">{{ successMessage }}</span>
               </div>
-            </div>
-          </template>
-        </UModal>
+            </UCard>
 
-        <!-- PDF viewer -->
-        <UCard v-if="signingStatus.filledDocumentUrl">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <h2 class="font-semibold text-slate-800 flex items-center gap-2">
-                <UIcon name="i-lucide-file-text" class="text-green-600" />
-                เอกสาร
-              </h2>
-              <UButton
-                :to="signingStatus.filledDocumentUrl"
-                target="_blank"
-                variant="outline"
-                color="neutral"
-                size="sm"
-                icon="i-lucide-external-link"
-              >
-                เปิดในแท็บใหม่
-              </UButton>
-            </div>
-          </template>
-          <TemplatePdfPreview
-            :pdf-url="signingStatus.filledDocumentUrl!"
-            :placed-fields="signatureFieldsForDisplay"
-          />
-        </UCard>
+            <UCard v-if="error" class="bg-red-50 border-red-200">
+              <div class="flex items-center gap-2 text-red-800">
+                <i class="fas fa-exclamation-circle" />
+                <span class="font-medium">{{ error }}</span>
+              </div>
+            </UCard>
 
-        <!-- Signature section — shown when it's the current user's turn -->
-        <UCard v-if="signingStatus.pendingStep">
-          <template #header>
-            <h2 class="font-semibold text-slate-800 flex items-center gap-2">
-              <UIcon name="i-lucide-pen-line" class="text-amber-500" />
-              ลงลายเซ็น — ขั้นตอนที่ {{ signingStatus.pendingStep.stepOrder }}
-              ({{ signingStatus.pendingStep.roleName }})
-            </h2>
-            <p class="text-sm text-slate-500 mt-1">
-              วาดลายเซ็นของคุณในกรอบด้านล่าง แล้วกดยืนยัน
-            </p>
-          </template>
+            <UCard>
+              <template #header>
+                <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                  ลำดับการลงนาม
+                </h3>
+              </template>
+              <div class="space-y-2">
+                <div
+                  v-for="step in signingStatus.flowSteps"
+                  :key="step.id"
+                  class="flex items-center gap-3 p-3 rounded-lg border transition-colors"
+                  :class="step.status === 'pending' ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'"
+                >
+                  <span
+                    class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    :class="{
+                      'bg-green-500': step.status === 'signed',
+                      'bg-amber-500': step.status === 'pending',
+                      'bg-slate-300': step.status === 'waiting' || step.status === 'cancelled',
+                      'bg-red-500': step.status === 'rejected',
+                    }"
+                  >
+                    <UIcon v-if="step.status === 'signed'" name="i-heroicons-check" class="w-4 h-4" />
+                    <UIcon v-else-if="step.status === 'rejected'" name="i-heroicons-x-mark" class="w-4 h-4" />
+                    <template v-else>{{ step.stepOrder }}</template>
+                  </span>
+                  <span class="font-medium text-sm text-gray-900">{{ step.roleName }}</span>
+                  <UBadge
+                    :color="(statusColor[step.status] ?? 'neutral')"
+                    :label="statusLabel[step.status] ?? step.status"
+                    variant="soft"
+                    size="sm"
+                    class="ml-auto"
+                  />
+                </div>
+              </div>
+            </UCard>
 
-          <div class="space-y-4">
-            <SignatureCanvas
-              :disabled="isSigning"
-              :aspect-ratio="signatureFieldAspectRatio"
-              :pdf-field-width-pt="signatureFieldWidthPt"
-              @confirm="handleSignatureConfirmed"
+            <UCard>
+              <template #header>
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                    เอกสารแนบ
+                  </h3>
+                  <UBadge
+                    v-if="attachments.length > 0"
+                    :label="String(attachments.length)"
+                    color="neutral"
+                    variant="soft"
+                    size="sm"
+                  />
+                </div>
+              </template>
+
+              <div v-if="attachments.length === 0" class="text-center py-8 text-gray-500">
+                <i class="fas fa-paperclip text-3xl mb-2" />
+                <p class="text-sm">
+                  ไม่มีเอกสารแนบ
+                </p>
+              </div>
+              <div v-else class="space-y-3">
+                <div
+                  v-for="att in attachments"
+                  :key="att.id"
+                  class="flex items-center justify-between gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <UIcon
+                      :name="getFileIcon(att.fileName)"
+                      class="w-5 h-5 text-blue-600 shrink-0"
+                    />
+                    <span class="text-sm font-medium text-gray-900 truncate">{{ att.fileName ?? 'ไม่ระบุชื่อ' }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <UButton
+                      v-if="att.fileUrl"
+                      size="xs"
+                      variant="soft"
+                      color="primary"
+                      icon="i-heroicons-eye"
+                      @click="openPreview(att)"
+                    >
+                      ดูไฟล์
+                    </UButton>
+                    <UButton
+                      v-if="att.fileUrl"
+                      size="xs"
+                      variant="outline"
+                      color="neutral"
+                      icon="i-heroicons-arrow-top-right-on-square"
+                      :to="att.fileUrl"
+                      target="_blank"
+                    >
+                      เปิดใหม่
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </UCard>
+
+            <UAlert
+              v-if="signingStatus.pendingStep"
+              color="info"
+              variant="soft"
+              icon="i-heroicons-pencil-square"
+              title="ต้องลงลายเซ็นในขั้นตอนนี้"
+              :description="`ขั้นตอนที่ ${signingStatus.pendingStep.stepOrder} (${signingStatus.pendingStep.roleName}) — กดปุ่มด้านล่างเพื่อเปิดกล่องเซ็นลายมือชื่อ`"
             />
 
-            <div class="flex flex-wrap gap-3">
+            <UCard v-if="signingStatus.pendingStep">
+              <template #header>
+                <h3 class="text-sm font-semibold text-gray-500 uppercase">
+                  ลงลายเซ็น
+                </h3>
+              </template>
+
+              <div class="flex flex-col gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <p class="text-xs text-gray-500">
+                    กดปุ่มเพื่อเปิด popup เซ็นเอกสาร จากนั้นวาดและกดยืนยันในกล่อง
+                  </p>
+                  <UButton
+                    color="primary"
+                    icon="i-heroicons-pencil-square"
+                    @click="openSignaturePopup"
+                  >
+                    {{ hasConfirmedSignature ? 'แก้ไขลายเซ็น' : 'เปิดกล่องเซ็นลายมือชื่อ' }}
+                  </UButton>
+                </div>
+
+                <p
+                  v-if="hasConfirmedSignature"
+                  class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
+                >
+                  ยืนยันลายเซ็นแล้ว กดส่งเพื่อดำเนินการต่อ
+                </p>
+                <!-- Action buttons moved out of the signature card for layout parity with student new-request -->
+              </div>
+            </UCard>
+
+            <div v-if="signingStatus.pendingStep" class="flex flex-col gap-3">
               <UButton
                 color="success"
                 size="lg"
-                icon="i-lucide-send"
+                block
+                icon="i-heroicons-paper-airplane"
                 :loading="isSigning"
                 :disabled="!signatureDataUrl || isRejecting"
                 @click="submitSignature"
@@ -550,7 +647,8 @@ onMounted(() => {
                 color="error"
                 variant="soft"
                 size="lg"
-                icon="i-lucide-x-circle"
+                block
+                icon="i-heroicons-x-circle"
                 :loading="isRejecting"
                 :disabled="isSigning"
                 @click="rejectRequest"
@@ -558,71 +656,155 @@ onMounted(() => {
                 ปฏิเสธการลงนาม
               </UButton>
             </div>
-          </div>
-        </UCard>
 
-        <!-- Rejected state -->
-        <UCard v-else-if="signingStatus.status === 'rejected'">
-          <div class="text-center py-8">
-            <UIcon name="i-lucide-x-circle" class="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h3 class="text-xl font-bold text-slate-800 mb-2">
-              คำร้องถูกปฏิเสธ
-            </h3>
-            <p v-if="signingStatus.note" class="text-slate-500 mb-4 max-w-md mx-auto">
-              เหตุผล: {{ signingStatus.note }}
-            </p>
-            <p v-else class="text-slate-500 mb-4">
-              คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม
-            </p>
-          </div>
-        </UCard>
+            <UCard v-else-if="signingStatus.status === 'rejected'">
+              <div class="text-center py-8">
+                <UIcon name="i-heroicons-x-circle" class="w-16 h-16 text-red-500 mx-auto mb-4" />
+                <h3 class="text-xl font-bold text-gray-900 mb-2">
+                  คำร้องถูกปฏิเสธ
+                </h3>
+                <p v-if="signingStatus.note" class="text-gray-500 mb-4 max-w-md mx-auto text-sm">
+                  เหตุผล: {{ signingStatus.note }}
+                </p>
+                <p v-else class="text-gray-500 mb-4 text-sm">
+                  คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม
+                </p>
+              </div>
+            </UCard>
 
-        <!-- Completed state -->
-        <UCard v-else-if="signingStatus.status === 'completed'">
-          <div class="text-center py-8">
-            <UIcon name="i-lucide-circle-check-big" class="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 class="text-xl font-bold text-slate-800 mb-2">
-              เอกสารดำเนินการเสร็จสมบูรณ์
-            </h3>
-            <p class="text-slate-500 mb-4">
-              ทุกขั้นตอนการลงนามเสร็จเรียบร้อยแล้ว
-            </p>
+            <UCard v-else-if="signingStatus.status === 'completed'">
+              <div class="text-center py-8">
+                <UIcon name="i-heroicons-check-circle" class="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 class="text-xl font-bold text-gray-900 mb-2">
+                  เอกสารดำเนินการเสร็จสมบูรณ์
+                </h3>
+                <p class="text-gray-500 mb-4 text-sm">
+                  ทุกขั้นตอนการลงนามเสร็จเรียบร้อยแล้ว
+                </p>
+                <UButton
+                  v-if="signingStatus.filledDocumentUrl"
+                  :to="signingStatus.filledDocumentUrl"
+                  target="_blank"
+                  color="success"
+                  icon="i-heroicons-arrow-down-tray"
+                >
+                  ดาวน์โหลดเอกสาร
+                </UButton>
+              </div>
+            </UCard>
+
+            <UCard v-else-if="!signingStatus.pendingStep && signingStatus.status !== 'completed'">
+              <div class="text-center py-8">
+                <UIcon name="i-heroicons-clock" class="w-12 h-12 text-amber-400 mx-auto mb-4" />
+                <h3 class="font-semibold text-gray-900 mb-2">
+                  ยังไม่ถึงคิวของคุณ
+                </h3>
+                <p class="text-sm text-gray-500">
+                  กำลังรอขั้นตอนก่อนหน้าดำเนินการให้เสร็จ
+                </p>
+              </div>
+            </UCard>
+
             <UButton
-              v-if="signingStatus.filledDocumentUrl"
-              :to="signingStatus.filledDocumentUrl"
-              target="_blank"
-              color="success"
-              icon="i-lucide-download"
+              block
+              variant="ghost"
+              color="neutral"
+              to="/signer/to-sign"
             >
-              ดาวน์โหลดเอกสาร
+              <i class="fas fa-arrow-left mr-2" />
+              กลับไปรายการที่ต้องลงนาม
             </UButton>
           </div>
-        </UCard>
+        </div>
 
-        <!-- Not your turn -->
-        <UCard v-else-if="!signingStatus.pendingStep && signingStatus.status !== 'completed'">
-          <div class="text-center py-8">
-            <UIcon name="i-lucide-clock" class="w-12 h-12 text-amber-400 mx-auto mb-4" />
-            <h3 class="font-semibold text-slate-800 mb-2">
-              ยังไม่ถึงคิวของคุณ
-            </h3>
-            <p class="text-sm text-slate-500">
-              กำลังรอขั้นตอนก่อนหน้าดำเนินการให้เสร็จ
-            </p>
+        <UModal v-model:open="isPreviewOpen" class="max-w-4xl" @close="closePreview">
+          <template #header>
+            <div class="flex items-center gap-2 min-w-0">
+              <UIcon :name="getFileIcon(previewAttachment?.fileName ?? null)" class="text-gray-500 shrink-0" />
+              <span class="font-semibold text-gray-900 truncate">{{ previewAttachment?.fileName ?? 'เอกสารแนบ' }}</span>
+            </div>
+          </template>
+          <template #body>
+            <div v-if="previewAttachment?.fileUrl" class="w-full">
+              <iframe
+                v-if="previewAttachment.fileName?.toLowerCase().endsWith('.pdf')"
+                :src="previewAttachment.fileUrl"
+                class="w-full rounded border border-gray-200"
+                style="height: 70vh;"
+                frameborder="0"
+              />
+              <img
+                v-else-if="/\.(jpe?g|png|gif|webp)$/i.test(previewAttachment.fileName ?? '')"
+                :src="previewAttachment.fileUrl"
+                :alt="previewAttachment.fileName ?? ''"
+                class="max-w-full mx-auto rounded"
+              >
+              <div v-else class="text-center py-12 text-gray-500">
+                <UIcon name="i-heroicons-document" class="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p class="text-sm">
+                  ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้
+                </p>
+                <UButton
+                  :to="previewAttachment.fileUrl"
+                  target="_blank"
+                  color="primary"
+                  variant="soft"
+                  icon="i-heroicons-arrow-down-tray"
+                  class="mt-3"
+                >
+                  ดาวน์โหลดไฟล์
+                </UButton>
+              </div>
+            </div>
+          </template>
+        </UModal>
+
+        <!-- Signature popup (same pattern as student new-request) -->
+        <div
+          v-if="showSignaturePopup && signingStatus.pendingStep"
+          class="fixed inset-0 z-50 bg-black/20 backdrop-blur-[1px]"
+          @click.self="closeSignaturePopup"
+        >
+          <div class="absolute bottom-4 right-4" :style="signaturePopupStyle">
+            <UCard class="overflow-hidden border border-gray-200 shadow-2xl bg-white">
+              <template #header>
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 class="text-sm font-semibold text-gray-900">
+                      เซ็นลายเซ็น — ขั้นตอนที่ {{ signingStatus.pendingStep.stepOrder }}
+                      ({{ signingStatus.pendingStep.roleName }})
+                    </h3>
+                  </div>
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-heroicons-x-mark"
+                    @click="closeSignaturePopup"
+                  />
+                </div>
+              </template>
+
+              <div class="space-y-3 p-1">
+                <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                  <div class="mb-2 flex items-center justify-between text-xs text-slate-500">
+                    <span>เซ็นในช่องด้านล่าง แล้วกดยืนยัน</span>
+                  </div>
+
+                  <div :style="signatureFieldBoxStyle" class="mx-auto">
+                    <SignatureCanvas
+                      class="w-full"
+                      :disabled="isSigning"
+                      :aspect-ratio="signatureFieldAspectRatio"
+                      :pdf-field-width-pt="signatureFieldWidthPt"
+                      @confirm="handleSignatureConfirmed"
+                    />
+                  </div>
+                </div>
+              </div>
+            </UCard>
           </div>
-        </UCard>
+        </div>
       </template>
-
-      <!-- Error state -->
-      <div v-else class="text-center py-16">
-        <UIcon name="i-lucide-triangle-alert" class="w-12 h-12 text-red-400 mx-auto mb-4" />
-        <h3 class="font-semibold text-slate-800 mb-2">
-          ไม่สามารถโหลดเอกสารได้
-        </h3>
-        <p class="text-sm text-slate-500">
-          {{ error }}
-        </p>
-      </div>
     </div>
   </div>
 </template>
