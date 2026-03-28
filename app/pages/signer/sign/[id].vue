@@ -70,6 +70,7 @@ const successMessage = ref('');
 const signingStatus = ref<SigningStatus | null>(null);
 const signatureDataUrl = ref<string | null>(null);
 const showSignaturePopup = ref(false);
+const showSignatureSubmitError = ref(false);
 const attachments = ref<Attachment[]>([]);
 const previewAttachment = ref<Attachment | null>(null);
 const isPreviewOpen = ref(false);
@@ -204,6 +205,7 @@ const signatureFieldBoxStyle = computed(() => {
 
 function openSignaturePopup() {
   showSignaturePopup.value = true;
+  showSignatureSubmitError.value = false;
 }
 
 function closeSignaturePopup() {
@@ -245,6 +247,7 @@ async function fetchStatus() {
 function handleSignatureConfirmed(dataUrl: string) {
   signatureDataUrl.value = dataUrl;
   showSignaturePopup.value = false;
+  showSignatureSubmitError.value = false;
 }
 
 async function rejectRequest() {
@@ -296,12 +299,19 @@ async function rejectRequest() {
   }
 }
 
+async function scrollToSignerSignatureSection() {
+  await nextTick();
+  document.getElementById('signer-signature-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 async function submitSignature() {
   if (!signatureDataUrl.value) {
-    error.value = 'กรุณาลงลายเซ็นให้เรียบร้อยก่อน';
+    showSignatureSubmitError.value = true;
+    await scrollToSignerSignatureSection();
     return;
   }
 
+  showSignatureSubmitError.value = false;
   isSigning.value = true;
   error.value = null;
 
@@ -600,7 +610,12 @@ onMounted(() => {
               :description="`ขั้นตอนที่ ${signingStatus.pendingStep.stepOrder} (${signingStatus.pendingStep.roleName}) — กดปุ่มด้านล่างเพื่อเปิดกล่องเซ็นลายมือชื่อ`"
             />
 
-            <UCard v-if="signingStatus.pendingStep">
+            <UCard
+              v-if="signingStatus.pendingStep"
+              id="signer-signature-section"
+              class="rounded-lg transition-colors"
+              :class="showSignatureSubmitError ? 'border border-red-400 bg-white' : ''"
+            >
               <template #header>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
                   ลงลายเซ็น
@@ -622,6 +637,13 @@ onMounted(() => {
                 </div>
 
                 <p
+                  v-if="showSignatureSubmitError"
+                  class="text-sm text-red-600"
+                >
+                  กรุณเซ็นลายเซ็นและกดยืนยันในกล่อง ก่อนกดส่ง
+                </p>
+
+                <p
                   v-if="hasConfirmedSignature"
                   class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
                 >
@@ -638,7 +660,7 @@ onMounted(() => {
                 block
                 icon="i-heroicons-paper-airplane"
                 :loading="isSigning"
-                :disabled="!signatureDataUrl || isRejecting"
+                :disabled="isRejecting"
                 @click="submitSignature"
               >
                 ส่งลายเซ็นและดำเนินการต่อ

@@ -64,6 +64,8 @@ const isSaving = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref('');
 const showRequiredFieldErrors = ref(false);
+const showSubmitterSignatureError = ref(false);
+const showRecipientSelectionError = ref(false);
 
 const templateData = ref<TemplateData | null>(null);
 const pdfFile = ref<File | null>(null);
@@ -252,20 +254,24 @@ const submitterSignatureFieldBoxStyle = computed(() => {
 
 const requiresSubmitterSignature = computed(() => submitterSignatureFieldCount.value > 0);
 const hasConfirmedSubmitterSignature = computed(() => (submitterSignatureDataUrl.value ?? '').length > 0);
-const canSubmitRequest = computed(() =>
-  allRecipientsSelected.value
-  && !isSaving.value
-  && (!requiresSubmitterSignature.value || hasConfirmedSubmitterSignature.value),
-);
+const canSubmitRequest = computed(() => !isSaving.value);
+
+watch(allRecipientsSelected, (ok) => {
+  if (ok) {
+    showRecipientSelectionError.value = false;
+  }
+});
 
 watch(requiresSubmitterSignature, (required) => {
   if (!required) {
     showSubmitterSignaturePopup.value = false;
+    showSubmitterSignatureError.value = false;
   }
 });
 
 function openSubmitterSignaturePopup() {
   showSubmitterSignaturePopup.value = true;
+  showSubmitterSignatureError.value = false;
 }
 
 function closeSubmitterSignaturePopup() {
@@ -275,6 +281,7 @@ function closeSubmitterSignaturePopup() {
 function handleSubmitterSignatureConfirmed(dataUrl: string) {
   submitterSignatureDataUrl.value = dataUrl;
   showSubmitterSignaturePopup.value = false;
+  showSubmitterSignatureError.value = false;
 }
 
 function getResolvedRoleId(step: SigningStep): number | undefined {
@@ -876,12 +883,36 @@ async function scrollToFirstInvalidField() {
   targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+async function scrollToRecipientSelectionSection() {
+  await nextTick();
+  document.getElementById('recipient-selection-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function scrollToSubmitterSignatureSection() {
+  await nextTick();
+  document.getElementById('submitter-signature-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 async function submitRequest() {
   error.value = null;
+  showSubmitterSignatureError.value = false;
+  showRecipientSelectionError.value = false;
   showRequiredFieldErrors.value = true;
   const validationError = validateRequiredStudentFields();
   if (validationError) {
     await scrollToFirstInvalidField();
+    return;
+  }
+
+  if (recipientSteps.value.length > 0 && !allRecipientsSelected.value) {
+    showRecipientSelectionError.value = true;
+    await scrollToRecipientSelectionSection();
+    return;
+  }
+
+  if (requiresSubmitterSignature.value && !hasConfirmedSubmitterSignature.value) {
+    showSubmitterSignatureError.value = true;
+    await scrollToSubmitterSignatureSection();
     return;
   }
 
@@ -1150,8 +1181,12 @@ onUnmounted(() => {
 
 // Re-fetch users whenever recipientSteps changes (handles session hydration timing)
 watch(recipientSteps, (steps) => {
-  if (steps.length > 0)
+  if (steps.length > 0) {
     fetchUsersForRecipientSteps();
+  }
+  else {
+    showRecipientSelectionError.value = false;
+  }
 }, { immediate: true });
 
 watch([pdfFile, placedFields, fieldValues], () => {
@@ -1387,7 +1422,12 @@ watch([pdfFile, placedFields, fieldValues], () => {
           </UCard>
 
           <!-- Recipient Selection Card -->
-          <UCard v-if="recipientSteps.length > 0">
+          <UCard
+            v-if="recipientSteps.length > 0"
+            id="recipient-selection-section"
+            class="rounded-lg transition-colors"
+            :class="showRecipientSelectionError ? 'border border-red-400 bg-white' : ''"
+          >
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
                 {{ locale === 'th' ? 'เลือกผู้รับเอกสาร' : 'Select Recipients' }}
@@ -1395,6 +1435,16 @@ watch([pdfFile, placedFields, fieldValues], () => {
             </template>
 
             <div class="space-y-4">
+              <p
+                v-if="showRecipientSelectionError"
+                class="text-sm text-red-600"
+              >
+                {{
+                  locale === 'th'
+                    ? 'กรุณาเลือกผู้รับเอกสารให้ครบทุกขั้นตอนก่อนส่งคำร้อง'
+                    : 'Please select a recipient for each step before submitting.'
+                }}
+              </p>
               <div
                 v-for="step in recipientSteps"
                 :key="step.id"
@@ -1434,11 +1484,16 @@ watch([pdfFile, placedFields, fieldValues], () => {
             icon="i-heroicons-pencil-square"
             :title="locale === 'th' ? 'คำร้องนี้ต้องมีลายเซ็นของผู้ยื่น' : 'Submitter signature is required'"
             :description="locale === 'th'
-              ? 'กรุณาวาดลายเซ็นและกดยืนยันก่อนส่งคำร้อง'
+              ? 'กรุณาเซ็นลายเซ็นและกดยืนยันก่อนส่งคำร้อง'
               : 'Please draw and confirm your signature before submitting.'"
           />
 
-          <UCard v-if="requiresSubmitterSignature">
+          <UCard
+            v-if="requiresSubmitterSignature"
+            id="submitter-signature-section"
+            class="rounded-lg transition-colors"
+            :class="showSubmitterSignatureError ? 'border border-red-400 bg-white' : ''"
+          >
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
                 {{ locale === 'th' ? 'ลายเซ็นผู้ยื่นคำร้อง' : 'Submitter Signature' }}
@@ -1461,6 +1516,15 @@ watch([pdfFile, placedFields, fieldValues], () => {
                   {{ hasConfirmedSubmitterSignature ? (locale === 'th' ? 'แก้ไขลายเซ็น' : 'Edit signature') : (locale === 'th' ? 'เปิดกล่องเซ็นลายมือชื่อ' : 'Open signature popup') }}
                 </UButton>
               </div>
+
+              <p
+                v-if="showSubmitterSignatureError"
+                class="text-sm text-red-600"
+              >
+                {{ locale === 'th'
+                  ? 'กรุณเซ็นลายเซ็นและกดยืนยันก่อนส่งคำร้อง'
+                  : 'Please draw and confirm your signature before submitting.' }}
+              </p>
 
               <p
                 v-if="hasConfirmedSubmitterSignature"
