@@ -2,7 +2,8 @@ import { getRoleById, updateRole } from '~~/lib/db/queries/role';
 import * as z from 'zod';
 
 const updateRoleSchema = z.object({
-  name: z.string().min(1, 'Role name is required').optional(),
+  name: z.string().min(1, 'Role name (EN) is required'),
+  nameTh: z.string().min(1, 'Role name (TH) is required'),
   descriptionEn: z.string().nullable().optional(),
   descriptionTh: z.string().nullable().optional(),
 });

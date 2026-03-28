@@ -14,13 +14,15 @@ export async function getRoles(filters: RoleListFilters = {}) {
     .select({
       id: roles.id,
       name: roles.name,
+      nameTh: roles.nameTh,
       descriptionEn: roles.descriptionEn,
       descriptionTh: roles.descriptionTh,
       userCount: sql<number>`cast(count(${userRoles.userId}) as int)`,
     })
     .from(roles)
     .leftJoin(userRoles, sql`${roles.id} = ${userRoles.roleId}`)
-    .groupBy(roles.id);
+    .groupBy(roles.id)
+    .orderBy(roles.id);
 
   // Join permissions if filtering by permission
   if (permission) {
@@ -49,6 +51,7 @@ export async function getRoleWithUserCount(id: number) {
 
 export async function createRole(data: {
   name: string;
+  nameTh: string;
   descriptionEn?: string | null;
   descriptionTh?: string | null;
   permissionIds?: number[];
@@ -58,6 +61,7 @@ export async function createRole(data: {
       .insert(roles)
       .values({
         name: data.name,
+        nameTh: data.nameTh,
         descriptionEn: data.descriptionEn ?? null,
         descriptionTh: data.descriptionTh ?? null,
       })
@@ -80,6 +84,7 @@ export async function updateRole(
   id: number,
   data: {
     name?: string;
+    nameTh?: string;
     descriptionEn?: string | null;
     descriptionTh?: string | null;
   },
@@ -98,6 +103,7 @@ export async function getRoleById(id: number) {
     .select({
       id: roles.id,
       name: roles.name,
+      nameTh: roles.nameTh,
       descriptionEn: roles.descriptionEn,
       descriptionTh: roles.descriptionTh,
     })

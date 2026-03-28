@@ -113,21 +113,22 @@ export async function getUsers({
           )
         `,
 
-      roles: sql<{ name: string; count: number }[]>`
+      roles: sql<{ name: string; nameTh: string; count: number }[]>`
           coalesce(
             (
               select json_agg(
                 json_build_object(
                   'name', role_counts.name,
+                  'nameTh', role_counts.name_th,
                   'count', role_counts.count
                 )
               )
               from (
-                select r.name, count(*) as count
+                select r.name, r.name_th, count(*) as count
                 from ${userRoles} ur
                 join ${roles} r on ur.role_id = r.id
                 where ur.user_id = ${users.id}
-                group by r.name
+                group by r.name, r.name_th
               ) role_counts
             ),
             '[]'
