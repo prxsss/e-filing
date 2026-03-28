@@ -7,7 +7,15 @@ export const useAuthStore = defineStore('auth', () => {
   const errorMessage = ref<string | null>(null);
   const loading = ref(false);
 
-  async function login(email: string, password: string) {
+  function resolveSafeRedirect(redirect?: string) {
+    if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//') || redirect.includes('://')) {
+      return null;
+    }
+
+    return redirect;
+  }
+
+  async function login(email: string, password: string, redirect?: string) {
     try {
       loading.value = true;
 
@@ -20,7 +28,8 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       await session.fetch();
-      navigateTo(localePath('/'));
+      const redirectTarget = resolveSafeRedirect(redirect);
+      navigateTo(redirectTarget ?? localePath('/'));
     }
     catch (error) {
       console.error('Login error:', error);
@@ -31,7 +40,25 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function loginWithKu(redirect?: string) {
+    loading.value = true;
+    clearError();
+
+    const redirectTarget = resolveSafeRedirect(redirect);
+    if (redirectTarget) {
+      return navigateTo(`/api/auth/ku/login?redirect=${encodeURIComponent(redirectTarget)}`, { external: true });
+    }
+
+    return navigateTo('/api/auth/ku/login', { external: true });
+  }
+
   async function logout() {
+    const isKuUser = session.user.value?.authProvider === 'ku-all-login';
+
+    if (isKuUser) {
+      return navigateTo('/api/auth/ku/logout', { external: true });
+    }
+
     await session.clear();
     navigateTo(localePath('/login'));
   }
@@ -58,6 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     errorMessage,
     login,
+    loginWithKu,
     logout,
     clearError,
     can,

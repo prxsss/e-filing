@@ -59,6 +59,8 @@ export default defineEventHandler(async (event) => {
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
+      email: user.email,
+      authProvider: 'local',
     },
     lastLoggedIn: new Date(),
   });

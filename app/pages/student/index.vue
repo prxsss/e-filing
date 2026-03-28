@@ -137,7 +137,7 @@ function navigateToNewRequest() {
             variant="solid"
             label="สร้างคำร้องใหม่"
             icon="i-heroicons-plus-circle"
-            class="text-primary-700 font-bold shadow-md"
+            class=" font-bold shadow-md"
           />
         </div>
       </div>
