@@ -13,11 +13,14 @@ definePageMeta({
 });
 
 const { t, locale } = useI18n();
+const route = useRoute();
 const router = useRouter();
 const localePath = useLocalePath();
 
 // === Types ===
 type RequestStatus = 'draft' | 'in_progress' | 'rejected' | 'completed';
+
+const requestStatuses: RequestStatus[] = ['draft', 'in_progress', 'rejected', 'completed'];
 
 type RequestItem = {
   id: number;
@@ -184,15 +187,37 @@ const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
 
 const df = new DateFormatter('en-US', { dateStyle: 'medium' });
 
+function getSingleQueryValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value))
+    return value[0];
+  return value;
+}
+
+function getInitialStatusFromQuery(): RequestStatus | undefined {
+  const statusQuery = getSingleQueryValue(route.query.status as string | string[] | undefined);
+  if (!statusQuery)
+    return undefined;
+  return requestStatuses.includes(statusQuery as RequestStatus)
+    ? statusQuery as RequestStatus
+    : undefined;
+}
+
+function getInitialSearchFromQuery(): string {
+  const studentIdQuery = getSingleQueryValue(route.query.studentId as string | string[] | undefined);
+  const searchQuery = getSingleQueryValue(route.query.search as string | string[] | undefined);
+  return studentIdQuery ?? searchQuery ?? '';
+}
+
 // Local-only state (not shared across pages)
-const searchQuery = ref('');
-const debouncedSearch = ref('');
+const initialSearchQuery = getInitialSearchFromQuery();
+const searchQuery = ref(initialSearchQuery);
+const debouncedSearch = ref(initialSearchQuery);
 const applySearch = useDebounceFn((val: string) => {
   debouncedSearch.value = val;
 }, 350);
 watch(searchQuery, applySearch);
 
-const selectedStatus = ref<string | undefined>(undefined);
+const selectedStatus = ref<RequestStatus | undefined>(getInitialStatusFromQuery());
 const selectedTemplateId = ref<number | undefined>(undefined);
 const page = ref(1);
 const pageSize = 15;

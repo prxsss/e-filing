@@ -10,6 +10,20 @@ defineProps<{
 }>();
 
 const { locale, t } = useI18n();
+const localePath = useLocalePath();
+
+type RequestSummaryStatus = 'in_progress' | 'rejected' | 'completed';
+
+function goToRequests(studentId?: string | null, status?: RequestSummaryStatus) {
+  if (!studentId)
+    return;
+
+  const query: Record<string, string> = { studentId };
+  if (status)
+    query.status = status;
+
+  navigateTo(localePath({ path: '/admin/requests', query }));
+}
 
 type UserAssignment = UserDetail['assignments'][number];
 
@@ -114,7 +128,7 @@ const columns: TableColumn<UserAssignment>[] = [
     <!-- Main Content -->
     <div class="lg:col-span-8 space-y-6">
       <!-- Status Summary Card -->
-      <UCard>
+      <UCard v-if="user.studentId">
         <template #header>
           <div class="flex items-center gap-3">
             <UIcon name="i-lucide-chart-no-axes-column-increasing" class="text-primary" />
@@ -126,44 +140,60 @@ const columns: TableColumn<UserAssignment>[] = [
 
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-6">
           <!-- Total Requests -->
-          <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800">
+          <button
+            type="button"
+            class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800 text-left w-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800/70"
+            @click="goToRequests(user.studentId)"
+          >
             <p class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
               {{ $t('adminUsers.detail.requestStatusSummary.totalRequests') }}
             </p>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">
               {{ user.totalRequests.toLocaleString() }}
             </p>
-          </div>
+          </button>
 
           <!-- Pending Action -->
-          <div class="p-4 rounded-lg bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-900/30">
+          <button
+            type="button"
+            class="p-4 rounded-lg bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-900/30 text-left w-full transition-colors hover:bg-warning-100 dark:hover:bg-warning-900/20"
+            @click="goToRequests(user.studentId, 'in_progress')"
+          >
             <p class="text-xs text-warning-600 dark:text-warning-400 font-medium uppercase mb-2">
               {{ $t('adminUsers.detail.requestStatusSummary.pending') }}
             </p>
             <p class="text-2xl font-bold text-warning-700 dark:text-warning-400">
               {{ user.pendingRequests.toLocaleString() }}
             </p>
-          </div>
+          </button>
 
           <!-- Rejected -->
-          <div class="p-4 rounded-lg bg-error-50 dark:bg-error-900/10 border border-error-200 dark:border-error-900/30">
+          <button
+            type="button"
+            class="p-4 rounded-lg bg-error-50 dark:bg-error-900/10 border border-error-200 dark:border-error-900/30 text-left w-full transition-colors hover:bg-error-100 dark:hover:bg-error-900/20"
+            @click="goToRequests(user.studentId, 'rejected')"
+          >
             <p class="text-xs text-error-600 dark:text-error-400 font-medium uppercase mb-2">
               {{ $t('adminUsers.detail.requestStatusSummary.rejected') }}
             </p>
             <p class="text-2xl font-bold text-error-700 dark:text-error-400">
               {{ user.rejectedRequests.toLocaleString() }}
             </p>
-          </div>
+          </button>
 
           <!-- Approved -->
-          <div class="p-4 rounded-lg bg-success-50 dark:bg-success-900/10 border border-success-200 dark:border-success-900/30">
+          <button
+            type="button"
+            class="p-4 rounded-lg bg-success-50 dark:bg-success-900/10 border border-success-200 dark:border-success-900/30 text-left w-full transition-colors hover:bg-success-100 dark:hover:bg-success-900/20"
+            @click="goToRequests(user.studentId, 'completed')"
+          >
             <p class="text-xs text-success-600 dark:text-success-400 font-medium uppercase mb-2">
               {{ $t('adminUsers.detail.requestStatusSummary.approved') }}
             </p>
             <p class="text-2xl font-bold text-success-700 dark:text-success-400">
               {{ user.approvedRequests.toLocaleString() }}
             </p>
-          </div>
+          </button>
         </div>
       </UCard>
 
