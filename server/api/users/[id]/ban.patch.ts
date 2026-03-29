@@ -12,6 +12,13 @@ export default defineEventHandler(async (event) => {
 
   const id = getRouterParam(event, 'id') as string;
 
+  if (event.context.user?.id === id) {
+    throw createError({
+      statusCode: 400,
+      message: 'You cannot ban your own account',
+    });
+  }
+
   const body = await readValidatedBody(event, banSchema.parse);
 
   const [user] = await db.select().from(users).where(eq(users.id, id));

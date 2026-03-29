@@ -178,7 +178,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     label: t('adminUsers.detail.actions.banUser'),
     icon: 'i-lucide-user-x',
     color: 'error',
-    visible: computed(() => !user.value?.banned && authStore.can('user.status')),
+    visible: computed(() => !user.value?.banned && user.value?.id !== authStore.session.user?.id && authStore.can('user.status')),
     onSelect: async () => {
       const instance = confirmDialogWithReason.open({
         title: t('adminUsers.detail.banDialog.confirm'),
@@ -290,7 +290,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
             {{ t('common.actions.edit') }}
           </UButton>
           <UDropdownMenu
-            v-if="authStore.canAny(['user.reset_password', 'user.status'])"
+            v-if="actionMenuItems.length > 0"
             :items="actionMenuItems"
             :content="{
               align: 'end',
