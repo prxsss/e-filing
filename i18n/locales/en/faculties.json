@@ -25,7 +25,7 @@
       }
     },
     "create": {
-      "title": "Add New Faculty"
+      "title": "Add Faculty"
     },
     "edit": {
       "title": "Edit Faculty"

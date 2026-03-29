@@ -4,7 +4,7 @@ import type { FormSubmitEvent } from '@nuxt/ui';
 import * as z from 'zod';
 
 definePageMeta({
-  title: 'create-faculty',
+  title: 'adminFaculties.create.title',
   middleware: ['permission'],
   permission: 'faculty.create',
 });

@@ -4,7 +4,7 @@ import type { FormSubmitEvent } from '@nuxt/ui';
 import * as z from 'zod';
 
 definePageMeta({
-  title: 'edit-department',
+  title: 'adminDepartments.edit.title',
   middleware: ['permission'],
   permission: 'department.edit',
 });
@@ -194,6 +194,7 @@ async function handleUpdateDepartment(event: FormSubmitEvent<UpdateDepartmentSub
             <UInput
               v-model="form.nameEn"
               class="w-full"
+              :placeholder="t('adminDepartments.form.nameEnPlaceholder')"
               size="xl"
             />
           </UFormField>
@@ -202,6 +203,7 @@ async function handleUpdateDepartment(event: FormSubmitEvent<UpdateDepartmentSub
             <UInput
               v-model="form.nameTh"
               class="w-full"
+              :placeholder="t('adminDepartments.form.nameThPlaceholder')"
               size="xl"
             />
           </UFormField>

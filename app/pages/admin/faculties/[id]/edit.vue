@@ -4,7 +4,7 @@ import type { FormSubmitEvent } from '@nuxt/ui';
 import * as z from 'zod';
 
 definePageMeta({
-  title: 'edit-faculty',
+  title: 'adminFaculties.edit.title',
 });
 
 type FacultyDetail = {

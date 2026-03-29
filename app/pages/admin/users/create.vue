@@ -10,7 +10,7 @@ import type { Faculty } from '~/types/faculty';
 import type { Role } from '~/types/user';
 
 definePageMeta({
-  title: 'create-user',
+  title: 'adminUsers.create.title',
   middleware: ['permission'],
   permission: 'user.create',
 });

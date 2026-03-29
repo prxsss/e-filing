@@ -24,7 +24,9 @@
       "faculty": "Faculty",
       "facultyPlaceholder": "Select faculty",
       "nameEn": "Department Name (EN)",
-      "nameTh": "Department Name (TH)"
+      "nameEnPlaceholder": "e.g. Computer Science",
+      "nameTh": "Department Name (TH)",
+      "nameThPlaceholder": "e.g. วิทยาการคอมพิวเตอร์"
     },
     "success": {
       "create": "Department added successfully.",

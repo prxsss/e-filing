@@ -24,7 +24,9 @@
       "faculty": "คณะ",
       "facultyPlaceholder": "เลือกคณะ",
       "nameEn": "ชื่อสาขาวิชา (EN)",
-      "nameTh": "ชื่อสาขาวิชา (TH)"
+      "nameEnPlaceholder": "เช่น Computer Science",
+      "nameTh": "ชื่อสาขาวิชา (TH)",
+      "nameThPlaceholder": "เช่น วิทยาการคอมพิวเตอร์"
     },
     "success": {
       "create": "เพิ่มสาขาวิชาสำเร็จ",

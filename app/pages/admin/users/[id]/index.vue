@@ -11,7 +11,7 @@ import { formatDate } from '~/utils/formatters';
 import { getRequestStatusColor } from '~/utils/request-status';
 
 definePageMeta({
-  title: 'user-detail',
+  title: 'adminUsers.detail.title',
   middleware: ['permission'],
   permission: 'user.view',
 });

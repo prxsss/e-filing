@@ -50,7 +50,7 @@
       }
     },
     "create": {
-      "title": "Add New User",
+      "title": "Add User",
       "description": "Fill in the details below to add a new user.",
       "feedback": {
         "createSuccess": "User has been added successfully.",

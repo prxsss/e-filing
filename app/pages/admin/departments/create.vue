@@ -4,7 +4,7 @@ import type { FormSubmitEvent } from '@nuxt/ui';
 import * as z from 'zod';
 
 definePageMeta({
-  title: 'create-department',
+  title: 'adminDepartments.list.addButton',
   middleware: ['permission'],
   permission: 'department.create',
 });
@@ -166,6 +166,7 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
             <UInput
               v-model="form.nameEn"
               class="w-full"
+              :placeholder="t('adminDepartments.form.nameEnPlaceholder')"
               size="xl"
             />
           </UFormField>
@@ -174,6 +175,7 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
             <UInput
               v-model="form.nameTh"
               class="w-full"
+              :placeholder="t('adminDepartments.form.nameThPlaceholder')"
               size="xl"
             />
           </UFormField>

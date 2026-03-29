@@ -10,7 +10,7 @@ import type { Faculty } from '~/types/faculty';
 import type { Role, UserDetail } from '~/types/user';
 
 definePageMeta({
-  title: 'edit-user',
+  title: 'adminUsers.edit.title',
   middleware: ['permission'],
   permission: 'user.edit',
 });
