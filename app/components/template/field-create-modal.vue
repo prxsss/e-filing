@@ -41,7 +41,7 @@ function normalizeMaxLength(value) {
 const formData = ref({
   name: '',
   type: 'Text',
-  icon: 'i-heroicons-document',
+  icon: getIconForType('Text'),
   amount: 1,
   width: 150,
   height: 40,
@@ -62,17 +62,23 @@ const formData = ref({
 
 const fieldTypes = ['Text', 'Number', 'Checkbox', 'Signature', 'Date', 'Time'];
 
-const iconOptions = [
-  { value: 'i-heroicons-document', label: 'Document', icon: 'i-heroicons-document' },
-  { value: 'i-heroicons-user', label: 'User', icon: 'i-heroicons-user' },
-  { value: 'i-heroicons-identification', label: 'ID', icon: 'i-heroicons-identification' },
-  { value: 'i-heroicons-calendar', label: 'Calendar', icon: 'i-heroicons-calendar' },
-  { value: 'i-heroicons-clock', label: 'Time', icon: 'i-heroicons-clock' },
-  { value: 'i-heroicons-pencil-square', label: 'Signature', icon: 'i-heroicons-pencil-square' },
-  { value: 'i-heroicons-hashtag', label: 'Number', icon: 'i-heroicons-hashtag' },
-  { value: 'i-heroicons-map-pin', label: 'Location', icon: 'i-heroicons-map-pin' },
-  { value: 'i-heroicons-building-office', label: 'Office', icon: 'i-heroicons-building-office' },
-];
+function getIconForType(type) {
+  const t = String(type || '').toLowerCase();
+  switch (t) {
+    case 'number':
+      return 'i-heroicons-hashtag';
+    case 'checkbox':
+      return 'i-heroicons-check';
+    case 'signature':
+      return 'i-heroicons-pencil-square';
+    case 'date':
+      return 'i-heroicons-calendar';
+    case 'time':
+      return 'i-heroicons-clock';
+    default:
+      return 'i-heroicons-document';
+  }
+}
 
 const fontOptions = ['Sarabun'];
 
@@ -113,7 +119,7 @@ watch(() => props.editField, (newField) => {
     formData.value = {
       name: newField.name || newField.label || '',
       type: newField.type || 'Text',
-      icon: newField.icon || 'i-heroicons-document',
+      icon: newField.icon || getIconForType(newField.type || 'Text'),
       amount: normalizedAmount,
       width: newField.default_width || newField.width || 150,
       height: newField.default_height || newField.height || 40,
@@ -134,6 +140,14 @@ watch(() => props.editField, (newField) => {
       strikeLineThickness: Math.min(8, Math.max(0.5, parseFiniteNumber(newField.strikeLineThickness ?? newField.strike_line_thickness, 1.5))),
     };
   }
+}, { immediate: true });
+
+// Auto-set icon based on selected type when creating a new field.
+watch(() => formData.value.type, (type) => {
+  // If we're in edit mode and editing an existing field, do not overwrite the stored icon.
+  if (props.mode === 'edit' && props.editField)
+    return;
+  formData.value.icon = getIconForType(type);
 }, { immediate: true });
 
 watch(supportsAmountSetting, (enabled) => {
@@ -158,7 +172,7 @@ function resetForm() {
   formData.value = {
     name: '',
     type: 'Text',
-    icon: 'i-heroicons-document',
+    icon: getIconForType('Text'),
     amount: 1,
     width: 150,
     height: 40,
@@ -371,34 +385,31 @@ async function handleDelete() {
               />
             </div>
 
-            <!-- Field Type & Icon -->
-            <div class="grid grid-cols-2 gap-1.5">
+            <!-- Field Type with icon preview -->
+            <div class="grid grid-cols-1 gap-1.5">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
                   ประเภท
                 </label>
-                <select
-                  v-model="formData.type"
-                  class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
-                >
-                  <option v-for="type in fieldTypes" :key="type" :value="type">
-                    {{ type }}
-                  </option>
-                </select>
-              </div>
+                <div class="flex items-center gap-3">
+                  <select
+                    v-model="formData.type"
+                    class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
+                  >
+                    <option v-for="type in fieldTypes" :key="type" :value="type">
+                      {{ type }}
+                    </option>
+                  </select>
 
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ไอคอน
-                </label>
-                <select
-                  v-model="formData.icon"
-                  class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
-                >
-                  <option v-for="option in iconOptions" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
+                  <div class="flex items-center gap-2 pl-2">
+                    <div class="w-10 h-10 rounded-md flex items-center justify-center border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                      <UIcon :name="formData.icon" class="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                      {{ formData.type }}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
