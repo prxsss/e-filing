@@ -145,6 +145,20 @@ const filteredDepartments = computed(() => {
 
 const showRoleError = ref(false);
 
+const hasAssignedStudentRole = computed(() => roleAssignments.value.some(assignment => isStudentRole(assignment.roleId)));
+const hasAssignedNonStudentRole = computed(() => roleAssignments.value.some(assignment => assignment.roleId && !isStudentRole(assignment.roleId)));
+const selectedRoleIsStudent = computed(() => isStudentRole(newRoleAssignment.value.roleId));
+const canAssignSelectedRole = computed(() => !(selectedRoleIsStudent.value && hasAssignedNonStudentRole.value));
+const availableRolesForAssignment = computed(() => {
+  if (!roles.value)
+    return [];
+
+  if (!hasAssignedNonStudentRole.value)
+    return roles.value;
+
+  return roles.value.filter(role => !isStudentRole(role.value));
+});
+
 function toNumberId(value: string | number | null | undefined) {
   if (value === null || value === undefined)
     return null;
@@ -165,7 +179,50 @@ function mapAssignmentsToRoleAssignments(assignments: UserAssignment[] = []): Ro
   });
 }
 
+function getRoleById(roleId: number | null) {
+  if (!roleId)
+    return null;
+  return roles.value?.find(r => r.value === roleId) ?? null;
+}
+
+function isStudentRole(roleId: number | null) {
+  const role = getRoleById(roleId);
+  if (!role)
+    return false;
+
+  const roleLabels = [role.label, role.labelTh]
+    .filter(Boolean)
+    .map(label => String(label).trim().toLowerCase());
+
+  return roleLabels.some(label => ['student', 'นักศึกษา', 'นิสิต'].some(keyword => label === keyword || label.includes(keyword)));
+}
+
 function addRoleAssignment() {
+  const selectedRoleId = newRoleAssignment.value.roleId;
+  if (!selectedRoleId)
+    return;
+
+  const hasStudentRole = hasAssignedStudentRole.value;
+  const selectedIsStudent = isStudentRole(selectedRoleId);
+
+  if (selectedIsStudent && roleAssignments.value.length > 0) {
+    toast.add({
+      title: t('adminUsers.edit.feedback.updateError'),
+      description: t('adminUsers.shared.validation.studentOnlyRole'),
+      color: 'error',
+    });
+    return;
+  }
+
+  if (!selectedIsStudent && hasStudentRole) {
+    toast.add({
+      title: t('adminUsers.edit.feedback.updateError'),
+      description: t('adminUsers.shared.validation.studentOnlyRole'),
+      color: 'error',
+    });
+    return;
+  }
+
   roleAssignments.value.push({ ...newRoleAssignment.value });
   showRoleError.value = false;
   newRoleAssignment.value = { roleId: null, facultyId: null, departmentId: null };
@@ -592,7 +649,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                     </h2>
                   </div>
                   <UModal v-model:open="open" :title="t('adminUsers.shared.roleTable.modalTitle')" :ui="{ footer: 'justify-end' }">
-                    <UButton icon="i-lucide-plus" :label="t('adminUsers.shared.roleTable.modalTitle')" variant="soft" />
+                    <UButton icon="i-lucide-plus" :label="t('adminUsers.shared.roleTable.modalTitle')" variant="soft" :disabled="hasAssignedStudentRole" :class="hasAssignedStudentRole ? 'cursor-not-allowed!' : ''" />
 
                     <template #body>
                       <div class="space-y-4">
@@ -602,13 +659,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                           name="role"
                           required
                         >
-                          <USelectMenu v-model="newRoleAssignment.roleId" :items="roles || []" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectRole')" :clear="true" size="xl" class="w-full" />
+                          <USelectMenu v-model="newRoleAssignment.roleId" :items="availableRolesForAssignment" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectRole')" :clear="true" size="xl" class="w-full" />
                         </UFormField>
                         <!-- Faculty -->
                         <UFormField
                           :label="t('common.table.faculty')"
                           name="faculty"
-                          required
                         >
                           <USelectMenu v-model="newRoleAssignment.facultyId" :items="faculties || []" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectFaculty')" :clear="true" size="xl" class="w-full" />
                         </UFormField>
@@ -624,7 +680,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
                     <template #footer="{ close }">
                       <UButton :label="t('common.actions.cancel')" color="neutral" variant="outline" @click="close" />
-                      <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId" @click="addRoleAssignment" />
+                      <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId || !canAssignSelectedRole" @click="addRoleAssignment" />
                     </template>
                   </UModal>
                 </div>
