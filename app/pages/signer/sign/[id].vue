@@ -830,6 +830,8 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
   if (newStatus !== 'in_progress') {
     await fetchStatus();
   }
+
+  await navigateTo('/signer/to-sign');
 }
 
 async function submitSignature() {
