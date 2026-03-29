@@ -103,19 +103,29 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const [userAuth] = await db
+  const assignedRoleRows = await db
     .select({
-      roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
+      roleName: roles.name,
+    })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(eq(userRoles.userId, user.id))
+    .orderBy(userRoles.id);
+
+  const [userPermissionData] = await db
+    .select({
       permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
     })
     .from(userRoles)
-    .leftJoin(roles, eq(userRoles.roleId, roles.id))
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
     .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
     .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
     .where(eq(userRoles.userId, user.id));
 
-  const mappedRoles = (userAuth?.roles ?? []).filter((role): role is string => Boolean(role));
-  const mappedPermissions = (userAuth?.permissions ?? []).filter((permission): permission is string => Boolean(permission));
+  const mappedRoles = assignedRoleRows
+    .map(item => item.roleName)
+    .filter((role): role is string => Boolean(role));
+  const mappedPermissions = (userPermissionData?.permissions ?? []).filter((permission): permission is string => Boolean(permission));
 
   await replaceUserSession(event, {
     user: {
