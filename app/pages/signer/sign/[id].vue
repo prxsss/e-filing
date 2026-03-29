@@ -310,9 +310,10 @@ async function saveSignerFieldValues(): Promise<boolean> {
       const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
       if (!Number.isFinite(fieldId))
         return null;
-      return { fieldId, value: resolveCurrentFieldValue(field) || '' };
+      const instanceId = String(field?.instanceId ?? '').trim();
+      return { fieldId, instanceId: instanceId || undefined, value: resolveCurrentFieldValue(field) || '' };
     })
-    .filter(Boolean) as Array<{ fieldId: number; value: string }>;
+    .filter(Boolean) as Array<{ fieldId: number; instanceId?: string; value: string }>;
 
   if (!fieldValuesArray.length)
     return true;

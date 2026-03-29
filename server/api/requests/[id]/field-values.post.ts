@@ -1,6 +1,6 @@
 import db from '~~/lib/db';
 import { request, requestTemplate, requestTemplateValues, signatureFlow, userRoles } from '~~/lib/db/schema';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
     const isOwner = requestRecord.userId === userId;
 
     let isAuthorizedSigner = false;
+    let pendingFlowForSigner: typeof signatureFlow.$inferSelect | null = null;
     if (!isOwner) {
       const userRoleRows = await db
         .select({ roleId: userRoles.roleId })
@@ -46,6 +47,7 @@ export default defineEventHandler(async (event) => {
         .limit(1);
 
       if (pendingFlow) {
+        pendingFlowForSigner = pendingFlow;
         isAuthorizedSigner = pendingFlow.assignedUserId === userId
           || (pendingFlow.assignedUserId === null && userRoleIds.includes(pendingFlow.roleId));
       }
@@ -103,13 +105,32 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'fieldValues must be an array' };
     }
 
+    const signerAllowedInstanceIds = new Set<string>();
+    if (isAuthorizedSigner && pendingFlowForSigner?.assignedFieldInstanceIds) {
+      for (const id of pendingFlowForSigner.assignedFieldInstanceIds as string[]) {
+        const normalized = String(id ?? '').trim();
+        if (normalized.length > 0) {
+          signerAllowedInstanceIds.add(normalized);
+        }
+      }
+    }
+
     const results = [];
     for (const fieldValue of body.fieldValues) {
-      const { fieldId, value } = fieldValue;
+      const { fieldId, value, instanceId } = fieldValue;
 
       const normalizedFieldId = Number.parseInt(String(fieldId ?? ''), 10);
       if (!Number.isFinite(normalizedFieldId) || normalizedFieldId <= 0)
         continue;
+      const normalizedInstanceId = String(instanceId ?? '').trim();
+
+      if (isAuthorizedSigner) {
+        // Signer can only write fields that are assigned to the current pending step.
+        // Enforce by instanceId to avoid cross-step overwrites on repeated fieldIds.
+        if (!normalizedInstanceId.length || !signerAllowedInstanceIds.has(normalizedInstanceId)) {
+          continue;
+        }
+      }
 
       let normalizedValue = String(value ?? '');
       if (checkboxFieldIds.has(normalizedFieldId)) {
@@ -128,6 +149,9 @@ export default defineEventHandler(async (event) => {
           and(
             eq(requestTemplateValues.requestId, requestId),
             eq(requestTemplateValues.fieldId, normalizedFieldId),
+            normalizedInstanceId.length
+              ? eq(requestTemplateValues.fieldInstanceId, normalizedInstanceId)
+              : isNull(requestTemplateValues.fieldInstanceId),
           ),
         )
         .limit(1);
@@ -137,15 +161,16 @@ export default defineEventHandler(async (event) => {
           .update(requestTemplateValues)
           .set({ value: normalizedValue, createdAt: new Date().toISOString() })
           .where(eq(requestTemplateValues.id, existing[0].id));
-        results.push({ fieldId: normalizedFieldId, action: 'updated' });
+        results.push({ fieldId: normalizedFieldId, instanceId: normalizedInstanceId || null, action: 'updated' });
       }
       else {
         await db.insert(requestTemplateValues).values({
           requestId,
           fieldId: normalizedFieldId,
+          fieldInstanceId: normalizedInstanceId || null,
           value: normalizedValue,
         });
-        results.push({ fieldId: normalizedFieldId, action: 'created' });
+        results.push({ fieldId: normalizedFieldId, instanceId: normalizedInstanceId || null, action: 'created' });
       }
     }
 
