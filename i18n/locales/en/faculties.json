@@ -1,0 +1,47 @@
+{
+  "adminFaculties": {
+    "title": "Faculties",
+    "description": "View and organize all university faculties and their respective deans.",
+    "list": {
+      "title": "Faculties",
+      "addButton": "Add Faculty",
+      "search": "Search faculties",
+      "columns": {
+        "facultyCode": "Code",
+        "name": "Faculty Name",
+        "departments": "Departments",
+        "deanName": "Dean Name"
+      }
+    },
+    "shared": {
+      "section": "Faculty Information",
+      "form": {
+        "facultyCode": "Faculty Code",
+        "facultyCodePlaceholder": "e.g. F001",
+        "nameEn": "Faculty Name (EN)",
+        "nameEnPlaceholder": "e.g. Faculty of Natural Sciences",
+        "nameTh": "Faculty Name (TH)",
+        "nameThPlaceholder": "e.g. คณะวิทยาศาสตร์"
+      }
+    },
+    "create": {
+      "title": "Add New Faculty"
+    },
+    "edit": {
+      "title": "Edit Faculty"
+    },
+    "success": {
+      "createSuccess": "Faculty has been added successfully.",
+      "updateSuccess": "Faculty has been updated successfully.",
+      "deleteSuccess": "Faculty has been deleted successfully."
+    },
+    "error": {
+      "createError": "Cannot create faculty",
+      "createErrorMessage": "Failed to create faculty: {message}",
+      "updateError": "Cannot update faculty",
+      "updateErrorMessage": "Failed to update faculty: {message}",
+      "deleteError": "Cannot delete faculty",
+      "deleteErrorMessage": "Failed to delete faculty: {message}"
+    }
+  }
+}

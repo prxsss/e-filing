@@ -2,49 +2,51 @@
   "adminAccessControl": {
     "title": "Access Control",
     "description": "Manage system roles and security permissions",
-    "systemRoles": "System Roles",
-    "permissionSettings": "Permission Settings",
-    "permissionSettingsDescription": "Define what users assigned to the {role} role can see and do.",
-    "searchPermissions": "Search permissions...",
-    "resetChanges": "Reset Changes",
-    "selectRolePrompt": "Select a role from the left to manage its permissions.",
-    "noRolesPermission": "You do not have permission to view roles.",
-    "noPermissionsFound": "No permissions match your search.",
-    "backToAccessControl": "Back to Access Control",
-    "newRole": "New Role",
-    "roleInformation": "Role Information",
-    "roleName": "Role Name (EN)",
-    "roleNameTh": "Role Name (TH)",
-    "roleNamePlaceholder": "e.g. Head of the Department",
-    "roleNameThPlaceholder": "e.g. หัวหน้าภาควิชา",
-    "descriptionEn": "Description (EN)",
-    "descriptionTh": "Description (TH)",
-    "descriptionEnPlaceholder": "Brief description of this role in English",
-    "descriptionThPlaceholder": "Brief description of this role in Thai",
-    "assignPermissions": "Assign Permissions",
-    "assignPermissionsDescription": "Select the permissions this role should have.",
-    "selectedCount": "{count} selected",
     "addRole": "Add Role",
-    "discardChanges": "Discard changes?",
-    "discardChangesDescription": "You have unsaved changes. Are you sure you want to leave this page?",
-    "leave": "Leave",
-    "editRole": "Edit Role",
-    "deleteRole": "Delete Role",
-    "deleteRoleConfirm": "Are you sure you want to delete the role \"{name}\"? This action cannot be undone.",
-    "roleUpdatedSuccess": "Role updated successfully.",
-    "roleUpdateFailed": "Failed to update role. Please try again.",
-    "roleDeletedSuccess": "Role deleted successfully.",
-    "roleDeleteInUse": "This role is currently assigned to {count} user(s) and cannot be deleted.",
-    "adminRoleDeleteLocked": "The Admin role is protected and cannot be deleted.",
-    "adminRoleNameLocked": "The Admin role name is protected and cannot be changed.",
-    "adminRolePermissionLocked": "role.* and permission.* permissions on the Admin role are locked and cannot be changed.",
-    "roleDeleteFailed": "Failed to delete role. Please try again.",
-    "permissionUpdatedSuccess": "Permission changes were saved successfully.",
-    "permissionUpdateFailed": "Failed to save permission changes. Please try again.",
-    "permissionGranted": "Granted",
-    "roleCreatedSuccess": "Role created successfully.",
-    "roleCreateFailed": "Failed to create role. Please try again.",
-    "roleNameRequiredEn": "Role name is required (EN)",
-    "roleNameRequiredTh": "Role name is required (TH)"
+    "sections": {
+      "systemRoles": "System Roles",
+      "permissionSettings": "Permission Settings",
+      "permissionSettingsDescription": "Define what users assigned to the {role} role can see and do.",
+      "roleInformation": "Role Information",
+      "assignPermissions": "Assign Permissions"
+    },
+    "roleForm": {
+      "nameEn": "Role Name (EN)",
+      "nameTh": "Role Name (TH)",
+      "namePlaceholder": "e.g. Head of the Department",
+      "nameThPlaceholder": "e.g. หัวหน้าภาควิชา",
+      "descEn": "Description (EN)",
+      "descTh": "Description (TH)",
+      "descEnPlaceholder": "Brief description of this role in English",
+      "descThPlaceholder": "Brief description of this role in Thai"
+    },
+    "state": {
+      "selectRolePrompt": "Select a role from the left to manage its permissions.",
+      "noRolesPermission": "You do not have permission to view roles.",
+      "noPermissionsFound": "No permissions match your search.",
+      "searchPlaceholder": "Search permissions...",
+      "selectedCount": "{count} selected",
+      "permissionGranted": "Granted"
+    },
+    "messages": {
+      "success": {
+        "created": "Role created successfully.",
+        "updated": "Role updated successfully.",
+        "deleted": "Role deleted successfully.",
+        "permissionSaved": "Permission changes were saved successfully."
+      },
+      "error": {
+        "createFailed": "Failed to create role.",
+        "updateFailed": "Failed to update role.",
+        "deleteFailed": "Failed to delete role.",
+        "permissionFailed": "Failed to save permission changes.",
+        "deleteInUse": "This role is currently assigned to {count} user(s) and cannot be deleted."
+      },
+      "locked": {
+        "adminDelete": "The Admin role is protected and cannot be deleted.",
+        "adminName": "The Admin role name is protected and cannot be changed.",
+        "adminPermission": "role.* and permission.* permissions on the Admin role are locked and cannot be changed."
+      }
+    }
   }
 }

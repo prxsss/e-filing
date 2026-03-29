@@ -2,9 +2,41 @@
   "adminDashboard": {
     "title": "แดชบอร์ดผู้ดูแลระบบ",
     "description": "ติดตามสถานะคำร้องแบบเรียลไทม์ และวิเคราะห์คอขวดของกระบวนการลงนามในแต่ละหน่วยงาน",
-    "totalRequests": "คำร้องทั้งหมด",
-    "completedRequests": "คำร้องที่ดำเนินการเสร็จสิ้น",
-    "medianTurnaround": "ระยะเวลาดำเนินการ (มัธยฐาน)",
-    "rejectedRequests": "คำร้องที่ถูกปฏิเสธ"
+    "stats": {
+      "totalRequests": "คำร้องทั้งหมด",
+      "completedRequests": "คำร้องที่ดำเนินการเสร็จสิ้น",
+      "medianTurnaround": "ระยะเวลาดำเนินการ (มัธยฐาน)",
+      "rejectedRequests": "คำร้องที่ถูกปฏิเสธ"
+    },
+    "filters": {
+      "period": "เลือกช่วงเวลา",
+      "faculty": "ตัวกรองคณะ"
+    },
+    "requestTrend": {
+      "title": "แนวโน้มคำร้อง",
+      "submissions": "ยื่นคำร้อง",
+      "completions": "สำเร็จ",
+      "numberOfRequests": "จำนวนคำร้อง",
+      "noData": "ไม่มีข้อมูลแนวโน้มสำหรับตัวกรองที่เลือก"
+    },
+    "signatureBottlenecks": {
+      "title": "คอขวดการลงนาม",
+      "noData": "ไม่มีข้อมูลคอขวดสำหรับตัวกรองที่เลือก"
+    },
+    "workloadByFaculty": {
+      "title": "ภาระงานตามคณะ",
+      "completed": "เสร็จสิ้น",
+      "pending": "รอดำเนินการ",
+      "rejected": "ถูกปฏิเสธ",
+      "total": "รวม",
+      "noData": "ไม่มีข้อมูลภาระงานสำหรับตัวกรองที่เลือก"
+    },
+    "topRequestTemplates": {
+      "title": "เทมเพลตคำร้องที่นิยม",
+      "templateName": "ชื่อเทมเพลต",
+      "usageCount": "จำนวนครั้งที่ใช้",
+      "completion": "อัตราการสำเร็จ",
+      "noData": "ไม่มีข้อมูลเทมเพลตสำหรับตัวกรองที่เลือก"
+    }
   }
 }

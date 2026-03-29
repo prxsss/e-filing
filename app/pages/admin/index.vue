@@ -249,7 +249,7 @@ const df = new DateFormatter('en-US', {
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
       <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          {{ $t('adminDashboard.totalRequests') }}
+          {{ $t('adminDashboard.stats.totalRequests') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
@@ -262,7 +262,7 @@ const df = new DateFormatter('en-US', {
 
       <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          {{ $t('adminDashboard.completedRequests') }}
+          {{ $t('adminDashboard.stats.completedRequests') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
@@ -276,7 +276,7 @@ const df = new DateFormatter('en-US', {
 
       <UCard>
         <p class="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-          {{ $t('adminDashboard.medianTurnaround') }}
+          {{ $t('adminDashboard.stats.medianTurnaround') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-text-main">
@@ -290,7 +290,7 @@ const df = new DateFormatter('en-US', {
 
       <UCard>
         <p class="text-xs font-semibold text-error uppercase tracking-wider mb-1">
-          {{ $t('adminDashboard.rejectedRequests') }}
+          {{ $t('adminDashboard.stats.rejectedRequests') }}
         </p>
         <div class="flex items-end justify-between">
           <h3 class="text-2xl font-bold text-error">

@@ -139,7 +139,7 @@ export async function getUsers({
     .leftJoin(userRoles, eq(users.id, userRoles.userId))
     .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
     .groupBy(users.id)
-    .orderBy(desc(users.createdAt))
+    .orderBy(desc(users.updatedAt))
     .limit(pageSize)
     .offset(offset);
 
@@ -193,6 +193,7 @@ export async function getUserById(id: string) {
         json_agg(
           distinct jsonb_build_object(
             'role', ${roles.name},
+            'roleTh', ${roles.nameTh},
 
             'faculty',
               CASE
@@ -220,6 +221,7 @@ export async function getUserById(id: string) {
     `,
       totalRequests: sql<number>`count(${request.id})::int`,
       pendingRequests: sql<number>`count(case when ${request.status} in ('submitted', 'in_progress') then ${request.id} end)::int`,
+      rejectedRequests: sql<number>`count(case when ${request.status} = 'rejected' then ${request.id} end)::int`,
       approvedRequests: sql<number>`count(case when ${request.status} = 'completed' then ${request.id} end)::int`,
     })
     .from(users)

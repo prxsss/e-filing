@@ -1,21 +1,63 @@
 {
   "common": {
     "allFaculties": "All Faculties",
-    "periods": {
-      "today": "Today",
-      "yesterday": "Yesterday",
-      "last7Days": "Last 7 days",
-      "last14Days": "Last 14 days",
-      "last30Days": "Last 30 days",
-      "thisWeek": "This week",
-      "lastWeek": "Last week",
-      "thisMonth": "This month",
-      "lastMonth": "Last month",
-      "thisQuarter": "This quarter",
-      "lastQuarter": "Last quarter",
-      "yearToDate": "Year to date (YTD)",
-      "last12Months": "Last 12 months",
-      "custom": "Custom"
+    "actions": {
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "clear": "Clear",
+      "importCSV": "Import CSV",
+      "submit": "Submit",
+      "save": "Save Changes",
+      "add": "Add",
+      "edit": "Edit",
+      "back": "Back",
+      "leave": "Leave",
+      "remove": "Remove",
+      "applySearch": "Apply",
+      "reset": "Reset Changes",
+      "backTo": "Back to {page}"
+    },
+    "table": {
+      "no": "No.",
+      "actions": "Actions",
+      "status": "Status",
+      "description": "Description",
+      "createdAt": "Created At",
+      "updatedAt": "Updated At",
+      "email": "Email",
+      "role": "Role",
+      "faculty": "Faculty",
+      "department": "Department",
+      "requestName": "Request Name",
+      "submittedAt": "Submitted At"
+    },
+    "form": {
+      "id": "ID",
+      "email": "Email",
+      "emailPlaceholder": "name@example.com",
+      "faculty": "Faculty",
+      "department": "Department",
+      "role": "Role",
+      "status": "Status",
+      "password": "Password",
+      "confirmPassword": "Confirm Password"
+    },
+    "validation": {
+      "required": "{field} is required",
+      "invalidEmail": "Invalid email format",
+      "maxLength": "{field} must be {count} characters or fewer",
+      "mismatch": "{field} do not match"
+    },
+    "status": {
+      "active": "Active",
+      "banned": "Banned",
+      "all": "All"
+    },
+    "dialog": {
+      "confirmDelete": "Confirm Deletion",
+      "deleteMessage": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+      "discardTitle": "Discard changes?",
+      "discardDescription": "You have unsaved changes. Are you sure you want to leave this page?"
     }
   }
 }

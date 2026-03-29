@@ -22,8 +22,8 @@ const searchQuery = ref('');
 
 // ── Form Schema ──
 const createRoleSchema = z.object({
-  name: z.string().min(1, t('adminAccessControl.roleNameRequiredEn')),
-  nameTh: z.string().min(1, t('adminAccessControl.roleNameRequiredTh')),
+  name: z.string().min(1, t('common.validation.required', { field: t('adminAccessControl.roleForm.nameEn') })),
+  nameTh: z.string().min(1, t('common.validation.required', { field: t('adminAccessControl.roleForm.nameTh') })),
   descriptionEn: z.string().optional(),
   descriptionTh: z.string().optional(),
   permissionIds: z.array(z.number()),
@@ -143,11 +143,11 @@ async function handleCreateRole(event: FormSubmitEvent<CreateRoleSchema>) {
     });
 
     isDirty.value = false;
-    toast.add({ title: t('adminAccessControl.addRole'), description: t('adminAccessControl.roleCreatedSuccess'), color: 'success' });
+    toast.add({ title: t('adminAccessControl.messages.success.created'), color: 'success' });
     navigateTo(localPath('/admin/access-control'));
   }
   catch (error: any) {
-    const message = error?.data?.statusMessage || t('adminAccessControl.roleCreateFailed');
+    const message = error?.data?.statusMessage || t('adminAccessControl.messages.error.createFailed');
     toast.add({ title: t('error'), description: message, color: 'error' });
   }
   finally {
@@ -172,10 +172,10 @@ onBeforeRouteLeave(async () => {
     return true;
 
   const instance = confirmDialog.open({
-    title: t('adminAccessControl.discardChanges'),
-    description: t('adminAccessControl.discardChangesDescription'),
+    title: t('common.dialog.discardTitle'),
+    description: t('common.dialog.discardDescription'),
     cancelButton: { label: t('cancel') },
-    confirmButton: { label: t('adminAccessControl.leave'), color: 'error' },
+    confirmButton: { label: t('common.actions.leave'), color: 'error' },
   });
 
   const result = await instance.result;
@@ -197,13 +197,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
         variant="link"
         :to="localPath('/admin/access-control')"
       >
-        {{ t('adminAccessControl.backToAccessControl') }}
+        {{ t('common.actions.backTo', { page: t('adminAccessControl.title') }) }}
       </UButton>
 
       <!-- Page Header -->
       <div>
         <h1 class="text-2xl font-bold mb-1">
-          {{ t('adminAccessControl.newRole') }}
+          {{ t('adminAccessControl.addRole') }}
         </h1>
         <p class="text-sm text-muted">
           {{ t('adminAccessControl.description') }}
@@ -216,45 +216,45 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
           <div class="flex items-center gap-3">
             <UIcon name="i-lucide-shield" class="text-primary" />
             <h2 class="font-semibold text-base">
-              {{ t('adminAccessControl.roleInformation') }}
+              {{ t('adminAccessControl.sections.roleInformation') }}
             </h2>
           </div>
         </template>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Role Name (EN) -->
-          <UFormField :label="t('adminAccessControl.roleName')" name="name" required>
+          <UFormField :label="t('adminAccessControl.roleForm.nameEn')" name="name" required>
             <UInput
               v-model="form.name"
-              :placeholder="t('adminAccessControl.roleNamePlaceholder')"
+              :placeholder="t('adminAccessControl.roleForm.namePlaceholder')"
               class="w-full"
             />
           </UFormField>
 
           <!-- Role Name (TH) -->
-          <UFormField :label="t('adminAccessControl.roleNameTh')" name="nameTh" required>
+          <UFormField :label="t('adminAccessControl.roleForm.nameTh')" name="nameTh" required>
             <UInput
               v-model="form.nameTh"
-              :placeholder="t('adminAccessControl.roleNameThPlaceholder')"
+              :placeholder="t('adminAccessControl.roleForm.nameThPlaceholder')"
               class="w-full"
             />
           </UFormField>
 
           <!-- Description EN -->
-          <UFormField :label="t('adminAccessControl.descriptionEn')" name="descriptionEn">
+          <UFormField :label="t('adminAccessControl.roleForm.descEn')" name="descriptionEn">
             <UTextarea
               v-model="form.descriptionEn"
-              :placeholder="t('adminAccessControl.descriptionEnPlaceholder')"
+              :placeholder="t('adminAccessControl.roleForm.descEnPlaceholder')"
               class="w-full"
               :rows="3"
             />
           </UFormField>
 
           <!-- Description TH -->
-          <UFormField :label="t('adminAccessControl.descriptionTh')" name="descriptionTh">
+          <UFormField :label="t('adminAccessControl.roleForm.descTh')" name="descriptionTh">
             <UTextarea
               v-model="form.descriptionTh"
-              :placeholder="t('adminAccessControl.descriptionThPlaceholder')"
+              :placeholder="t('adminAccessControl.roleForm.descThPlaceholder')"
               class="w-full"
               :rows="3"
             />
@@ -270,22 +270,19 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               <UIcon name="i-lucide-key" class="text-primary" />
               <div>
                 <h2 class="font-semibold text-base">
-                  {{ t('adminAccessControl.assignPermissions') }}
+                  {{ t('adminAccessControl.sections.assignPermissions') }}
                 </h2>
-                <p class="text-xs text-muted mt-0.5">
-                  {{ t('adminAccessControl.assignPermissionsDescription') }}
-                </p>
               </div>
             </div>
             <div class="flex items-center gap-3">
               <UBadge v-if="selectedCount > 0" color="primary" variant="soft" size="sm">
-                {{ t('adminAccessControl.selectedCount', { count: selectedCount }) }}
+                {{ t('adminAccessControl.state.selectedCount', { count: selectedCount }) }}
               </UBadge>
               <div class="shrink-0 w-full sm:w-56">
                 <UInput
                   v-model="searchQuery"
                   icon="i-lucide-search"
-                  :placeholder="t('adminAccessControl.searchPermissions')"
+                  :placeholder="t('adminAccessControl.state.searchPlaceholder')"
                   variant="subtle"
                   class="w-full"
                 />
@@ -299,7 +296,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
           <div v-if="filteredModules.length === 0" class="text-center py-12">
             <UIcon name="i-lucide-search-x" class="size-12 text-muted mx-auto mb-3" />
             <p class="text-sm text-muted">
-              {{ t('adminAccessControl.noPermissionsFound') }}
+              {{ t('adminAccessControl.state.noPermissionsFound') }}
             </p>
           </div>
 

@@ -17,6 +17,7 @@ type FacultyDetail = {
 const route = useRoute();
 const localPath = useLocalePath();
 const toast = useToast();
+const { t } = useI18n();
 
 const facultyId = Number(route.params.id);
 
@@ -25,10 +26,10 @@ const loading = ref(false);
 const updateFacultySchema = z.object({
   facultyCode: z
     .string()
-    .min(1, 'Faculty code is required')
-    .max(20, 'Faculty code must be 20 characters or fewer'),
-  nameEn: z.string().min(1, 'Faculty name (EN) is required'),
-  nameTh: z.string().min(1, 'Faculty name (TH) is required'),
+    .min(1, t('common.validation.required', { field: t('adminFaculties.shared.form.facultyCode') }))
+    .max(20, t('common.validation.maxLength', { field: t('adminFaculties.shared.form.facultyCode'), max: 20 })),
+  nameEn: z.string().min(1, t('common.validation.required', { field: t('adminFaculties.shared.form.nameEn') })),
+  nameTh: z.string().min(1, t('common.validation.required', { field: t('adminFaculties.shared.form.nameTh') })),
 });
 
 type UpdateFacultySchema = z.output<typeof updateFacultySchema>;
@@ -74,8 +75,7 @@ async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) 
     });
 
     toast.add({
-      title: 'Success',
-      description: 'Faculty has been updated successfully.',
+      title: t('adminFaculties.success.updateSuccess'),
       color: 'success',
     });
 
@@ -83,8 +83,10 @@ async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) 
   }
   catch (error: any) {
     toast.add({
-      title: 'Error',
-      description: error?.data?.message || 'Failed to update faculty. Please try again.',
+      title: t('adminFaculties.error.updateError'),
+      description: t('adminFaculties.error.updateErrorMessage', {
+        message: error?.data?.message || 'Failed to update faculty. Please try again.',
+      }),
       color: 'error',
     });
   }
@@ -103,21 +105,24 @@ async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) 
       variant="link"
       :to="localPath('/admin/faculties')"
     >
-      Back to Faculties
+      {{ t('common.actions.backTo', { page: t('adminFaculties.list.title') }) }}
     </UButton>
 
     <div class="space-y-2">
       <h1 class="text-3xl font-bold tracking-tight">
-        Edit Faculty
+        {{ t('adminFaculties.edit.title') }}
       </h1>
-      <p class="text-muted">
-        Update faculty details to keep the academic structure information current.
-      </p>
     </div>
 
     <UCard>
       <template #header>
-        <div class="h-1.5 -mx-6 -mt-6 mb-5 bg-linear-to-r from-amber-500/80 via-amber-500 to-primary rounded-t-[calc(var(--ui-radius)*1.2)]" />
+        <div class="h-1.5 -mx-6 -mt-6 mb-5 bg-linear-to-r from-primary/80 via-primary to-cyan-500 rounded-t-[calc(var(--ui-radius)*1.2)]" />
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-building" class="text-primary size-5" />
+          <h2 class="font-semibold">
+            {{ t('adminFaculties.shared.section') }}
+          </h2>
+        </div>
       </template>
 
       <UForm
@@ -127,31 +132,31 @@ async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) 
         @submit="handleUpdateFaculty"
       >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <UFormField label="Faculty Code" name="facultyCode" required>
+          <UFormField :label="t('adminFaculties.shared.form.facultyCode')" name="facultyCode" required>
             <UInput
               v-model="form.facultyCode"
               class="w-full"
-              placeholder="e.g. F001"
+              :placeholder="t('adminFaculties.shared.form.facultyCodePlaceholder')"
               size="xl"
             />
           </UFormField>
 
           <div class="hidden md:block" />
 
-          <UFormField label="Faculty Name (EN)" name="nameEn" required>
+          <UFormField :label="t('adminFaculties.shared.form.nameEn')" name="nameEn" required>
             <UInput
               v-model="form.nameEn"
               class="w-full"
-              placeholder="e.g. Faculty of Natural Sciences"
+              :placeholder="t('adminFaculties.shared.form.nameEnPlaceholder')"
               size="xl"
             />
           </UFormField>
 
-          <UFormField label="Faculty Name (TH)" name="nameTh" required>
+          <UFormField :label="t('adminFaculties.shared.form.nameTh')" name="nameTh" required>
             <UInput
               v-model="form.nameTh"
               class="w-full"
-              placeholder="e.g. คณะวิทยาศาสตร์"
+              :placeholder="t('adminFaculties.shared.form.nameThPlaceholder')"
               size="xl"
             />
           </UFormField>
@@ -162,14 +167,13 @@ async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) 
             type="button"
             color="neutral"
             variant="ghost"
-            label="Cancel"
+            :label="t('common.actions.cancel')"
             @click="handleCancel"
           />
           <UButton
             type="submit"
             color="primary"
-            label="Save Changes"
-            icon="i-lucide-save"
+            :label="t('common.actions.save')"
             :loading="loading"
           />
         </div>

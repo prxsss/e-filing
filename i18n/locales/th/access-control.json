@@ -1,50 +1,52 @@
 {
   "adminAccessControl": {
-    "title": "การควบคุมสิทธิ์",
-    "description": "จัดการบทบาทและสิทธิ์การเข้าถึงของระบบ",
-    "systemRoles": "บทบาทในระบบ",
-    "permissionSettings": "การตั้งค่าสิทธิ์",
-    "permissionSettingsDescription": "กำหนดสิ่งที่ผู้ใช้ในบทบาท {role} สามารถดูและทำได้",
-    "searchPermissions": "ค้นหาสิทธิ์...",
-    "resetChanges": "รีเซ็ตการเปลี่ยนแปลง",
-    "selectRolePrompt": "เลือกบทบาทจากด้านซ้ายเพื่อจัดการสิทธิ์",
-    "noRolesPermission": "คุณไม่มีสิทธิ์ในการดูบทบาท",
-    "noPermissionsFound": "ไม่พบสิทธิ์ที่ตรงกับการค้นหา",
-    "backToAccessControl": "กลับไปยังการควบคุมสิทธิ์",
-    "newRole": "บทบาทใหม่",
-    "roleInformation": "ข้อมูลบทบาท",
-    "roleName": "ชื่อบทบาท (EN)",
-    "roleNameTh": "ชื่อบทบาท (TH)",
-    "roleNamePlaceholder": "เช่น Head of the Department",
-    "roleNameThPlaceholder": "เช่น หัวหน้าภาควิชา",
-    "descriptionEn": "คำอธิบาย (EN)",
-    "descriptionTh": "คำอธิบาย (TH)",
-    "descriptionEnPlaceholder": "คำอธิบายบทบาทนี้เป็นภาษาอังกฤษ",
-    "descriptionThPlaceholder": "คำอธิบายบทบาทนี้เป็นภาษาไทย",
-    "assignPermissions": "กำหนดสิทธิ์",
-    "assignPermissionsDescription": "เลือกสิทธิ์ที่บทบาทนี้ควรมี",
-    "selectedCount": "เลือกแล้ว {count} รายการ",
+    "title": "ควบคุมการเข้าถึง",
+    "description": "จัดการบทบาทของระบบและสิทธิ์ในการเข้าถึง",
     "addRole": "เพิ่มบทบาท",
-    "discardChanges": "ยกเลิกการเปลี่ยนแปลง?",
-    "discardChangesDescription": "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก คุณแน่ใจหรือไม่ว่าต้องการออกจากหน้านี้?",
-    "leave": "ออก",
-    "editRole": "แก้ไขบทบาท",
-    "deleteRole": "ลบบทบาท",
-    "deleteRoleConfirm": "คุณแน่ใจหรือไม่ว่าต้องการลบบทบาท \"{name}\"? การดำเนินการนี้ไม่สามารถย้อนกลับได้",
-    "roleUpdatedSuccess": "อัปเดตบทบาทสำเร็จแล้ว",
-    "roleUpdateFailed": "ไม่สามารถอัปเดตบทบาทได้ กรุณาลองใหม่อีกครั้ง",
-    "roleDeletedSuccess": "ลบบทบาทสำเร็จแล้ว",
-    "roleDeleteInUse": "บทบาทนี้กำลังถูกใช้งานโดยผู้ใช้ {count} คน จึงไม่สามารถลบได้",
-    "adminRoleDeleteLocked": "บทบาท Admin ถูกป้องกันไว้และไม่สามารถลบได้",
-    "adminRoleNameLocked": "ชื่อบทบาท Admin ถูกป้องกันไว้และไม่สามารถแก้ไขได้",
-    "adminRolePermissionLocked": "สิทธิ์ role.* และ permission.* ของบทบาท Admin ถูกล็อคและไม่สามารถแก้ไขได้",
-    "roleDeleteFailed": "ไม่สามารถลบบทบาทได้ กรุณาลองใหม่อีกครั้ง",
-    "permissionUpdatedSuccess": "บันทึกการเปลี่ยนแปลงสิทธิ์สำเร็จแล้ว",
-    "permissionUpdateFailed": "ไม่สามารถบันทึกการเปลี่ยนแปลงสิทธิ์ได้ กรุณาลองใหม่อีกครั้ง",
-    "permissionGranted": "ได้รับสิทธิ์",
-    "roleCreatedSuccess": "สร้างบทบาทสำเร็จแล้ว",
-    "roleCreateFailed": "ไม่สามารถสร้างบทบาทได้ กรุณาลองใหม่อีกครั้ง",
-    "roleNameRequiredEn": "กรุณาระบุชื่อบทบาท (EN)",
-    "roleNameRequiredTh": "กรุณาระบุชื่อบทบาท (TH)"
+    "sections": {
+      "systemRoles": "บทบาทในระบบ",
+      "permissionSettings": "การตั้งค่าสิทธิ์",
+      "permissionSettingsDescription": "กำหนดสิ่งที่ผู้ใช้ที่ได้รับมอบหมายให้กับบทบาท {role} สามารถดูและทำได้",
+      "roleInformation": "ข้อมูลบทบาท",
+      "assignPermissions": "กำหนดสิทธิ์"
+    },
+    "roleForm": {
+      "nameEn": "ชื่อบทบาท (EN)",
+      "nameTh": "ชื่อบทบาท (TH)",
+      "namePlaceholder": "เช่น Head of the Department",
+      "nameThPlaceholder": "เช่น หัวหน้าภาควิชา",
+      "descEn": "คำอธิบาย (EN)",
+      "descTh": "คำอธิบาย (TH)",
+      "descEnPlaceholder": "คำอธิบายสั้นๆ เกี่ยวกับบทบาทนี้ในภาษาอังกฤษ",
+      "descThPlaceholder": "คำอธิบายสั้นๆ เกี่ยวกับบทบาทนี้ในภาษาไทย"
+    },
+    "state": {
+      "selectRolePrompt": "เลือกบทบาทจากด้านซ้ายเพื่อจัดการสิทธิ์",
+      "noRolesPermission": "คุณไม่มีสิทธิ์ในการดูบทบาท",
+      "noPermissionsFound": "ไม่พบสิทธิ์ที่ตรงกับการค้นหาของคุณ",
+      "searchPlaceholder": "ค้นหาสิทธิ์...",
+      "selectedCount": "{count} ถูกเลือก",
+      "permissionGranted": "ได้รับอนุญาต"
+    },
+    "messages": {
+      "success": {
+        "created": "บทบาทถูกสร้างขึ้นเรียบร้อยแล้ว",
+        "updated": "บทบาทถูกอัปเดตเรียบร้อยแล้ว",
+        "deleted": "บทบาทถูกลบเรียบร้อยแล้ว",
+        "permissionSaved": "การเปลี่ยนแปลงสิทธิ์ถูกบันทึกเรียบร้อยแล้ว"
+      },
+      "error": {
+        "createFailed": "ไม่สามารถสร้างบทบาทได้ กรุณาลองใหม่อีกครั้ง",
+        "updateFailed": "ไม่สามารถอัปเดตบทบาทได้ กรุณาลองใหม่อีกครั้ง",
+        "deleteFailed": "ไม่สามารถลบบทบาทได้ กรุณาลองใหม่อีกครั้ง",
+        "permissionFailed": "ไม่สามารถบันทึกการเปลี่ยนแปลงสิทธิ์ได้ กรุณาลองใหม่อีกครั้ง",
+        "deleteInUse": "บทบาทนี้ถูกมอบหมายให้กับผู้ใช้งาน {count} คน และไม่สามารถลบได้"
+      },
+      "locked": {
+        "adminDelete": "บทบาท Admin ถูกป้องกันและไม่สามารถลบได้",
+        "adminName": "ชื่อบทบาท Admin ถูกป้องกันและไม่สามารถเปลี่ยนแปลงได้",
+        "adminPermission": "สิทธิ์ role.* และ permission.* บนบทบาท Admin ถูกป้องกันและไม่สามารถเปลี่ยนแปลงได้"
+      }
+    }
   }
 }

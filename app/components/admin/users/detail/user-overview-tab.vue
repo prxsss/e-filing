@@ -9,23 +9,36 @@ defineProps<{
   user: UserDetail;
 }>();
 
+const { locale, t } = useI18n();
+
 type UserAssignment = UserDetail['assignments'][number];
 
 const columns: TableColumn<UserAssignment>[] = [
   {
+    id: 'no',
+    header: t('common.table.no'),
+    meta: {
+      class: {
+        th: 'text-right w-20',
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => (row.index + 1).toLocaleString(),
+  },
+  {
     accessorKey: 'role',
-    header: 'Role',
-    cell: ({ row }) => row.original.role || '-',
+    header: t('common.table.role'),
+    cell: ({ row }) => locale.value === 'en' ? row.original.role : row.original.roleTh,
   },
   {
     accessorKey: 'faculty',
-    header: 'Faculty',
-    cell: ({ row }) => row.original.faculty?.nameEn || row.original.faculty?.nameTh || '-',
+    header: t('common.table.faculty'),
+    cell: ({ row }) => locale.value === 'en' ? row.original.faculty?.nameEn : row.original.faculty?.nameTh || '-',
   },
   {
     accessorKey: 'department',
-    header: 'Department',
-    cell: ({ row }) => row.original.department?.nameEn || row.original.department?.nameTh || '-',
+    header: t('common.table.department'),
+    cell: ({ row }) => locale.value === 'en' ? row.original.department?.nameEn : row.original.department?.nameTh || '-',
   },
 ];
 </script>
@@ -40,7 +53,7 @@ const columns: TableColumn<UserAssignment>[] = [
           <div class="flex items-center gap-3">
             <UIcon name="i-lucide-user" class="text-primary" />
             <h2 class="font-semibold">
-              Basic details
+              {{ $t('adminUsers.shared.sections.basic') }}
             </h2>
           </div>
         </template>
@@ -48,7 +61,7 @@ const columns: TableColumn<UserAssignment>[] = [
         <div class="divide-y divide-gray-200 dark:divide-gray-800">
           <div v-if="user.studentId" class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Student ID
+              {{ $t('adminUsers.shared.form.studentId') }}
             </p>
             <p class="text-sm font-medium">
               {{ user.studentId || '-' }}
@@ -56,7 +69,7 @@ const columns: TableColumn<UserAssignment>[] = [
           </div>
           <div v-if="user.staffId" class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Staff ID
+              {{ $t('adminUsers.shared.form.staffId') }}
             </p>
             <p class="text-sm font-medium">
               {{ user.staffId || '-' }}
@@ -64,7 +77,7 @@ const columns: TableColumn<UserAssignment>[] = [
           </div>
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Email
+              {{ $t('common.table.email') }}
             </p>
             <p class="text-sm font-medium">
               {{ user.email }}
@@ -80,18 +93,18 @@ const columns: TableColumn<UserAssignment>[] = [
           </div> -->
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Created At
+              {{ $t('common.table.createdAt') }}
             </p>
             <p class="text-sm font-medium">
-              {{ formatDate(user.createdAt) }}
+              {{ formatDate(user.createdAt, locale) }}
             </p>
           </div>
           <div class="p-5">
             <p class="text-xs text-gray-500 font-medium uppercase mb-1">
-              Updated At
+              {{ $t('common.table.updatedAt') }}
             </p>
             <p class="text-sm font-medium">
-              {{ formatDate(user.updatedAt) }}
+              {{ formatDate(user.updatedAt, locale) }}
             </p>
           </div>
         </div>
@@ -106,16 +119,16 @@ const columns: TableColumn<UserAssignment>[] = [
           <div class="flex items-center gap-3">
             <UIcon name="i-lucide-chart-no-axes-column-increasing" class="text-primary" />
             <h2 class="font-semibold">
-              Status Summary
+              {{ $t('adminUsers.detail.requestStatusSummary.title') }}
             </h2>
           </div>
         </template>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-6">
           <!-- Total Requests -->
           <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-800">
             <p class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase mb-2">
-              Total Requests
+              {{ $t('adminUsers.detail.requestStatusSummary.totalRequests') }}
             </p>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">
               {{ user.totalRequests.toLocaleString() }}
@@ -123,21 +136,31 @@ const columns: TableColumn<UserAssignment>[] = [
           </div>
 
           <!-- Pending Action -->
-          <div class="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30">
-            <p class="text-xs text-amber-600 dark:text-amber-400 font-medium uppercase mb-2">
-              Pending Action
+          <div class="p-4 rounded-lg bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-900/30">
+            <p class="text-xs text-warning-600 dark:text-warning-400 font-medium uppercase mb-2">
+              {{ $t('adminUsers.detail.requestStatusSummary.pending') }}
             </p>
-            <p class="text-2xl font-bold text-amber-700 dark:text-amber-400">
+            <p class="text-2xl font-bold text-warning-700 dark:text-warning-400">
               {{ user.pendingRequests.toLocaleString() }}
             </p>
           </div>
 
-          <!-- Approved -->
-          <div class="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30">
-            <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium uppercase mb-2">
-              Approved
+          <!-- Rejected -->
+          <div class="p-4 rounded-lg bg-error-50 dark:bg-error-900/10 border border-error-200 dark:border-error-900/30">
+            <p class="text-xs text-error-600 dark:text-error-400 font-medium uppercase mb-2">
+              {{ $t('adminUsers.detail.requestStatusSummary.rejected') }}
             </p>
-            <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+            <p class="text-2xl font-bold text-error-700 dark:text-error-400">
+              {{ user.rejectedRequests.toLocaleString() }}
+            </p>
+          </div>
+
+          <!-- Approved -->
+          <div class="p-4 rounded-lg bg-success-50 dark:bg-success-900/10 border border-success-200 dark:border-success-900/30">
+            <p class="text-xs text-success-600 dark:text-success-400 font-medium uppercase mb-2">
+              {{ $t('adminUsers.detail.requestStatusSummary.approved') }}
+            </p>
+            <p class="text-2xl font-bold text-success-700 dark:text-success-400">
               {{ user.approvedRequests.toLocaleString() }}
             </p>
           </div>
@@ -150,7 +173,7 @@ const columns: TableColumn<UserAssignment>[] = [
           <div class="flex items-center gap-3">
             <UIcon name="i-lucide-shield-user" class="text-primary" />
             <h2 class="font-semibold">
-              Roles
+              {{ $t('common.table.role') }}
             </h2>
           </div>
         </template>

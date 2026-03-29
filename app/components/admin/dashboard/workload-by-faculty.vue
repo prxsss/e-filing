@@ -29,7 +29,7 @@ type WorkloadRow = {
   total: number;
 };
 
-const { locale } = useI18n();
+const { t, locale } = useI18n();
 
 const query = computed(() => ({
   period: props.period,
@@ -66,8 +66,8 @@ watch(() => props.refreshToken, () => {
 });
 
 const categories = {
-  completed: { name: 'Completed', color: '#3b82f6' },
-  pending: { name: 'Pending', color: '#dbeafe' },
+  completed: { name: t('adminDashboard.workloadByFaculty.completed'), color: '#3b82f6' },
+  pending: { name: t('adminDashboard.workloadByFaculty.pending'), color: '#dbeafe' },
 };
 
 function yFormatter(tick: number, _i?: number, _ticks?: number[]) {
@@ -82,14 +82,14 @@ function yFormatter(tick: number, _i?: number, _ticks?: number[]) {
     >
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold">
-          Workload by Faculty
+          {{ $t('adminDashboard.workloadByFaculty.title') }}
         </h3>
       </div>
       <div v-if="status === 'pending'" class="h-75 flex items-center justify-center">
         <UIcon name="i-lucide-loader" class="size-6 animate-spin text-text-secondary" />
       </div>
       <div v-else-if="shouldShowEmptyState" class="h-75 flex items-center justify-center text-sm text-text-secondary">
-        No workload data for selected filters.
+        {{ $t('adminDashboard.workloadByFaculty.noData') }}
       </div>
       <BarChart
         v-else

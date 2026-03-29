@@ -1,0 +1,103 @@
+{
+  "adminUsers": {
+    "title": "Users",
+    "description": "View and manage users and their permissions.",
+    "list": {
+      "title": "Users",
+      "addButton": "Add User",
+      "search": "Search users",
+      "advancedSearch": {
+        "fields": {
+          "faculty": "Faculty",
+          "department": "Department",
+          "role": "Role",
+          "status": "Status"
+        }
+      },
+      "columns": {
+        "fullName": "Full Name",
+        "studentId": "Student ID",
+        "staffId": "Staff ID"
+      }
+    },
+    "shared": {
+      "sections": {
+        "basic": "Basic Information",
+        "roles": "Role Assignments"
+      },
+      "form": {
+        "titleEn": "Title (EN)",
+        "titleTh": "Title (TH)",
+        "firstNameEn": "First Name (EN)",
+        "firstNameTh": "First Name (TH)",
+        "lastNameEn": "Last Name (EN)",
+        "lastNameTh": "Last Name (TH)",
+        "studentId": "Student ID",
+        "staffId": "Staff ID",
+        "studentIdPlaceholder": "e.g. 6510123456"
+      },
+      "roleTable": {
+        "modalTitle": "Add Role Assignment",
+        "addBtn": "Add Role",
+        "selectRole": "Select Role",
+        "selectFaculty": "Select Faculty",
+        "selectDept": "Select Department"
+      },
+      "validation": {
+        "studentIdInvalid": "Student ID must be 10 digits",
+        "roleRequired": "Role is required.",
+        "roleRequiredDesc": "Please assign at least one role to the user before continuing."
+      }
+    },
+    "create": {
+      "title": "Add New User",
+      "description": "Fill in the details below to add a new user.",
+      "feedback": {
+        "createSuccess": "User has been added successfully.",
+        "createError": "Failed to add user. Please try again."
+      }
+    },
+    "edit": {
+      "title": "Edit User",
+      "description": "Update user details and their permissions.",
+      "updateUser": "Update User",
+      "feedback": {
+        "userNotFound": "Sorry, user with ID {id} not found.",
+        "updateSuccess": "User has been updated successfully.",
+        "updateError": "Failed to update user. Please try again."
+      }
+    },
+    "detail": {
+      "title": "User Details",
+      "tabs": {
+        "overview": "Overview",
+        "requests": "Requests"
+      },
+      "requestStatusSummary": {
+        "title": "Request Status Summary",
+        "totalRequests": "Total Requests",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "approved": "Approved"
+      },
+      "actions": {
+        "resetPassword": "Reset Password",
+        "banUser": "Ban User",
+        "unbanUser": "Unban User"
+      },
+      "banDialog": {
+        "confirm": "Confirm Ban",
+        "message": "Are you sure you want to ban this user? They will not be able to login.",
+        "reasonPlaceholder": "Please provide a reason for banning this user",
+        "reasonErrorMessage": "Ban reason is required"
+      },
+      "feedback": {
+        "banSuccess": "User has been banned.",
+        "banSuccessDescription": "{name} can no longer log in.",
+        "unbanSuccess": "User has been unbanned.",
+        "unbanSuccessDescription": "{name} can now log in again.",
+        "actionError": "Failed to update user status. Please try again."
+      }
+    }
+  }
+}

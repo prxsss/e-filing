@@ -1,0 +1,47 @@
+{
+  "adminFaculties": {
+    "title": "คณะ",
+    "description": "ดูและจัดการคณะทั้งหมดและหัวหน้าคณะของพวกเขา",
+    "list": {
+      "title": "คณะ",
+      "addButton": "เพิ่มคณะ",
+      "search": "ค้นหาคณะ",
+      "columns": {
+        "facultyCode": "รหัสคณะ",
+        "name": "ชื่อคณะ",
+        "departments": "สาขาวิชา",
+        "deanName": "ชื่อคณบดี"
+      }
+    },
+    "shared": {
+      "section": "ข้อมูลคณะ",
+      "form": {
+        "facultyCode": "รหัสคณะ",
+        "facultyCodePlaceholder": "เช่น S",
+        "nameEn": "ชื่อคณะ (EN)",
+        "nameEnPlaceholder": "เช่น Faculty of Sciences at Sriracha",
+        "nameTh": "ชื่อคณะ (TH)",
+        "nameThPlaceholder": "เช่น คณะวิทยาศาสตร์ ศรีราชา"
+      }
+    },
+    "create": {
+      "title": "เพิ่มคณะใหม่"
+    },
+    "edit": {
+      "title": "แก้ไขคณะ"
+    },
+    "success": {
+      "createSuccess": "คณะถูกเพิ่มเรียบร้อยแล้ว",
+      "updateSuccess": "คณะถูกอัปเดตเรียบร้อยแล้ว",
+      "deleteSuccess": "คณะถูกลบเรียบร้อยแล้ว"
+    },
+    "error": {
+      "createError": "ไม่สามารถเพิ่มคณะได้",
+      "createErrorMessage": "เกิดข้อผิดพลาดขณะสร้างคณะ: {message}",
+      "updateError": "ไม่สามารถอัปเดตคณะได้",
+      "updateErrorMessage": "เกิดข้อผิดพลาดขณะอัปเดตคณะ: {message}",
+      "deleteError": "ไม่สามารถลบคณะได้",
+      "deleteErrorMessage": "เกิดข้อผิดพลาดขณะลบคณะ: {message}"
+    }
+  }
+}

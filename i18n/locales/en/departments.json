@@ -1,0 +1,43 @@
+{
+  "adminDepartments": {
+    "title": "Departments",
+    "description": "View and manage all departments and their details.",
+    "sections": {
+      "deptInfo": "Department Information"
+    },
+    "list": {
+      "addButton": "Add Department",
+      "search": "Search departments",
+      "columns": {
+        "departmentCode": "Department Code",
+        "name": "Department Name",
+        "faculty": "Faculty",
+        "headOfDepartment": "Head of Dept."
+      }
+    },
+    "edit": {
+      "title": "Edit Department"
+    },
+    "form": {
+      "code": "Department Code",
+      "codePlaceholder": "e.g. CS-2024",
+      "faculty": "Faculty",
+      "facultyPlaceholder": "Select faculty",
+      "nameEn": "Department Name (EN)",
+      "nameTh": "Department Name (TH)"
+    },
+    "success": {
+      "create": "Department added successfully.",
+      "update": "Department updated successfully.",
+      "delete": "Department deleted successfully."
+    },
+    "error": {
+      "create": "Failed to add department. Please try again.",
+      "update": "Failed to update department. Please try again.",
+      "delete": "Failed to delete department. Please try again."
+    },
+    "validation": {
+      "facultyRequired": "Please select a faculty"
+    }
+  }
+}

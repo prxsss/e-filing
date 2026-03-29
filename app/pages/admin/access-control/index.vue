@@ -64,8 +64,8 @@ function isAdminRole(roleName: string) {
 async function handleDeleteRole(role: { id: number; name: string; nameTh: string; userCount: number }) {
   if (isAdminRole(role.name)) {
     toast.add({
-      title: t('adminAccessControl.deleteRole'),
-      description: t('adminAccessControl.adminRoleDeleteLocked'),
+      title: t('adminAccessControl.messages.error.deleteFailed'),
+      description: t('adminAccessControl.messages.locked.adminDelete'),
       color: 'error',
     });
     return;
@@ -73,16 +73,16 @@ async function handleDeleteRole(role: { id: number; name: string; nameTh: string
 
   if (role.userCount > 0) {
     toast.add({
-      title: t('adminAccessControl.deleteRole'),
-      description: t('adminAccessControl.roleDeleteInUse', { count: role.userCount }),
+      title: t('adminAccessControl.messages.error.deleteFailed'),
+      description: t('adminAccessControl.messages.error.deleteInUse', { count: role.userCount }),
       color: 'error',
     });
     return;
   }
 
   const instance = confirmDialog.open({
-    title: t('adminAccessControl.deleteRole'),
-    description: t('adminAccessControl.deleteRoleConfirm', { name: locale.value === 'th' ? role.nameTh : role.name }),
+    title: t('common.dialog.confirmDelete'),
+    description: t('common.dialog.deleteMessage', { name: locale.value === 'th' ? role.nameTh : role.name }),
     cancelButton: { label: t('cancel') },
     confirmButton: { label: t('delete'), color: 'error' },
   });
@@ -93,7 +93,7 @@ async function handleDeleteRole(role: { id: number; name: string; nameTh: string
 
   try {
     await $fetch(`/api/roles/${role.id}`, { method: 'DELETE' });
-    toast.add({ title: t('adminAccessControl.deleteRole'), description: t('adminAccessControl.roleDeletedSuccess'), color: 'success' });
+    toast.add({ title: t('adminAccessControl.messages.success.deleted'), color: 'success' });
 
     // If deleted role was selected, clear selection
     if (selectedRoleId.value === role.id) {
@@ -108,8 +108,8 @@ async function handleDeleteRole(role: { id: number; name: string; nameTh: string
 
     if (statusCode === 409 && errorData?.code === 'ROLE_IN_USE') {
       toast.add({
-        title: t('adminAccessControl.deleteRole'),
-        description: t('adminAccessControl.roleDeleteInUse', { count: errorData.userCount ?? role.userCount }),
+        title: t('adminAccessControl.messages.error.deleteFailed'),
+        description: t('adminAccessControl.messages.error.deleteInUse', { count: errorData.userCount ?? role.userCount }),
         color: 'error',
       });
       return;
@@ -117,14 +117,14 @@ async function handleDeleteRole(role: { id: number; name: string; nameTh: string
 
     if (statusCode === 409 && errorData?.code === 'ADMIN_ROLE_DELETE_LOCKED') {
       toast.add({
-        title: t('adminAccessControl.deleteRole'),
-        description: t('adminAccessControl.adminRoleDeleteLocked'),
+        title: t('adminAccessControl.messages.error.deleteFailed'),
+        description: t('adminAccessControl.messages.locked.adminDelete'),
         color: 'error',
       });
       return;
     }
 
-    toast.add({ title: t('error'), description: t('adminAccessControl.roleDeleteFailed'), color: 'error' });
+    toast.add({ title: t('error'), description: t('adminAccessControl.messages.error.deleteFailed'), color: 'error' });
   }
 }
 
@@ -250,7 +250,7 @@ async function saveChanges() {
       body: { permissionIds: Array.from(localPermissionIds.value) },
     });
     await refreshRolePermissions();
-    toast.add({ title: t('saveChanges'), description: t('adminAccessControl.permissionUpdatedSuccess'), color: 'success' });
+    toast.add({ title: t('adminAccessControl.messages.success.permissionSaved'), color: 'success' });
   }
   catch (error: unknown) {
     const statusCode = (error as { statusCode?: number })?.statusCode;
@@ -258,15 +258,15 @@ async function saveChanges() {
 
     if (statusCode === 409 && errorData?.code === 'ADMIN_CRITICAL_PERMISSIONS_LOCKED') {
       toast.add({
-        title: t('adminAccessControl.permissionSettings'),
-        description: t('adminAccessControl.adminRolePermissionLocked'),
+        title: t('adminAccessControl.messages.error.updateFailed'),
+        description: t('adminAccessControl.messages.locked.adminPermission'),
         color: 'error',
       });
       await refreshRolePermissions();
       return;
     }
 
-    toast.add({ title: t('error'), description: t('adminAccessControl.permissionUpdateFailed'), color: 'error' });
+    toast.add({ title: t('adminAccessControl.messages.error.updateFailed'), color: 'error' });
   }
   finally {
     saving.value = false;
@@ -305,7 +305,7 @@ function selectRole(roleId: number) {
         <UCard :ui="{ body: 'p-2!' }">
           <template #header>
             <h2 class="text-sm font-bold uppercase tracking-wider text-muted">
-              {{ t('adminAccessControl.systemRoles') }}
+              {{ t('adminAccessControl.sections.systemRoles') }}
             </h2>
           </template>
 
@@ -333,13 +333,13 @@ function selectRole(roleId: number) {
                 v-if="authStore.canAny(['role.edit', 'role.delete'])"
                 :items="[
                   {
-                    label: t('adminAccessControl.editRole'),
+                    label: t('common.actions.edit'),
                     icon: 'i-lucide-pencil',
                     onSelect: () => handleEditRole(role),
                     visible: authStore.can('role.edit'),
                   },
                   {
-                    label: t('adminAccessControl.deleteRole'),
+                    label: t('common.actions.delete'),
                     icon: 'i-lucide-trash',
                     color: 'error' as const,
                     onSelect: () => handleDeleteRole(role),
@@ -355,7 +355,7 @@ function selectRole(roleId: number) {
             <div class="text-center">
               <UIcon name="i-lucide-lock" class="size-10 text-muted mx-auto mb-2" />
               <p class="text-sm text-muted">
-                {{ t('adminAccessControl.noRolesPermission') }}
+                {{ t('adminAccessControl.state.noRolesPermission') }}
               </p>
             </div>
           </div>
@@ -369,17 +369,17 @@ function selectRole(roleId: number) {
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 class="text-lg font-bold">
-                {{ t('adminAccessControl.permissionSettings') }}: <span>{{ selectedRole ? locale === 'en' ? selectedRole.name : selectedRole.nameTh : '' }}</span>
+                {{ t('adminAccessControl.sections.permissionSettings') }}: <span>{{ selectedRole ? locale === 'en' ? selectedRole.name : selectedRole.nameTh : '' }}</span>
               </h2>
               <p class="text-sm text-muted">
-                {{ t('adminAccessControl.permissionSettingsDescription', { role: selectedRole ? locale === 'en' ? selectedRole.name : selectedRole.nameTh : '' }) }}
+                {{ t('adminAccessControl.sections.permissionSettingsDescription', { role: selectedRole ? locale === 'en' ? selectedRole.name : selectedRole.nameTh : '' }) }}
               </p>
             </div>
             <div v-if="selectedRole && authStore.can('permission.view')" class="shrink-0 w-full sm:w-64">
               <UInput
                 v-model="searchQuery"
                 icon="i-lucide-search"
-                :placeholder="t('adminAccessControl.searchPermissions')"
+                :placeholder="t('adminAccessControl.state.searchPlaceholder')"
                 variant="subtle"
                 class="w-full"
               />
@@ -393,7 +393,7 @@ function selectRole(roleId: number) {
           <div v-if="filteredModules.length === 0" class="text-center py-12">
             <UIcon name="i-lucide-search-x" class="size-12 text-muted mx-auto mb-3" />
             <p class="text-sm text-muted">
-              {{ t('adminAccessControl.noPermissionsFound') }}
+              {{ t('adminAccessControl.state.noPermissionsFound') }}
             </p>
           </div>
 
@@ -432,10 +432,10 @@ function selectRole(roleId: number) {
                     {{ locale === 'en' ? perm.descriptionEn : perm.descriptionTh }}
                   </span>
                   <span v-if="isAdminRolePermissionLocked(perm.code)" class="block text-xs text-error mt-1">
-                    {{ t('adminAccessControl.adminRolePermissionLocked') }}
+                    {{ t('adminAccessControl.messages.locked.adminPermission') }}
                   </span>
                 </div>
-                <UBadge v-if="!authStore.can('role.assign_permission') && localPermissionIds.has(perm.id)" icon="i-lucide-dot" color="primary" variant="soft" class="rounded-full">{{ t('adminAccessControl.permissionGranted') }}</UBadge>
+                <UBadge v-if="!authStore.can('role.assign_permission') && localPermissionIds.has(perm.id)" icon="i-lucide-dot" color="primary" variant="soft" class="rounded-full">{{ t('adminAccessControl.state.permissionGranted') }}</UBadge>
               </label>
             </div>
           </section>
@@ -446,7 +446,7 @@ function selectRole(roleId: number) {
           <div class="text-center">
             <UIcon name="i-lucide-shield" class="size-12 text-muted mx-auto mb-3" />
             <p class="text-sm text-muted">
-              {{ t('adminAccessControl.selectRolePrompt') }}
+              {{ t('adminAccessControl.state.selectRolePrompt') }}
             </p>
           </div>
         </div>
@@ -462,7 +462,7 @@ function selectRole(roleId: number) {
             :disabled="!hasChanges"
             @click="resetChanges"
           >
-            {{ t('adminAccessControl.resetChanges') }}
+            {{ t('common.actions.reset') }}
           </UButton>
           <UButton
             :loading="saving"

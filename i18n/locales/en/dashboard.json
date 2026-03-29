@@ -2,9 +2,41 @@
   "adminDashboard": {
     "title": "Admin Dashboard",
     "description": "Monitoring real-time request flow and signature bottlenecks across departments.",
-    "totalRequests": "Total Requests",
-    "completedRequests": "Completed Requests",
-    "medianTurnaround": "Median Turnaround",
-    "rejectedRequests": "Rejected Requests"
+    "stats": {
+      "totalRequests": "Total Requests",
+      "completedRequests": "Completed Requests",
+      "medianTurnaround": "Median Turnaround",
+      "rejectedRequests": "Rejected Requests"
+    },
+    "filters": {
+      "period": "Select Period",
+      "faculty": "Faculty Filter"
+    },
+    "requestTrend": {
+      "title": "Request Trend",
+      "submissions": "Submissions",
+      "completions": "Completions",
+      "numberOfRequests": "Number of Requests",
+      "noData": "No trend data for selected filters."
+    },
+    "signatureBottlenecks": {
+      "title": "Signature Bottlenecks",
+      "noData": "No bottleneck data for selected filters."
+    },
+    "workloadByFaculty": {
+      "title": "Workload by Faculty",
+      "completed": "Completed",
+      "pending": "Pending",
+      "rejected": "Rejected",
+      "total": "Total",
+      "noData": "No workload data for selected filters."
+    },
+    "topRequestTemplates": {
+      "title": "Top Request Templates",
+      "templateName": "Template Name",
+      "usageCount": "Usage Count",
+      "completion": "Completion",
+      "noData": "No template data for selected filters."
+    }
   }
 }

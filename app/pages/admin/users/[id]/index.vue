@@ -24,7 +24,7 @@ const router = useRouter();
 const localPath = useLocalePath();
 const overlay = useOverlay();
 const toast = useToast();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const authStore = useAuthStore();
 
@@ -68,7 +68,7 @@ const { data: requestApiResult } = await useFetch<RequestApiResult> ('/api/reque
 
 const columns: TableColumn<Request>[] = [
   {
-    header: 'No.',
+    header: t('common.table.no'),
     meta: {
       class: {
         th: 'w-12 text-right',
@@ -79,25 +79,25 @@ const columns: TableColumn<Request>[] = [
   },
   {
     accessorKey: 'templateName',
-    header: 'Title',
+    header: t('common.table.requestName'),
   },
   {
     accessorKey: 'status',
-    header: 'Status',
+    header: t('common.table.status'),
     cell: ({ row }) => {
       const color = getRequestStatusColor(row.getValue('status'));
 
       const label = ({
-        in_progress: 'In Progress',
-        completed: 'Completed',
-        rejected: 'Rejected',
+        in_progress: t('inProgress'),
+        completed: t('completed'),
+        rejected: t('rejected'),
       })[row.getValue('status') as string];
       return h(UBadge, { class: 'capitalize', variant: 'soft', color }, label);
     },
   },
   {
     accessorKey: 'submittedAt',
-    header: 'Submitted At',
+    header: t('common.table.submittedAt'),
     cell: ({ row }) => {
       const date = new Date(row.getValue('submittedAt'));
       return formatDate(date, locale.value);
@@ -116,36 +116,31 @@ const columns: TableColumn<Request>[] = [
 
 const items = [
   {
-    label: 'Overview',
-    description: 'View and edit basic profile information, department affiliation, and account status here.',
+    label: t('adminUsers.detail.tabs.overview'),
     icon: 'i-lucide-layout-dashboard',
     slot: 'overview' as const,
     value: 'overview',
   },
   // {
   //   label: 'Permissions',
-  //   description: 'Manage group memberships and specific permissions assigned to this user. Add or remove from groups to control access levels.',
   //   icon: 'i-lucide-shield-user',
   //   slot: 'permissions' as const,
   //   value: 'permissions',
   // },
   // {
   //   label: 'Signature',
-  //   description: 'Manage your digital signature here. This will be used for signing documents.',
   //   icon: 'i-lucide-signature',
   //   slot: 'signature' as const,
   //   value: 'signature',
   // },
   {
-    label: 'Requests',
-    description: 'View all requests and documents associated with this user. Check statuses and take necessary actions.',
+    label: t('adminUsers.detail.tabs.requests'),
     icon: 'i-lucide-file-text',
     slot: 'requests' as const,
     value: 'requests',
   },
   // {
   //   label: 'Activity',
-  //   description: 'Review the activity log for this user, including recent actions, logins, and changes made to their account.',
   //   icon: 'i-lucide-history',
   //   slot: 'activity' as const,
   //   value: 'activity',
@@ -174,28 +169,28 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
   // so that the menu will be hidden if the user doesn't have permission to do any action in the menu.
   // This is to prevent confusion for users when they see an empty "Actions" dropdown.
   {
-    label: 'Reset Password',
+    label: t('adminUsers.detail.actions.resetPassword'),
     icon: 'i-lucide-rotate-ccw',
     color: 'neutral',
     visible: computed(() => authStore.can('user.reset_password')),
   },
   {
-    label: 'Ban User',
+    label: t('adminUsers.detail.actions.banUser'),
     icon: 'i-lucide-user-x',
     color: 'error',
     visible: computed(() => !user.value?.banned && authStore.can('user.status')),
     onSelect: async () => {
       const instance = confirmDialogWithReason.open({
-        title: 'Ban User',
-        description: `Are you sure you want to ban ${user.value?.fullNameEn}? This will prevent them from accessing their account.`,
+        title: t('adminUsers.detail.banDialog.confirm'),
+        description: t('adminUsers.detail.banDialog.message'),
         reasonRequired: true,
-        reasonPlaceholder: 'Please provide a reason for banning this user',
-        reasonErrorMessage: 'Ban reason is required',
+        reasonPlaceholder: t('adminUsers.detail.banDialog.reasonPlaceholder'),
+        reasonErrorMessage: t('adminUsers.detail.banDialog.reasonErrorMessage'),
         cancelButton: {
-          label: 'Cancel',
+          label: t('common.actions.cancel'),
         },
         confirmButton: {
-          label: 'Ban',
+          label: t('adminUsers.detail.actions.banUser'),
           color: 'error',
         },
       });
@@ -205,13 +200,13 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
         await $fetch(`/api/users/${user.value?.id}/ban`, {
           method: 'PATCH',
           body: {
-            banReason: result.confirmationReason || 'No reason provided',
+            banReason: result.confirmationReason!,
           },
         });
 
         toast.add({
-          title: 'User Banned',
-          description: `User ${user.value?.fullNameEn} has been banned.`,
+          title: t('adminUsers.detail.feedback.banSuccess'),
+          description: t('adminUsers.detail.feedback.banSuccessDescription', { name: locale.value === 'en' ? user.value?.fullNameEn : user.value?.fullNameTh }),
           color: 'success',
         });
 
@@ -220,7 +215,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     },
   },
   {
-    label: 'Unban User',
+    label: t('adminUsers.detail.actions.unbanUser'),
     icon: 'i-lucide-user-check',
     color: 'success',
     visible: computed(() => user.value?.banned && authStore.can('user.status')),
@@ -230,8 +225,8 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
       });
 
       toast.add({
-        title: 'User Unbanned',
-        description: `User ${user.value?.fullNameEn} has been unbanned.`,
+        title: t('adminUsers.detail.feedback.unbanSuccess'),
+        description: t('adminUsers.detail.feedback.unbanSuccessDescription', { name: locale.value === 'en' ? user.value?.fullNameEn : user.value?.fullNameTh }),
         color: 'success',
       });
 
@@ -250,7 +245,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
       :to="localPath('/admin/users')"
       class="mb-6"
     >
-      Back to Users
+      {{ t('common.actions.backTo', { page: t('adminUsers.title') }) }}
     </UButton>
 
     <div v-if="user">
@@ -268,19 +263,19 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-2xl font-bold tracking-tight">
-                  {{ user.fullNameEn }}
+                <h1 class="text-xl font-bold tracking-tight">
+                  {{ locale === 'en' ? user.fullNameEn : user.fullNameTh }}
                 </h1>
                 <UBadge
                   :color="user.banned ? 'error' : 'success'"
                   variant="subtle"
                   class="uppercase text-xs"
                 >
-                  {{ user.banned ? 'Banned' : 'Active' }}
+                  {{ user.banned ? t('common.status.banned') : t('common.status.active') }}
                 </UBadge>
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400">
-                {{ [user.studentId ? `Student ID: ${user.studentId}` : null, user.staffId ? `Staff ID: ${user.staffId}` : null].filter(Boolean).join(' / ') || user.email }}
+                {{ [user.studentId ? `${t('adminUsers.shared.form.studentId')}: ${user.studentId}` : null, user.staffId ? `${t('adminUsers.shared.form.staffId')}: ${user.staffId}` : null].filter(Boolean).join(' / ') || user.email }}
               </p>
             </div>
           </div>
@@ -292,7 +287,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
             icon="i-lucide-pencil"
             :to="localPath(`/admin/users/${user.id}/edit`)"
           >
-            Edit
+            {{ t('common.actions.edit') }}
           </UButton>
           <UDropdownMenu
             v-if="authStore.canAny(['user.reset_password', 'user.status'])"
@@ -307,7 +302,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
               variant="soft"
               trailing-icon="i-lucide-chevron-down"
             >
-              Actions
+              {{ t('common.table.actions') }}
             </UButton>
           </UDropdownMenu>
         </div>
@@ -335,7 +330,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     </div>
     <div v-else>
       <p>
-        Sorry, user with ID {{ route.params.id }} not found.
+        {{ t('adminUsers.edit.feedback.userNotFound', { id: route.params.id }) }}
       </p>
     </div>
   </div>

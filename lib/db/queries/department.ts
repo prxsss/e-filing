@@ -88,7 +88,7 @@ export async function getDepartments({
     .from(departments)
     .leftJoin(faculties, eq(departments.facultyId, faculties.id))
     .leftJoinLateral(headOfDepartment, sql`true`)
-    .orderBy(asc(departments.id))
+    .orderBy(asc(departments.departmentCode))
     .limit(pageSize)
     .offset(offset);
 

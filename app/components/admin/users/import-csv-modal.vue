@@ -1025,7 +1025,7 @@ async function importData() {
     :ui="{ content: 'sm:max-w-7xl', footer: 'justify-end' }"
   >
     <UButton v-if="authStore.can('user.import')" icon="i-lucide-import" size="md" variant="outline">
-      Import CSV
+      {{ $t('common.actions.importCSV') }}
     </UButton>
 
     <template #body>

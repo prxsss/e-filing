@@ -40,15 +40,13 @@ if (authStore.session.loggedIn) {
 const fields: AuthFormField[] = [{
   name: 'email',
   type: 'email',
-  label: t('email'),
-  placeholder: 'Enter your email',
+  label: t('common.form.email'),
   required: true,
   size: 'xl',
 }, {
   name: 'password',
-  label: t('password'),
+  label: t('common.form.password'),
   type: 'password',
-  placeholder: 'Enter your password',
   required: true,
   size: 'xl',
 }];
@@ -62,8 +60,8 @@ const providers: AuthFormProvider[] = [{
 }];
 
 const schema = z.object({
-  email: z.email('Invalid email'),
-  password: z.string('Password is required').min(8, 'Must be at least 8 characters'),
+  email: z.email(t('common.validation.invalidEmail')),
+  password: z.string(t('common.validation.required', { field: t('common.form.password') })),
 });
 
 type Schema = z.output<typeof schema>;
@@ -92,8 +90,9 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
         v-model="formState"
         :schema="schema"
         :fields="fields"
-        :submit="{ label: $t('login'), loading: authStore.loading, loadingIcon: 'i-lucide-loader', variant: 'subtle', size: 'xl' }"
+        :submit="{ label: $t('auth.login.submit'), loading: authStore.loading, loadingIcon: 'i-lucide-loader', variant: 'subtle', size: 'xl' }"
         :providers
+        :separator="t('auth.login.orContinueWith')"
         @submit="onSubmit"
       >
         <template #header>
@@ -103,8 +102,8 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
           <UAlert v-if="authStore.errorMessage" color="error" variant="subtle" icon="i-lucide-info" :title="authStore.errorMessage" />
         </template>
         <template #footer>
-          First time logging in? <ULink :to="localePath('/auth/activate')" class="text-primary font-medium">
-            Activate your account
+          {{ $t('auth.login.firstTime') }} <ULink :to="localePath('/auth/activate')" class="text-primary font-medium">
+            {{ $t('auth.login.activateLink') }}
           </ULink>.
         </template>
       </UAuthForm>

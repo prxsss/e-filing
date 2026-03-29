@@ -3,6 +3,7 @@ definePageMeta({
   layout: false,
 });
 
+const { t } = useI18n();
 const localePath = useLocalePath();
 </script>
 
@@ -11,8 +12,8 @@ const localePath = useLocalePath();
     :redirect="localePath('/')"
     :error="{
       statusCode: 403,
-      statusMessage: 'Access denied',
-      message: 'You do not have permission to access this page.',
+      statusMessage: t('errorAccessDenied'),
+      message: t('errorAccessDeniedMessage'),
     }"
   />
 </template>

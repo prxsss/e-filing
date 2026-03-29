@@ -59,7 +59,7 @@ function getColor(value: number) {
   <UCard>
     <div class="mb-6 flex items-center justify-between gap-3">
       <h3 class="font-bold text-text-main">
-        Signature Bottlenecks
+        {{ $t('adminDashboard.signatureBottlenecks.title') }}
       </h3>
       <USelect
         v-model="topLimit"
@@ -72,7 +72,7 @@ function getColor(value: number) {
       <UIcon name="i-lucide-loader" class="size-6 animate-spin text-text-secondary" />
     </div>
     <div v-else-if="!items.length" class="h-55 flex items-center justify-center text-sm text-text-secondary">
-      No bottleneck data for selected filters.
+      {{ $t('adminDashboard.signatureBottlenecks.noData') }}
     </div>
     <div v-else class="space-y-6 h-80 overflow-y-auto">
       <div v-for="(item, index) in items" :key="index">

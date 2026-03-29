@@ -16,7 +16,7 @@ const UBadge = resolveComponent('UBadge');
 
 const router = useRouter();
 const localPath = useLocalePath();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const authStore = useAuthStore();
 
@@ -97,8 +97,8 @@ const roleOptions = computed<SelectOption<number>[]>(() => {
 });
 
 const statusOptions: SelectOption<'active' | 'banned'>[] = [
-  { label: 'Active', value: 'active' },
-  { label: 'Banned', value: 'banned' },
+  { label: t('adminUsers.list.statusOptions.active'), value: 'active' },
+  { label: t('adminUsers.list.statusOptions.banned'), value: 'banned' },
 ];
 
 const filteredDepartmentOptions = computed(() => {
@@ -157,7 +157,18 @@ const { rows: data, isLoading, page, pageSize, total, refresh } = useUsers({
 
 const columns: TableColumn<UserListItem>[] = [
   {
-    header: 'Full Name',
+    id: 'no',
+    header: t('common.table.no'),
+    meta: {
+      class: {
+        th: 'text-right w-20',
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => (row.index + 1 + (page.value - 1) * pageSize.value).toLocaleString(),
+  },
+  {
+    header: t('adminUsers.list.columns.fullName'),
     cell: ({ row }) => {
       const fullName = locale.value === 'en' ? row.original.fullNameEn : row.original.fullNameTh;
       return h('div', null, fullName);
@@ -165,7 +176,7 @@ const columns: TableColumn<UserListItem>[] = [
   },
   {
     accessorKey: 'studentId',
-    header: 'Student ID',
+    header: t('adminUsers.list.columns.studentId'),
     cell: ({ getValue }) => {
       const studentId = getValue() as string | null;
       if (!studentId) {
@@ -176,7 +187,7 @@ const columns: TableColumn<UserListItem>[] = [
   },
   {
     accessorKey: 'staffId',
-    header: 'Staff ID',
+    header: t('adminUsers.list.columns.staffId'),
     cell: ({ getValue }) => {
       const staffId = getValue() as string | null;
       if (!staffId) {
@@ -187,11 +198,11 @@ const columns: TableColumn<UserListItem>[] = [
   },
   {
     accessorKey: 'email',
-    header: 'Email',
+    header: t('common.table.email'),
   },
   {
     accessorKey: 'roles',
-    header: 'Roles',
+    header: t('common.table.role'),
     cell: ({ row }) => {
       const roles = row.getValue('roles') as { name: string; nameTh: string; count: number }[];
       if (roles.length === 0) {
@@ -202,7 +213,7 @@ const columns: TableColumn<UserListItem>[] = [
   },
   {
     accessorKey: 'faculties',
-    header: 'Faculty',
+    header: t('common.table.faculty'),
     cell: ({ row }) => {
       const faculties = row.getValue('faculties') as { nameEn: string; nameTh: string }[];
       if (faculties.length === 0) {
@@ -213,11 +224,11 @@ const columns: TableColumn<UserListItem>[] = [
   },
   {
     accessorKey: 'banned',
-    header: 'Status',
+    header: t('common.table.status'),
     cell: ({ row }) => {
       const color = row.getValue('banned') ? 'error' : 'success';
-      const statusText = row.getValue('banned') ? 'Banned' : 'Active';
-      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, statusText);
+      const statusText = row.getValue('banned') ? t('common.status.banned') : t('common.status.active');
+      return h(UBadge, { variant: 'soft', color }, statusText);
     },
   },
   {
@@ -237,7 +248,7 @@ const columns: TableColumn<UserListItem>[] = [
             'color': 'neutral',
             'variant': 'ghost',
             'icon': 'i-lucide-eye',
-            'aria-label': 'View user details',
+            'aria-label': t('common.table.actions'),
             onClick() {
             // Navigate to user details page
               router.push(localPath(`/admin/users/${row.original.id}?tab=overview`));
@@ -254,7 +265,7 @@ const columns: TableColumn<UserListItem>[] = [
               'color': 'primary',
               'variant': 'ghost',
               'icon': 'i-lucide-pencil',
-              'aria-label': 'Edit user details',
+              'aria-label': t('common.table.actions'),
               onClick() {
                 // Navigate to user edit page
                 router.push(localPath(`/admin/users/${row.original.id}/edit`));
@@ -295,23 +306,23 @@ function applyAdvancedSearch() {
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          Users
+          {{ t('adminUsers.list.title') }}
         </h1>
-        <p>Manage system users and access permissions.</p>
+        <p>{{ t('adminUsers.description') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <AdminUsersImportCsvModal v-if="authStore.can('user.import')" @imported="refresh" />
 
         <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
-          Add User
+          {{ t('adminUsers.list.addButton') }}
         </UButton>
       </div>
     </div>
     <div class="w-full">
       <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
-          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by name, email, student / staff ID" @keyup.enter="applySearch" />
-          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminUsers.list.search')" @keyup.enter="applySearch" />
+          <UButton icon="i-lucide-search" :label="t('adminUsers.list.search')" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
           <UPopover
             v-model:open="advancedSearchOpen"
             :content="{
@@ -327,7 +338,7 @@ function applyAdvancedSearch() {
             <template #content>
               <div class="w-lg p-4 space-y-4">
                 <div class="grid grid-cols-2 gap-3">
-                  <UFormField label="Faculty">
+                  <UFormField :label="t('adminUsers.list.advancedSearch.fields.faculty')">
                     <!--
                       Issue: Hover doesn't work for USelectMenu inside UPopover (unless `search-input` is enabled).
                       Workaround: Keep `search-input` enabled and hide it via CSS.
@@ -339,7 +350,7 @@ function applyAdvancedSearch() {
                       :items="facultyOptions"
                       label-key="label"
                       value-key="value"
-                      placeholder="All faculties"
+                      :placeholder="t('common.status.all')"
                       clear
                       :ui="{
                         input: 'hidden',
@@ -348,7 +359,7 @@ function applyAdvancedSearch() {
                     />
                   </UFormField>
 
-                  <UFormField label="Department">
+                  <UFormField :label="t('adminUsers.list.advancedSearch.fields.department')">
                     <USelectMenu
                       v-model="departmentFilterModel"
                       class="w-full"
@@ -356,7 +367,7 @@ function applyAdvancedSearch() {
                       :items="filteredDepartmentOptions"
                       label-key="label"
                       value-key="value"
-                      placeholder="All departments"
+                      :placeholder="t('common.status.all')"
                       clear
                       :ui="{
                         content: 'min-w-fit',
@@ -364,7 +375,7 @@ function applyAdvancedSearch() {
                     />
                   </UFormField>
 
-                  <UFormField label="Role">
+                  <UFormField :label="t('adminUsers.list.advancedSearch.fields.role')">
                     <USelectMenu
                       v-model="roleFilterModel"
                       class="w-full"
@@ -372,12 +383,12 @@ function applyAdvancedSearch() {
                       :items="roleOptions"
                       label-key="label"
                       value-key="value"
-                      placeholder="All roles"
+                      :placeholder="t('common.status.all')"
                       clear
                     />
                   </UFormField>
 
-                  <UFormField label="Status">
+                  <UFormField :label="t('adminUsers.list.advancedSearch.fields.status')">
                     <!--
                       Issue: Hover doesn't work for USelectMenu inside UPopover (unless `search-input` is enabled).
                       Workaround: Keep `search-input` enabled and hide it via CSS.
@@ -389,7 +400,7 @@ function applyAdvancedSearch() {
                       :items="statusOptions"
                       label-key="label"
                       value-key="value"
-                      placeholder="All statuses"
+                      :placeholder="t('common.status.all')"
                       clear
                       :ui="{
                         input: 'hidden',
@@ -404,14 +415,14 @@ function applyAdvancedSearch() {
                       base: 'rounded-md!',
                     }" @click="clearAdvancedSearch"
                   >
-                    Clear
+                    {{ t('common.actions.clear') }}
                   </UButton>
                   <UButton
                     color="primary" :ui="{
                       base: 'rounded-md!',
                     }" @click="applyAdvancedSearch"
                   >
-                    Apply
+                    {{ t('common.actions.applySearch') }}
                   </UButton>
                 </div>
               </div>

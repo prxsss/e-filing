@@ -1,6 +1,6 @@
 import type { SQL } from 'drizzle-orm';
 
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, roles, userRoles, users } from '../schema';
@@ -75,7 +75,7 @@ export async function getFaculties({
     .leftJoin(departments, eq(faculties.id, departments.facultyId))
     .leftJoinLateral(dean, sql`true`)
     .groupBy(faculties.id, dean.deanNameEn, dean.deanNameTh)
-    .orderBy(desc(faculties.id))
+    .orderBy(asc(faculties.facultyCode))
     .limit(pageSize)
     .offset(offset);
 

@@ -35,6 +35,7 @@ export default defineEventHandler(async (event) => {
       titleTh: body.titleTh?.trim() || null,
       firstNameTh: body.firstNameTh.trim(),
       lastNameTh: body.lastNameTh.trim(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(users.id, id))
     .returning({

@@ -17,7 +17,7 @@ type FacultyItem = {
 };
 
 const localPath = useLocalePath();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 const toast = useToast();
 
 const loading = ref(false);
@@ -26,16 +26,16 @@ const createDepartmentSchema = z.object({
   departmentCode: z
     .string()
     .trim()
-    .min(1, 'Department code is required')
-    .max(20, 'Department code must be 20 characters or fewer'),
+    .min(1, t('common.validation.required', { field: t('adminDepartments.form.code') }))
+    .max(20, t('common.validation.maxLength', { field: t('adminDepartments.form.code'), count: 20 })),
   facultyId: z
     .string()
     .trim()
-    .min(1, 'Faculty is required')
-    .refine(value => Number.isInteger(Number(value)) && Number(value) > 0, 'Faculty is required')
+    .min(1, t('adminDepartments.validation.facultyRequired'))
+    .refine(value => Number.isInteger(Number(value)) && Number(value) > 0, t('common.validation.required', { field: t('adminDepartments.form.faculty') }))
     .transform(value => Number(value)),
-  nameEn: z.string().trim().min(1, 'Department name (EN) is required').max(255),
-  nameTh: z.string().trim().min(1, 'Department name (TH) is required').max(255),
+  nameEn: z.string().trim().min(1, t('common.validation.required', { field: t('adminDepartments.form.nameEn') })).max(255, t('common.validation.maxLength', { field: t('adminDepartments.form.nameEn'), count: 255 })),
+  nameTh: z.string().trim().min(1, t('common.validation.required', { field: t('adminDepartments.form.nameTh') })).max(255, t('common.validation.maxLength', { field: t('adminDepartments.form.nameTh'), count: 255 })),
 });
 
 type CreateDepartmentSubmit = z.output<typeof createDepartmentSchema>;
@@ -88,17 +88,15 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
     });
 
     toast.add({
-      title: 'Success',
-      description: 'Department has been created successfully.',
+      title: t('adminDepartments.success.create'),
       color: 'success',
     });
 
     navigateTo(localPath('/admin/departments'));
   }
-  catch (error: any) {
+  catch {
     toast.add({
-      title: 'Error',
-      description: error?.data?.message || 'Failed to create department. Please try again.',
+      title: t('adminDepartments.error.create'),
       color: 'error',
     });
   }
@@ -117,16 +115,13 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
       variant="link"
       :to="localPath('/admin/departments')"
     >
-      Back to Departments
+      {{ t('common.actions.backTo', { page: t('adminDepartments.title') }) }}
     </UButton>
 
     <div class="space-y-2">
       <h1 class="text-2xl font-bold mb-1">
-        Add New Department
+        {{ t('adminDepartments.list.addButton') }}
       </h1>
-      <p class="text-sm text-muted">
-        Fill in the details below to add a new department.
-      </p>
     </div>
 
     <UCard>
@@ -135,7 +130,7 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-building-2" class="text-primary size-5" />
           <h2 class="font-semibold">
-            Department Information
+            {{ t('adminDepartments.sections.deptInfo') }}
           </h2>
         </div>
       </template>
@@ -147,40 +142,38 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
         @submit="handleCreateDepartment"
       >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <UFormField label="Department Code" name="departmentCode" required>
+          <UFormField :label="t('adminDepartments.form.code')" name="departmentCode" required>
             <UInput
               v-model="form.departmentCode"
               class="w-full"
-              placeholder="e.g. CS-2024"
+              :placeholder="t('adminDepartments.form.codePlaceholder')"
               size="xl"
             />
           </UFormField>
 
-          <UFormField label="Faculty" name="facultyId" required>
+          <UFormField :label="t('adminDepartments.form.faculty')" name="facultyId" required>
             <USelect
               v-model="form.facultyId"
               :items="facultyOptions"
               :loading="facultiesStatus === 'pending'"
               class="w-full"
               size="xl"
-              placeholder="Select a faculty"
+              :placeholder="t('adminDepartments.form.facultyPlaceholder')"
             />
           </UFormField>
 
-          <UFormField label="Department Name (EN)" name="nameEn" required>
+          <UFormField :label="t('adminDepartments.form.nameEn')" name="nameEn" required>
             <UInput
               v-model="form.nameEn"
               class="w-full"
-              placeholder="e.g. Department of Computer Science"
               size="xl"
             />
           </UFormField>
 
-          <UFormField label="Department Name (TH)" name="nameTh" required>
+          <UFormField :label="t('adminDepartments.form.nameTh')" name="nameTh" required>
             <UInput
               v-model="form.nameTh"
               class="w-full"
-              placeholder="เช่น ภาควิชาวิทยาการคอมพิวเตอร์"
               size="xl"
             />
           </UFormField>
@@ -191,13 +184,13 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
             type="button"
             color="neutral"
             variant="ghost"
-            label="Cancel"
+            :label="t('common.actions.cancel')"
             @click="handleCancel"
           />
           <UButton
             type="submit"
             color="primary"
-            label="Add Department"
+            :label="t('adminDepartments.list.addButton')"
             :loading="loading"
           />
         </div>

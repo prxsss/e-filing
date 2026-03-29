@@ -27,7 +27,7 @@ type DepartmentListItem = {
 const UButton = resolveComponent('UButton');
 
 const localPath = useLocalePath();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 const toast = useToast();
 const overlay = useOverlay();
 
@@ -78,13 +78,13 @@ function handleEditDepartment(id: number) {
 
 async function handleDeleteDepartment(id: number, name: string) {
   const instance = confirmDialog.open({
-    title: 'Confirm Deletion',
-    description: `Are you sure you want to delete the department "${name}"? This action cannot be undone.`,
+    title: t('common.dialog.confirmDelete'),
+    description: t('common.dialog.deleteMessage', { name }),
     cancelButton: {
-      label: 'Cancel',
+      label: t('common.actions.cancel'),
     },
     confirmButton: {
-      label: 'Delete',
+      label: t('common.actions.delete'),
       color: 'error',
     },
   });
@@ -99,17 +99,15 @@ async function handleDeleteDepartment(id: number, name: string) {
       });
 
       toast.add({
-        title: 'Success',
-        description: 'Department has been deleted successfully.',
+        title: t('adminDepartments.success.delete'),
         color: 'success',
       });
 
       await refresh();
     }
-    catch (error: any) {
+    catch {
       toast.add({
-        title: 'Cannot delete department',
-        description: error?.data?.message || 'Failed to delete department. Please try again.',
+        title: t('adminDepartments.error.delete'),
         color: 'error',
       });
     }
@@ -122,22 +120,22 @@ async function handleDeleteDepartment(id: number, name: string) {
 const columns: TableColumn<DepartmentListItem>[] = [
   {
     accessorKey: 'rowNo',
-    header: 'No.',
+    header: t('common.table.no'),
     meta: {
       class: {
-        th: 'w-12 text-right',
+        th: 'w-20 text-right',
         td: 'text-right',
       },
     },
-    cell: ({ row }) => row.index + 1 + (page.value - 1) * pageSize.value,
+    cell: ({ row }) => (row.index + 1 + (page.value - 1) * pageSize.value).toLocaleString(),
   },
   {
     accessorKey: 'departmentCode',
-    header: 'Department Code',
+    header: t('adminDepartments.list.columns.departmentCode'),
   },
   {
     id: 'name',
-    header: 'Department Name',
+    header: t('adminDepartments.list.columns.name'),
     cell: ({ row }) => {
       const name = locale.value === 'en' ? row.original.nameEn : row.original.nameTh;
       return h('div', null, name);
@@ -145,7 +143,7 @@ const columns: TableColumn<DepartmentListItem>[] = [
   },
   {
     id: 'faculty',
-    header: 'Faculty',
+    header: t('adminDepartments.list.columns.faculty'),
     cell: ({ row }) => {
       const facultyName = getFacultyName(row.original);
       return h('div', null, facultyName);
@@ -153,7 +151,7 @@ const columns: TableColumn<DepartmentListItem>[] = [
   },
   {
     id: 'headOfDepartment',
-    header: 'Head of Dept.',
+    header: t('adminDepartments.list.columns.headOfDepartment'),
     cell: ({ row }) => {
       const headOfDepartment = locale.value === 'en' ? row.original.headOfDeptEn : row.original.headOfDeptTh;
       return h('div', null, headOfDepartment ?? '-');
@@ -209,13 +207,13 @@ const columns: TableColumn<DepartmentListItem>[] = [
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          Departments
+          {{ t('adminDepartments.title') }}
         </h1>
-        <p>Manage and organize university academic departments.</p>
+        <p>{{ t('adminDepartments.description') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <UButton v-if="authStore.can('department.create')" icon="i-lucide-plus" size="md" @click="handleAddDepartment">
-          Add Department
+          {{ t('adminDepartments.list.addButton') }}
         </UButton>
       </div>
     </div>
@@ -228,10 +226,10 @@ const columns: TableColumn<DepartmentListItem>[] = [
             icon="i-lucide-search"
             size="lg"
             variant="outline"
-            placeholder="Department code, name, or head of department"
+            :placeholder="t('adminDepartments.list.search')"
             @keyup.enter="applySearch"
           />
-          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+          <UButton icon="i-lucide-search" :label="t('adminDepartments.list.search')" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
         </UFieldGroup>
       </div>
     </div>
@@ -248,7 +246,7 @@ const columns: TableColumn<DepartmentListItem>[] = [
           :items="facultyOptions"
           label-key="label"
           value-key="value"
-          placeholder="All faculties"
+          :placeholder="t('adminDepartments.list.search')"
           clear
           :ui="{
             input: 'hidden',

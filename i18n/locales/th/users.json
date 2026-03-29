@@ -1,0 +1,104 @@
+{
+  "adminUsers": {
+    "title": "ผู้ใช้",
+    "description": "ดูและจัดการผู้ใช้ และสิทธิ์ของพวกเขา",
+    "list": {
+      "title": "ผู้ใช้",
+      "addButton": "เพิ่มผู้ใช้",
+      "search": "ค้นหาผู้ใช้",
+      "advancedSearch": {
+        "fields": {
+          "faculty": "คณะ",
+          "department": "สาขาวิชา",
+          "role": "บทบาท",
+          "status": "สถานะ"
+        }
+      },
+      "columns": {
+        "fullName": "ชื่อเต็ม",
+        "studentId": "รหัสนิสิต",
+        "staffId": "รหัสบุคลากร"
+      }
+    },
+    "shared": {
+      "sections": {
+        "basic": "ข้อมูลพื้นฐาน",
+        "roles": "การกำหนดบทบาท"
+      },
+      "form": {
+        "titleEn": "คำนำหน้า (EN)",
+        "titleTh": "คำนำหน้า (TH)",
+        "firstNameEn": "ชื่อ (EN)",
+        "firstNameTh": "ชื่อ (TH)",
+        "lastNameEn": "นามสกุล (EN)",
+        "lastNameTh": "นามสกุล (TH)",
+        "studentId": "รหัสนิสิต",
+        "staffId": "รหัสบุคลากร",
+        "studentIdPlaceholder": "เช่น 6510123456"
+      },
+      "roleTable": {
+        "modalTitle": "เพิ่มการกำหนดบทบาท",
+        "addBtn": "เพิ่มบทบาท",
+        "selectRole": "เลือกบทบาท",
+        "selectFaculty": "เลือกคณะ",
+        "selectDept": "เลือกสาขาวิชา"
+      },
+      "validation": {
+        "studentIdInvalid": "รหัสประจำตัวนิสิตต้องเป็นตัวเลข 10 หลัก",
+        "roleRequired": "กรุณากำหนดบทบาท",
+        "roleRequiredDesc": "โปรดกำหนดบทบาทอย่างน้อยหนึ่งบทบาทให้กับผู้ใช้ก่อนดำเนินการต่อ"
+      }
+    },
+    "create": {
+      "title": "เพิ่มผู้ใช้ใหม่",
+      "description": "กรอกข้อมูลด้านล่างเพื่อเพิ่มผู้ใช้ใหม่",
+      "feedback": {
+        "createSuccess": "เพิ่มผู้ใช้เรียบร้อยแล้ว",
+        "createError": "ไม่สามารถเพิ่มผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง"
+      }
+
+    },
+    "edit": {
+      "title": "แก้ไขผู้ใช้",
+      "description": "อัปเดตข้อมูลผู้ใช้และสิทธิ์ของพวกเขา",
+      "updateUser": "อัปเดตผู้ใช้",
+      "feedback": {
+        "userNotFound": "ขออภัย, ไม่พบผู้ใช้ด้วยรหัส {id}",
+        "updateSuccess": "ผู้ใช้ถูกอัปเดตเรียบร้อยแล้ว",
+        "updateError": "ไม่สามารถอัปเดตผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง"
+      }
+    },
+    "detail": {
+      "title": "รายละเอียดผู้ใช้",
+      "tabs": {
+        "overview": "ภาพรวม",
+        "requests": "คำร้อง"
+      },
+      "requestStatusSummary": {
+        "title": "สรุปสถานะคำร้อง",
+        "totalRequests": "จำนวนคำร้องทั้งหมด",
+        "pending": "รอดำเนินการ",
+        "rejected": "ถูกปฏิเสธ",
+        "approved": "อนุมัติแล้ว"
+      },
+      "actions": {
+        "resetPassword": "รีเซ็ตพาสเวิร์ด",
+        "banUser": "ระงับการใช้งานผู้ใช้",
+        "unbanUser": "เปิดใช้งานผู้ใช้"
+      },
+      "banDialog": {
+        "confirm": "ยืนยันการระงับ",
+        "message": "คุณแน่ใจหรือไม่ที่จะระงับผู้ใช้นี้? พวกเขาจะไม่สามารถเข้าสู่ระบบได้",
+        "reasonPlaceholder": "โปรดระบุเหตุผลสำหรับการระงับผู้ใช้นี้",
+        "reasonErrorMessage": "กรุณาระบุเหตุผลสำหรับการระงับผู้ใช้นี้"
+      },
+      "feedback": {
+        "banSuccess": "ผู้ใช้ถูกระงับแล้ว",
+        "banSuccessDescription": "{name} ไม่สามารถเข้าสู่ระบบได้อีกต่อไป",
+        "unbanSuccess": "ผู้ใช้ถูกยกเลิกการระงับ",
+        "unbanSuccessDescription": "{name} สามารถเข้าสู่ระบบเพื่อใช้งานได้แล้ว",
+        "actionError": "ไม่สามารถอัปเดตสถานะผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง"
+      }
+    }
+  }
+}

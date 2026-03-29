@@ -5,6 +5,8 @@ import { LazyBaseConfirmDialog } from '#components';
 import { h, ref, resolveComponent } from 'vue';
 import * as z from 'zod';
 
+import type { Department } from '~/types/department';
+import type { Faculty } from '~/types/faculty';
 import type { Role } from '~/types/user';
 
 definePageMeta({
@@ -18,6 +20,7 @@ const UButton = resolveComponent('UButton');
 
 const localPath = useLocalePath();
 const toast = useToast();
+const { locale, t } = useI18n();
 const overlay = useOverlay();
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
@@ -34,12 +37,12 @@ const createUserSchema = z.object({
   studentId: z.string().optional(),
   staffId: z.string().optional(),
   titleEn: z.string(),
-  firstNameEn: z.string().min(1, 'First name (English) is required'),
-  lastNameEn: z.string().min(1, 'Last name (English) is required'),
+  firstNameEn: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.firstNameEn') })),
+  lastNameEn: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.lastNameEn') })),
   titleTh: z.string(),
-  firstNameTh: z.string().min(1, 'First name (Thai) is required'),
-  lastNameTh: z.string().min(1, 'Last name (Thai) is required'),
-  email: z.email('Invalid email'),
+  firstNameTh: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.firstNameTh') })),
+  lastNameTh: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.lastNameTh') })),
+  email: z.email(t('common.validation.invalidEmail')),
   // password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -67,67 +70,67 @@ const form = ref<Partial<CreateUserSchema>>({
 
 const roleAssignments = ref<RoleAssignment[]>([]);
 
-type Faculty = {
-  id: number;
-  nameEn: string;
-};
-
 // Faculty options
 const { data: faculties } = await useFetch('/api/faculties', {
-  transform: res => res.map((f: Faculty) => ({ label: f.nameEn, value: f.id })),
+  transform: res => res.map((f: Faculty) => ({ label: f.nameEn, labelTh: f.nameTh, value: f.id })),
   lazy: true,
 });
 
 // Role options
 const { data: roles } = await useFetch('/api/roles', {
-  transform: res => res.map((r: Role) => ({ label: r.name, value: r.id })),
+  transform: res => res.map((r: Role) => ({ label: r.name, labelTh: r.nameTh, value: r.id })),
   lazy: true,
 });
 
-type Department = {
-  id: number;
-  nameEn: string;
-  facultyId: number;
-};
-
 // Department options
 const { data: departments } = await useFetch('/api/departments', {
-  transform: (res: any[]) => res.map((d: Department) => ({ label: d.nameEn, value: d.id, facultyId: d.facultyId })),
+  transform: res => res.map((d: Department) => ({ label: d.nameEn, labelTh: d.nameTh, value: d.id, facultyId: d.facultyId })),
   lazy: true,
 });
 
 const columns = computed<TableColumn<RoleAssignment>[]>(() => [
   {
+    id: 'no',
+    header: t('common.table.no'),
+    meta: {
+      class: {
+        th: 'text-right w-20',
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => (row.index + 1).toLocaleString(),
+  },
+  {
     accessorKey: 'roleId',
-    header: 'Role',
+    header: t('common.table.role'),
     cell: ({ row }) => {
       const roleId = row.original.roleId;
       if (!roleId)
         return '-';
       const role = roles.value?.find(r => r.value === roleId);
-      return role ? role.label : String(roleId);
+      return role ? (locale.value === 'th' ? role.labelTh : role.label) : String(roleId);
     },
   },
   {
     accessorKey: 'facultyId',
-    header: 'Faculty',
+    header: t('common.table.faculty'),
     cell: ({ row }) => {
       const facultyId = row.original.facultyId;
       if (!facultyId)
         return '-';
       const faculty = faculties.value?.find(f => f.value === facultyId);
-      return faculty ? faculty.label : String(facultyId);
+      return faculty ? (locale.value === 'th' ? faculty.labelTh : faculty.label) : String(facultyId);
     },
   },
   {
     accessorKey: 'departmentId',
-    header: 'Department',
+    header: t('common.table.department'),
     cell: ({ row }) => {
       const departmentId = row.original.departmentId;
       if (!departmentId)
         return '-';
       const department = departments.value?.find(d => d.value === departmentId);
-      return department ? department.label : String(departmentId);
+      return department ? (locale.value === 'th' ? department.labelTh : department.label) : String(departmentId);
     },
   },
   {
@@ -142,16 +145,15 @@ const columns = computed<TableColumn<RoleAssignment>[]>(() => [
         h(
           UButton,
           {
-            'color': 'error',
-            'variant': 'soft',
-            'aria-label': 'Delete role assignment',
+            color: 'error',
+            variant: 'soft',
+            icon: 'i-lucide-trash-2',
             onClick() {
               roleAssignments.value = roleAssignments.value.filter(
                 r => r !== row.original,
               );
             },
           },
-          () => 'Delete',
         ),
       ]);
     },
@@ -175,11 +177,6 @@ const filteredDepartments = computed(() => {
 const showRoleError = ref(false);
 
 function addRoleAssignment() {
-  if (!newRoleAssignment.value.roleId || !newRoleAssignment.value.facultyId) {
-    toast.add({ title: 'Error', description: 'Role and Faculty are required', color: 'error' });
-    return;
-  }
-
   roleAssignments.value.push({ ...newRoleAssignment.value });
   showRoleError.value = false;
   newRoleAssignment.value = { roleId: null, facultyId: null, departmentId: null };
@@ -234,12 +231,12 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
 
     isDirty.value = false;
 
-    toast.add({ title: 'Success', description: 'User has been created successfully.', color: 'success' });
+    toast.add({ title: t('adminUsers.create.feedback.createSuccess'), color: 'success' });
     navigateTo(localPath('/admin/users'));
   }
   catch (error) {
     console.error('Error creating user:', error);
-    toast.add({ title: 'Error', description: 'Failed to create user. Please try again.', color: 'error' });
+    toast.add({ title: t('adminUsers.create.feedback.createError'), color: 'error' });
   }
   finally {
     loading.value = false;
@@ -286,13 +283,13 @@ onBeforeRouteLeave(async () => {
     return true;
 
   const instance = confirmDialog.open({
-    title: 'Discard changes?',
-    description: 'You have unsaved changes. Are you sure you want to leave this page?',
+    title: t('common.dialog.discardTitle'),
+    description: t('common.dialog.discardDescription'),
     cancelButton: {
-      label: 'Cancel',
+      label: t('common.actions.cancel'),
     },
     confirmButton: {
-      label: 'Leave',
+      label: t('common.actions.leave'),
       color: 'error',
     },
   });
@@ -317,13 +314,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
         variant="link"
         :to="localPath('/admin/users')"
       >
-        Back to Users
+        {{ t('common.actions.backTo', { page: t('adminUsers.list.title') }) }}
       </UButton>
 
       <!-- Page Header -->
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          New User
+          {{ t('adminUsers.create.title') }}
         </h1>
       </div>
 
@@ -375,7 +372,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                   class="text-primary"
                 />
                 <h2 class="font-semibold text-base">
-                  Basic Information
+                  {{ t('adminUsers.shared.sections.basic') }}
                 </h2>
               </div>
             </template>
@@ -397,7 +394,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
                 <!-- Student ID -->
                 <UFormField
-                  label="Student ID"
+                  :label="t('adminUsers.shared.form.studentId')"
                   name="studentId"
                   class="col-span-1 md:col-span-2"
                 >
@@ -409,7 +406,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
                 <!-- Staff ID -->
                 <UFormField
-                  label="Staff ID"
+                  :label="t('adminUsers.shared.form.staffId')"
                   name="staffId"
                   class="col-span-1 md:col-span-2"
                 >
@@ -422,7 +419,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- Title (EN) -->
               <UFormField
-                label="Title (EN)"
+                :label="t('adminUsers.shared.form.titleEn')"
                 name="titleEn"
                 class="col-span-1 md:col-span-2"
               >
@@ -434,7 +431,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- First Name (EN) -->
               <UFormField
-                label="First Name (EN)"
+                :label="t('adminUsers.shared.form.firstNameEn')"
                 name="firstNameEn"
                 required
                 class="col-span-1 md:col-span-5"
@@ -447,7 +444,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- Last Name (EN) -->
               <UFormField
-                label="Last Name (EN)"
+                :label="t('adminUsers.shared.form.lastNameEn')"
                 name="lastNameEn"
                 required
                 class="col-span-1 md:col-span-5"
@@ -460,7 +457,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- Title (TH) -->
               <UFormField
-                label="Title (TH)"
+                :label="t('adminUsers.shared.form.titleTh')"
                 name="titleTh"
                 class="col-span-1 md:col-span-2"
               >
@@ -472,7 +469,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- First Name (TH) -->
               <UFormField
-                label="First Name (TH)"
+                :label="t('adminUsers.shared.form.firstNameTh')"
                 name="firstNameTh"
                 required
                 class="col-span-1 md:col-span-5"
@@ -485,7 +482,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- Last Name (TH) -->
               <UFormField
-                label="Last Name (TH)"
+                :label="t('adminUsers.shared.form.lastNameTh')"
                 name="lastNameTh"
                 class="col-span-1 md:col-span-5"
                 required
@@ -498,7 +495,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
               <!-- Email -->
               <UFormField
-                label="Email Address"
+                :label="t('common.form.email')"
                 name="email"
                 required
                 class="col-span-1 md:col-span-3"
@@ -522,25 +519,25 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                     class="text-primary"
                   />
                   <h2 class="font-semibold text-base after:content-['*'] after:-ms-0.5 after:text-error">
-                    Role Assignments
+                    {{ t('adminUsers.shared.sections.roles') }}
                   </h2>
                 </div>
-                <UModal v-model:open="open" title="Add Role Assignment" :ui="{ footer: 'justify-end' }">
-                  <UButton icon="i-lucide-plus" label="Add Role Assignment" variant="soft" />
+                <UModal v-model:open="open" :title="t('adminUsers.shared.roleTable.modalTitle')" :ui="{ footer: 'justify-end' }">
+                  <UButton icon="i-lucide-plus" :label="t('adminUsers.shared.roleTable.modalTitle')" variant="soft" />
 
                   <template #body>
                     <div class="space-y-4">
                       <!-- Role -->
                       <UFormField
-                        label="Role"
+                        :label="t('common.table.role')"
                         name="role"
                         required
                       >
-                        <USelectMenu v-model="newRoleAssignment.roleId" :items="roles || []" value-key="value" placeholder="Select Role" :clear="true" size="lg" class="w-full" />
+                        <USelectMenu v-model="newRoleAssignment.roleId" :items="roles || []" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectRole')" :clear="true" size="lg" class="w-full" />
                       </UFormField>
                       <!-- Faculty -->
                       <UFormField
-                        label="Faculty"
+                        :label="t('common.table.faculty')"
                         name="faculty"
                         required
                       >
@@ -550,14 +547,12 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                           TODO: Investigate root cause and replace this workaround.
                         -->
                         <USelectMenu
-                          v-model="newRoleAssignment.facultyId" :items="faculties || []" value-key="value" placeholder="Select Faculty" :clear="true" size="lg" class="w-full" :ui="{
-                            input: 'hidden',
-                          }"
+                          v-model="newRoleAssignment.facultyId" :items="faculties || []" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectFaculty')" :clear="true" size="lg" class="w-full"
                         />
                       </UFormField>
                       <!-- Department -->
                       <UFormField
-                        label="Department"
+                        :label="t('common.table.department')"
                         name="department"
                       >
                         <!--
@@ -566,17 +561,15 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                           TODO: Investigate root cause and replace this workaround.
                         -->
                         <USelectMenu
-                          v-model="newRoleAssignment.departmentId" :items="filteredDepartments" value-key="value" placeholder="Select Department" :clear="true" size="lg" class="w-full" :ui="{
-                            input: 'hidden',
-                          }"
+                          v-model="newRoleAssignment.departmentId" :items="filteredDepartments" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectDept')" :clear="true" size="lg" class="w-full"
                         />
                       </UFormField>
                     </div>
                   </template>
 
                   <template #footer="{ close }">
-                    <UButton label="Cancel" color="neutral" variant="outline" @click="close" />
-                    <UButton label="Submit" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId" @click="addRoleAssignment" />
+                    <UButton :label="t('common.actions.cancel')" color="neutral" variant="outline" @click="close" />
+                    <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId" @click="addRoleAssignment" />
                   </template>
                 </UModal>
               </div>
@@ -586,8 +579,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
               v-if="showRoleError"
               color="error"
               variant="subtle"
-              title="Role assignment required"
-              description="Please assign at least one role to the user before continuing."
+              :title="t('adminUsers.shared.validation.roleRequired')"
+              :description="t('adminUsers.shared.validation.roleRequiredDesc')"
               icon="i-lucide-triangle-alert"
               class="mb-4"
             />
@@ -603,13 +596,13 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
           type="button"
           color="neutral"
           variant="ghost"
-          label="Cancel"
+          :label="t('common.actions.cancel')"
           @click="handleCancel"
         />
         <UButton
           type="button"
           color="primary"
-          label="Add User"
+          :label="t('adminUsers.list.addButton')"
           :loading
           @click="handleSubmit"
         />

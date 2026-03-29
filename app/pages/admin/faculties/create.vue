@@ -11,16 +11,17 @@ definePageMeta({
 
 const localPath = useLocalePath();
 const toast = useToast();
+const { t } = useI18n();
 
 const loading = ref(false);
 
 const createFacultySchema = z.object({
   facultyCode: z
     .string()
-    .min(1, 'Faculty code is required')
-    .max(20, 'Faculty code must be 20 characters or fewer'),
-  nameEn: z.string().min(1, 'Faculty name (EN) is required'),
-  nameTh: z.string().min(1, 'Faculty name (TH) is required'),
+    .min(1, t('common.validation.required', { field: t('adminFaculties.shared.form.facultyCode') }))
+    .max(20, t('common.validation.maxLength', { field: t('adminFaculties.shared.form.facultyCode'), max: 20 })),
+  nameEn: z.string().min(1, t('common.validation.required', { field: t('adminFaculties.shared.form.nameEn') })),
+  nameTh: z.string().min(1, t('common.validation.required', { field: t('adminFaculties.shared.form.nameTh') })),
 });
 
 type CreateFacultySchema = z.output<typeof createFacultySchema>;
@@ -49,8 +50,7 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
     });
 
     toast.add({
-      title: 'Success',
-      description: 'Faculty has been created successfully.',
+      title: t('adminFaculties.success.createSuccess'),
       color: 'success',
     });
 
@@ -58,8 +58,10 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
   }
   catch (error: any) {
     toast.add({
-      title: 'Error',
-      description: error?.data?.message || 'Failed to create faculty. Please try again.',
+      title: t('adminFaculties.error.createError'),
+      description: t('adminFaculties.error.createErrorMessage', {
+        message: error?.data?.message || 'Failed to create faculty. Please try again.',
+      }),
       color: 'error',
     });
   }
@@ -78,16 +80,13 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
       variant="link"
       :to="localPath('/admin/faculties')"
     >
-      Back to Faculties
+      {{ t('common.actions.backTo', { page: t('adminFaculties.list.title') }) }}
     </UButton>
 
     <div class="space-y-2">
       <h1 class="text-3xl font-bold tracking-tight">
-        Add New Faculty
+        {{ t('adminFaculties.create.title') }}
       </h1>
-      <p class="text-muted">
-        Fill in the details below to add a new faculty.
-      </p>
     </div>
 
     <UCard>
@@ -96,7 +95,7 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-building" class="text-primary size-5" />
           <h2 class="font-semibold">
-            Faculty Information
+            {{ t('adminFaculties.shared.section') }}
           </h2>
         </div>
       </template>
@@ -108,31 +107,31 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
         @submit="handleCreateFaculty"
       >
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <UFormField label="Faculty Code" name="facultyCode" required>
+          <UFormField :label="t('adminFaculties.shared.form.facultyCode')" name="facultyCode" required>
             <UInput
               v-model="form.facultyCode"
               class="w-full"
-              placeholder="e.g. F001"
+              :placeholder="t('adminFaculties.shared.form.facultyCodePlaceholder')"
               size="xl"
             />
           </UFormField>
 
           <div class="hidden md:block" />
 
-          <UFormField label="Faculty Name (EN)" name="nameEn" required>
+          <UFormField :label="t('adminFaculties.shared.form.nameEn')" name="nameEn" required>
             <UInput
               v-model="form.nameEn"
               class="w-full"
-              placeholder="e.g. Faculty of Natural Sciences"
+              :placeholder="t('adminFaculties.shared.form.nameEnPlaceholder')"
               size="xl"
             />
           </UFormField>
 
-          <UFormField label="Faculty Name (TH)" name="nameTh" required>
+          <UFormField :label="t('adminFaculties.shared.form.nameTh')" name="nameTh" required>
             <UInput
               v-model="form.nameTh"
               class="w-full"
-              placeholder="e.g. คณะวิทยาศาสตร์"
+              :placeholder="t('adminFaculties.shared.form.nameThPlaceholder')"
               size="xl"
             />
           </UFormField>
@@ -143,13 +142,13 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
             type="button"
             color="neutral"
             variant="ghost"
-            label="Cancel"
+            :label="t('common.actions.cancel')"
             @click="handleCancel"
           />
           <UButton
             type="submit"
             color="primary"
-            label="Add Faculty"
+            :label="t('adminFaculties.list.addButton')"
             :loading="loading"
           />
         </div>

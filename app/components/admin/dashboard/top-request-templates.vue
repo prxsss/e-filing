@@ -26,6 +26,8 @@ type TopTemplateRow = {
   completionRate: number;
 };
 
+const { t } = useI18n();
+
 const topLimit = ref<'5' | '10' | 'all'>('5');
 const topLimitOptions = ['5', '10', 'all'];
 
@@ -69,21 +71,21 @@ watch(() => props.refreshToken, () => {
 const columns: TableColumn<TopRequestTemplate>[] = [
   {
     accessorKey: 'rowNo',
-    header: 'No.',
+    header: t('common.table.no'),
     meta: {
       class: {
-        th: 'w-12 text-right',
+        th: 'w-20 text-right',
         td: 'text-right',
       },
     },
   },
   {
     accessorKey: 'templateName',
-    header: 'Template Name',
+    header: t('adminDashboard.topRequestTemplates.templateName'),
   },
   {
     accessorKey: 'usage',
-    header: 'Usage',
+    header: t('adminDashboard.topRequestTemplates.usageCount'),
     meta: {
       class: {
         th: 'text-right',
@@ -97,7 +99,7 @@ const columns: TableColumn<TopRequestTemplate>[] = [
   },
   {
     accessorKey: 'completion',
-    header: 'Completion',
+    header: t('adminDashboard.topRequestTemplates.completion'),
     meta: {
       class: {
         th: 'text-right',
@@ -122,7 +124,7 @@ const columns: TableColumn<TopRequestTemplate>[] = [
   <UCard>
     <div class="mb-6 flex items-center justify-between gap-3">
       <h3 class="font-bold text-text-main">
-        Top Request Templates
+        {{ $t('adminDashboard.topRequestTemplates.title') }}
       </h3>
       <USelect
         v-model="topLimit"

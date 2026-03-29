@@ -55,9 +55,9 @@ const canResendOtp = computed(() => {
 
 const resendLabel = computed(() => {
   if (resendRemaining.value > 0)
-    return t('activateResendOtpIn', { seconds: resendRemaining.value });
+    return t('auth.activate.form.resendIn', { seconds: resendRemaining.value });
 
-  return t('activateResendOtp');
+  return t('auth.activate.form.resendOtp');
 });
 
 watch(otpDigits, (value) => {
@@ -111,12 +111,12 @@ async function resendOtp() {
 
     otpDigits.value = [];
     formState.otp = '';
-    successMessage.value = t('activateResendOtpSuccess');
+    successMessage.value = t('auth.activate.messages.resendSuccess');
     startResendCooldown();
   }
   catch (e: unknown) {
     const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('activateResendOtpError');
+    error.value = message || t('errors.general.description');
   }
   finally {
     resendLoading.value = false;
@@ -138,12 +138,12 @@ async function requestOtp() {
       body: { email: normalizedEmail },
     });
     setStep(2);
-    successMessage.value = t('activateRequestOtpSuccess');
+    successMessage.value = t('auth.activate.messages.otpSent');
     startResendCooldown();
   }
   catch (e: unknown) {
     const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('activateGenericError');
+    error.value = message || t('errors.general.description');
   }
   finally {
     loading.value = false;
@@ -168,11 +168,11 @@ async function verifyOtp() {
     });
 
     setStep(3);
-    successMessage.value = t('activateVerifyOtpSuccess');
+    successMessage.value = t('auth.activate.messages.otpVerified');
   }
   catch (e: unknown) {
     const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('activateVerifyOtpError');
+    error.value = message || t('auth.activate.messages.otpInvalid');
   }
   finally {
     otpLoading.value = false;
@@ -184,7 +184,7 @@ async function setPassword() {
     return;
 
   if (formState.password !== formState.confirm) {
-    error.value = t('activatePasswordMismatch');
+    error.value = t('common.validation.mismatch', { field1: t('auth.activate.form.passwordLabel'), field2: t('common.form.password') });
     return;
   }
 
@@ -206,7 +206,7 @@ async function setPassword() {
   }
   catch (e: unknown) {
     const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('activateGenericError');
+    error.value = message || t('errors.general.description');
   }
   finally {
     loading.value = false;
@@ -227,31 +227,30 @@ onBeforeUnmount(() => {
 
       <div class="mb-4 text-center">
         <h1 class="mb-3 text-2xl font-semibold text-slate-800">
-          {{ $t('activateTitle') }}
+          {{ $t('auth.activate.title') }}
         </h1>
         <p class="mb-1 text-sm leading-relaxed text-slate-500">
-          {{ $t('activateDescription') }}
+          {{ $t('auth.activate.description') }}
         </p>
       </div>
 
       <div class="mb-6 flex items-center justify-center gap-2 text-xs sm:text-sm">
         <UBadge :color="step >= 1 ? 'primary' : 'neutral'" variant="soft">
-          1. {{ $t('activateStepRequestOtp') }}
+          1. {{ $t('auth.activate.steps.requestOtp') }}
         </UBadge>
         <UBadge :color="step >= 2 ? 'primary' : 'neutral'" variant="soft">
-          2. {{ $t('activateStepVerifyOtp') }}
+          2. {{ $t('auth.activate.steps.verifyOtp') }}
         </UBadge>
         <UBadge :color="step >= 3 ? 'primary' : 'neutral'" variant="soft">
-          3. {{ $t('activateStepSetPassword') }}
+          3. {{ $t('auth.activate.steps.setPassword') }}
         </UBadge>
       </div>
 
       <UForm v-if="step === 1" class="space-y-6" :state="formState" @submit="requestOtp">
-        <UFormField :label="$t('email')" name="email" required>
+        <UFormField :label="$t('common.form.email')" name="email" required>
           <UInput
             v-model="formState.email"
             type="email"
-            placeholder="somchai.jai@ku.th"
             autocomplete="email"
             icon="i-lucide-mail"
             class="w-full"
@@ -275,18 +274,18 @@ onBeforeUnmount(() => {
           size="xl"
           block
         >
-          {{ $t('activateRequestOtpButton') }}
+          {{ $t('auth.activate.form.getOtp') }}
         </UButton>
 
         <div class="text-center">
           <UButton icon="i-lucide-arrow-left" color="neutral" variant="link" :to="localePath('/')">
-            {{ $t('activateBackToLogin') }}
+            {{ $t('common.actions.backTo', { page: $t('auth.login.title') }) }}
           </UButton>
         </div>
       </UForm>
 
       <UForm v-else-if="step === 2" class="space-y-6" :state="formState" @submit="verifyOtp">
-        <UFormField :label="$t('activateOtpLabel')" name="otp" required>
+        <UFormField :label="$t('auth.activate.form.otpLabel')" name="otp" required>
           <UPinInput
             v-model="otpDigits"
             :length="6"
@@ -312,7 +311,7 @@ onBeforeUnmount(() => {
           size="xl"
           block
         >
-          {{ $t('activateVerifyOtpButton') }}
+          {{ $t('auth.activate.steps.verifyOtp') }}
         </UButton>
 
         <div class="flex items-center justify-between gap-2">
@@ -328,21 +327,20 @@ onBeforeUnmount(() => {
             {{ resendLabel }}
           </UButton>
           <UButton type="button" icon="i-lucide-arrow-left" color="neutral" variant="link" @click="setStep(1)">
-            {{ $t('activateChangeEmail') }}
+            {{ $t('auth.activate.form.changeEmail') }}
           </UButton>
         </div>
       </UForm>
 
       <UForm v-else class="space-y-6" :state="formState" @submit="setPassword">
-        <UFormField :label="$t('email')" name="email">
+        <UFormField :label="$t('common.form.email')" name="email">
           <UInput v-model="formState.email" disabled icon="i-lucide-mail" class="w-full" size="xl" />
         </UFormField>
 
-        <UFormField :label="$t('activatePasswordLabel')" name="password" required :hint="$t('activatePasswordHint')">
+        <UFormField :label="$t('auth.activate.form.passwordLabel')" name="password" required :hint="$t('auth.activate.form.passwordHint')">
           <UInput
             v-model="formState.password"
             type="password"
-            :placeholder="$t('activatePasswordPlaceholder')"
             autocomplete="new-password"
             icon="i-lucide-lock"
             class="w-full"
@@ -350,11 +348,10 @@ onBeforeUnmount(() => {
           />
         </UFormField>
 
-        <UFormField :label="$t('activateConfirmPasswordLabel')" name="confirm" required>
+        <UFormField :label="$t('auth.activate.form.confirmPassword')" name="confirm" required>
           <UInput
             v-model="formState.confirm"
             type="password"
-            :placeholder="$t('activateConfirmPasswordPlaceholder')"
             autocomplete="new-password"
             icon="i-lucide-shield-check"
             class="w-full"
@@ -370,25 +367,8 @@ onBeforeUnmount(() => {
           size="xl"
           block
         >
-          {{ $t('activateSubmitButton') }}
+          {{ $t('auth.activate.steps.setPassword') }}
         </UButton>
-
-        <div class="flex items-center justify-between gap-2">
-          <UButton
-            type="button"
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="link"
-            :loading="resendLoading"
-            :disabled="!canResendOtp"
-            @click="resendOtp"
-          >
-            {{ resendLabel }}
-          </UButton>
-          <UButton type="button" icon="i-lucide-arrow-left" color="neutral" variant="link" @click="setStep(2)">
-            {{ $t('activateBackToVerifyOtp') }}
-          </UButton>
-        </div>
       </UForm>
 
       <UAlert

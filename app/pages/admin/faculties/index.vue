@@ -14,7 +14,7 @@ const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
 
 const localPath = useLocalePath();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 const router = useRouter();
 const toast = useToast();
 const overlay = useOverlay();
@@ -47,12 +47,23 @@ function applySearch() {
 
 const columns: TableColumn<FacultyListItem>[] = [
   {
-    accessorKey: 'id',
-    header: 'ID',
+    id: 'no',
+    header: t('common.table.no'),
+    meta: {
+      class: {
+        th: 'w-20 text-right',
+        td: 'text-right',
+      },
+    },
+    cell: ({ row }) => (row.index + 1 + (page.value - 1) * pageSize.value).toLocaleString(),
+  },
+  {
+    accessorKey: 'facultyCode',
+    header: t('adminFaculties.list.columns.facultyCode'),
   },
   {
     accessorKey: 'name',
-    header: 'Faculty Name',
+    header: t('adminFaculties.list.columns.name'),
     cell: ({ row }) => {
       const name = locale.value === 'en' ? row.original.nameEn : row.original.nameTh;
       return h('div', null, name);
@@ -60,12 +71,12 @@ const columns: TableColumn<FacultyListItem>[] = [
   },
   {
     accessorKey: 'departmentCount',
-    header: 'Departments',
+    header: t('adminFaculties.list.columns.departments'),
     cell: ({ row }) => h('div', null, h(UBadge, { variant: 'soft', color: 'neutral', class: 'font-bold rounded-full' }, row.original.departmentCount)),
   },
   {
     accessorKey: 'deanName',
-    header: 'Dean Name',
+    header: t('adminFaculties.list.columns.deanName'),
     cell: ({ row }) => {
       const deanName = locale.value === 'en' ? row.original.deanNameEn : row.original.deanNameTh;
       return h('div', null, deanName ?? '-');
@@ -105,13 +116,15 @@ const columns: TableColumn<FacultyListItem>[] = [
             disabled: deletingFacultyId.value === row.original.id,
             onClick: async () => {
               const instance = confirmDialog.open({
-                title: 'Confirm Deletion',
-                description: `Are you sure you want to delete the faculty "${locale.value === 'en' ? row.original.nameEn : row.original.nameTh}"? This action cannot be undone.`,
+                title: t('common.dialog.confirmDelete'),
+                description: t('common.dialog.deleteMessage', {
+                  name: locale.value === 'en' ? row.original.nameEn : row.original.nameTh,
+                }),
                 cancelButton: {
-                  label: 'Cancel',
+                  label: t('common.actions.cancel'),
                 },
                 confirmButton: {
-                  label: 'Delete',
+                  label: t('common.actions.delete'),
                   color: 'error',
                 },
               });
@@ -126,17 +139,15 @@ const columns: TableColumn<FacultyListItem>[] = [
                   });
 
                   toast.add({
-                    title: 'Success',
-                    description: 'Faculty has been deleted successfully.',
+                    title: t('adminFaculties.messages.deleteSuccess'),
                     color: 'success',
                   });
 
                   await refresh();
                 }
-                catch (error: any) {
+                catch {
                   toast.add({
-                    title: 'Cannot delete faculty',
-                    description: error?.data?.message || 'Failed to delete faculty. Please try again.',
+                    title: t('adminFaculties.messages.deleteError'),
                     color: 'error',
                   });
                 }
@@ -160,21 +171,21 @@ const columns: TableColumn<FacultyListItem>[] = [
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          Faculties
+          {{ t('adminFaculties.list.title') }}
         </h1>
-        <p>View and organize all university faculties and their respective deans.</p>
+        <p>{{ t('adminFaculties.description') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <UButton v-if="authStore.can('faculty.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/faculties/create')">
-          Add Faculty
+          {{ t('adminFaculties.list.addButton') }}
         </UButton>
       </div>
     </div>
     <div class="w-full">
       <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
-          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" placeholder="Search by faculty / dean name, or ID" @keyup.enter="applySearch" />
-          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminFaculties.list.search')" @keyup.enter="applySearch" />
+          <UButton icon="i-lucide-search" :label="t('adminFaculties.list.search')" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
         </UFieldGroup>
       </div>
     </div>

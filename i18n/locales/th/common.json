@@ -1,21 +1,63 @@
 {
   "common": {
     "allFaculties": "ทุกคณะ",
-    "periods": {
-      "today": "วันนี้",
-      "yesterday": "เมื่อวาน",
-      "last7Days": "7 วันที่แล้ว",
-      "last14Days": "14 วันที่แล้ว",
-      "last30Days": "30 วันที่แล้ว",
-      "thisWeek": "สัปดาห์นี้",
-      "lastWeek": "สัปดาห์ที่แล้ว",
-      "thisMonth": "เดือนนี้",
-      "lastMonth": "เดือนที่แล้ว",
-      "thisQuarter": "ไตรมาสนี้",
-      "lastQuarter": "ไตรมาสที่แล้ว",
-      "yearToDate": "ต้นปีถึงวันนี้",
-      "last12Months": "12 เดือนที่แล้ว",
-      "custom": "กำหนดเอง"
+    "actions": {
+      "cancel": "ยกเลิก",
+      "delete": "ลบ",
+      "clear": "ล้าง",
+      "importCSV": "นำเข้า CSV",
+      "submit": "ส่ง",
+      "save": "บันทึกการเปลี่ยนแปลง",
+      "add": "เพิ่ม",
+      "edit": "แก้ไข",
+      "back": "กลับ",
+      "leave": "ออกจากหน้านี้",
+      "remove": "ลบ",
+      "applySearch": "ใช้ตัวกรอง",
+      "reset": "รีเซ็ตการเปลี่ยนแปลง",
+      "backTo": "กลับไปที่หน้า{page}"
+    },
+    "table": {
+      "no": "ลำดับที่",
+      "actions": "การดำเนินการ",
+      "status": "สถานะ",
+      "description": "คำอธิบาย",
+      "createdAt": "สร้างเมื่อ",
+      "updatedAt": "อัปเดตเมื่อ",
+      "email": "อีเมล",
+      "role": "บทบาท",
+      "faculty": "คณะ",
+      "department": "สาขาวิชา",
+      "requestName": "ชื่อคำร้อง",
+      "submittedAt": "ยื่นเมื่อ"
+    },
+    "form": {
+      "id": "รหัส",
+      "email": "อีเมล",
+      "emailPlaceholder": "name@example.com",
+      "faculty": "คณะ",
+      "department": "สาขาวิชา",
+      "role": "บทบาท",
+      "status": "สถานะ",
+      "password": "รหัสผ่าน",
+      "confirmPassword": "ยืนยันรหัสผ่าน"
+    },
+    "validation": {
+      "required": "กรุณากรอก{field}",
+      "invalidEmail": "อีเมลไม่ถูกต้อง",
+      "maxLength": "{field}ต้องมีความยาวไม่เกิน {count} ตัวอักษร",
+      "mismatch": "{field}ไม่ตรงกัน"
+    },
+    "status": {
+      "active": "เปิดใช้งาน",
+      "banned": "ระงับการใช้งาน",
+      "all": "ทั้งหมด"
+    },
+    "dialog": {
+      "confirmDelete": "ยืนยันการลบ",
+      "deleteMessage": "คุณแน่ใจหรือไม่ว่าต้องการลบ \"{name}\"? การดำเนินการนี้ไม่สามารถย้อนกลับได้",
+      "discardTitle": "ยกเลิกการเปลี่ยนแปลง?",
+      "discardDescription": "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่"
     }
   }
 }

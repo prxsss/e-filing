@@ -32,7 +32,7 @@ function onRowSelect(_e: Event, row: TableRow<Request>) {
       <div class="flex items-center gap-3">
         <UIcon name="i-lucide-file-text" class="text-primary" />
         <h2 class="font-semibold">
-          Related Requests
+          {{ $t('adminUsers.detail.tabs.requests') }}
         </h2>
       </div>
     </template>

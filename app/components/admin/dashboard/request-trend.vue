@@ -13,6 +13,8 @@ const props = withDefaults(defineProps<{
   refreshToken: 0,
 });
 
+const { t } = useI18n();
+
 type TrendRow = {
   bucket: string;
   submissions: number;
@@ -50,8 +52,8 @@ watch(() => props.refreshToken, () => {
 });
 
 const categories: Record<string, BulletLegendItemInterface> = {
-  submissions: { name: 'Submissions', color: '#3b82f6' },
-  completions: { name: 'Completions', color: '#22c55e' },
+  submissions: { name: t('adminDashboard.requestTrend.submissions'), color: '#3b82f6' },
+  completions: { name: t('adminDashboard.requestTrend.completions'), color: '#22c55e' },
 };
 
 function xFormatter(tick: number, _i?: number, _ticks?: number[]): string {
@@ -66,20 +68,20 @@ function xFormatter(tick: number, _i?: number, _ticks?: number[]): string {
     >
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold">
-          Request Trends
+          {{ $t('adminDashboard.requestTrend.title') }}
         </h3>
       </div>
       <div v-if="status === 'pending'" class="h-75 flex items-center justify-center">
         <UIcon name="i-lucide-loader" class="size-6 animate-spin text-text-secondary" />
       </div>
       <div v-else-if="!chartData.length" class="h-75 flex items-center justify-center text-sm text-text-secondary">
-        No trend data for selected filters.
+        {{ $t('adminDashboard.requestTrend.noData') }}
       </div>
       <LineChart
         v-else
         :data="chartData"
         :height="300"
-        y-label="Number of Requests"
+        :y-label="t('adminDashboard.requestTrend.numberOfRequests')"
         :x-num-ticks="2"
         :categories="categories"
         :x-formatter="xFormatter"

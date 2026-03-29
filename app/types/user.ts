@@ -1,6 +1,7 @@
 export type Role = {
   id: number;
   name: string;
+  nameTh: string;
   facultyId?: number | null;
   departmentId?: number | null;
 };
@@ -36,6 +37,7 @@ export type UserDetail = {
   updatedAt: string;
   assignments: {
     role: string;
+    roleTh: string;
     faculty: {
       id: string;
       nameEn: string;
@@ -49,5 +51,6 @@ export type UserDetail = {
   }[];
   totalRequests: number;
   pendingRequests: number;
+  rejectedRequests: number;
   approvedRequests: number;
 };
