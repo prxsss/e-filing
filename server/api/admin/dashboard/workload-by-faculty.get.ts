@@ -1,7 +1,7 @@
 import db from '~~/lib/db';
 import { faculties, request } from '~~/lib/db/schema';
 import { resolveDashboardRange } from '~~/server/utils/dashboard-period';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 
 function parseFacultyId(value: unknown): number | undefined {
   const parsed = Number(value);
@@ -32,16 +32,11 @@ export default defineEventHandler(async (event) => {
     .from(faculties)
     .leftJoin(
       request,
-      sql`
-        ${request.createdAt} >= ${startDate}
-        AND ${request.createdAt} <= ${endDate}
-        AND EXISTS (
-          SELECT 1
-          FROM user_roles ur
-          WHERE ur.user_id = ${request.userId}
-          AND ur.faculty_id = ${faculties.id}
-        )
-      `,
+      and(
+        eq(request.facultyId, faculties.id),
+        gte(request.createdAt, startDate),
+        lte(request.createdAt, endDate),
+      ),
     )
     .where(facultyWhere)
     .groupBy(faculties.id)

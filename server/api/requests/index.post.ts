@@ -1,5 +1,7 @@
+import { and, eq } from 'drizzle-orm';
+
 import db from '../../../lib/db';
-import { request } from '../../../lib/db/schema';
+import { permissions, request, rolePermissions, roles, userRoles } from '../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -15,11 +17,44 @@ export default defineEventHandler(async (event) => {
       };
     }
 
+    // Check if user has permission to create a request and get their faculty/department association
+    const [userRole] = await db
+      .select({
+        facultyId: userRoles.facultyId,
+        departmentId: userRoles.departmentId,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(
+        and(
+          eq(userRoles.userId, userId),
+          eq(permissions.code, 'request.create'),
+        ),
+      );
+
+    if (!userRole) {
+      return {
+        success: false,
+        error: 'You do not have permission to create a request.',
+      };
+    }
+
+    if (userRole.facultyId === null || userRole.departmentId === null) {
+      return {
+        success: false,
+        error: 'You do not have an associated faculty or department.',
+      };
+    }
+
     // Create new request, always associating it with the authenticated user
     const newRequest = await db.insert(request).values({
       templateId: body.templateId,
       userId,
       status: 'draft',
+      facultyId: userRole.facultyId,
+      departmentId: userRole.departmentId,
     }).returning();
 
     return {
