@@ -1,6 +1,6 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import { nanoid } from "nanoid";
+import { nanoid} from "nanoid"
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 
@@ -79,7 +79,7 @@ export const userRoles = pgTable("user_roles", {
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "user_roles_user_id_fkey"
-		}),
+		}).onUpdate("cascade").onDelete("cascade"),
 ]);
 
 export const departments = pgTable("departments", {
@@ -226,15 +226,6 @@ export const request = pgTable("request", {
 		}),
 ]);
 
-export const roles = pgTable("roles", {
-	id: serial().primaryKey().notNull(),
-	name: varchar({ length: 50 }).notNull(),
-	descriptionEn: text("description_en"),
-	descriptionTh: text("description_th"),
-}, (table) => [
-	unique("roles_name_unique").on(table.name),
-]);
-
 export const requestTemplateValues = pgTable("request_template_values", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_values_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -266,6 +257,16 @@ export const activationOtps = pgTable("activation_otps", {
 			foreignColumns: [users.id],
 			name: "activation_otps_user_id_fkey"
 		}),
+]);
+
+export const roles = pgTable("roles", {
+	id: serial().primaryKey().notNull(),
+	name: varchar({ length: 50 }).notNull(),
+	descriptionEn: text("description_en"),
+	descriptionTh: text("description_th"),
+	nameTh: varchar("name_th", { length: 50 }).notNull(),
+}, (table) => [
+	unique("roles_name_unique").on(table.name),
 ]);
 
 export const requestTemplateFields = pgTable("request_template_fields", {

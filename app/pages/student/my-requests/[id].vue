@@ -207,74 +207,6 @@ function isFieldVisible(field: any): boolean {
 
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
 }
-
-function getCheckboxGroupId(field: any): string {
-  return String(field?.groupId ?? '').trim();
-}
-
-function handleFieldValueUpdate(field: any, nextValue: string) {
-  const key = getFieldValueKey(field);
-  if (!key) {
-    return;
-  }
-
-  if (!isCheckboxField(field)) {
-    fieldValues.value[key] = String(nextValue ?? '');
-    return;
-  }
-
-  const normalizedNextValue = normalizeCheckboxValue(nextValue);
-  const groupId = getCheckboxGroupId(field);
-  if (!groupId) {
-    fieldValues.value[key] = normalizedNextValue;
-    return;
-  }
-
-  if (normalizedNextValue === 'true') {
-    for (const candidate of placedFields.value) {
-      if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
-        continue;
-      }
-      const candidateKey = getFieldValueKey(candidate);
-      if (!candidateKey) {
-        continue;
-      }
-      fieldValues.value[candidateKey] = candidateKey === key ? 'true' : '';
-    }
-    return;
-  }
-
-  fieldValues.value[key] = '';
-}
-
-function isCheckboxTemporarilyDisabled(field: any): boolean {
-  if (!isCheckboxField(field)) {
-    return false;
-  }
-
-  const groupId = getCheckboxGroupId(field);
-  if (!groupId) {
-    return false;
-  }
-
-  const currentKey = getFieldValueKey(field);
-  const isCurrentChecked = normalizeCheckboxValue(resolveCurrentFieldValue(field)) === 'true';
-  if (isCurrentChecked) {
-    return false;
-  }
-
-  return placedFields.value.some((candidate) => {
-    if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
-      return false;
-    }
-    const candidateKey = getFieldValueKey(candidate);
-    if (!candidateKey || candidateKey === currentKey) {
-      return false;
-    }
-    return normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true';
-  });
-}
-
 function hydrateFieldValueKeys() {
   for (const field of placedFields.value) {
     const valueKey = getFieldValueKey(field);
@@ -552,27 +484,6 @@ const fillableFields = computed(() => {
 
 const visibleFillableFields = computed(() => {
   return fillableFields.value.filter(field => isFieldVisible(field));
-});
-
-const requestFormSectionTitle = computed(() => {
-  const fieldWithTitle = visibleFillableFields.value.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
-  return String(fieldWithTitle?.formSectionTitle || 'ข้อมูลคำร้อง');
-});
-
-// Student-fillable fields: exclude Signature fields (those belong to signing roles, not the student)
-const studentFields = computed(() => {
-  return getVisibleStudentFields();
-});
-
-const orderedStudentFields = computed(() => {
-  return [...studentFields.value].sort((a: any, b: any) => {
-    const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
-    const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
-    if (aOrder !== bOrder) {
-      return aOrder - bOrder;
-    }
-    return String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
-  });
 });
 
 const canSaveOrSubmitDraft = computed(() => fillableFields.value.length > 0);
@@ -1220,49 +1131,6 @@ watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () =
                   </div>
                 </div>
               </template>
-            </div>
-          </UCard>
-
-          <!-- 3. REQUEST INFORMATION ─── student-filled fields only, no Signature fields -->
-          <UCard>
-            <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                {{ requestFormSectionTitle }}
-              </h3>
-            </template>
-
-            <!-- DRAFT: editable inputs -->
-            <div v-if="requestData?.status === 'draft'" class="space-y-4">
-              <div v-for="field in orderedStudentFields" :key="field.instanceId">
-                <form-field-input
-                  :model-value="fieldValues[getFieldValueKey(field)]"
-                  :field="{ ...field, label: field.formQuestionLabel || field.label }"
-                  :disabled="isSaving || isCheckboxTemporarilyDisabled(field)"
-                  @update:model-value="(value) => handleFieldValueUpdate(field, String(value ?? ''))"
-                />
-              </div>
-              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                ไม่มีฟิลด์ที่ต้องกรอก
-              </div>
-            </div>
-
-            <!-- SUBMITTED / IN_PROGRESS / COMPLETED / REJECTED: read-only display -->
-            <div v-else class="space-y-2">
-              <div
-                v-for="(field, index) in orderedStudentFields"
-                :key="field.instanceId"
-                class="p-2.5 bg-gray-50 rounded-lg text-xs border border-gray-200"
-              >
-                <div class="font-medium text-gray-900">
-                  {{ index + 1 }}. {{ field.label || field.name }}
-                </div>
-                <div class="text-gray-600 mt-1">
-                  {{ resolveCurrentFieldValue(field) || '—' }}
-                </div>
-              </div>
-              <div v-if="orderedStudentFields.length === 0" class="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                ไม่มีข้อมูลที่กรอก
-              </div>
             </div>
           </UCard>
 

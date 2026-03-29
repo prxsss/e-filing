@@ -41,6 +41,7 @@ type DepartmentApiItem = {
 type RoleApiItem = {
   id: number;
   name: string;
+  nameTh: string;
 };
 
 type AdvancedSearchFilters = {
@@ -90,7 +91,7 @@ const departmentOptions = computed<(SelectOption<number> & { facultyId: number }
 
 const roleOptions = computed<SelectOption<number>[]>(() => {
   return (rolesData.value ?? []).map(role => ({
-    label: role.name,
+    label: locale.value === 'th' ? role.nameTh : role.name,
     value: role.id,
   }));
 });
@@ -192,11 +193,11 @@ const columns: TableColumn<UserListItem>[] = [
     accessorKey: 'roles',
     header: 'Roles',
     cell: ({ row }) => {
-      const roles = row.getValue('roles') as { name: string; count: number }[];
+      const roles = row.getValue('roles') as { name: string; nameTh: string; count: number }[];
       if (roles.length === 0) {
-        return h('div', { class: 'text-slate-500' }, 'No roles');
+        return h('div', { class: 'text-slate-500' }, '-');
       }
-      return h('div', { class: 'flex flex-wrap gap-1 capitalize' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, `${role.name} ${role.count > 1 ? `(${role.count})` : ''}`)));
+      return h('div', { class: 'flex flex-wrap gap-1' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, `${locale.value === 'th' ? role.nameTh : role.name} ${role.count > 1 ? `(${role.count})` : ''}`)));
     },
   },
   {
@@ -205,7 +206,7 @@ const columns: TableColumn<UserListItem>[] = [
     cell: ({ row }) => {
       const faculties = row.getValue('faculties') as { nameEn: string; nameTh: string }[];
       if (faculties.length === 0) {
-        return h('div', { class: 'text-slate-500' }, 'No faculties');
+        return h('div', { class: 'text-slate-500' }, '-');
       }
       return h('div', { class: 'flex flex-wrap gap-1' }, faculties.map(faculty => h('span', null, locale.value === 'en' ? faculty.nameEn : faculty.nameTh)));
     },
