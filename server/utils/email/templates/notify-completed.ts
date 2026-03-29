@@ -37,7 +37,7 @@ export function notifyCompletedTemplate(options: {
             เอกสารของคุณได้รับลายเซ็นครบทุกขั้นตอนแล้ว สามารถดูคำร้องได้ที่ลิงก์ด้านล่าง
           </p>
           <a href="${options.trackUrl}"
-            style="display:inline-block;padding:12px 28px;background:#111;color:#fff;
+            style="display:inline-block;padding:12px 28px;background:oklch(69.6% .17 162.48);color:#fff;
                   text-decoration:none;border-radius:4px;font-size:14px;">
             ดูคำร้อง
           </a>

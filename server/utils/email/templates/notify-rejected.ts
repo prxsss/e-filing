@@ -39,7 +39,7 @@ export function notifyRejectedTemplate(options: {
             ${options.reason}
           </p>
           <a href="${options.resubmitUrl}"
-            style="display:inline-block;padding:12px 28px;background:#111;color:#fff;
+            style="display:inline-block;padding:12px 28px;background:oklch(69.6% .17 162.48);color:#fff;
                   text-decoration:none;border-radius:4px;font-size:14px;">
             ยื่นคำร้องใหม่
           </a>

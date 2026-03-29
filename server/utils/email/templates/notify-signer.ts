@@ -62,7 +62,7 @@ export function notifySignerTemplate(options: {
       <tr>
         <td style="padding:28px 32px;">
           <a href="${options.signUrl}"
-            style="display:inline-block;padding:12px 28px;background:#111;color:#fff;
+            style="display:inline-block;padding:12px 28px;background:oklch(69.6% .17 162.48);color:#fff;
                   text-decoration:none;border-radius:4px;font-size:14px;">
             ตรวจสอบและลงนาม
           </a>
