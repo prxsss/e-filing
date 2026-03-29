@@ -98,6 +98,11 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
         <template #header>
           <KuSrcLogo class="h-auto w-75 mx-auto mb-4" />
         </template>
+        <template #password-hint>
+          <ULink :to="localePath('/auth/forgot-password')" class="text-primary font-medium">
+            {{ $t('auth.login.forgotPassword') }}
+          </ULink>
+        </template>
         <template #validation>
           <UAlert v-if="authStore.errorMessage" color="error" variant="subtle" icon="i-lucide-info" :title="authStore.errorMessage" />
         </template>

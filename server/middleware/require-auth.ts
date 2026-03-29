@@ -11,6 +11,9 @@ const PUBLIC_ROUTES = [
   '/api/auth/activation/request-otp',
   '/api/auth/activation/verify',
   '/api/auth/activation/verify-otp',
+  '/api/auth/password/request-otp',
+  '/api/auth/password/verify-otp',
+  '/api/auth/password/reset',
 ];
 
 export default defineEventHandler(async (event) => {
