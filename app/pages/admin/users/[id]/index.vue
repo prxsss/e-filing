@@ -277,6 +277,9 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
               <p class="text-sm text-gray-500 dark:text-gray-400">
                 {{ [user.studentId ? `${t('adminUsers.shared.form.studentId')}: ${user.studentId}` : null, user.staffId ? `${t('adminUsers.shared.form.staffId')}: ${user.staffId}` : null].filter(Boolean).join(' / ') || user.email }}
               </p>
+              <p v-if="user.banned" class="text-sm text-error mt-1">
+                {{ t('adminUsers.detail.banReasonLabel') }}: {{ user.banReason || '-' }}
+              </p>
             </div>
           </div>
         </div>

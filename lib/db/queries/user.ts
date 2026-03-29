@@ -191,6 +191,7 @@ export async function getUserById(id: string) {
       email: users.email,
       image: users.image,
       banned: users.banned,
+      banReason: users.banReason,
       isActive: users.isActive,
 
       createdAt: users.createdAt,

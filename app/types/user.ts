@@ -34,6 +34,7 @@ export type UserDetail = {
   email: string;
   image: string | null;
   banned: boolean;
+  banReason: string | null;
   isActive: boolean | null;
   createdAt: string;
   updatedAt: string;

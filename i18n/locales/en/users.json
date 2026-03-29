@@ -69,6 +69,7 @@
     },
     "detail": {
       "title": "User Details",
+      "banReasonLabel": "Ban Reason",
       "tabs": {
         "overview": "Overview",
         "requests": "Requests"
