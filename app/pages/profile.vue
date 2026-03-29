@@ -164,13 +164,7 @@ const filteredDepartments = computed(() => {
 });
 
 const availableRolesForAssignment = computed(() => {
-  const selectedRoleIds = new Set(
-    form.roleAssignments
-      .map(item => item.roleId)
-      .filter((value): value is number => Boolean(value)),
-  );
-
-  return roleItems.value.filter(role => !selectedRoleIds.has(role.value));
+  return roleItems.value;
 });
 
 const columns = computed<TableColumn<SelectedRoleAssignment>[]>(() => [
@@ -242,20 +236,6 @@ const columns = computed<TableColumn<SelectedRoleAssignment>[]>(() => [
 function addRoleAssignment() {
   if (!newRoleAssignment.value.roleId)
     return;
-
-  const duplicate = form.roleAssignments.some(item =>
-    item.roleId === newRoleAssignment.value.roleId
-    && item.facultyId === newRoleAssignment.value.facultyId
-    && item.departmentId === newRoleAssignment.value.departmentId,
-  );
-
-  if (duplicate) {
-    toast.add({
-      title: t('profile.feedback.roleDuplicate'),
-      color: 'warning',
-    });
-    return;
-  }
 
   form.roleAssignments.push({
     roleId: newRoleAssignment.value.roleId,
