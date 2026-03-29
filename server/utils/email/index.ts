@@ -4,11 +4,18 @@ import type { EmailAdapter, EmailPayload } from './types';
 
 import { createConsoleAdapter } from './adapters/console';
 import { createNodemailerAdapter } from './adapters/nodemailer';
+import { createResendAdapter } from './adapters/resend';
 
 function createEmailAdapter(): EmailAdapter {
   const provider = env.EMAIL_PROVIDER;
 
   switch (provider) {
+    case 'resend':
+      return createResendAdapter({
+        apiKey: env.RESEND_API_KEY,
+        from: env.EMAIL_FROM,
+      });
+
     case 'nodemailer':
       return createNodemailerAdapter({
         host: env.SMTP_HOST,
@@ -17,7 +24,7 @@ function createEmailAdapter(): EmailAdapter {
           user: env.SMTP_USER,
           pass: env.SMTP_PASS,
         },
-        from: env.SMTP_FROM,
+        from: env.EMAIL_FROM,
       });
     case 'console':
     default:
