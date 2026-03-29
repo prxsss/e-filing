@@ -7,7 +7,7 @@ definePageMeta({
   public: true,
 });
 
-const { t } = useI18n();
+const { locale, locales, t, setLocale } = useI18n();
 const localePath = useLocalePath();
 
 const authStore = useAuthStore();
@@ -30,6 +30,18 @@ const formState = reactive({
   password: '',
   confirm: '',
 });
+
+const languageItems = computed(() =>
+  locales.value.map(l => ({
+    name: l.name,
+    code: l.code,
+    icon: l.icon as string,
+  })),
+);
+
+const selectedLanguageIcon = computed(() =>
+  languageItems.value.find(l => l.code === locale.value)?.icon,
+);
 
 const RESEND_COOLDOWN_SECONDS = 60;
 let resendTimer: ReturnType<typeof setInterval> | null = null;
@@ -219,7 +231,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center p-4">
+  <div class="relative min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="absolute top-4 right-4">
+      <USelect
+        :model-value="locale"
+        :items="languageItems"
+        label-key="name"
+        value-key="code"
+        :icon="selectedLanguageIcon"
+        @update:model-value="setLocale($event)"
+      />
+    </div>
+
     <UPageCard class="w-full max-w-md">
       <div class="mb-10 flex justify-center">
         <KuSrcLogo class="h-auto w-72" />

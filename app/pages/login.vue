@@ -17,7 +17,7 @@ definePageMeta({
   public: true,
 });
 
-const { t } = useI18n();
+const { locale, locales, t, setLocale } = useI18n();
 const localePath = useLocalePath();
 const route = useRoute();
 
@@ -73,6 +73,18 @@ const formState = reactive({
 
 const authForm = useTemplateRef('authForm');
 
+const languageItems = computed(() =>
+  locales.value.map(l => ({
+    name: l.name,
+    code: l.code,
+    icon: l.icon as string,
+  })),
+);
+
+const selectedLanguageIcon = computed(() =>
+  languageItems.value.find(l => l.code === locale.value)?.icon,
+);
+
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   await authStore.login(payload.data.email, payload.data.password, redirectPath.value ?? undefined);
 }
@@ -83,7 +95,18 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
+  <div class="relative min-h-screen flex flex-col items-center justify-center gap-4 p-4">
+    <div class="absolute top-4 right-4">
+      <USelect
+        :model-value="locale"
+        :items="languageItems"
+        label-key="name"
+        value-key="code"
+        :icon="selectedLanguageIcon"
+        @update:model-value="setLocale($event)"
+      />
+    </div>
+
     <UPageCard class="w-full max-w-md">
       <UAuthForm
         ref="authForm"
