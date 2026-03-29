@@ -328,13 +328,55 @@ async function submitSignature() {
       const newStatus = result.data?.status;
       if (newStatus === 'completed') {
         successMessage.value = 'ลงนามสำเร็จ! เอกสารดำเนินการเสร็จสมบูรณ์';
+        // Notify requester (assume first flowStep is requester)
+        try {
+          const requesterStep = signingStatus.value?.flowSteps?.[0];
+          if (requesterStep && requesterStep.signedBy) {
+            await $fetch('/api/notifications/notify', {
+              method: 'POST',
+              body: JSON.stringify({
+                userId: requesterStep.signedBy,
+                message: `คำร้อง #${requestId} ได้รับการเซ็นเสร็จสิ้นแล้ว`,
+                type: 'sign_completed',
+                link: `/student/my-requests`,
+              }),
+            });
+          }
+        }
+        catch (notifyErr) {
+          console.error('Failed to send completion notification:', notifyErr);
+        }
+      }
+      else if (newStatus === 'in_progress') {
+        successMessage.value = `ลงนามสำเร็จ! ส่งต่อไปยัง ${result.data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`;
+        // Notify next signer (find next pending step)
+        try {
+          await fetchStatus(); // Refresh to get updated flowSteps
+          const nextStep = signingStatus.value?.flowSteps?.find(s => s.status === 'pending');
+          if (nextStep && nextStep.signedBy) {
+            await $fetch('/api/notifications/notify', {
+              method: 'POST',
+              body: JSON.stringify({
+                userId: nextStep.signedBy,
+                message: `คุณมีคำร้อง #${requestId} ที่ต้องลงนามในขั้นตอนของคุณ`,
+                type: 'sign_request',
+                link: `/signer/sign/${requestId}`,
+              }),
+            });
+          }
+        }
+        catch (notifyErr) {
+          console.error('Failed to send next signer notification:', notifyErr);
+        }
       }
       else {
         successMessage.value = `ลงนามสำเร็จ! ส่งต่อไปยัง ${result.data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`;
       }
       signatureDataUrl.value = null;
       showSignaturePopup.value = false;
-      await fetchStatus();
+      if (newStatus !== 'in_progress') {
+        await fetchStatus();
+      }
     }
     else {
       error.value = result.error ?? 'ลงนามไม่สำเร็จ';
