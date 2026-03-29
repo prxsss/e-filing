@@ -185,6 +185,10 @@ function getRoleById(roleId: number | null) {
   return roles.value?.find(r => r.value === roleId) ?? null;
 }
 
+function getAssignmentKey(assignment: RoleAssignment) {
+  return `${assignment.roleId ?? 'null'}:${assignment.facultyId ?? 'null'}:${assignment.departmentId ?? 'null'}`;
+}
+
 function isStudentRole(roleId: number | null) {
   const role = getRoleById(roleId);
   if (!role)
@@ -343,29 +347,39 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
       },
     });
 
-    // Handle role assignments logic completely (replace or update)
+    // Rewrite only role IDs whose assignment sets have changed.
+    // This avoids unnecessary delete/reinsert flows (important for guarded roles like Admin).
     if (userData.value?.assignments) {
       const currentRoleAssignments = mapAssignmentsToRoleAssignments(userData.value.assignments);
-
       const newRoleAssignments = roleAssignments.value;
 
-      // TODO: This could be optimized to only delete what's removed and add what's new.
-      // For now, doing a simpler approach: delete old ones and insert new ones.
+      const roleIdsToCheck = new Set<number>([
+        ...currentRoleAssignments.map(role => role.roleId).filter((roleId): roleId is number => Boolean(roleId)),
+        ...newRoleAssignments.map(role => role.roleId).filter((roleId): roleId is number => Boolean(roleId)),
+      ]);
 
-      // Delete old roles
-      for (const role of currentRoleAssignments) {
-        await $fetch('/api/user-role', {
-          method: 'DELETE',
-          body: { userId, roleId: role.roleId },
-        });
-      }
+      for (const roleId of roleIdsToCheck) {
+        const currentForRole = currentRoleAssignments.filter(role => role.roleId === roleId);
+        const nextForRole = newRoleAssignments.filter(role => role.roleId === roleId);
 
-      // Add new roles
-      for (const role of newRoleAssignments) {
-        if (role.roleId) {
+        const currentKeys = [...new Set(currentForRole.map(getAssignmentKey))].sort();
+        const nextKeys = [...new Set(nextForRole.map(getAssignmentKey))].sort();
+
+        if (JSON.stringify(currentKeys) === JSON.stringify(nextKeys)) {
+          continue;
+        }
+
+        if (currentForRole.length > 0) {
+          await $fetch('/api/user-role', {
+            method: 'DELETE',
+            body: { userId, roleId },
+          });
+        }
+
+        for (const role of nextForRole) {
           await $fetch('/api/user-role', {
             method: 'POST',
-            body: { userId, roleId: role.roleId, facultyId: role.facultyId, departmentId: role.departmentId },
+            body: { userId, roleId, facultyId: role.facultyId, departmentId: role.departmentId },
           });
         }
       }
@@ -378,7 +392,14 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
   }
   catch (error) {
     console.error('Error updating user:', error);
-    toast.add({ title: t('adminUsers.edit.feedback.updateError'), color: 'error' });
+    const apiError = error as { data?: { code?: string; message?: string }; message?: string };
+    const isLastAdminLocked = apiError.data?.code === 'LAST_ADMIN_ROLE_LOCKED';
+
+    toast.add({
+      title: t('adminUsers.edit.feedback.updateError'),
+      description: isLastAdminLocked ? apiError.data?.message || apiError.message : undefined,
+      color: 'error',
+    });
   }
   finally {
     loading.value = false;

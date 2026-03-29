@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import db from '..';
 import { roles, userRoles } from '../schema';
@@ -56,6 +56,33 @@ export async function addUserRole(userId: string, roleId: number, facultyId?: nu
 }
 
 export async function removeUserRole(userId: string, roleId: number) {
+  const [selectedRole] = await db.select({
+    name: roles.name,
+  }).from(roles).where(eq(roles.id, roleId));
+
+  if (!selectedRole) {
+    throw createError({ statusCode: 400, message: `Invalid roleId: ${roleId}` });
+  }
+
+  const isAdminRole = selectedRole.name?.trim().toLowerCase() === 'admin';
+  if (isAdminRole) {
+    const [adminCountResult] = await db
+      .select({ count: sql<number>`cast(count(distinct ${userRoles.userId}) as int)` })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(sql`lower(${roles.name}) = 'admin'`);
+
+    if ((adminCountResult?.count ?? 0) <= 1) {
+      throw createError({
+        statusCode: 409,
+        message: 'Cannot remove admin role from the last admin user',
+        data: {
+          code: 'LAST_ADMIN_ROLE_LOCKED',
+        },
+      });
+    }
+  }
+
   return db.delete(userRoles).where(
     and(
       eq(userRoles.userId, userId),

@@ -168,12 +168,12 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
   // make sure to check the permission at UDropdownMenu level with v-if,
   // so that the menu will be hidden if the user doesn't have permission to do any action in the menu.
   // This is to prevent confusion for users when they see an empty "Actions" dropdown.
-  {
-    label: t('adminUsers.detail.actions.resetPassword'),
-    icon: 'i-lucide-rotate-ccw',
-    color: 'neutral',
-    visible: computed(() => authStore.can('user.reset_password')),
-  },
+  // {
+  //   label: t('adminUsers.detail.actions.resetPassword'),
+  //   icon: 'i-lucide-rotate-ccw',
+  //   color: 'neutral',
+  //   visible: computed(() => authStore.can('user.reset_password')),
+  // },
   {
     label: t('adminUsers.detail.actions.banUser'),
     icon: 'i-lucide-user-x',
