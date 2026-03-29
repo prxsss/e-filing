@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { departments, userRoles, faculties, roles, users, request, signatureFlow, attachments, notifications, requestTemplateValues, activationOtps, permissions, rolePermissions } from "./schema";
+import { departments, userRoles, faculties, roles, users, request, signatureFlow, signatures, attachments, notifications, requestTemplateValues, activationOtps, permissions, rolePermissions } from "./schema";
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({
 	department: one(departments, {
@@ -26,11 +26,13 @@ export const departmentsRelations = relations(departments, ({one, many}) => ({
 		fields: [departments.facultyId],
 		references: [faculties.id]
 	}),
+	requests: many(request),
 }));
 
 export const facultiesRelations = relations(faculties, ({many}) => ({
 	userRoles: many(userRoles),
 	departments: many(departments),
+	requests: many(request),
 }));
 
 export const rolesRelations = relations(roles, ({many}) => ({
@@ -41,12 +43,13 @@ export const rolesRelations = relations(roles, ({many}) => ({
 
 export const usersRelations = relations(users, ({many}) => ({
 	userRoles: many(userRoles),
+	signatures: many(signatures),
 	notifications: many(notifications),
 	requests: many(request),
 	activationOtps: many(activationOtps),
 }));
 
-export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
+export const signatureFlowRelations = relations(signatureFlow, ({one, many}) => ({
 	request: one(request, {
 		fields: [signatureFlow.requestId],
 		references: [request.id]
@@ -55,16 +58,41 @@ export const signatureFlowRelations = relations(signatureFlow, ({one}) => ({
 		fields: [signatureFlow.roleId],
 		references: [roles.id]
 	}),
+	signatures: many(signatures),
 }));
 
 export const requestRelations = relations(request, ({one, many}) => ({
 	signatureFlows: many(signatureFlow),
+	signatures: many(signatures),
 	attachments: many(attachments),
+	department: one(departments, {
+		fields: [request.departmentId],
+		references: [departments.id]
+	}),
+	faculty: one(faculties, {
+		fields: [request.facultyId],
+		references: [faculties.id]
+	}),
 	user: one(users, {
 		fields: [request.userId],
 		references: [users.id]
 	}),
 	requestTemplateValues: many(requestTemplateValues),
+}));
+
+export const signaturesRelations = relations(signatures, ({one}) => ({
+	request: one(request, {
+		fields: [signatures.requestId],
+		references: [request.id]
+	}),
+	signatureFlow: one(signatureFlow, {
+		fields: [signatures.signatureFlowId],
+		references: [signatureFlow.id]
+	}),
+	user: one(users, {
+		fields: [signatures.userId],
+		references: [users.id]
+	}),
 }));
 
 export const attachmentsRelations = relations(attachments, ({one}) => ({

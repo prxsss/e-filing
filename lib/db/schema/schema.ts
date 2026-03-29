@@ -1,6 +1,6 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import { nanoid} from "nanoid"
+import {nanoid} from 'nanoid'
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 
@@ -138,7 +138,23 @@ export const signatures = pgTable("signatures", {
 	fieldInstanceId: text("field_instance_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	pdfHash: text("pdf_hash"),
-});
+}, (table) => [
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [request.id],
+			name: "signatures_request_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.signatureFlowId],
+			foreignColumns: [signatureFlow.id],
+			name: "signatures_signature_flow_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "signatures_user_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+]);
 
 export const attachments = pgTable("attachments", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -185,6 +201,40 @@ export const auditLogs = pgTable("audit_logs", {
 	authPerformedBy: text("auth_performed_by"),
 });
 
+export const request = pgTable("request", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	templateId: bigint("template_id", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	createdBy: bigint("created_by", { mode: "number" }),
+	status: text(),
+	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	filledDocumentUrl: text("filled_document_url"),
+	userId: text("user_id"),
+	note: text(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+	facultyId: integer("faculty_id"),
+	departmentId: integer("department_id"),
+}, (table) => [
+	foreignKey({
+			columns: [table.departmentId],
+			foreignColumns: [departments.id],
+			name: "request_department_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.facultyId],
+			foreignColumns: [faculties.id],
+			name: "request_faculty_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "request_user_id_fkey"
+		}),
+]);
+
 export const requestTemplate = pgTable("request_template", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -203,28 +253,6 @@ export const requestTemplate = pgTable("request_template", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	documentHeight: bigint("document_height", { mode: "number" }),
 });
-
-export const request = pgTable("request", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	templateId: bigint("template_id", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	createdBy: bigint("created_by", { mode: "number" }),
-	status: text(),
-	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	filledDocumentUrl: text("filled_document_url"),
-	userId: text("user_id"),
-	note: text(),
-	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "request_user_id_fkey"
-		}),
-]);
 
 export const requestTemplateValues = pgTable("request_template_values", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
