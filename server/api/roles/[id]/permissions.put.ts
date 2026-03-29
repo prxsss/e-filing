@@ -2,6 +2,8 @@ import {
   getAssignedRoleScopedPermissionIds,
   getRoleById,
   getRoleScopedPermissionIds,
+
+  hasExactlyOneDashboardPermission,
   updateRolePermissions,
 } from '~~/lib/db/queries/permission';
 
@@ -18,6 +20,15 @@ export default defineEventHandler(async (event) => {
 
   if (!Array.isArray(body.permissionIds)) {
     throw createError({ statusCode: 400, statusMessage: 'permissionIds must be an array' });
+  }
+
+  const hasExactlyOneDashboard = await hasExactlyOneDashboardPermission(body.permissionIds);
+  if (!hasExactlyOneDashboard) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Role must include exactly one dashboard permission',
+      data: { code: 'INVALID_DASHBOARD_PERMISSION_COUNT' },
+    });
   }
 
   const role = await getRoleById(id);

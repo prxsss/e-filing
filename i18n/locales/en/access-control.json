@@ -40,7 +40,8 @@
         "updateFailed": "Failed to update role.",
         "deleteFailed": "Failed to delete role.",
         "permissionFailed": "Failed to save permission changes.",
-        "deleteInUse": "This role is currently assigned to {count} user(s) and cannot be deleted."
+        "deleteInUse": "This role is currently assigned to {count} user(s) and cannot be deleted.",
+        "dashboardPermissionRequired": "Role must include one dashboard permission"
       },
       "locked": {
         "adminDelete": "The Admin role is protected and cannot be deleted.",

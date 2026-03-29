@@ -19,6 +19,11 @@ const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const loading = ref(false);
 const isDirty = ref(false);
 const searchQuery = ref('');
+const dashboardPermissionCodes = new Set([
+  'dashboard.student.view',
+  'dashboard.signer.view',
+  'dashboard.admin.view',
+]);
 
 // ── Form Schema ──
 const createRoleSchema = z.object({
@@ -99,9 +104,39 @@ const filteredModules = computed(() => {
     .filter(mod => mod.permissions.length > 0);
 });
 
+const dashboardPermissionIds = computed(() => {
+  if (!permissions.value) {
+    return new Set<number>();
+  }
+
+  return new Set(
+    permissions.value
+      .filter(permission => dashboardPermissionCodes.has(permission.code))
+      .map(permission => permission.id),
+  );
+});
+
+const selectedDashboardPermissionCount = computed(() => {
+  const selectedPermissionIds = form.value.permissionIds ?? [];
+  return selectedPermissionIds.filter(permissionId => dashboardPermissionIds.value.has(permissionId)).length;
+});
+
 // ── Toggle permission ──
 function togglePermission(permId: number) {
   const ids = [...(form.value.permissionIds ?? [])];
+  const isDashboardPermission = dashboardPermissionIds.value.has(permId);
+
+  if (isDashboardPermission) {
+    const nextIds = ids.filter(id => !dashboardPermissionIds.value.has(id));
+
+    if (!ids.includes(permId)) {
+      nextIds.push(permId);
+    }
+
+    form.value.permissionIds = nextIds;
+    return;
+  }
+
   const idx = ids.indexOf(permId);
   if (idx >= 0) {
     ids.splice(idx, 1);
@@ -128,6 +163,15 @@ watch(form, () => {
 
 // ── Submit ──
 async function handleCreateRole(event: FormSubmitEvent<CreateRoleSchema>) {
+  if (selectedDashboardPermissionCount.value !== 1) {
+    toast.add({
+      title: t('adminAccessControl.messages.error.createFailed'),
+      description: t('adminAccessControl.messages.error.dashboardPermissionRequired'),
+      color: 'error',
+    });
+    return;
+  }
+
   loading.value = true;
 
   try {

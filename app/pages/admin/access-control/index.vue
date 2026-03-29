@@ -13,6 +13,11 @@ const toast = useToast();
 const overlay = useOverlay();
 
 const authStore = useAuthStore();
+const dashboardPermissionCodes = new Set([
+  'dashboard.student.view',
+  'dashboard.signer.view',
+  'dashboard.admin.view',
+]);
 
 // ── State ──
 const searchQuery = ref('');
@@ -204,6 +209,28 @@ const filteredModules = computed(() => {
     .filter(mod => mod.permissions.length > 0);
 });
 
+const dashboardPermissionIds = computed(() => {
+  if (!permissions.value) {
+    return new Set<number>();
+  }
+
+  return new Set(
+    permissions.value
+      .filter(permission => dashboardPermissionCodes.has(permission.code))
+      .map(permission => permission.id),
+  );
+});
+
+const selectedDashboardPermissionCount = computed(() => {
+  let count = 0;
+  for (const permissionId of localPermissionIds.value) {
+    if (dashboardPermissionIds.value.has(permissionId)) {
+      count += 1;
+    }
+  }
+  return count;
+});
+
 // ── Toggle permission ──
 function togglePermission(permId: number, permissionCode: string) {
   if (isAdminRolePermissionLocked(permissionCode)) {
@@ -211,6 +238,21 @@ function togglePermission(permId: number, permissionCode: string) {
   }
 
   const s = new Set(localPermissionIds.value);
+  if (dashboardPermissionCodes.has(permissionCode)) {
+    for (const selectedPermissionId of [...s]) {
+      if (dashboardPermissionIds.value.has(selectedPermissionId)) {
+        s.delete(selectedPermissionId);
+      }
+    }
+
+    if (!localPermissionIds.value.has(permId)) {
+      s.add(permId);
+    }
+
+    localPermissionIds.value = s;
+    return;
+  }
+
   if (s.has(permId)) {
     s.delete(permId);
   }
@@ -243,6 +285,15 @@ async function saveChanges() {
   if (!selectedRoleId.value)
     return;
 
+  if (selectedDashboardPermissionCount.value !== 1) {
+    toast.add({
+      title: t('adminAccessControl.messages.error.updateFailed'),
+      description: t('adminAccessControl.messages.error.dashboardPermissionRequired'),
+      color: 'error',
+    });
+    return;
+  }
+
   saving.value = true;
   try {
     await $fetch(`/api/roles/${selectedRoleId.value}/permissions`, {
@@ -254,12 +305,22 @@ async function saveChanges() {
   }
   catch (error: unknown) {
     const statusCode = (error as { statusCode?: number })?.statusCode;
-    const errorData = (error as { data?: { code?: string } })?.data;
+    const errorData = (error as { data?: { code?: string; statusMessage?: string } })?.data;
 
     if (statusCode === 409 && errorData?.code === 'ADMIN_CRITICAL_PERMISSIONS_LOCKED') {
       toast.add({
         title: t('adminAccessControl.messages.error.updateFailed'),
         description: t('adminAccessControl.messages.locked.adminPermission'),
+        color: 'error',
+      });
+      await refreshRolePermissions();
+      return;
+    }
+
+    if (statusCode === 400 && errorData?.code === 'INVALID_DASHBOARD_PERMISSION_COUNT') {
+      toast.add({
+        title: t('adminAccessControl.messages.error.updateFailed'),
+        description: errorData.statusMessage ?? t('adminAccessControl.messages.error.dashboardPermissionRequired'),
         color: 'error',
       });
       await refreshRolePermissions();

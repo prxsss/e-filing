@@ -1,7 +1,13 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import db from '..';
 import { permissions, rolePermissions, roles } from '../schema';
+
+const DASHBOARD_PERMISSION_CODES = [
+  'dashboard.student.view',
+  'dashboard.signer.view',
+  'dashboard.admin.view',
+] as const;
 
 export async function getPermissions() {
   return db.select().from(permissions);
@@ -59,4 +65,22 @@ export async function updateRolePermissions(roleId: number, permissionIds: numbe
       );
     }
   });
+}
+
+export async function hasExactlyOneDashboardPermission(permissionIds: number[]) {
+  if (permissionIds.length === 0) {
+    return false;
+  }
+
+  const [result] = await db
+    .select({ count: sql<number>`cast(count(*) as int)` })
+    .from(permissions)
+    .where(
+      and(
+        inArray(permissions.id, permissionIds),
+        inArray(permissions.code, [...DASHBOARD_PERMISSION_CODES]),
+      ),
+    );
+
+  return (result?.count ?? 0) === 1;
 }
