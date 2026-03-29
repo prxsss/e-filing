@@ -1,6 +1,6 @@
-import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import {nanoid} from 'nanoid'
+import {nanoid} from "nanoid";
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 
@@ -294,7 +294,8 @@ export const roles = pgTable("roles", {
 	descriptionTh: text("description_th"),
 	nameTh: varchar("name_th", { length: 50 }).notNull(),
 }, (table) => [
-	unique("roles_name_unique").on(table.name),
+	uniqueIndex("roles_name_th_unique_ci").using("btree", sql`lower((name_th)::text)`),
+	uniqueIndex("roles_name_unique_ci").using("btree", sql`lower((name)::text)`),
 ]);
 
 export const requestTemplateFields = pgTable("request_template_fields", {
