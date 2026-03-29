@@ -163,12 +163,18 @@ export default defineEventHandler(async (event) => {
       .select({
         id: users.id,
         isActive: users.isActive,
+        banned: users.banned,
         firstNameEn: users.firstNameEn,
         lastNameEn: users.lastNameEn,
       })
       .from(users)
       .where(eq(users.id, userInfo.uid))
       .limit(1);
+
+    if (existingUser?.banned) {
+      console.warn('[KU OAuth] banned user login blocked', { uid: userInfo.uid });
+      return sendRedirect(event, getLoginRedirectUrl().toString());
+    }
 
     if (!existingUser) {
       const isStudent = userInfo['type-person'] === '3' || userInfo['type-person'] === '7' || userInfo['type-person'] === '8';
@@ -226,6 +232,7 @@ export default defineEventHandler(async (event) => {
           concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
         `,
         email: users.email,
+        banned: users.banned,
       })
       .from(users)
       .where(eq(users.id, userInfo.uid))
@@ -233,6 +240,11 @@ export default defineEventHandler(async (event) => {
 
     if (!user) {
       console.warn('[KU OAuth] user lookup failed after upsert', { uid: userInfo.uid });
+      return sendRedirect(event, getLoginRedirectUrl().toString());
+    }
+
+    if (user.banned) {
+      console.warn('[KU OAuth] banned user login blocked after upsert', { uid: userInfo.uid });
       return sendRedirect(event, getLoginRedirectUrl().toString());
     }
 

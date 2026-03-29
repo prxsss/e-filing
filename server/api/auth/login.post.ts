@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
       email: users.email,
       passwordHash: users.passwordHash,
       isActive: users.isActive,
-      banned: users.banExpires,
+      banned: users.banned,
     })
     .from(users)
     .where(eq(users.email, body.email));
@@ -32,6 +32,10 @@ export default defineEventHandler(async (event) => {
   }
   if (!user.isActive) {
     throw createError({ statusCode: 403, message: 'Account is not activated.' });
+  }
+
+  if (user.banned) {
+    throw createError({ statusCode: 403, message: 'Account is banned.' });
   }
 
   // We can assert that passwordHash is not null here because the user must have a password to be active

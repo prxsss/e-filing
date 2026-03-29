@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
           concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
         `,
       email: users.email,
+      banned: users.banned,
     })
     .from(users)
     .where(eq(users.email, email))
@@ -22,6 +23,10 @@ export default defineEventHandler(async (event) => {
 
   if (!existingUser) {
     throw createError({ statusCode: 404, message: 'Email not found.' });
+  }
+
+  if (existingUser.banned) {
+    throw createError({ statusCode: 403, message: 'Account is banned.' });
   }
 
   // Find a valid OTP
