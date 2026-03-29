@@ -196,6 +196,10 @@ function getRoleById(roleId: number | null) {
   return roles.value?.find(r => r.value === roleId) ?? null;
 }
 
+function getAssignmentKey(assignment: RoleAssignment) {
+  return `${assignment.roleId ?? 'null'}:${assignment.facultyId ?? 'null'}:${assignment.departmentId ?? 'null'}`;
+}
+
 function isStudentRole(roleId: number | null) {
   const role = getRoleById(roleId);
   if (!role)
@@ -235,7 +239,20 @@ function addRoleAssignment() {
     return;
   }
 
-  roleAssignments.value.push({ ...newRoleAssignment.value });
+  const newAssignment: RoleAssignment = { ...newRoleAssignment.value };
+  const newAssignmentKey = getAssignmentKey(newAssignment);
+  const hasDuplicate = roleAssignments.value.some(assignment => getAssignmentKey(assignment) === newAssignmentKey);
+
+  if (hasDuplicate) {
+    toast.add({
+      title: t('adminUsers.create.feedback.createError'),
+      description: t('adminUsers.shared.validation.roleAssignmentDuplicate'),
+      color: 'error',
+    });
+    return;
+  }
+
+  roleAssignments.value.push(newAssignment);
   showRoleError.value = false;
   newRoleAssignment.value = { roleId: null, facultyId: null, departmentId: null };
   open.value = false;

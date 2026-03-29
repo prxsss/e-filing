@@ -60,7 +60,8 @@
       "validation": {
         "studentIdInvalid": "Student ID must be 10 digits",
         "roleRequired": "Role is required.",
-        "roleRequiredDesc": "Please assign at least one role to the user before continuing."
+        "roleRequiredDesc": "Please assign at least one role to the user before continuing.",
+        "roleAssignmentDuplicate": "This role assignment already exists."
       }
     },
     "create": {

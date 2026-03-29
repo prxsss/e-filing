@@ -227,7 +227,20 @@ function addRoleAssignment() {
     return;
   }
 
-  roleAssignments.value.push({ ...newRoleAssignment.value });
+  const newAssignment: RoleAssignment = { ...newRoleAssignment.value };
+  const newAssignmentKey = getAssignmentKey(newAssignment);
+  const hasDuplicate = roleAssignments.value.some(assignment => getAssignmentKey(assignment) === newAssignmentKey);
+
+  if (hasDuplicate) {
+    toast.add({
+      title: t('adminUsers.edit.feedback.updateError'),
+      description: t('adminUsers.shared.validation.roleAssignmentDuplicate'),
+      color: 'error',
+    });
+    return;
+  }
+
+  roleAssignments.value.push(newAssignment);
   showRoleError.value = false;
   newRoleAssignment.value = { roleId: null, facultyId: null, departmentId: null };
   open.value = false;

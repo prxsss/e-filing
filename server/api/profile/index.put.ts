@@ -23,6 +23,19 @@ export default defineEventHandler(async (event) => {
   const user = event.context.user!; // We can assert this because of the require-auth middleware
 
   const body = await readValidatedBody(event, updateProfileSchema.parse);
+  const assignmentKeys = new Set<string>();
+
+  for (const assignment of body.roleAssignments) {
+    const key = `${assignment.roleId}|${assignment.facultyId ?? 'null'}|${assignment.departmentId ?? 'null'}`;
+    if (assignmentKeys.has(key)) {
+      throw createError({
+        statusCode: 400,
+        message: 'Duplicate role assignment is not allowed',
+      });
+    }
+    assignmentKeys.add(key);
+  }
+
   const uniqueRoleIds = [...new Set(body.roleAssignments.map(item => item.roleId))];
 
   const selectedRoles = await db

@@ -237,6 +237,20 @@ function addRoleAssignment() {
   if (!newRoleAssignment.value.roleId)
     return;
 
+  const assignmentKey = `${newRoleAssignment.value.roleId}|${newRoleAssignment.value.facultyId ?? 'null'}|${newRoleAssignment.value.departmentId ?? 'null'}`;
+  const hasDuplicate = form.roleAssignments.some((item) => {
+    const existingKey = `${item.roleId}|${item.facultyId ?? 'null'}|${item.departmentId ?? 'null'}`;
+    return existingKey === assignmentKey;
+  });
+
+  if (hasDuplicate) {
+    toast.add({
+      title: t('profile.feedback.roleDuplicate'),
+      color: 'error',
+    });
+    return;
+  }
+
   form.roleAssignments.push({
     roleId: newRoleAssignment.value.roleId,
     facultyId: newRoleAssignment.value.facultyId,
