@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
-import { userRoles, users } from '~~/lib/db/schema';
+import { roles, userRoles, users } from '~~/lib/db/schema';
+import { inArray } from 'drizzle-orm';
 // import env from '~~/lib/env';
 import * as zod from 'zod';
 
@@ -30,6 +31,23 @@ export default defineEventHandler(async (event) => {
   await requirePermission(event, 'user.import');
 
   const body = await readValidatedBody(event, bulkImportSchema.parse);
+  const isStudentRoleName = (name?: string | null) => {
+    if (!name)
+      return false;
+    const normalizedName = name.trim().toLowerCase();
+    return ['student', 'นิสิต'].some(keyword => normalizedName === keyword || normalizedName.includes(keyword));
+  };
+
+  const allAssignedRoleIds = [...new Set(body.users.flatMap(user => user.roleAssignments.map(role => role.roleId)))];
+  const roleRows = allAssignedRoleIds.length > 0
+    ? await db.select({
+        id: roles.id,
+        name: roles.name,
+        nameTh: roles.nameTh,
+      }).from(roles).where(inArray(roles.id, allAssignedRoleIds))
+    : [];
+  const roleById = new Map(roleRows.map(role => [role.id, role]));
+
   // const defaultPassword = env.IMPORT_USER_PASSWORD;
 
   // if (!defaultPassword || defaultPassword.length < 8) {
@@ -46,6 +64,32 @@ export default defineEventHandler(async (event) => {
 
   for (const item of body.users) {
     try {
+      const assignedRoleIds = [...new Set(item.roleAssignments.map(role => role.roleId))];
+      const invalidRoleId = assignedRoleIds.find(roleId => !roleById.has(roleId));
+
+      if (invalidRoleId) {
+        throw createError({ statusCode: 400, message: `Invalid roleId: ${invalidRoleId}` });
+      }
+
+      const studentRoleIds = new Set(
+        assignedRoleIds.filter((roleId) => {
+          const role = roleById.get(roleId);
+          if (!role)
+            return false;
+          return isStudentRoleName(role.name) || isStudentRoleName(role.nameTh);
+        }),
+      );
+
+      const hasStudentRole = item.roleAssignments.some(role => studentRoleIds.has(role.roleId));
+      const hasNonStudentRole = item.roleAssignments.some(role => !studentRoleIds.has(role.roleId));
+
+      if (hasStudentRole && hasNonStudentRole) {
+        throw createError({
+          statusCode: 400,
+          message: 'Student role must be assigned alone and cannot be combined with other roles',
+        });
+      }
+
       await db.transaction(async (tx) => {
         const [createdUser] = await tx.insert(users).values({
           studentId: item.studentId?.trim() || null,

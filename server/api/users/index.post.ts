@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
-import { userRoles, users } from '~~/lib/db/schema';
+import { roles, userRoles, users } from '~~/lib/db/schema';
+import { inArray } from 'drizzle-orm';
 import * as zod from 'zod';
 
 const createUserSchema = zod.object({
@@ -25,6 +26,40 @@ export default defineEventHandler(async (event) => {
   await requirePermission(event, 'user.create');
 
   const body = await readValidatedBody(event, createUserSchema.parse);
+
+  const isStudentRoleName = (name?: string | null) => {
+    if (!name)
+      return false;
+    const normalizedName = name.trim().toLowerCase();
+    return ['student', 'นิสิต'].some(keyword => normalizedName === keyword || normalizedName.includes(keyword));
+  };
+
+  const assignedRoleIds = [...new Set(body.roleAssignments.map(role => role.roleId))];
+  const roleRows = await db.select({
+    id: roles.id,
+    name: roles.name,
+    nameTh: roles.nameTh,
+  }).from(roles).where(inArray(roles.id, assignedRoleIds));
+
+  if (roleRows.length !== assignedRoleIds.length) {
+    throw createError({ statusCode: 400, message: 'Some assigned roles are invalid' });
+  }
+
+  const studentRoleIds = new Set(
+    roleRows
+      .filter(role => isStudentRoleName(role.name) || isStudentRoleName(role.nameTh))
+      .map(role => role.id),
+  );
+
+  const hasStudentRole = body.roleAssignments.some(role => studentRoleIds.has(role.roleId));
+  const hasNonStudentRole = body.roleAssignments.some(role => !studentRoleIds.has(role.roleId));
+
+  if (hasStudentRole && hasNonStudentRole) {
+    throw createError({
+      statusCode: 400,
+      message: 'Student role must be assigned alone and cannot be combined with other roles',
+    });
+  }
 
   // const hashedPassword = await hashPassword(body.password);
 
