@@ -5,6 +5,8 @@ import * as z from 'zod';
 
 definePageMeta({
   title: 'adminFaculties.edit.title',
+  middleware: ['permission'],
+  permission: 'faculty.edit',
 });
 
 type FacultyDetail = {
