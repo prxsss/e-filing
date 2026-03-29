@@ -283,6 +283,24 @@ async function rejectRequest() {
         description: 'คำร้องถูกปฏิเสธเรียบร้อย',
         color: 'error',
       });
+      // Notify requester (assume first flowStep is requester)
+      try {
+        const requesterStep = signingStatus.value?.flowSteps?.[0];
+        if (requesterStep && requesterStep.signedBy) {
+          await $fetch('/api/notifications/notify', {
+            method: 'POST',
+            body: JSON.stringify({
+              userId: requesterStep.signedBy,
+              message: `คำร้อง #${requestId} ถูกปฏิเสธในขั้นตอนการลงนาม`,
+              type: 'sign_rejected',
+              link: `/student/my-requests`,
+            }),
+          });
+        }
+      }
+      catch (notifyErr) {
+        console.error('Failed to send rejection notification:', notifyErr);
+      }
       signatureDataUrl.value = null;
       showSignaturePopup.value = false;
       await fetchStatus();
