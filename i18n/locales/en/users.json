@@ -6,6 +6,20 @@
       "title": "Users",
       "addButton": "Add User",
       "search": "Search users",
+      "bulkBan": {
+        "button": "Ban Selected",
+        "confirmTitle": "Confirm Bulk Ban",
+        "confirmMessage": "Are you sure you want to ban selected users? They will not be able to login.",
+        "resultTitle": "Bulk Ban Completed",
+        "resultDescription": "Success: {success}, Skipped (self): {skippedSelf}, Skipped (already banned): {skippedAlreadyBanned}, Skipped (last admin protected): {skippedLastAdmin}, Failed: {failed}"
+      },
+      "bulkUnban": {
+        "button": "Unban Selected",
+        "confirmTitle": "Confirm Bulk Unban",
+        "confirmMessage": "Are you sure you want to unban selected users?",
+        "resultTitle": "Bulk Unban Completed",
+        "resultDescription": "Success: {success}, Skipped (not banned): {skippedNotBanned}, Failed: {failed}"
+      },
       "advancedSearch": {
         "fields": {
           "faculty": "Faculty",

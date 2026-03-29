@@ -6,6 +6,20 @@
       "title": "ผู้ใช้",
       "addButton": "เพิ่มผู้ใช้",
       "search": "ค้นหาผู้ใช้",
+      "bulkBan": {
+        "button": "ระงับผู้ใช้ที่เลือก",
+        "confirmTitle": "ยืนยันการระงับหลายรายการ",
+        "confirmMessage": "คุณแน่ใจหรือไม่ที่จะระงับผู้ใช้ที่เลือก? ผู้ใช้เหล่านี้จะไม่สามารถเข้าสู่ระบบได้",
+        "resultTitle": "สรุปผลการระงับ",
+        "resultDescription": "สำเร็จ: {success}, ข้าม (ตัวเอง): {skippedSelf}, ข้าม (ถูกระงับแล้ว): {skippedAlreadyBanned}, ข้าม (ป้องกันแอดมินคนสุดท้าย): {skippedLastAdmin}, ล้มเหลว: {failed}"
+      },
+      "bulkUnban": {
+        "button": "ยกเลิกระงับผู้ใช้ที่เลือก",
+        "confirmTitle": "ยืนยันการยกเลิกระงับหลายรายการ",
+        "confirmMessage": "คุณแน่ใจหรือไม่ที่จะยกเลิกระงับผู้ใช้ที่เลือก?",
+        "resultTitle": "สรุปผลการยกเลิกระงับ",
+        "resultDescription": "สำเร็จ: {success}, ข้าม (ยังไม่ถูกระงับ): {skippedNotBanned}, ล้มเหลว: {failed}"
+      },
       "advancedSearch": {
         "fields": {
           "faculty": "คณะ",

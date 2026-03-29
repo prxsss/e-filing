@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
 
+import { LazyBaseConfirmDialog, LazyBaseConfirmDialogWithReason } from '#components';
 import { h, resolveComponent } from 'vue';
 
 import type { UserListItem } from '~/types/user';
@@ -13,12 +14,28 @@ definePageMeta({
 
 const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
+const UCheckbox = resolveComponent('UCheckbox');
 
 const router = useRouter();
 const localPath = useLocalePath();
+const overlay = useOverlay();
+const toast = useToast();
 const { locale, t } = useI18n();
 
 const authStore = useAuthStore();
+const confirmDialog = overlay.create(LazyBaseConfirmDialog);
+const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
+
+type SelectableRow = {
+  getIsSelected: () => boolean;
+  toggleSelected: (value: boolean) => void;
+};
+
+type SelectableTable = {
+  getIsSomePageRowsSelected: () => boolean;
+  getIsAllPageRowsSelected: () => boolean;
+  toggleAllPageRowsSelected: (value: boolean) => void;
+};
 
 type SelectOption<T = number | string> = {
   label: string;
@@ -156,7 +173,40 @@ const { rows: data, isLoading, page, pageSize, total, refresh } = useUsers({
   status: appliedStatus,
 });
 
+const rowSelection = ref<Record<string, boolean>>({});
+const bulkBanLoading = ref(false);
+const bulkUnbanLoading = ref(false);
+
+const selectedUsers = computed(() => {
+  return (data.value ?? []).filter(user => rowSelection.value[user.id]);
+});
+
+const canBulkBan = computed(() => {
+  return authStore.can('user.status') && selectedUsers.value.length > 0 && !bulkBanLoading.value;
+});
+
+const canBulkUnban = computed(() => {
+  return authStore.can('user.status') && selectedUsers.value.length > 0 && !bulkUnbanLoading.value;
+});
+
 const columns: TableColumn<UserListItem>[] = [
+  {
+    id: 'select',
+    header: (ctx: { table: SelectableTable }) =>
+      h(UCheckbox, {
+        'modelValue': ctx.table.getIsSomePageRowsSelected() ? 'indeterminate' : ctx.table.getIsAllPageRowsSelected(),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => ctx.table.toggleAllPageRowsSelected(!!value),
+        'aria-label': 'Select all',
+      }),
+    cell: (ctx: { row: SelectableRow }) =>
+      h(UCheckbox, {
+        'modelValue': ctx.row.getIsSelected(),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => ctx.row.toggleSelected(!!value),
+        'aria-label': 'Select row',
+      }),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     id: 'no',
     header: t('common.table.no'),
@@ -284,6 +334,178 @@ const columns: TableColumn<UserListItem>[] = [
 
 const advancedSearchOpen = ref(false);
 
+async function onBulkBan() {
+  if (!canBulkBan.value) {
+    return;
+  }
+
+  const instance = confirmDialogWithReason.open({
+    title: t('adminUsers.list.bulkBan.confirmTitle'),
+    description: t('adminUsers.list.bulkBan.confirmMessage'),
+    reasonRequired: true,
+    reasonPlaceholder: t('adminUsers.detail.banDialog.reasonPlaceholder'),
+    reasonErrorMessage: t('adminUsers.detail.banDialog.reasonErrorMessage'),
+    cancelButton: {
+      label: t('common.actions.cancel'),
+    },
+    confirmButton: {
+      label: t('adminUsers.list.bulkBan.button'),
+      color: 'error',
+    },
+  });
+
+  const result = await instance.result;
+  if (!result.confirmed) {
+    return;
+  }
+
+  const summary = {
+    success: 0,
+    skippedSelf: 0,
+    skippedAlreadyBanned: 0,
+    skippedLastAdmin: 0,
+    failed: 0,
+  };
+
+  bulkBanLoading.value = true;
+  try {
+    for (const targetUser of selectedUsers.value) {
+      if (targetUser.banned) {
+        summary.skippedAlreadyBanned++;
+        continue;
+      }
+
+      if (targetUser.id === authStore.session.user?.id) {
+        summary.skippedSelf++;
+        continue;
+      }
+
+      try {
+        await $fetch(`/api/users/${targetUser.id}/ban`, {
+          method: 'PATCH',
+          body: {
+            banReason: result.confirmationReason!,
+          },
+        });
+        summary.success++;
+      }
+      catch (error) {
+        const apiError = error as { data?: { code?: string; message?: string }; message?: string };
+        const code = apiError.data?.code;
+        const message = apiError.data?.message || apiError.message || '';
+
+        if (code === 'LAST_ADMIN_BAN_LOCKED') {
+          summary.skippedLastAdmin++;
+          continue;
+        }
+
+        if (message.includes('You cannot ban your own account')) {
+          summary.skippedSelf++;
+          continue;
+        }
+
+        if (message.includes('already banned')) {
+          summary.skippedAlreadyBanned++;
+          continue;
+        }
+
+        summary.failed++;
+      }
+    }
+
+    await refresh();
+    rowSelection.value = {};
+
+    toast.add({
+      title: t('adminUsers.list.bulkBan.resultTitle'),
+      description: t('adminUsers.list.bulkBan.resultDescription', {
+        success: summary.success,
+        skippedSelf: summary.skippedSelf,
+        skippedAlreadyBanned: summary.skippedAlreadyBanned,
+        skippedLastAdmin: summary.skippedLastAdmin,
+        failed: summary.failed,
+      }),
+      color: summary.failed > 0 ? 'warning' : 'success',
+    });
+  }
+  finally {
+    bulkBanLoading.value = false;
+  }
+}
+
+async function onBulkUnban() {
+  if (!canBulkUnban.value) {
+    return;
+  }
+
+  const instance = confirmDialog.open({
+    title: t('adminUsers.list.bulkUnban.confirmTitle'),
+    description: t('adminUsers.list.bulkUnban.confirmMessage'),
+    cancelButton: {
+      label: t('common.actions.cancel'),
+    },
+    confirmButton: {
+      label: t('adminUsers.list.bulkUnban.button'),
+      color: 'primary',
+    },
+  });
+
+  const result = await instance.result;
+  if (!result) {
+    return;
+  }
+
+  const summary = {
+    success: 0,
+    skippedNotBanned: 0,
+    failed: 0,
+  };
+
+  bulkUnbanLoading.value = true;
+  try {
+    for (const targetUser of selectedUsers.value) {
+      if (!targetUser.banned) {
+        summary.skippedNotBanned++;
+        continue;
+      }
+
+      try {
+        await $fetch(`/api/users/${targetUser.id}/unban`, {
+          method: 'PATCH',
+        });
+        summary.success++;
+      }
+      catch (error) {
+        const apiError = error as { data?: { message?: string }; message?: string };
+        const message = apiError.data?.message || apiError.message || '';
+
+        if (message.includes('is not banned')) {
+          summary.skippedNotBanned++;
+          continue;
+        }
+
+        summary.failed++;
+      }
+    }
+
+    await refresh();
+    rowSelection.value = {};
+
+    toast.add({
+      title: t('adminUsers.list.bulkUnban.resultTitle'),
+      description: t('adminUsers.list.bulkUnban.resultDescription', {
+        success: summary.success,
+        skippedNotBanned: summary.skippedNotBanned,
+        failed: summary.failed,
+      }),
+      color: summary.failed > 0 ? 'warning' : 'success',
+    });
+  }
+  finally {
+    bulkUnbanLoading.value = false;
+  }
+}
+
 function applySearch() {
   appliedSearch.value = searchInput.value.trim();
   page.value = 1;
@@ -320,7 +542,32 @@ function applyAdvancedSearch() {
         </UButton>
       </div>
     </div>
-    <div class="w-full">
+    <div class="flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <UButton
+          v-if="authStore.can('user.status') && selectedUsers.length > 0"
+          color="error"
+          variant="soft"
+          icon="i-lucide-user-x"
+          :disabled="!canBulkBan"
+          :loading="bulkBanLoading"
+          @click="onBulkBan"
+        >
+          {{ selectedUsers.length > 0 ? `${t('adminUsers.list.bulkBan.button')} (${selectedUsers.length})` : t('adminUsers.list.bulkBan.button') }}
+        </UButton>
+
+        <UButton
+          v-if="authStore.can('user.status') && selectedUsers.length > 0"
+          color="success"
+          variant="soft"
+          icon="i-lucide-user-check"
+          :disabled="!canBulkUnban"
+          :loading="bulkUnbanLoading"
+          @click="onBulkUnban"
+        >
+          {{ selectedUsers.length > 0 ? `${t('adminUsers.list.bulkUnban.button')} (${selectedUsers.length})` : t('adminUsers.list.bulkUnban.button') }}
+        </UButton>
+      </div>
       <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
           <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminUsers.list.search')" @keyup.enter="applySearch" />
@@ -435,8 +682,10 @@ function applyAdvancedSearch() {
     </div>
     <UCard>
       <UTable
+        v-model:row-selection="rowSelection"
         :data="data"
         :columns
+        :get-row-id="(row: UserListItem) => row.id"
         :loading="isLoading"
         class="flex-1"
       />
