@@ -99,5 +99,21 @@
         "actionError": "Failed to update user status. Please try again."
       }
     }
+  },
+  "profile": {
+    "menu": "My Profile",
+    "title": "My Profile",
+    "description": "Update your profile information and signing role.",
+    "form": {
+      "rolePlaceholder": "Select role",
+      "roleRestrictionTitle": "Role restriction",
+      "roleRestrictionDescription": "Only roles with request.sign permission are available."
+    },
+    "feedback": {
+      "loadError": "Unable to load profile data.",
+      "saveSuccess": "Profile updated successfully.",
+      "saveError": "Unable to update profile.",
+      "roleDuplicate": "This role assignment is already in the list."
+    }
   }
 }
