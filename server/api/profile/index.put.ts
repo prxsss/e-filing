@@ -12,7 +12,7 @@ const updateProfileSchema = zod.object({
   lastNameTh: zod.string().trim().min(1, 'Last name (TH) is required'),
   roleAssignments: zod.array(zod.object({
     roleId: zod.number().int().positive(),
-    facultyId: zod.number().int().positive().nullable().optional(),
+    facultyId: zod.number().int().positive(),
     departmentId: zod.number().int().positive().nullable().optional(),
   })).min(1, 'At least one role assignment is required'),
 });

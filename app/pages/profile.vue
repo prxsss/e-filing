@@ -386,6 +386,7 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
 
                         <UFormField
                           :label="t('common.table.faculty')"
+                          required
                         >
                           <USelectMenu
                             v-model="newRoleAssignment.facultyId"
@@ -418,7 +419,7 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
 
                     <template #footer="{ close }">
                       <UButton :label="t('common.actions.cancel')" color="neutral" variant="outline" @click="close" />
-                      <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId" @click="addRoleAssignment" />
+                      <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId" @click="addRoleAssignment" />
                     </template>
                   </UModal>
                 </div>
