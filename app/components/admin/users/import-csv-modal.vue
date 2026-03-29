@@ -57,28 +57,34 @@ const emit = defineEmits<{
 }>();
 const authStore = useAuthStore();
 const toast = useToast();
+const { t } = useI18n();
 const USelectMenu = resolveComponent('USelectMenu');
 const UInput = resolveComponent('UInput');
 const UFormField = resolveComponent('UFormField');
-const systemFields: Array<{ key: SystemFieldKey; label: string; required: boolean }> = [
-  { key: 'student_id', label: 'Student ID', required: false },
-  { key: 'staff_id', label: 'Staff ID', required: false },
-  { key: 'title_en', label: 'Title (EN)', required: false },
-  { key: 'first_name_en', label: 'First Name (EN)', required: true },
-  { key: 'last_name_en', label: 'Last Name (EN)', required: true },
-  { key: 'title_th', label: 'Title (TH)', required: false },
-  { key: 'first_name_th', label: 'First Name (TH)', required: true },
-  { key: 'last_name_th', label: 'Last Name (TH)', required: true },
-  { key: 'email', label: 'Email', required: true },
-  { key: 'image', label: 'Image URL', required: false },
-  { key: 'role', label: 'Role', required: true },
-  { key: 'faculty', label: 'Faculty', required: true },
-  { key: 'department', label: 'Department', required: true },
+const systemFields: Array<{ key: SystemFieldKey; labelKey: string; required: boolean }> = [
+  { key: 'student_id', labelKey: 'adminUsers.shared.form.studentId', required: false },
+  { key: 'staff_id', labelKey: 'adminUsers.shared.form.staffId', required: false },
+  { key: 'title_en', labelKey: 'adminUsers.shared.form.titleEn', required: false },
+  { key: 'first_name_en', labelKey: 'adminUsers.shared.form.firstNameEn', required: true },
+  { key: 'last_name_en', labelKey: 'adminUsers.shared.form.lastNameEn', required: true },
+  { key: 'title_th', labelKey: 'adminUsers.shared.form.titleTh', required: false },
+  { key: 'first_name_th', labelKey: 'adminUsers.shared.form.firstNameTh', required: true },
+  { key: 'last_name_th', labelKey: 'adminUsers.shared.form.lastNameTh', required: true },
+  { key: 'email', labelKey: 'common.form.email', required: true },
+  { key: 'image', labelKey: 'adminUsers.importCsv.fields.imageUrl', required: false },
+  { key: 'role', labelKey: 'common.table.role', required: true },
+  { key: 'faculty', labelKey: 'common.table.faculty', required: true },
+  { key: 'department', labelKey: 'common.table.department', required: true },
 ];
 
 const csvTemplateHeaders = systemFields.map(field => field.key).join(',');
 
-const steps = ['Upload CSV', 'Column Mapping', 'Preview & Import', 'Complete'];
+const steps = computed(() => [
+  t('adminUsers.importCsv.steps.uploadCsv'),
+  t('adminUsers.importCsv.steps.columnMapping'),
+  t('adminUsers.importCsv.steps.previewImport'),
+  t('adminUsers.importCsv.steps.complete'),
+]);
 const currentStep = ref(1);
 const isModalOpen = ref(false);
 
@@ -160,9 +166,14 @@ const defaultDepartmentItems = computed<SelectItem[]>(() => {
 });
 
 const mappingSelectItems = computed<SelectItem[]>(() => [
-  { label: 'Not mapped', value: '__unmapped__' },
+  { label: t('adminUsers.importCsv.mapping.notMapped'), value: '__unmapped__' },
   ...csvHeaders.value.map(header => ({ label: header, value: header })),
 ]);
+
+function getSystemFieldLabel(fieldKey: SystemFieldKey) {
+  const field = systemFields.find(item => item.key === fieldKey);
+  return field ? t(field.labelKey) : fieldKey;
+}
 
 const mappingErrors = computed(() => {
   const errors: string[] = [];
@@ -170,12 +181,12 @@ const mappingErrors = computed(() => {
   const duplicateColumns = selectedColumns.filter((column, index) => selectedColumns.indexOf(column) !== index);
 
   if (duplicateColumns.length > 0) {
-    errors.push('Each CSV column can only be mapped once.');
+    errors.push(t('adminUsers.importCsv.mapping.duplicateColumns'));
   }
 
   for (const field of systemFields) {
     if (field.required && !mapping.value[field.key]) {
-      errors.push(`${field.label} is required.`);
+      errors.push(t('common.validation.required', { field: t(field.labelKey) }));
     }
   }
 
@@ -255,31 +266,31 @@ const previewRows = computed<PreviewRow[]>(() => {
         continue;
       }
       if (field.required && !values[field.key]) {
-        errors.push(`Missing ${field.label}`);
+        errors.push(t('adminUsers.importCsv.errors.missingField', { field: t(field.labelKey) }));
       }
     }
 
     if (!finalEmail) {
-      errors.push('Missing Email');
+      errors.push(t('adminUsers.importCsv.errors.missingEmail'));
     }
     else if (!isValidEmail(finalEmail)) {
-      errors.push('Invalid email format');
+      errors.push(t('common.validation.invalidEmail'));
     }
 
     if (!finalRole) {
-      errors.push('Role not found and no default role selected');
+      errors.push(t('adminUsers.importCsv.errors.roleNotFound'));
     }
 
     if (!finalFaculty) {
-      errors.push('Faculty not found');
+      errors.push(t('adminUsers.importCsv.errors.facultyNotFound'));
     }
 
     if (!finalDepartment) {
-      errors.push('Department not found');
+      errors.push(t('adminUsers.importCsv.errors.departmentNotFound'));
     }
 
     if (finalFaculty && finalDepartment && finalDepartment.facultyId !== finalFaculty.id) {
-      errors.push('Department does not belong to selected faculty');
+      errors.push(t('adminUsers.importCsv.errors.departmentFacultyMismatch'));
     }
 
     return {
@@ -328,7 +339,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
     if (field.key === 'email') {
       columns.push({
         id: field.key,
-        header: field.label,
+        header: t(field.labelKey),
         cell: ({ row }) => {
           const current = row.original;
           const error = getFieldError(current, 'email');
@@ -341,7 +352,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
           return h(UFormField, { error, class: 'w-full' }, {
             default: () => h(UInput, {
               'modelValue': current.emailValue,
-              'placeholder': 'Fix email',
+              'placeholder': t('adminUsers.importCsv.placeholders.fixEmail'),
               'size': 'sm',
               'class': 'w-full min-w-64',
               'onUpdate:modelValue': (value: string | number) => {
@@ -357,7 +368,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
     if (field.key === 'role') {
       columns.push({
         id: field.key,
-        header: field.label,
+        header: t(field.labelKey),
         cell: ({ row }) => {
           const current = row.original;
           const shouldShowSelect = shouldKeepRoleEditor(current) || Boolean(getFieldError(current, 'role')) || isFieldTouched(current.rowNumber, 'role');
@@ -370,7 +381,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
             'modelValue': current.roleId,
             'items': roleItems.value,
             'valueKey': 'value',
-            'placeholder': 'Select role',
+            'placeholder': t('adminUsers.importCsv.placeholders.selectRole'),
             'onUpdate:modelValue': (value: string | number | null) => {
               setRowOverride(current.rowNumber, 'roleId', value ? Number(value) : null);
             },
@@ -383,7 +394,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
     if (field.key === 'faculty') {
       columns.push({
         id: field.key,
-        header: field.label,
+        header: t(field.labelKey),
         cell: ({ row }) => {
           const current = row.original;
           const shouldShowSelect = shouldKeepFacultyEditor(current) || Boolean(getFieldError(current, 'faculty')) || isFieldTouched(current.rowNumber, 'faculty');
@@ -396,7 +407,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
             'modelValue': current.facultyId,
             'items': facultyItems.value,
             'valueKey': 'value',
-            'placeholder': 'Select faculty',
+            'placeholder': t('adminUsers.importCsv.placeholders.selectFaculty'),
             'onUpdate:modelValue': (value: string | number | null) => {
               setRowOverride(current.rowNumber, 'facultyId', value ? Number(value) : null);
             },
@@ -409,7 +420,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
     if (field.key === 'department') {
       columns.push({
         id: field.key,
-        header: field.label,
+        header: t(field.labelKey),
         cell: ({ row }) => {
           const current = row.original;
           const shouldShowSelect = shouldKeepDepartmentEditor(current) || Boolean(getFieldError(current, 'department')) || isFieldTouched(current.rowNumber, 'department');
@@ -422,7 +433,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
             'modelValue': current.departmentId,
             'items': getDepartmentItemsForRow(current),
             'valueKey': 'value',
-            'placeholder': 'Select department',
+            'placeholder': t('adminUsers.importCsv.placeholders.selectDepartment'),
             'onUpdate:modelValue': (value: string | number | null) => {
               setRowOverride(current.rowNumber, 'departmentId', value ? Number(value) : null);
             },
@@ -434,7 +445,7 @@ const tableColumns = computed<TableColumn<PreviewRow>[]>(() => {
 
     columns.push({
       id: field.key,
-      header: field.label,
+      header: t(field.labelKey),
       meta: {
         class: {
           th: 'min-w-44',
@@ -560,23 +571,29 @@ function isFieldTouched(
 
 function getFieldError(row: PreviewRow, fieldKey: SystemFieldKey): string | undefined {
   if (fieldKey === 'email') {
-    return row.errors.find(error => error.includes('Missing Email') || error.includes('Invalid email format'));
+    return row.errors.find(error =>
+      error.includes(t('adminUsers.importCsv.errors.missingEmail'))
+      || error.includes(t('common.validation.invalidEmail')),
+    );
   }
 
   if (fieldKey === 'role') {
-    return row.errors.find(error => error.includes('Role'));
+    return row.errors.find(error => error.includes(t('adminUsers.importCsv.errors.roleNotFound')));
   }
 
   if (fieldKey === 'faculty') {
-    return row.errors.find(error => error.includes('Faculty'));
+    return row.errors.find(error => error.includes(t('adminUsers.importCsv.errors.facultyNotFound')));
   }
 
   if (fieldKey === 'department') {
-    return row.errors.find(error => error.includes('Department'));
+    return row.errors.find(error =>
+      error.includes(t('adminUsers.importCsv.errors.departmentNotFound'))
+      || error.includes(t('adminUsers.importCsv.errors.departmentFacultyMismatch')),
+    );
   }
 
-  const fieldLabel = systemFields.find(field => field.key === fieldKey)?.label;
-  return fieldLabel ? row.errors.find(error => error.includes(`Missing ${fieldLabel}`)) : undefined;
+  const fieldLabel = getSystemFieldLabel(fieldKey);
+  return row.errors.find(error => error.includes(t('adminUsers.importCsv.errors.missingField', { field: fieldLabel })));
 }
 
 function wrapCellWithFieldError(row: PreviewRow, fieldKey: SystemFieldKey, content: string | ReturnType<typeof h>) {
@@ -819,7 +836,7 @@ async function parseCsvFile(file: File) {
     });
 
     if (result.errors.length > 0) {
-      parseError.value = result.errors[0]?.message || 'Failed to parse CSV file.';
+      parseError.value = result.errors[0]?.message || t('adminUsers.importCsv.errors.parseFailed');
       return;
     }
 
@@ -838,14 +855,14 @@ async function parseCsvFile(file: File) {
     currentPage.value = 1;
 
     if (csvHeaders.value.length === 0 || csvRows.value.length === 0) {
-      parseError.value = 'CSV does not contain valid header or rows.';
+      parseError.value = t('adminUsers.importCsv.errors.invalidHeaderOrRows');
       return;
     }
 
     setAutoMapping();
   }
   catch (error: any) {
-    parseError.value = error?.message || 'Failed to parse CSV file.';
+    parseError.value = error?.message || t('adminUsers.importCsv.errors.parseFailed');
   }
   finally {
     isParsing.value = false;
@@ -912,7 +929,7 @@ async function handleUploadChange(payload: unknown) {
     uploadedFiles.value = null;
     csvHeaders.value = [];
     csvRows.value = [];
-    parseError.value = 'Could not read selected file. Please re-upload the CSV file.';
+    parseError.value = t('adminUsers.importCsv.errors.couldNotReadFile');
     return;
   }
 
@@ -920,7 +937,7 @@ async function handleUploadChange(payload: unknown) {
     uploadedFiles.value = null;
     csvHeaders.value = [];
     csvRows.value = [];
-    parseError.value = 'Invalid file type. Please upload a .csv file only.';
+    parseError.value = t('adminUsers.importCsv.errors.invalidFileType');
     return;
   }
 
@@ -942,8 +959,8 @@ function goNextStep() {
     }
     if (parseError.value || csvRows.value.length === 0) {
       toast.add({
-        title: 'CSV invalid',
-        description: 'Please upload a valid CSV file before continuing.',
+        title: t('adminUsers.importCsv.toasts.csvInvalidTitle'),
+        description: t('adminUsers.importCsv.toasts.csvInvalidDescription'),
         color: 'error',
       });
       return;
@@ -952,14 +969,14 @@ function goNextStep() {
 
   if (isMappingStep.value && mappingErrors.value.length > 0) {
     toast.add({
-      title: 'Mapping required',
+      title: t('adminUsers.importCsv.toasts.mappingRequiredTitle'),
       description: mappingErrors.value[0],
       color: 'error',
     });
     return;
   }
 
-  if (currentStep.value < steps.length) {
+  if (currentStep.value < steps.value.length) {
     currentStep.value += 1;
   }
 }
@@ -1002,8 +1019,8 @@ async function importData() {
 
     if (response.success > 0) {
       toast.add({
-        title: 'Import completed',
-        description: `${response.success} users imported successfully${response.failed > 0 ? `, ${response.failed} failed.` : '.'}`,
+        title: t('adminUsers.importCsv.toasts.importCompletedTitle'),
+        description: t('adminUsers.importCsv.toasts.importCompletedDescription', { success: response.success, failed: response.failed }),
         color: response.failed > 0 ? 'warning' : 'success',
       });
       emit('imported');
@@ -1020,7 +1037,7 @@ async function importData() {
 <template>
   <UModal
     v-model:open="isModalOpen"
-    title="Bulk User Import"
+    :title="t('adminUsers.importCsv.modalTitle')"
     :dismissible="false"
     :ui="{ content: 'sm:max-w-7xl', footer: 'justify-end' }"
   >
@@ -1045,8 +1062,8 @@ async function importData() {
       <div v-if="currentStep === 1">
         <UFileUpload
           v-model="uploadedFiles"
-          label="Upload CSV File"
-          description="Drag and drop CSV or click to browse"
+          :label="t('adminUsers.importCsv.upload.label')"
+          :description="t('adminUsers.importCsv.upload.description')"
           accept="text/csv"
           position="inside"
           layout="list"
@@ -1057,8 +1074,8 @@ async function importData() {
 
         <UAlert
           v-if="parseError"
-          title="CSV parsing failed"
-          :description="`${parseError} Please verify the file format and try again.`"
+          :title="t('adminUsers.importCsv.alerts.parseFailedTitle')"
+          :description="t('adminUsers.importCsv.alerts.parseFailedDescription', { error: parseError })"
           icon="i-lucide-circle-alert"
           color="error"
           variant="soft"
@@ -1067,8 +1084,8 @@ async function importData() {
 
         <UAlert
           v-else-if="csvRows.length > 0"
-          title="CSV loaded"
-          :description="`${csvRows.length} rows detected with ${csvHeaders.length} columns.`"
+          :title="t('adminUsers.importCsv.alerts.csvLoadedTitle')"
+          :description="t('adminUsers.importCsv.alerts.csvLoadedDescription', { rows: csvRows.length, columns: csvHeaders.length })"
           icon="i-lucide-check-circle"
           color="success"
           variant="soft"
@@ -1076,14 +1093,14 @@ async function importData() {
         />
 
         <UAlert
-          title="Prepare your data"
-          description="Ensure your file follows our structure to avoid errors during the import process."
+          :title="t('adminUsers.importCsv.alerts.prepareTitle')"
+          :description="t('adminUsers.importCsv.alerts.prepareDescription')"
           icon="i-lucide-download"
           variant="soft"
           class="mt-6"
           :actions="[
             {
-              label: 'Download Sample Template (.csv)',
+              label: t('adminUsers.importCsv.actions.downloadTemplate'),
               variant: 'link',
               class: 'p-0 underline text-xs font-medium',
               onClick: downloadTemplate,
@@ -1095,7 +1112,7 @@ async function importData() {
       <div v-else-if="currentStep === 2">
         <UAlert
           v-if="mappingErrors.length > 0"
-          title="Fix mapping before continuing"
+          :title="t('adminUsers.importCsv.mapping.fixBeforeContinue')"
           :description="mappingErrors.join(' | ')"
           icon="i-lucide-circle-alert"
           color="warning"
@@ -1106,7 +1123,7 @@ async function importData() {
         <UCard>
           <template #header>
             <h3 class="font-semibold text-sm">
-              Column Mapping
+              {{ t('adminUsers.importCsv.mapping.title') }}
             </h3>
           </template>
 
@@ -1117,9 +1134,9 @@ async function importData() {
               class="grid gap-3 md:grid-cols-2"
             >
               <div class="text-sm flex items-center gap-2">
-                <span>{{ field.label }}</span>
+                <span>{{ t(field.labelKey) }}</span>
                 <UBadge v-if="field.required" color="error" variant="soft" size="sm">
-                  required
+                  {{ t('adminUsers.importCsv.mapping.required') }}
                 </UBadge>
               </div>
               <USelectMenu
@@ -1144,10 +1161,10 @@ async function importData() {
                 <div class="flex items-start justify-between gap-2">
                   <div class="text-sm">
                     <p class="font-semibold">
-                      Default Values
+                      {{ t('adminUsers.importCsv.defaultValues.title') }}
                     </p>
                     <p class="text-muted mt-1">
-                      Apply when CSV values are missing or invalid.
+                      {{ t('adminUsers.importCsv.defaultValues.description') }}
                     </p>
                   </div>
                   <UButton
@@ -1155,7 +1172,7 @@ async function importData() {
                     color="neutral"
                     variant="ghost"
                     size="sm"
-                    :aria-label="isDefaultPanelCollapsed ? 'Expand default values panel' : 'Collapse default values panel'"
+                    :aria-label="isDefaultPanelCollapsed ? t('adminUsers.importCsv.defaultValues.expand') : t('adminUsers.importCsv.defaultValues.collapse')"
                     class="hidden xl:flex"
                     @click="isDefaultPanelCollapsed = !isDefaultPanelCollapsed"
                   />
@@ -1163,35 +1180,35 @@ async function importData() {
               </template>
 
               <div :class="isDefaultPanelCollapsed ? 'xl:hidden' : ''" class="space-y-4">
-                <UFormField label="Default Role">
+                <UFormField :label="t('adminUsers.importCsv.defaultValues.role')">
                   <USelectMenu
                     v-model="defaultRoleId"
                     :items="roleItems"
                     value-key="value"
                     searchable
-                    placeholder="Select default role"
+                    :placeholder="t('adminUsers.importCsv.defaultValues.selectRole')"
                     class="w-full"
                   />
                 </UFormField>
 
-                <UFormField label="Default Faculty">
+                <UFormField :label="t('adminUsers.importCsv.defaultValues.faculty')">
                   <USelectMenu
                     v-model="defaultFacultyId"
                     :items="facultyItems"
                     value-key="value"
                     searchable
-                    placeholder="Select default faculty"
+                    :placeholder="t('adminUsers.importCsv.defaultValues.selectFaculty')"
                     class="w-full"
                   />
                 </UFormField>
 
-                <UFormField label="Default Department">
+                <UFormField :label="t('adminUsers.importCsv.defaultValues.department')">
                   <USelectMenu
                     v-model="defaultDepartmentId"
                     :items="defaultDepartmentItems"
                     value-key="value"
                     searchable
-                    :placeholder="defaultFacultyId ? 'Select default department' : 'Select default faculty first'"
+                    :placeholder="defaultFacultyId ? t('adminUsers.importCsv.defaultValues.selectDepartment') : t('adminUsers.importCsv.defaultValues.selectFacultyFirst')"
                     class="w-full"
                   />
                 </UFormField>
@@ -1208,20 +1225,20 @@ async function importData() {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                   <div class="text-sm">
                     <p class="font-semibold">
-                      Data Preview
+                      {{ t('adminUsers.importCsv.preview.title') }}
                     </p>
                     <p class="text-muted mt-1">
-                      <span>Total rows: {{ previewRows.length }}</span> | <span class="text-success">Valid: {{ validRows.length }}</span> | <span class="text-error">Errors: {{ totalErrorRows }}</span>
+                      <span>{{ t('adminUsers.importCsv.preview.totalRows', { count: previewRows.length }) }}</span> | <span class="text-success">{{ t('adminUsers.importCsv.preview.validRows', { count: validRows.length }) }}</span> | <span class="text-error">{{ t('adminUsers.importCsv.preview.errorRows', { count: totalErrorRows }) }}</span>
                     </p>
                   </div>
-                  <UCheckbox v-model="showOnlyErrors" label="Show only rows with errors" />
+                  <UCheckbox v-model="showOnlyErrors" :label="t('adminUsers.importCsv.preview.showOnlyErrors')" />
                 </div>
               </template>
 
               <UAlert
                 v-if="totalErrorRows > 0"
-                title="Validation Errors"
-                :description="`${totalErrorRows} invalid row(s) will be skipped and will not be imported.`"
+                :title="t('adminUsers.importCsv.preview.validationErrorsTitle')"
+                :description="t('adminUsers.importCsv.preview.validationErrorsDescription', { count: totalErrorRows })"
                 color="error"
                 variant="subtle"
                 class="mb-2"
@@ -1249,34 +1266,34 @@ async function importData() {
 
       <div v-else class="rounded-lg border border-default p-4 space-y-3">
         <p class="text-sm font-semibold">
-          Import Complete
+          {{ t('adminUsers.importCsv.complete.title') }}
         </p>
 
         <p v-if="importResult" class="text-sm text-muted">
-          Success: {{ importResult.success }} | Failed: {{ importResult.failed }}
+          {{ t('adminUsers.importCsv.complete.summary', { success: importResult.success, failed: importResult.failed }) }}
         </p>
 
         <UAlert
           v-if="importResult?.failedRows.length"
-          title="Failed rows"
+          :title="t('adminUsers.importCsv.complete.failedRowsTitle')"
           :description="importResult.failedRows.slice(0, 10).join(' | ')"
           color="warning"
           variant="soft"
         />
 
         <p class="text-sm text-muted">
-          Click Finish to close this modal.
+          {{ t('adminUsers.importCsv.complete.finishHint') }}
         </p>
       </div>
     </template>
 
     <template #footer="{ close }">
-      <UButton v-if="!isCompleteStep" label="Cancel" color="neutral" variant="link" size="lg" @click="close" />
+      <UButton v-if="!isCompleteStep" :label="t('common.actions.cancel')" color="neutral" variant="link" size="lg" @click="close" />
 
       <UButton
         v-if="backButtonVisible"
         leading-icon="i-lucide-chevron-left"
-        label="Back"
+        :label="t('previous')"
         color="neutral"
         variant="soft"
         size="lg"
@@ -1286,7 +1303,7 @@ async function importData() {
       <UButton
         v-if="isFirstStep || isMappingStep"
         trailing-icon="i-lucide-chevron-right"
-        label="Next"
+        :label="t('next')"
         color="primary"
         size="lg"
         :loading="isParsing"
@@ -1295,7 +1312,7 @@ async function importData() {
       <UButton
         v-else-if="isPreviewStep"
         trailing-icon="i-lucide-database"
-        label="Import Data"
+        :label="t('adminUsers.importCsv.buttons.importData')"
         color="primary"
         size="lg"
         :disabled="!canImport"
@@ -1305,7 +1322,7 @@ async function importData() {
       <UButton
         v-else
         trailing-icon="i-lucide-check"
-        label="Finish"
+        :label="t('adminUsers.importCsv.buttons.finish')"
         color="primary"
         size="lg"
         @click="close"

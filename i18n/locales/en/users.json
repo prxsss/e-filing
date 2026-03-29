@@ -118,6 +118,97 @@
         "unbanSuccessDescription": "{name} can now log in again.",
         "actionError": "Failed to update user status. Please try again."
       }
+    },
+    "importCsv": {
+      "modalTitle": "Bulk User Import",
+      "steps": {
+        "uploadCsv": "Upload CSV",
+        "columnMapping": "Column Mapping",
+        "previewImport": "Preview & Import",
+        "complete": "Complete"
+      },
+      "fields": {
+        "imageUrl": "Image URL"
+      },
+      "upload": {
+        "label": "Upload CSV File",
+        "description": "Drag and drop CSV or click to browse"
+      },
+      "alerts": {
+        "parseFailedTitle": "CSV parsing failed",
+        "parseFailedDescription": "{error} Please verify the file format and try again.",
+        "csvLoadedTitle": "CSV loaded",
+        "csvLoadedDescription": "{rows} rows detected with {columns} columns.",
+        "prepareTitle": "Prepare your data",
+        "prepareDescription": "Ensure your file follows our structure to avoid errors during the import process."
+      },
+      "actions": {
+        "downloadTemplate": "Download Sample Template (.csv)"
+      },
+      "mapping": {
+        "title": "Column Mapping",
+        "required": "required",
+        "notMapped": "Not mapped",
+        "duplicateColumns": "Each CSV column can only be mapped once.",
+        "fixBeforeContinue": "Fix mapping before continuing"
+      },
+      "defaultValues": {
+        "title": "Default Values",
+        "description": "Apply when CSV values are missing or invalid.",
+        "expand": "Expand default values panel",
+        "collapse": "Collapse default values panel",
+        "role": "Default Role",
+        "faculty": "Default Faculty",
+        "department": "Default Department",
+        "selectRole": "Select default role",
+        "selectFaculty": "Select default faculty",
+        "selectDepartment": "Select default department",
+        "selectFacultyFirst": "Select default faculty first"
+      },
+      "preview": {
+        "title": "Data Preview",
+        "totalRows": "Total rows: {count}",
+        "validRows": "Valid: {count}",
+        "errorRows": "Errors: {count}",
+        "showOnlyErrors": "Show only rows with errors",
+        "validationErrorsTitle": "Validation Errors",
+        "validationErrorsDescription": "{count} invalid row(s) will be skipped and will not be imported."
+      },
+      "complete": {
+        "title": "Import Complete",
+        "summary": "Success: {success} | Failed: {failed}",
+        "failedRowsTitle": "Failed rows",
+        "finishHint": "Click Finish to close this modal."
+      },
+      "buttons": {
+        "importData": "Import Data",
+        "finish": "Finish"
+      },
+      "toasts": {
+        "csvInvalidTitle": "CSV invalid",
+        "csvInvalidDescription": "Please upload a valid CSV file before continuing.",
+        "mappingRequiredTitle": "Mapping required",
+        "importCompletedTitle": "Import completed",
+        "importCompletedDescription": "{success} users imported successfully, {failed} failed."
+      },
+      "placeholders": {
+        "fixEmail": "Fix email",
+        "selectRole": "Select role",
+        "selectFaculty": "Select faculty",
+        "selectDepartment": "Select department"
+      },
+      "errors": {
+        "missingField": "Missing {field}",
+        "missingEmail": "Missing Email",
+        "roleNotFound": "Role not found and no default role selected",
+        "facultyNotFound": "Faculty not found",
+        "departmentNotFound": "Department not found",
+        "departmentFacultyMismatch": "Department does not belong to selected faculty",
+        "parseFailed": "Failed to parse CSV file.",
+        "invalidHeaderOrRows": "CSV does not contain valid header or rows.",
+        "couldNotReadFile": "Could not read selected file. Please re-upload the CSV file.",
+        "invalidFileType": "Invalid file type. Please upload a .csv file only."
+      }
     }
   },
   "profile": {

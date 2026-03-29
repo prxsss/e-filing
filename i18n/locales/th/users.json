@@ -119,6 +119,97 @@
         "unbanSuccessDescription": "{name} สามารถเข้าสู่ระบบเพื่อใช้งานได้แล้ว",
         "actionError": "ไม่สามารถอัปเดตสถานะผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง"
       }
+    },
+    "importCsv": {
+      "modalTitle": "นำเข้าผู้ใช้จำนวนมาก",
+      "steps": {
+        "uploadCsv": "อัปโหลด CSV",
+        "columnMapping": "จับคู่คอลัมน์",
+        "previewImport": "ตรวจสอบและนำเข้า",
+        "complete": "เสร็จสิ้น"
+      },
+      "fields": {
+        "imageUrl": "ลิงก์รูปภาพ"
+      },
+      "upload": {
+        "label": "อัปโหลดไฟล์ CSV",
+        "description": "ลากและวางไฟล์ CSV หรือคลิกเพื่อเลือกไฟล์"
+      },
+      "alerts": {
+        "parseFailedTitle": "อ่านไฟล์ CSV ไม่สำเร็จ",
+        "parseFailedDescription": "{error} กรุณาตรวจสอบรูปแบบไฟล์แล้วลองใหม่",
+        "csvLoadedTitle": "โหลด CSV สำเร็จ",
+        "csvLoadedDescription": "พบข้อมูล {rows} แถว และ {columns} คอลัมน์",
+        "prepareTitle": "เตรียมข้อมูลก่อนนำเข้า",
+        "prepareDescription": "ตรวจสอบให้แน่ใจว่าไฟล์เป็นไปตามรูปแบบที่กำหนดเพื่อหลีกเลี่ยงข้อผิดพลาดระหว่างนำเข้า"
+      },
+      "actions": {
+        "downloadTemplate": "ดาวน์โหลดไฟล์ตัวอย่าง (.csv)"
+      },
+      "mapping": {
+        "title": "จับคู่คอลัมน์",
+        "required": "จำเป็น",
+        "notMapped": "ไม่จับคู่",
+        "duplicateColumns": "คอลัมน์ CSV เดียวกันจับคู่ได้เพียง 1 ฟิลด์",
+        "fixBeforeContinue": "กรุณาแก้ไขการจับคู่ก่อนดำเนินการต่อ"
+      },
+      "defaultValues": {
+        "title": "ค่าเริ่มต้น",
+        "description": "ใช้เมื่อค่าใน CSV หายไปหรือไม่ถูกต้อง",
+        "expand": "ขยายแผงค่าเริ่มต้น",
+        "collapse": "ย่อแผงค่าเริ่มต้น",
+        "role": "บทบาทเริ่มต้น",
+        "faculty": "คณะเริ่มต้น",
+        "department": "สาขาวิชาเริ่มต้น",
+        "selectRole": "เลือกบทบาทเริ่มต้น",
+        "selectFaculty": "เลือกคณะเริ่มต้น",
+        "selectDepartment": "เลือกสาขาวิชาเริ่มต้น",
+        "selectFacultyFirst": "กรุณาเลือกคณะเริ่มต้นก่อน"
+      },
+      "preview": {
+        "title": "ตัวอย่างข้อมูล",
+        "totalRows": "จำนวนทั้งหมด: {count}",
+        "validRows": "ถูกต้อง: {count}",
+        "errorRows": "ผิดพลาด: {count}",
+        "showOnlyErrors": "แสดงเฉพาะแถวที่มีข้อผิดพลาด",
+        "validationErrorsTitle": "พบข้อมูลไม่ถูกต้อง",
+        "validationErrorsDescription": "มี {count} แถวที่ไม่ถูกต้อง ซึ่งจะถูกข้ามและไม่นำเข้า"
+      },
+      "complete": {
+        "title": "นำเข้าเสร็จสิ้น",
+        "summary": "สำเร็จ: {success} | ไม่สำเร็จ: {failed}",
+        "failedRowsTitle": "แถวที่นำเข้าไม่สำเร็จ",
+        "finishHint": "คลิก เสร็จสิ้น เพื่อปิดหน้าต่างนี้"
+      },
+      "buttons": {
+        "importData": "นำเข้าข้อมูล",
+        "finish": "เสร็จสิ้น"
+      },
+      "toasts": {
+        "csvInvalidTitle": "ไฟล์ CSV ไม่ถูกต้อง",
+        "csvInvalidDescription": "กรุณาอัปโหลดไฟล์ CSV ที่ถูกต้องก่อนดำเนินการต่อ",
+        "mappingRequiredTitle": "ต้องจับคู่คอลัมน์",
+        "importCompletedTitle": "นำเข้าข้อมูลเสร็จแล้ว",
+        "importCompletedDescription": "นำเข้าสำเร็จ {success} ผู้ใช้, ไม่สำเร็จ {failed}"
+      },
+      "placeholders": {
+        "fixEmail": "แก้ไขอีเมล",
+        "selectRole": "เลือกบทบาท",
+        "selectFaculty": "เลือกคณะ",
+        "selectDepartment": "เลือกสาขาวิชา"
+      },
+      "errors": {
+        "missingField": "ไม่มีข้อมูล {field}",
+        "missingEmail": "ไม่มีอีเมล",
+        "roleNotFound": "ไม่พบบทบาทและยังไม่ได้เลือกบทบาทเริ่มต้น",
+        "facultyNotFound": "ไม่พบคณะ",
+        "departmentNotFound": "ไม่พบสาขาวิชา",
+        "departmentFacultyMismatch": "สาขาวิชาไม่อยู่ในคณะที่เลือก",
+        "parseFailed": "ไม่สามารถอ่านไฟล์ CSV ได้",
+        "invalidHeaderOrRows": "CSV ไม่มี header หรือข้อมูลแถวที่ถูกต้อง",
+        "couldNotReadFile": "ไม่สามารถอ่านไฟล์ที่เลือกได้ กรุณาอัปโหลดไฟล์ CSV ใหม่อีกครั้ง",
+        "invalidFileType": "ประเภทไฟล์ไม่ถูกต้อง กรุณาอัปโหลดเฉพาะไฟล์ .csv"
+      }
     }
   },
   "profile": {
