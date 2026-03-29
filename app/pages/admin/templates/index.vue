@@ -142,7 +142,6 @@ onMounted(() => {
           <UButton
             v-if="authStore.can('template.create')"
             icon="i-heroicons-plus"
-            color="info"
             label="สร้างต้นแบบใหม่"
             size="lg"
             class="shadow-sm"
