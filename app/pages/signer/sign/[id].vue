@@ -59,6 +59,7 @@ type SigningStatus = {
 type VisibilityRule = {
   enabled?: boolean;
   sourceFieldInstanceId?: string | null;
+  sourceGroupId?: string | null;
   operator?: 'isChecked' | 'isUnchecked';
 };
 
@@ -137,11 +138,13 @@ function getVisibilityRule(field: any): VisibilityRule | null {
   if (!rawRule || typeof rawRule !== 'object')
     return null;
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length)
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length)
     return null;
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
   };
 }
@@ -154,17 +157,32 @@ function resolveCurrentFieldValue(field: any): string {
   return isCheckboxField(field) ? normalizeCheckboxValue(value) : value;
 }
 
+function getCheckboxGroupId(field: any): string {
+  return String(field?.groupId ?? '').trim();
+}
+
 function isFieldVisible(field: any): boolean {
   const rule = getVisibilityRule(field);
   if (!rule || rule.enabled === false)
     return true;
-  const sourceField = templatePlacedFields.value.find(
-    candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-  );
-  if (!sourceField)
-    return true;
-  const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
-  const isChecked = sourceValue === 'true';
+
+  let isChecked = false;
+  if (rule.sourceGroupId) {
+    const groupFields = templatePlacedFields.value.filter((candidate) => {
+      return isCheckboxField(candidate) && getCheckboxGroupId(candidate) === rule.sourceGroupId;
+    });
+    isChecked = groupFields.some(candidate => normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true');
+  }
+  else {
+    const sourceField = templatePlacedFields.value.find(
+      candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+    );
+    if (!sourceField)
+      return true;
+    const sourceValue = normalizeCheckboxValue(resolveCurrentFieldValue(sourceField));
+    isChecked = sourceValue === 'true';
+  }
+
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
 }
 
@@ -202,7 +220,53 @@ function handleSignerFieldValueUpdate(field: any, value: string) {
   const key = getFieldValueKey(field);
   if (!key)
     return;
-  fieldValues.value = { ...fieldValues.value, [key]: value };
+
+  if (!isCheckboxField(field)) {
+    fieldValues.value = { ...fieldValues.value, [key]: value };
+    return;
+  }
+
+  const normalizedNextValue = normalizeCheckboxValue(value);
+  const groupId = getCheckboxGroupId(field);
+  const nextValues = { ...fieldValues.value, [key]: normalizedNextValue };
+
+  if (groupId.length > 0 && normalizedNextValue === 'true') {
+    for (const candidate of templatePlacedFields.value) {
+      if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+        continue;
+      }
+      const candidateKey = getFieldValueKey(candidate);
+      if (!candidateKey || candidateKey === key) {
+        continue;
+      }
+      nextValues[candidateKey] = '';
+    }
+  }
+
+  fieldValues.value = nextValues;
+}
+
+function isCheckboxTemporarilyDisabled(field: any): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  const groupId = getCheckboxGroupId(field);
+  if (!groupId.length) {
+    return false;
+  }
+
+  const isCurrentChecked = normalizeCheckboxValue(resolveCurrentFieldValue(field)) === 'true';
+  if (isCurrentChecked) {
+    return false;
+  }
+
+  return templatePlacedFields.value.some((candidate) => {
+    if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
+      return false;
+    }
+    return normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true';
+  });
 }
 
 function clearPreviewTimer() {
@@ -1019,15 +1083,17 @@ onUnmounted(() => {
                   ข้อมูลที่ต้องกรอก
                 </h3>
               </template>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <div class="space-y-4">
                 <div
                   v-for="field in visibleSignerInputFields"
                   :key="field.instanceId"
+                  class="field-group rounded-lg px-3 py-3 transition-colors border border-transparent bg-white"
                 >
                   <form-field-input
                     :model-value="fieldValues[getFieldValueKey(field)] ?? ''"
                     :field="{ ...field, label: field.formQuestionLabel || field.label }"
-                    :disabled="isSigning"
+                    :disabled="isSigning || isCheckboxTemporarilyDisabled(field)"
                     @update:model-value="(v) => handleSignerFieldValueUpdate(field, String(v ?? ''))"
                   />
                 </div>

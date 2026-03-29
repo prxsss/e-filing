@@ -105,11 +105,13 @@ export default defineEventHandler(async (event) => {
       }
     });
 
-    // Load original PDF from URL
-    if (!template.documentUrl) {
+    // Load PDF base from latest filled document (if exists) to preserve
+    // previously embedded signatures and prior step outputs.
+    const sourcePdfUrl = requestRecord.filledDocumentUrl || template.documentUrl;
+    if (!sourcePdfUrl) {
       return {
         success: false,
-        error: 'Template document URL not found',
+        error: 'Source PDF URL not found',
       };
     }
 
@@ -120,11 +122,11 @@ export default defineEventHandler(async (event) => {
       };
     }
 
-    const pdfResponse = await fetch(template.documentUrl);
+    const pdfResponse = await fetch(sourcePdfUrl);
     if (!pdfResponse.ok) {
       return {
         success: false,
-        error: 'Failed to fetch template PDF',
+        error: 'Failed to fetch source PDF',
       };
     }
 
@@ -155,16 +157,25 @@ export default defineEventHandler(async (event) => {
         return true;
       }
 
-      const sourceField = placedFields.find(
-        candidate => String(candidate?.instanceId ?? '').trim() === rule.sourceFieldInstanceId,
-      );
-
-      if (!sourceField) {
-        return true;
+      let isChecked = false;
+      if (rule.sourceGroupId) {
+        const groupFields = placedFields.filter((candidate) => {
+          return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+        });
+        isChecked = groupFields.some(candidate => normalizeCheckboxValue(resolveFieldInputValue(candidate)) === 'true');
       }
+      else {
+        const sourceField = placedFields.find(
+          candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+        );
 
-      const sourceValue = normalizeCheckboxValue(resolveFieldInputValue(sourceField));
-      const isChecked = sourceValue === 'true';
+        if (!sourceField) {
+          return true;
+        }
+
+        const sourceValue = normalizeCheckboxValue(resolveFieldInputValue(sourceField));
+        isChecked = sourceValue === 'true';
+      }
       return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
     }
 
@@ -288,6 +299,26 @@ function isCheckboxField(field: any): boolean {
   return fieldType === 'checkbox' || fieldName === 'check mark';
 }
 
+function isStrikeThroughGroupField(field: any): boolean {
+  if (!isCheckboxField(field)) {
+    return false;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(field || {}, 'strikeThroughGroupMode')) {
+    return field?.strikeThroughGroupMode === true;
+  }
+
+  return field?.strike_through_group_mode === true;
+}
+
+function getStrikeLineThickness(field: any): number {
+  const parsed = Number.parseFloat(String(field?.strikeLineThickness ?? field?.strike_line_thickness ?? 1.5));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1.5;
+  }
+  return Math.min(8, Math.max(0.5, parsed));
+}
+
 function getVisibilityRule(field: any) {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -295,13 +326,15 @@ function getVisibilityRule(field: any) {
   }
 
   const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
-  if (!sourceFieldInstanceId.length) {
+  const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+  if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
     return null;
   }
 
   return {
     enabled: rawRule.enabled !== false,
-    sourceFieldInstanceId,
+    sourceFieldInstanceId: sourceFieldInstanceId || null,
+    sourceGroupId: sourceGroupId || null,
     operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' : 'isChecked',
   };
 }
@@ -429,10 +462,42 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
       });
     }
 
+    function drawUncheckedStrikeLine(targetPage: any, fieldX: number, fieldYBottom: number, fieldW: number, fieldH: number, field: any) {
+      const lineY = fieldYBottom + (fieldH / 2);
+      targetPage.drawLine({
+        start: { x: fieldX, y: lineY },
+        end: { x: fieldX + fieldW, y: lineY },
+        thickness: getStrikeLineThickness(field),
+        color: PDFLib.rgb(0, 0, 0),
+      });
+    }
+
+    function hasCheckedCheckboxInGroupForRender(groupId: string): boolean {
+      const normalizedGroupId = String(groupId ?? '').trim();
+      if (!normalizedGroupId) {
+        return false;
+      }
+
+      return fields.some((candidate) => {
+        if (!isCheckboxField(candidate) || String(candidate?.groupId ?? '').trim() !== normalizedGroupId) {
+          return false;
+        }
+        const candidateValue = applyFieldCharacterLimit(candidate?.value ?? '', candidate);
+        return normalizeCheckboxValue(candidateValue) === 'true';
+      });
+    }
+
     // Process each field
     for (const field of fields) {
       const normalizedFieldValue = applyFieldCharacterLimit(field.value, field);
-      if (!normalizedFieldValue.trim())
+      const isCheckbox = isCheckboxField(field);
+      const isCheckboxChecked = isCheckbox && normalizeCheckboxValue(normalizedFieldValue) === 'true';
+      const groupId = String(field?.groupId ?? '').trim();
+      const shouldDrawStrikeLine = isStrikeThroughGroupField(field)
+        && groupId.length > 0
+        && hasCheckedCheckboxInGroupForRender(groupId)
+        && !isCheckboxChecked;
+      if (!normalizedFieldValue.trim() && !shouldDrawStrikeLine)
         continue;
 
       try {
@@ -465,7 +530,16 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
 
         const fieldYBottom = pageHeight - fieldYTop - fieldH;
 
-        if (isCheckboxField(field)) {
+        if (isCheckbox && shouldDrawStrikeLine) {
+          drawUncheckedStrikeLine(targetPage, fieldX, fieldYBottom, fieldW, fieldH, field);
+          continue;
+        }
+
+        if (isCheckbox && isStrikeThroughGroupField(field)) {
+          continue;
+        }
+
+        if (isCheckbox) {
           drawCheckboxTick(targetPage, fieldX, fieldYBottom, fieldW, fieldH);
           continue;
         }
