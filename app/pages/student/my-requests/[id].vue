@@ -86,7 +86,8 @@ const successMessage = ref('');
 // Request data
 const requestData = ref<RequestData | null>(null);
 const templateData = ref<TemplateData | null>(null);
-const pdfFile = ref<File | null>(null);
+const templatePdfFile = ref<File | null>(null);
+const filledPdfFile = ref<File | null>(null);
 const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<string, string>>({});
@@ -357,30 +358,48 @@ async function fetchRequestData() {
 }
 
 async function loadPdfFile() {
-  // For submitted/completed requests, use filledDocumentUrl
-  const pdfUrl = requestData.value?.filledDocumentUrl || templateData.value?.documentUrl;
+  // Fetch the template (blank) PDF and the filled PDF (if present) separately.
+  // The preview should prefer the template PDF so we can overlay only the student's
+  // own values on a blank document and avoid showing other users' inputs embedded
+  // in the filled PDF.
+  const templateUrl = templateData.value?.documentUrl ?? null;
+  const filledUrl = requestData.value?.filledDocumentUrl ?? null;
 
-  if (!pdfUrl) {
-    pdfFile.value = null;
-    return;
+  templatePdfFile.value = null;
+  filledPdfFile.value = null;
+
+  async function fetchToFile(url: string, defaultName: string) {
+    const resp = await fetch(url);
+    if (!resp.ok)
+      throw new Error(`Failed to fetch PDF: ${resp.status}`);
+    const arrayBuffer = await resp.arrayBuffer();
+    return new File([arrayBuffer], defaultName, { type: 'application/pdf' });
   }
 
   try {
-    const response = await fetch(pdfUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.status}`);
+    if (templateUrl) {
+      try {
+        const filename = templateUrl.split('/').pop() || 'template.pdf';
+        templatePdfFile.value = await fetchToFile(templateUrl, filename);
+      }
+      catch (err) {
+        console.error('Failed to load template PDF:', err);
+        templatePdfFile.value = null;
+      }
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const fileName = requestData.value?.filledDocumentUrl
-      ? `request-${requestId}.pdf`
-      : templateData.value?.documentUrl?.split('/').pop() || 'template.pdf';
-
-    pdfFile.value = new File([arrayBuffer], fileName, { type: 'application/pdf' });
+    if (filledUrl) {
+      try {
+        filledPdfFile.value = await fetchToFile(filledUrl, `request-${requestId}.pdf`);
+      }
+      catch (err) {
+        console.error('Failed to load filled PDF:', err);
+        filledPdfFile.value = null;
+      }
+    }
   }
   catch (err) {
-    console.error('Failed to load PDF file:', err);
-    pdfFile.value = null;
+    console.error('Failed to load PDF files:', err);
   }
 }
 
@@ -522,7 +541,7 @@ function resolveCurrentFieldValue(field: any): string {
   return value;
 }
 
-const previewDisplayFile = computed(() => previewPdfFile.value || pdfFile.value);
+const previewDisplayFile = computed(() => previewPdfFile.value || templatePdfFile.value || filledPdfFile.value);
 
 const previewOverlayFields = computed(() => {
   return visibleFillableFields.value.filter((field: any) => {
@@ -534,7 +553,7 @@ const previewOverlayFields = computed(() => {
 });
 
 async function refreshPreviewPdf() {
-  if (!pdfFile.value) {
+  if (!templatePdfFile.value) {
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
     return;
@@ -556,7 +575,7 @@ async function refreshPreviewPdf() {
   );
 
   const formData = new FormData();
-  formData.append('pdfFile', pdfFile.value, pdfFile.value.name);
+  formData.append('pdfFile', templatePdfFile.value as File, (templatePdfFile.value as File).name);
   formData.append('fields', JSON.stringify(
     fieldsForPreview.map((field: any) => ({
       ...field,
@@ -602,7 +621,7 @@ async function refreshPreviewPdf() {
 function schedulePreviewRefresh() {
   clearPreviewRefreshTimer();
 
-  if (!pdfFile.value) {
+  if (!templatePdfFile.value) {
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
     return;
@@ -848,7 +867,7 @@ onUnmounted(() => {
   clearPreviewRefreshTimer();
 });
 
-watch([pdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () => {
+watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestamp], () => {
   hydrateFieldValueKeys();
   clearHiddenFieldValues();
   schedulePreviewRefresh();
