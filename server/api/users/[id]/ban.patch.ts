@@ -1,6 +1,6 @@
 import db from '~~/lib/db';
-import { users } from '~~/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { roles, userRoles, users } from '~~/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import * as z from 'zod';
 
 const banSchema = z.object({
@@ -34,6 +34,36 @@ export default defineEventHandler(async (event) => {
       statusCode: 400,
       message: `User with id ${id} is already banned`,
     });
+  }
+
+  const [adminRoleAssignment] = await db
+    .select({
+      roleId: userRoles.roleId,
+    })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(sql`${userRoles.userId} = ${id} and lower(${roles.name}) = 'admin'`)
+    .limit(1);
+
+  if (adminRoleAssignment) {
+    const [otherUnbannedAdminCount] = await db
+      .select({
+        count: sql<number>`cast(count(distinct ${userRoles.userId}) as int)`,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .innerJoin(users, eq(userRoles.userId, users.id))
+      .where(sql`lower(${roles.name}) = 'admin' and ${users.banned} = false and ${userRoles.userId} <> ${id}`);
+
+    if ((otherUnbannedAdminCount?.count ?? 0) < 1) {
+      throw createError({
+        statusCode: 409,
+        message: 'Cannot ban the last admin user in the system',
+        data: {
+          code: 'LAST_ADMIN_BAN_LOCKED',
+        },
+      });
+    }
   }
 
   const [updatedUser] = await db.update(users).set({ banned: true, banReason: body.banReason }).where(eq(users.id, id)).returning();
