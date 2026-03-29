@@ -82,7 +82,7 @@ async function handleDeleteRole(role: { id: number; name: string; nameTh: string
 
   const instance = confirmDialog.open({
     title: t('adminAccessControl.deleteRole'),
-    description: t('adminAccessControl.deleteRoleConfirm', { name: role.name }),
+    description: t('adminAccessControl.deleteRoleConfirm', { name: locale.value === 'th' ? role.nameTh : role.name }),
     cancelButton: { label: t('cancel') },
     confirmButton: { label: t('delete'), color: 'error' },
   });
