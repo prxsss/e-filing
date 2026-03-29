@@ -48,7 +48,7 @@ type AdvancedSearchFilters = {
   facultyId: number | null;
   departmentId: number | null;
   roleId: number | null;
-  status: 'active' | 'banned' | null;
+  status: 'active' | 'banned' | 'inactive' | null;
 };
 
 function defaultAdvancedFilters(): AdvancedSearchFilters {
@@ -96,9 +96,10 @@ const roleOptions = computed<SelectOption<number>[]>(() => {
   }));
 });
 
-const statusOptions: SelectOption<'active' | 'banned'>[] = [
-  { label: t('adminUsers.list.statusOptions.active'), value: 'active' },
-  { label: t('adminUsers.list.statusOptions.banned'), value: 'banned' },
+const statusOptions: SelectOption<'active' | 'banned' | 'inactive'>[] = [
+  { label: t('common.status.active'), value: 'active' },
+  { label: t('common.status.banned'), value: 'banned' },
+  { label: t('common.status.inactive'), value: 'inactive' },
 ];
 
 const filteredDepartmentOptions = computed(() => {
@@ -137,7 +138,7 @@ const roleFilterModel = computed<number | undefined>({
   set: value => advancedFilters.value.roleId = value ?? null,
 });
 
-const statusFilterModel = computed<'active' | 'banned' | undefined>({
+const statusFilterModel = computed<'active' | 'banned' | 'inactive' | undefined>({
   get: () => advancedFilters.value.status ?? undefined,
   set: value => advancedFilters.value.status = value ?? null,
 });
@@ -226,8 +227,9 @@ const columns: TableColumn<UserListItem>[] = [
     accessorKey: 'banned',
     header: t('common.table.status'),
     cell: ({ row }) => {
-      const color = row.getValue('banned') ? 'error' : 'success';
-      const statusText = row.getValue('banned') ? t('common.status.banned') : t('common.status.active');
+      const { banned, isActive } = row.original;
+      const color = banned ? 'error' : isActive ? 'success' : 'neutral';
+      const statusText = banned ? t('common.status.banned') : isActive ? t('common.status.active') : t('common.status.inactive');
       return h(UBadge, { variant: 'soft', color }, statusText);
     },
   },

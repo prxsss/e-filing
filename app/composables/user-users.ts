@@ -3,7 +3,7 @@ type UserSearchFilters = {
   facultyId?: Ref<number | null | undefined>;
   departmentId?: Ref<number | null | undefined>;
   roleId?: Ref<number | null | undefined>;
-  status?: Ref<'active' | 'banned' | null | undefined>;
+  status?: Ref<'active' | 'banned' | 'inactive' | null | undefined>;
 };
 
 export function useUsers(filters: UserSearchFilters = {}) {

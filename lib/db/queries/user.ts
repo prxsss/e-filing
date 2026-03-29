@@ -1,6 +1,6 @@
 import type { SQL } from 'drizzle-orm';
 
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, request, roles, userRoles, users } from '../schema';
@@ -10,7 +10,7 @@ type UserListFilters = {
   facultyId?: number | null;
   departmentId?: number | null;
   roleId?: number | null;
-  status?: 'active' | 'banned' | null;
+  status?: 'active' | 'banned' | 'inactive' | null;
 };
 
 function getUsersWhere(filters: UserListFilters): SQL | undefined {
@@ -65,9 +65,14 @@ function getUsersWhere(filters: UserListFilters): SQL | undefined {
 
   if (filters.status === 'active') {
     conditions.push(eq(users.banned, false));
+    conditions.push(eq(users.isActive, true));
   }
   else if (filters.status === 'banned') {
     conditions.push(eq(users.banned, true));
+  }
+  else if (filters.status === 'inactive') {
+    conditions.push(eq(users.banned, false));
+    conditions.push(or(eq(users.isActive, false), isNull(users.isActive))!);
   }
 
   return conditions.length > 0 ? and(...conditions)! : undefined;
@@ -100,6 +105,7 @@ export async function getUsers({
 
       email: users.email,
       banned: users.banned,
+      isActive: users.isActive,
 
       faculties: sql<{ nameEn: string; nameTh: string }[]>`
           coalesce(
@@ -185,6 +191,7 @@ export async function getUserById(id: string) {
       email: users.email,
       image: users.image,
       banned: users.banned,
+      isActive: users.isActive,
 
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,

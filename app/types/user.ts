@@ -16,6 +16,7 @@ export type UserListItem = {
   faculties: { nameEn: string; nameTh: string }[];
   roles: { name: string; count: number }[];
   banned: boolean;
+  isActive: boolean | null;
 };
 
 export type UserDetail = {
@@ -33,6 +34,7 @@ export type UserDetail = {
   email: string;
   image: string | null;
   banned: boolean;
+  isActive: boolean | null;
   createdAt: string;
   updatedAt: string;
   assignments: {

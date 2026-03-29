@@ -51,6 +51,7 @@
     "status": {
       "active": "Active",
       "banned": "Banned",
+      "inactive": "Inactive",
       "all": "All"
     },
     "dialog": {

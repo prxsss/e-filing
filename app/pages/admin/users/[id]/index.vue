@@ -267,11 +267,11 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
                   {{ locale === 'en' ? user.fullNameEn : user.fullNameTh }}
                 </h1>
                 <UBadge
-                  :color="user.banned ? 'error' : 'success'"
+                  :color="user.banned ? 'error' : user.isActive ? 'success' : 'neutral'"
                   variant="subtle"
                   class="uppercase text-xs"
                 >
-                  {{ user.banned ? t('common.status.banned') : t('common.status.active') }}
+                  {{ user.banned ? t('common.status.banned') : user.isActive ? t('common.status.active') : t('common.status.inactive') }}
                 </UBadge>
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400">

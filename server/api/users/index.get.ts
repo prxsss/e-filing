@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const facultyId = query.facultyId !== undefined ? Number(query.facultyId) : undefined;
   const departmentId = query.departmentId !== undefined ? Number(query.departmentId) : undefined;
   const roleId = query.roleId !== undefined ? Number(query.roleId) : undefined;
-  const status = query.status === 'active' || query.status === 'banned' ? query.status : undefined;
+  const status = query.status === 'active' || query.status === 'banned' || query.status === 'inactive' ? query.status : undefined;
 
   const { rows, total } = await getUsers({
     pageSize,
