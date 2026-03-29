@@ -15,9 +15,34 @@ export const useAuthStore = defineStore('auth', () => {
     return redirect;
   }
 
+  function resolveLoginErrorMessage(error: unknown) {
+    const fetchError = error as {
+      data?: {
+        message?: string;
+      };
+      statusCode?: number;
+      response?: {
+        status?: number;
+      };
+    };
+
+    const backendMessage = fetchError.data?.message;
+    if (backendMessage) {
+      return backendMessage;
+    }
+
+    const status = fetchError.statusCode ?? fetchError.response?.status;
+    if (status === 401) {
+      return 'Invalid email or password';
+    }
+
+    return 'Unable to login. Please try again.';
+  }
+
   async function login(email: string, password: string, redirect?: string) {
     try {
       loading.value = true;
+      errorMessage.value = null;
 
       const response = await $fetch('/api/auth/login', {
         method: 'POST',
@@ -33,7 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
     catch (error) {
       console.error('Login error:', error);
-      errorMessage.value = 'Invalid email or password';
+      errorMessage.value = resolveLoginErrorMessage(error);
     }
     finally {
       loading.value = false;

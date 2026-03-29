@@ -1,3 +1,7 @@
+import db from '~~/lib/db';
+import { users } from '~~/lib/db/schema';
+import { eq } from 'drizzle-orm';
+
 const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/ku/login',
@@ -16,6 +20,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const { user } = await requireUserSession(event);
+
+  const [currentUser] = await db
+    .select({
+      id: users.id,
+      banned: users.banned,
+    })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  if (!currentUser || currentUser.banned) {
+    await clearUserSession(event);
+    throw createError({
+      statusCode: 401,
+      message: 'Unauthorized',
+    });
+  }
 
   event.context.user = user;
 });
