@@ -106,6 +106,10 @@
         "reasonPlaceholder": "Please provide a reason for banning this user",
         "reasonErrorMessage": "Ban reason is required"
       },
+      "unbanDialog": {
+        "confirm": "Confirm Unban",
+        "message": "Are you sure you want to unban this user? They will be able to login again."
+      },
       "feedback": {
         "banSuccess": "User has been banned.",
         "banSuccessDescription": "{name} can no longer log in.",

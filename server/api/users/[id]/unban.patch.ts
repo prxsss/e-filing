@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const [updatedUser] = await db.update(users).set({ banned: false, banReason: null }).where(eq(users.id, id)).returning();
+  const [updatedUser] = await db.update(users).set({ banned: false, banReason: null, updatedAt: new Date().toISOString() }).where(eq(users.id, id)).returning();
 
   return {
     id: updatedUser.id,

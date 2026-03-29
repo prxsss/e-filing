@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui';
 
-import { LazyBaseConfirmDialogWithReason } from '#components';
+import { LazyBaseConfirmDialog, LazyBaseConfirmDialogWithReason } from '#components';
 import { h, resolveComponent } from 'vue';
 
 import type { UserDetail } from '~/types/user';
@@ -28,6 +28,7 @@ const { locale, t } = useI18n();
 
 const authStore = useAuthStore();
 
+const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
 
 const { data: user, execute: refreshUser } = await useFetch<UserDetail>(`/api/users/${route.params.id}`);
@@ -220,6 +221,23 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     color: 'success',
     visible: computed(() => user.value?.banned && authStore.can('user.status')),
     onSelect: async () => {
+      const instance = confirmDialog.open({
+        title: t('adminUsers.detail.unbanDialog.confirm'),
+        description: t('adminUsers.detail.unbanDialog.message'),
+        cancelButton: {
+          label: t('common.actions.cancel'),
+        },
+        confirmButton: {
+          label: t('adminUsers.detail.actions.unbanUser'),
+          color: 'primary',
+        },
+      });
+
+      const result = await instance.result;
+      if (!result) {
+        return;
+      }
+
       await $fetch(`/api/users/${user.value?.id}/unban`, {
         method: 'PATCH',
       });
