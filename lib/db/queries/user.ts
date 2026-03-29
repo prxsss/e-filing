@@ -122,9 +122,10 @@ export async function getUsers({
                   'nameTh', role_counts.name_th,
                   'count', role_counts.count
                 )
+                order by role_counts.first_user_role_id
               )
               from (
-                select r.name, r.name_th, count(*) as count
+                select r.name, r.name_th, count(*) as count, min(ur.id) as first_user_role_id
                 from ${userRoles} ur
                 join ${roles} r on ur.role_id = r.id
                 where ur.user_id = ${users.id}
@@ -190,32 +191,38 @@ export async function getUserById(id: string) {
 
       assignments: sql<{ role: string; faculty: { id: string; nameEn: string; nameTh: string } | null; department: { id: string; nameEn: string; nameTh: string } | null }[]>`
       coalesce(
-        json_agg(
-          distinct jsonb_build_object(
-            'role', ${roles.name},
-            'roleTh', ${roles.nameTh},
-
-            'faculty',
-              CASE
-                WHEN ${faculties.id} IS NULL THEN NULL
-                ELSE jsonb_build_object(
-                  'id', ${faculties.id},
-                  'nameEn', ${faculties.nameEn},
-                  'nameTh', ${faculties.nameTh}
-                )
-              END,
-
-            'department',
-              CASE
-                WHEN ${departments.id} IS NULL THEN NULL
-                ELSE jsonb_build_object(
-                  'id', ${departments.id},
-                  'nameEn', ${departments.nameEn},
-                  'nameTh', ${departments.nameTh}
-                )
-              END
+        (
+          select json_agg(
+            jsonb_build_object(
+              'role', r.name,
+              'roleTh', r.name_th,
+              'faculty',
+                case
+                  when f.id is null then null
+                  else jsonb_build_object(
+                    'id', f.id,
+                    'nameEn', f.name_en,
+                    'nameTh', f.name_th
+                  )
+                end,
+              'department',
+                case
+                  when d.id is null then null
+                  else jsonb_build_object(
+                    'id', d.id,
+                    'nameEn', d.name_en,
+                    'nameTh', d.name_th
+                  )
+                end
+            )
+            order by ur.id
           )
-        ) filter (where ${userRoles.id} is not null),
+          from ${userRoles} ur
+          left join ${roles} r on ur.role_id = r.id
+          left join ${faculties} f on ur.faculty_id = f.id
+          left join ${departments} d on ur.department_id = d.id
+          where ur.user_id = ${users.id}
+        ),
         '[]'
       )
     `,
