@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       firstNameTh: users.firstNameTh,
       lastNameTh: users.lastNameTh,
       email: users.email,
+      staffId: users.staffId,
     })
     .from(users)
     .where(eq(users.id, user.id))

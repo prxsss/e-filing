@@ -30,6 +30,7 @@ type ProfilePayload = {
     firstNameTh: string;
     lastNameTh: string;
     email: string;
+    staffId: string | null;
     roleAssignments: RoleAssignment[];
   };
   roles: {
@@ -49,6 +50,7 @@ const saving = ref(false);
 const showRoleError = ref(false);
 
 const schema = z.object({
+  staffId: z.string().nullable().optional(),
   titleEn: z.string().max(20).optional(),
   firstNameEn: z.string().trim().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.firstNameEn') })),
   lastNameEn: z.string().trim().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.lastNameEn') })),
@@ -74,6 +76,7 @@ const form = reactive<Schema>({
   titleTh: '',
   firstNameTh: '',
   lastNameTh: '',
+  staffId: null,
   roleAssignments: [],
 });
 
@@ -103,6 +106,7 @@ const { data, status, error, refresh } = await useFetch<ProfilePayload>('/api/pr
       firstNameTh: '',
       lastNameTh: '',
       email: '',
+      staffId: null,
       roleAssignments: [],
     },
     roles: [],
@@ -121,6 +125,7 @@ watch(
     form.titleTh = profile.titleTh ?? '';
     form.firstNameTh = profile.firstNameTh;
     form.lastNameTh = profile.lastNameTh;
+    form.staffId = profile.staffId;
     const mappedAssignments: SelectedRoleAssignment[] = [];
     const sourceAssignments = Array.isArray(profile.roleAssignments)
       ? profile.roleAssignments
@@ -322,8 +327,12 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     <UCard v-else>
       <UForm ref="formRef" :schema="schema" :state="form" class="space-y-6" @submit.prevent="handleSubmit">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <UFormField :label="t('common.form.email')" class="md:col-span-12">
+          <UFormField :label="t('common.form.email')" class="md:col-span-6">
             <UInput :model-value="data?.profile?.email ?? ''" disabled variant="subtle" class="w-full" />
+          </UFormField>
+
+          <UFormField :label="t('adminUsers.shared.form.staffId')" class="md:col-span-6">
+            <UInput :model-value="form.staffId ?? ''" disabled variant="subtle" class="w-full" />
           </UFormField>
 
           <UFormField :label="t('adminUsers.shared.form.titleEn')" name="titleEn" class="md:col-span-3">
