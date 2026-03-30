@@ -554,7 +554,7 @@ const signatureFieldWidthPt = computed<number | undefined>(() => {
   return field.width;
 });
 
-const signatureFieldScale = 4;
+const signatureFieldScale = 5.5;
 
 function getPositiveDimension(value: unknown): number | null {
   const parsed = Number(value);

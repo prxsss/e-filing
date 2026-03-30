@@ -1150,28 +1150,6 @@ watch(layoutEditorFillableFields, () => {
             </div>
           </UCard>
 
-          <!-- Fields List -->
-          <UCard v-if="placedFields.length > 0">
-            <template #header>
-              <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Fields ({{ placedFields.length }})
-              </h3>
-            </template>
-            <div class="space-y-2">
-              <div
-                v-for="(field, index) in placedFields"
-                :key="field.instanceId"
-                class="p-2 bg-gray-50 rounded text-xs border border-gray-200"
-              >
-                <div class="font-medium text-gray-900">
-                  {{ index + 1 }}. {{ field.label || field.name }}
-                </div>
-                <div class="text-gray-500 mt-1">
-                  Type: {{ field.type || field.fieldType || '-' }} | Page {{ field.pageNumber || 1 }}
-                </div>
-              </div>
-            </div>
-          </UCard>
           <!-- Staff Comments -->
           <!-- <UCard>
             <template #header>
