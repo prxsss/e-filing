@@ -1767,10 +1767,10 @@ watch(
 
       <!-- ─── CENTER CANVAS ─── -->
       <section class="flex-1 relative overflow-hidden flex flex-col bg-gray-100">
-        <!-- Canvas toolbar (page info | centered field toolbar | zoom) -->
-        <div class="min-h-11 bg-white border-b border-gray-200 px-4 py-1 flex items-start shrink-0">
+        <!-- Canvas toolbar — fixed height so layout does not jump when field-toolbar mounts -->
+        <div class="min-h-12 bg-white border-b border-gray-200 px-4 flex items-center shrink-0">
           <!-- Left: page info -->
-          <div class="flex items-center shrink-0 w-20">
+          <div class="flex items-center shrink-0 w-20 self-stretch">
             <span class="text-xs text-gray-400 font-medium">
               <template v-if="isLoading">Loading...</template>
               <template v-else-if="!uploadedFile">No file</template>
@@ -1778,8 +1778,8 @@ watch(
             </span>
           </div>
 
-          <!-- Center: field toolbar -->
-          <div class="flex-1 flex justify-center min-w-0">
+          <!-- Center: field toolbar (reserved slot keeps bar height when empty) -->
+          <div class="flex-1 flex justify-center items-center min-w-0 min-h-12 self-stretch">
             <field-toolbar
               v-if="selectedField"
               :selected-field="selectedField"
@@ -1794,7 +1794,7 @@ watch(
           </div>
 
           <!-- Right: zoom controls -->
-          <div class="flex items-center gap-1.5 shrink-0 justify-end">
+          <div class="flex items-center gap-1.5 shrink-0 justify-end self-stretch">
             <UButton
               :icon="isPreviewOutputEnabled ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
               size="xs"
