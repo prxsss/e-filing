@@ -11,9 +11,9 @@ const localePath = useLocalePath();
   <UError
     :redirect="localePath('/')"
     :error="{
-      statusCode: 403,
-      statusMessage: t('errors.403.title'),
-      message: t('errors.403.description'),
+      statusCode: 404,
+      statusMessage: t('errors.404.title'),
+      message: t('errors.404.description'),
     }"
   />
 </template>
