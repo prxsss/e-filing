@@ -1,0 +1,65 @@
+{
+  "generator": "codesummary",
+  "version": "1.0.0",
+  "model": "grok-4-1-fast-reasoning",
+  "timestamp": "2026-03-30T08:18:35.938Z",
+  "analysis": {
+    "projectName": "e-filing",
+    "description": "Nuxt.js application for electronic document filing, PDF form building, signing, and management with university-specific features (KU), supporting roles like admin, student, and signer.",
+    "techStack": [
+      "Nuxt 4",
+      "Vue 3",
+      "TypeScript",
+      "Supabase",
+      "Drizzle ORM",
+      "PostgreSQL",
+      "Pinia",
+      "TailwindCSS",
+      "Socket.io",
+      "PDF-lib",
+      "i18n"
+    ],
+    "mainComponents": [
+      "signature-canvas.vue",
+      "notification-bell.vue",
+      "table-pagination.vue",
+      "ku-logo.vue",
+      "admin/*",
+      "field/*",
+      "form/*"
+    ],
+    "hasDatabase": true,
+    "hasApi": true,
+    "keyFiles": [
+      "package.json",
+      "nuxt.config.ts",
+      "app/app.vue",
+      "lib/db/schema/index.ts",
+      "drizzle.config.ts",
+      "server/api/*.ts"
+    ],
+    "entryPoints": [
+      "app/app.vue",
+      "nuxt.config.ts",
+      "pages/index.vue"
+    ],
+    "buildSystem": "npm"
+  },
+  "files": {
+    "docs": [
+      "ARCHITECTURE.md",
+      "API.md",
+      "DATABASE.md",
+      "SETUP.md",
+      "README.md"
+    ],
+    "agent": [
+      "context.md",
+      "codebase-overview.md"
+    ]
+  },
+  "usage": {
+    "inputTokens": 14625,
+    "outputTokens": 9999
+  }
+}
