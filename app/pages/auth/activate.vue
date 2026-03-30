@@ -214,7 +214,7 @@ async function setPassword() {
       },
     });
 
-    await navigateTo('/dashboard');
+    await navigateTo('/');
   }
   catch (e: unknown) {
     const message = (e as { data?: { message?: string } })?.data?.message;
