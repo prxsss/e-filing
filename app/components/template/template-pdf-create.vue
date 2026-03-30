@@ -1490,8 +1490,9 @@ defineExpose<{
 
 .signer-tag {
   position: absolute;
-  top: -8px;
+  bottom: -8px;
   right: -4px;
+  top: auto;
   font-size: 0.55rem;
   color: white;
   padding: 1px 4px;
