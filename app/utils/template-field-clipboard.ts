@@ -3,6 +3,7 @@ import type { FieldInstance, FileTypeValue, PdfRef } from '~/types/template';
 import { getNextFieldInstanceNumber } from '../../shared/field-instance-number';
 
 const CLIPBOARD_PREFIX = 'e-filing:template-field:v1:';
+const CLIPBOARD_MULTI_PREFIX = 'e-filing:template-fields:v1:';
 
 let lastCopiedSerialized: string | null = null;
 
@@ -26,6 +27,36 @@ export function parseTemplateFieldClipboard(text: string): FieldInstance | null 
   }
 }
 
+function isValidFieldClipboardItem(parsed: unknown): parsed is FieldInstance {
+  return Boolean(
+    parsed
+    && typeof parsed === 'object'
+    && (parsed as FieldInstance).instanceId
+    && (parsed as FieldInstance).id !== undefined,
+  );
+}
+
+export function serializeTemplateFields(fields: FieldInstance[]): string {
+  return CLIPBOARD_MULTI_PREFIX + JSON.stringify(fields);
+}
+
+export function parseTemplateFieldsClipboard(text: string): FieldInstance[] | null {
+  if (!text.startsWith(CLIPBOARD_MULTI_PREFIX)) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(text.slice(CLIPBOARD_MULTI_PREFIX.length)) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return null;
+    }
+    const fields = parsed.filter(isValidFieldClipboardItem);
+    return fields.length ? fields : null;
+  }
+  catch {
+    return null;
+  }
+}
+
 export function rememberCopiedTemplateField(serialized: string): void {
   lastCopiedSerialized = serialized;
 }
@@ -36,6 +67,23 @@ export function getLastCopiedTemplateFieldSerialized(): string | null {
 
 export async function writeTemplateFieldToSystemClipboard(field: FieldInstance): Promise<void> {
   const serialized = serializeTemplateField(field);
+  rememberCopiedTemplateField(serialized);
+  try {
+    await navigator.clipboard.writeText(serialized);
+  }
+  catch {
+    // Non-secure context or denied — in-memory copy still works for paste in-session.
+  }
+}
+
+/** Copies one or more fields; single-field payload stays compatible with older readers. */
+export async function writeTemplateFieldsToSystemClipboard(fields: FieldInstance[]): Promise<void> {
+  if (fields.length === 0) {
+    return;
+  }
+  const serialized = fields.length === 1
+    ? serializeTemplateField(fields[0]!)
+    : serializeTemplateFields(fields);
   rememberCopiedTemplateField(serialized);
   try {
     await navigator.clipboard.writeText(serialized);
@@ -68,6 +116,7 @@ export function buildPastedFieldInstance(
 
   raw.pageNumber = opts.currentPage;
 
+  // Same offset for every pasted field so multi-select paste keeps relative layout (no cumulative n×24).
   const OFFSET = 24;
   const pdfRef = opts.pdfRef;
 
@@ -102,20 +151,39 @@ export function buildPastedFieldInstance(
 }
 
 export async function readTemplateFieldFromClipboard(): Promise<FieldInstance | null> {
-  let fromClipboard: FieldInstance | null = null;
+  const multi = await readTemplateFieldsFromClipboard();
+  if (!multi || multi.length !== 1) {
+    return null;
+  }
+  return multi[0]!;
+}
+
+/** Returns pasted field snapshots (multi or single); `null` if nothing valid is available. */
+export async function readTemplateFieldsFromClipboard(): Promise<FieldInstance[] | null> {
+  let text: string | null = null;
   try {
-    const text = await navigator.clipboard.readText();
-    fromClipboard = parseTemplateFieldClipboard(text);
+    text = await navigator.clipboard.readText();
   }
   catch {
     // Permission or unsupported
   }
-  if (fromClipboard) {
-    return fromClipboard;
+  const tryParse = (raw: string): FieldInstance[] | null => {
+    const multi = parseTemplateFieldsClipboard(raw);
+    if (multi) {
+      return multi;
+    }
+    const single = parseTemplateFieldClipboard(raw);
+    return single ? [single] : null;
+  };
+  if (text) {
+    const parsed = tryParse(text);
+    if (parsed) {
+      return parsed;
+    }
   }
   const fallback = getLastCopiedTemplateFieldSerialized();
   if (fallback) {
-    return parseTemplateFieldClipboard(fallback);
+    return tryParse(fallback);
   }
   return null;
 }

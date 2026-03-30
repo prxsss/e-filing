@@ -6,8 +6,8 @@ import { getFieldDisplayInstanceNumber, getNextFieldInstanceNumber } from '../..
 import { placeField } from '../../../utils/place-field';
 import {
   buildPastedFieldInstance,
-  readTemplateFieldFromClipboard,
-  writeTemplateFieldToSystemClipboard,
+  readTemplateFieldsFromClipboard,
+  writeTemplateFieldsToSystemClipboard,
 } from '../../../utils/template-field-clipboard';
 
 type Field = any;
@@ -34,7 +34,37 @@ const templateNameError = ref<string>('');
 const previewImageUrl = ref<string | null>(null);
 const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<FieldInstance[]>([]);
-const selectedFieldInstanceId = ref<string | null>(null); // Store instanceId instead of field object
+const selectedFieldInstanceIds = ref<string[]>([]);
+
+const MAX_FIELDS_UNDO = 50;
+const placedFieldsUndoStack = ref<FieldInstance[][]>([]);
+
+function clonePlacedFieldsSnapshot(): FieldInstance[] {
+  return JSON.parse(JSON.stringify(placedFields.value)) as FieldInstance[];
+}
+
+function pushPlacedFieldsUndoSnapshot(): void {
+  placedFieldsUndoStack.value.push(clonePlacedFieldsSnapshot());
+  if (placedFieldsUndoStack.value.length > MAX_FIELDS_UNDO) {
+    placedFieldsUndoStack.value.shift();
+  }
+}
+
+function undoPlacedFieldsChange(): void {
+  const prev = placedFieldsUndoStack.value.pop();
+  if (!prev) {
+    return;
+  }
+  placedFields.value = prev;
+  selectedFieldInstanceIds.value = selectedFieldInstanceIds.value.filter(id =>
+    placedFields.value.some(f => f.instanceId === id),
+  );
+  schedulePreviewRefresh();
+}
+
+function onFieldDragStart(): void {
+  pushPlacedFieldsUndoSnapshot();
+}
 const scale = ref<number>(1); // Zoom level
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
@@ -188,12 +218,11 @@ const filteredFields = computed<Field[]>(() => {
 // Returns null if no field selected, otherwise returns the field object with display coordinates
 // Display coordinates are calculated from normalized coordinates using current scale
 const selectedField = computed<FieldInstance | null>(() => {
-  if (!selectedFieldInstanceId.value) {
+  if (selectedFieldInstanceIds.value.length !== 1) {
     return null;
   }
 
-  // Find the field from placedFields
-  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
+  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceIds.value[0]);
   if (!field) {
     return null;
   }
@@ -830,7 +859,7 @@ async function processFile(file: File): Promise<void> {
   }
 
   placedFields.value = [];
-  selectedFieldInstanceId.value = null;
+  selectedFieldInstanceIds.value = [];
   currentPdfPage.value = 1;
   uploadedFile.value = file;
 
@@ -1013,7 +1042,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
       shouldRefreshPreview = true;
     }
     if (i === amount - 1) {
-      selectedFieldInstanceId.value = newFieldInstance.instanceId;
+      selectedFieldInstanceIds.value = [newFieldInstance.instanceId];
     }
   }
 
@@ -1022,8 +1051,23 @@ function addFieldToPreview(fieldToAdd: Field): void {
   }
 }
 
-function selectField(field: FieldInstance | null): void {
-  selectedFieldInstanceId.value = field?.instanceId || null;
+function selectField(field: FieldInstance | null, opts?: { shiftKey?: boolean }): void {
+  if (!field) {
+    selectedFieldInstanceIds.value = [];
+    return;
+  }
+  const id = field.instanceId;
+  if (opts?.shiftKey) {
+    const idx = selectedFieldInstanceIds.value.indexOf(id);
+    if (idx >= 0) {
+      selectedFieldInstanceIds.value = selectedFieldInstanceIds.value.filter(x => x !== id);
+    }
+    else {
+      selectedFieldInstanceIds.value = [...selectedFieldInstanceIds.value, id];
+    }
+    return;
+  }
+  selectedFieldInstanceIds.value = [id];
 }
 
 function onImageLoad(): void {
@@ -1035,27 +1079,35 @@ function handlePdfPageChange(pageNumber: number): void {
 }
 
 function removeSelectedField(): void {
-  if (!selectedFieldInstanceId.value)
+  const ids = selectedFieldInstanceIds.value;
+  if (ids.length === 0) {
     return;
-  const idx = placedFields.value.findIndex(
-    f => f.instanceId === selectedFieldInstanceId.value,
-  );
-  if (idx > -1) {
-    const removedField = placedFields.value[idx];
-    const shouldRefreshPreview = fieldHasPreviewContent(removedField);
+  }
+  pushPlacedFieldsUndoSnapshot();
+  const idSet = new Set(ids);
+  const toRemove = placedFields.value.filter(f => idSet.has(f.instanceId));
+  if (toRemove.length === 0) {
+    return;
+  }
+  let shouldRefreshPreview = false;
+  for (const removedField of toRemove) {
+    if (fieldHasPreviewContent(removedField)) {
+      shouldRefreshPreview = true;
+    }
     const key = getPreviewFieldKey(removedField);
     if (key) {
       delete previewFieldValues.value[key];
       delete previewSyncedFieldValues.value[key];
     }
+  }
 
-    placedFields.value.splice(idx, 1);
+  placedFields.value = placedFields.value.filter(f => !idSet.has(f.instanceId));
+  for (const removedField of toRemove) {
     resetVisibilityRulesAfterFieldRemoval(removedField);
-    selectedFieldInstanceId.value = null;
-
-    if (shouldRefreshPreview) {
-      schedulePreviewRefresh();
-    }
+  }
+  selectedFieldInstanceIds.value = [];
+  if (shouldRefreshPreview) {
+    schedulePreviewRefresh();
   }
 }
 
@@ -1072,33 +1124,53 @@ function handleKeyDown(event: KeyboardEvent): void {
   }
 
   const mod = event.ctrlKey || event.metaKey;
-  const key = event.key.toLowerCase();
 
-  if (mod && (key === 'c' || key === 'v') && currentWizardStep.value === 1 && uploadedFile.value) {
-    if (key === 'c') {
-      if (!selectedFieldInstanceId.value)
+  if (mod && event.code === 'KeyZ' && !event.shiftKey && currentWizardStep.value === 1 && uploadedFile.value) {
+    event.preventDefault();
+    undoPlacedFieldsChange();
+    return;
+  }
+
+  // Physical KeyC/KeyV so copy/paste works with Thai (and other) keyboard layouts — not event.key ('แ', 'อ', …).
+  if (mod && (event.code === 'KeyC' || event.code === 'KeyV') && currentWizardStep.value === 1 && uploadedFile.value) {
+    if (event.code === 'KeyC') {
+      if (selectedFieldInstanceIds.value.length === 0) {
         return;
-      const source = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
-      if (!source)
+      }
+      const sources = selectedFieldInstanceIds.value
+        .map(id => placedFields.value.find(f => f.instanceId === id))
+        .filter((f): f is FieldInstance => Boolean(f));
+      if (sources.length === 0) {
         return;
+      }
       event.preventDefault();
-      void writeTemplateFieldToSystemClipboard(source);
+      void writeTemplateFieldsToSystemClipboard(sources);
       return;
     }
-    if (key === 'v') {
+    if (event.code === 'KeyV') {
       event.preventDefault();
       void (async () => {
-        const snapshot = await readTemplateFieldFromClipboard();
-        if (!snapshot)
+        const snapshots = await readTemplateFieldsFromClipboard();
+        if (!snapshots?.length) {
           return;
-        const newField = buildPastedFieldInstance(snapshot, placedFields.value, {
-          pdfRef: templatePdfRef.value,
-          fileType: fileType.value,
-          currentPage: currentPdfPage.value,
-        });
-        placedFields.value.push(newField);
-        selectedFieldInstanceId.value = newField.instanceId;
-        if (fieldHasPreviewContent(newField)) {
+        }
+        pushPlacedFieldsUndoSnapshot();
+        const newIds: string[] = [];
+        let shouldRefresh = false;
+        for (let i = 0; i < snapshots.length; i++) {
+          const newField = buildPastedFieldInstance(snapshots[i]!, placedFields.value, {
+            pdfRef: templatePdfRef.value,
+            fileType: fileType.value,
+            currentPage: currentPdfPage.value,
+          });
+          placedFields.value.push(newField);
+          newIds.push(newField.instanceId);
+          if (fieldHasPreviewContent(newField)) {
+            shouldRefresh = true;
+          }
+        }
+        selectedFieldInstanceIds.value = newIds;
+        if (shouldRefresh) {
           schedulePreviewRefresh();
         }
       })();
@@ -1106,55 +1178,71 @@ function handleKeyDown(event: KeyboardEvent): void {
     }
   }
 
-  if (!selectedFieldInstanceId.value || !templatePdfRef.value)
+  if (selectedFieldInstanceIds.value.length === 0 || !templatePdfRef.value) {
     return;
+  }
 
-  // Find original field instead of computed clone
-  const field = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
-  if (!field)
+  const targets = selectedFieldInstanceIds.value
+    .map(id => placedFields.value.find(f => f.instanceId === id))
+    .filter((f): f is FieldInstance => Boolean(f));
+  if (targets.length === 0) {
     return;
+  }
 
   const step = event.shiftKey ? 10 : 1;
   const refreshPreviewForMovedField = () => {
-    // Keep keyboard movement behavior aligned with mouse drag:
-    // any layout move should refresh preview when preview mode is active.
     if (isPreviewOutputEnabled.value && hasPreviewInputs.value) {
       schedulePreviewRefresh();
     }
   };
 
+  const moveAllNormalized = (fn: (field: FieldInstance) => void) => {
+    const normTargets = targets.filter(
+      f => f.normalizedX !== undefined && f.normalizedY !== undefined,
+    );
+    if (normTargets.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    pushPlacedFieldsUndoSnapshot();
+    let moved = false;
+    for (const field of normTargets) {
+      const beforeX = field.normalizedX;
+      const beforeY = field.normalizedY;
+      fn(field);
+      if (field.normalizedX !== beforeX || field.normalizedY !== beforeY) {
+        moved = true;
+      }
+    }
+    if (moved) {
+      refreshPreviewForMovedField();
+    }
+  };
+
   switch (event.key) {
     case 'ArrowUp':
-      event.preventDefault();
-      if (field.normalizedY !== undefined) {
-        // Get current display position
+      moveAllNormalized((field) => {
         const display = templatePdfRef.value!.normalizedToDisplay(
           field.normalizedX || 0,
-          field.normalizedY,
+          field.normalizedY!,
           field.normalizedWidth || 0,
           field.normalizedHeight || 0,
         );
-        // Update display position
         const newY = Math.max(0, display.y - step);
-        // Convert back to normalized
         const normalized = templatePdfRef.value!.displayToNormalized(
           display.x,
           newY,
           display.width,
           display.height,
         );
-        if (field.normalizedY !== normalized.y) {
-          field.normalizedY = normalized.y;
-          refreshPreviewForMovedField();
-        }
-      }
+        field.normalizedY = normalized.y;
+      });
       break;
     case 'ArrowDown':
-      event.preventDefault();
-      if (field.normalizedY !== undefined) {
+      moveAllNormalized((field) => {
         const display = templatePdfRef.value!.normalizedToDisplay(
           field.normalizedX || 0,
-          field.normalizedY,
+          field.normalizedY!,
           field.normalizedWidth || 0,
           field.normalizedHeight || 0,
         );
@@ -1165,17 +1253,13 @@ function handleKeyDown(event: KeyboardEvent): void {
           display.width,
           display.height,
         );
-        if (field.normalizedY !== normalized.y) {
-          field.normalizedY = normalized.y;
-          refreshPreviewForMovedField();
-        }
-      }
+        field.normalizedY = normalized.y;
+      });
       break;
     case 'ArrowLeft':
-      event.preventDefault();
-      if (field.normalizedX !== undefined) {
+      moveAllNormalized((field) => {
         const display = templatePdfRef.value!.normalizedToDisplay(
-          field.normalizedX,
+          field.normalizedX!,
           field.normalizedY || 0,
           field.normalizedWidth || 0,
           field.normalizedHeight || 0,
@@ -1187,17 +1271,13 @@ function handleKeyDown(event: KeyboardEvent): void {
           display.width,
           display.height,
         );
-        if (field.normalizedX !== normalized.x) {
-          field.normalizedX = normalized.x;
-          refreshPreviewForMovedField();
-        }
-      }
+        field.normalizedX = normalized.x;
+      });
       break;
     case 'ArrowRight':
-      event.preventDefault();
-      if (field.normalizedX !== undefined) {
+      moveAllNormalized((field) => {
         const display = templatePdfRef.value!.normalizedToDisplay(
-          field.normalizedX,
+          field.normalizedX!,
           field.normalizedY || 0,
           field.normalizedWidth || 0,
           field.normalizedHeight || 0,
@@ -1209,11 +1289,8 @@ function handleKeyDown(event: KeyboardEvent): void {
           display.width,
           display.height,
         );
-        if (field.normalizedX !== normalized.x) {
-          field.normalizedX = normalized.x;
-          refreshPreviewForMovedField();
-        }
-      }
+        field.normalizedX = normalized.x;
+      });
       break;
     case 'Delete':
       event.preventDefault();
@@ -1301,7 +1378,7 @@ function handleFieldRemoval(instanceId: string): void {
 
     placedFields.value.splice(idx, 1);
     resetVisibilityRulesAfterFieldRemoval(removedField);
-    selectedFieldInstanceId.value = null;
+    selectedFieldInstanceIds.value = selectedFieldInstanceIds.value.filter(x => x !== instanceId);
 
     if (shouldRefreshPreview) {
       schedulePreviewRefresh();
@@ -1987,12 +2064,14 @@ watch(
             :pdf-file="previewDisplayFile"
             :placed-fields="placedFields"
             :selected-field="selectedField || undefined"
+            :selected-instance-ids="selectedFieldInstanceIds"
             :new-template-name="newTemplateName"
             :selected-contract-id="(selectedContractId as string | number | undefined)"
             :ui-scale="scale"
             :field-values="activePreviewOverlayFieldValues"
             :fill-mode="isPreviewFillModeActive"
             @field-selected="selectField"
+            @field-drag-start="onFieldDragStart"
             @field-updated="handleFieldUpdate"
             @field-removed="handleFieldRemoval"
             @pdf-loaded="onImageLoad"
