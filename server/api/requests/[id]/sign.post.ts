@@ -2,6 +2,7 @@ import db from '~~/lib/db';
 import { request, requestTemplate, signatureFlow, signatures, userRoles, users } from '~~/lib/db/schema';
 import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
+import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
@@ -17,7 +18,11 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    const { signatureDataUrl } = body as { signatureDataUrl: string };
+    const { signatureDataUrl, regenerateFilledPdf } = body as {
+      signatureDataUrl: string;
+      /** When true, rebuild filled PDF from DB in memory (avoids extra HTTP round-trip + re-download after generate-filled-pdf). */
+      regenerateFilledPdf?: boolean;
+    };
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
     if (!signatureDataUrl || !signatureDataUrl.startsWith('data:image/')) {
@@ -76,11 +81,6 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Request not found' };
     }
 
-    if (!requestData.filledDocumentUrl) {
-      return { success: false, error: 'No filled PDF found. Please try again.' };
-    }
-
-    // Get template for field coordinates
     const [template] = await db
       .select()
       .from(requestTemplate)
@@ -91,19 +91,43 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Template not found' };
     }
 
+    const assignedIds = (flowEntry.assignedFieldInstanceIds as string[]) ?? [];
+    const allFields = (template.placedFieldsData as any[]) ?? [];
+    const pendingStepHasNonSignatureFields = allFields.some(
+      (f: any) =>
+        assignedIds.includes(f.instanceId)
+        && String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase() !== 'signature',
+    );
+    // Never trust the client alone: if this step includes form fields, we must burn DB values into the PDF.
+    const effectiveRegenerateFilledPdf = Boolean(regenerateFilledPdf) || pendingStepHasNonSignatureFields;
+
+    if (!effectiveRegenerateFilledPdf && !requestData.filledDocumentUrl) {
+      return { success: false, error: 'No filled PDF found. Please try again.' };
+    }
+
     // ── Decode signature and embed into PDF ────────────────────────────────
     const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
     const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
-    // ── Embed signature image into PDF ───────────────────────────────────────
-    const pdfResponse = await fetch(requestData.filledDocumentUrl);
-    if (!pdfResponse.ok) {
-      return { success: false, error: 'Failed to fetch current PDF' };
+    // ── Load PDF: either rebuild from DB (signer flow) or fetch stored URL ──
+    let pdfBytesForSign: Uint8Array;
+    if (effectiveRegenerateFilledPdf) {
+      const built = await buildFilledPdfBytesForRequest(requestId, userId);
+      if (!built.success) {
+        return { success: false, error: built.error === 'Forbidden' ? 'Not allowed to regenerate PDF' : built.error };
+      }
+      pdfBytesForSign = built.bytes;
+    }
+    else {
+      const pdfResponse = await fetch(requestData.filledDocumentUrl!);
+      if (!pdfResponse.ok) {
+        return { success: false, error: 'Failed to fetch current PDF' };
+      }
+      pdfBytesForSign = new Uint8Array(await pdfResponse.arrayBuffer());
     }
 
-    const pdfArrayBuffer = await pdfResponse.arrayBuffer();
     const PDFLib = await import('pdf-lib');
-    const pdfDoc = await PDFLib.PDFDocument.load(new Uint8Array(pdfArrayBuffer));
+    const pdfDoc = await PDFLib.PDFDocument.load(pdfBytesForSign);
     const pages = pdfDoc.getPages();
 
     const sigImage = await pdfDoc.embedPng(sigBytes);
@@ -111,8 +135,6 @@ export default defineEventHandler(async (event) => {
     const templateWidth = template.documentWidth || 595;
     const templateHeight = template.documentHeight || 842;
 
-    const assignedIds = (flowEntry.assignedFieldInstanceIds as string[]) ?? [];
-    const allFields = (template.placedFieldsData as any[]) ?? [];
     const signatureFields = allFields.filter(
       (f: any) => assignedIds.includes(f.instanceId) && f.type === 'Signature',
     );

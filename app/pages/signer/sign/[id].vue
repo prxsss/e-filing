@@ -830,6 +830,8 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
   if (newStatus !== 'in_progress') {
     await fetchStatus();
   }
+
+  await navigateTo('/signer/to-sign');
 }
 
 async function submitSignature() {
@@ -859,43 +861,32 @@ async function submitSignature() {
         isSigning.value = false;
         return;
       }
-
-      const pdfResult = await $fetch<{ success: boolean; error?: string }>(
-        `/api/requests/${requestId}/generate-filled-pdf`,
-        { method: 'POST' },
-      );
-      if (!pdfResult.success) {
-        error.value = 'ไม่สามารถสร้าง PDF ได้';
-        isSigning.value = false;
-        return;
-      }
     }
 
-    if (hasSignatureField.value && signatureDataUrl.value) {
-      const result = await $fetch<{ success: boolean; data: any; error?: string }>(
-        `/api/requests/${requestId}/sign`,
-        { method: 'POST', body: { signatureDataUrl: signatureDataUrl.value } },
-      );
+    const signBody: { signatureDataUrl: string; regenerateFilledPdf?: boolean } = {
+      signatureDataUrl:
+        hasSignatureField.value && signatureDataUrl.value
+          ? signatureDataUrl.value
+          : TRANSPARENT_1PX_PNG,
+    };
+    if (hasSignerProcessableFields.value) {
+      signBody.regenerateFilledPdf = true;
+    }
 
-      if (result.success) {
-        await applySignSuccessResponse(result.data ?? {}, { noSignatureField: false });
-      }
-      else {
-        error.value = result.error ?? 'ลงนามไม่สำเร็จ';
-      }
+    const result = await $fetch<{ success: boolean; data: any; error?: string }>(
+      `/api/requests/${requestId}/sign`,
+      { method: 'POST', body: signBody },
+    );
+
+    if (result.success) {
+      await applySignSuccessResponse(
+        result.data ?? {},
+        { noSignatureField: !(hasSignatureField.value && signatureDataUrl.value) },
+      );
     }
     else {
-      const result = await $fetch<{ success: boolean; data: any; error?: string }>(
-        `/api/requests/${requestId}/sign`,
-        { method: 'POST', body: { signatureDataUrl: TRANSPARENT_1PX_PNG } },
-      );
-
-      if (result.success) {
-        await applySignSuccessResponse(result.data ?? {}, { noSignatureField: true });
-      }
-      else {
-        error.value = result.error ?? 'ดำเนินการไม่สำเร็จ';
-      }
+      error.value = result.error
+        ?? (hasSignatureField.value && signatureDataUrl.value ? 'ลงนามไม่สำเร็จ' : 'ดำเนินการไม่สำเร็จ');
     }
   }
   catch (err: any) {

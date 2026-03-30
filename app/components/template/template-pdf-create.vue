@@ -20,10 +20,13 @@ const props = defineProps({
   fillMode: { type: Boolean, default: false }, // Show typed values in field boxes for WYSIWYG
   /** Full template fields for strike-group detection when `placedFields` is a filtered overlay subset */
   strikeGroupContextFields: { type: Array as () => Field[], default: null },
+  /** When set (e.g. admin builder), enables multi-select highlights and group drag. */
+  selectedInstanceIds: { type: Array as () => string[], default: () => [] },
 });
 
 const emit = defineEmits<{
-  fieldSelected: [field: Field];
+  fieldSelected: [field: Field | null, options?: { shiftKey?: boolean }];
+  fieldDragStart: [];
   pdfLoaded: [];
   templateSaved: [data: any];
   currentPageChanged: [pageNumber: number];
@@ -31,6 +34,17 @@ const emit = defineEmits<{
   fieldRemoved: [instanceId: string];
   fieldClicked: [field: Field];
 }>();
+
+type PositionOverride = {
+  normalizedX?: number;
+  normalizedY?: number;
+  normalizedWidth?: number;
+  normalizedHeight?: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+};
 
 // Helper: get signing step color for a field
 function getFieldSignerColor(field: Field): string | null {
@@ -46,6 +60,14 @@ function getFieldSignerRole(field: Field): string | null {
     return null;
   const step = props.signingSteps.find((s: any) => s.id === field.signerStepId);
   return step ? step.roleName : null;
+}
+
+function isFieldInstanceSelected(field: Field): boolean {
+  const ids = props.selectedInstanceIds;
+  if (Array.isArray(ids) && ids.length > 0) {
+    return ids.includes(field.instanceId);
+  }
+  return props.selectedField?.instanceId === field.instanceId;
 }
 
 function resolveDisplayFontFamily(fontFamily?: string): string {
@@ -272,13 +294,16 @@ const isRendering = ref(false);
 
 const activeDrag = ref<{
   isDragging: boolean;
+  mode: 'single' | 'group';
   field: Field | null;
   offsetX: number;
   offsetY: number;
   displayWidth: number;
   displayHeight: number;
+  groupStartNormalized?: Record<string, { nx: number; ny: number; nw: number; nh: number }>;
 }>({
   isDragging: false,
+  mode: 'single',
   field: null,
   offsetX: 0,
   offsetY: 0,
@@ -303,21 +328,14 @@ const activeResize = ref<{
   startHeight: 0,
 });
 
-// Pan scrolling state
+// Pan: drag past threshold on background scrolls viewerArea; short click deselects field (no @click — avoids deselect after pan).
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+const PAN_DRAG_THRESHOLD_PX = 6;
+const panPointerDown = ref<{ clientX: number; clientY: number } | null>(null);
 
-// Local position override used during drag/resize for real-time visual feedback
-// Avoids direct prop mutation — parent receives the final update only via emit('fieldUpdated')
-const fieldPositionOverride = ref<{
-  instanceId: string;
-  normalizedX?: number;
-  normalizedY?: number;
-  normalizedWidth?: number;
-  normalizedHeight?: number;
-  x?: number;
-  y?: number;
-} | null>(null);
+// Local position overrides during drag/resize (multi-key for group drag)
+const fieldPositionOverrides = ref<Record<string, PositionOverride>>({});
 
 // --- Fit-to-width ---
 // Scale factor to make the PDF fill the container width
@@ -559,8 +577,8 @@ async function renderCurrentPage(): Promise<void> {
   }
 }
 
-function selectField(field: Field): void {
-  emit('fieldSelected', field);
+function selectField(field: Field, event?: MouseEvent): void {
+  emit('fieldSelected', field, { shiftKey: Boolean(event?.shiftKey) });
 }
 
 function getEventCoordinates(event: any): { clientX: number; clientY: number } {
@@ -581,6 +599,14 @@ function startDrag(event: any, field: Field): void {
   const containerRect = previewContainer.value.getBoundingClientRect();
   const uiScale = props.uiScale || 1;
 
+  // Shift+multi-select is handled on `click` only. Emitting here *and* on click toggles twice
+  // (add on mousedown, remove on click) so the selection flickers and appears broken.
+  if (event.shiftKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   // Use displayX/displayY from computed field, or fall back to x/y
   const fieldDisplayX = (field as any).displayX ?? field.x ?? 50;
   const fieldDisplayY = (field as any).displayY ?? field.y ?? 50;
@@ -592,8 +618,58 @@ function startDrag(event: any, field: Field): void {
   // Snapshot the field state — does NOT keep a reference to the prop object
   const fieldSnapshot = { ...((props.placedFields as Field[]).find((f: Field) => f.instanceId === field.instanceId) || field) };
 
+  const sel = (props.selectedInstanceIds as string[]) || [];
+  const pageFiltered = (props.placedFields as Field[]).filter(
+    f =>
+      (!f.pageNumber || f.pageNumber === currentPage.value)
+      && sel.includes(f.instanceId)
+      && f.normalizedX !== undefined
+      && f.normalizedWidth !== undefined,
+  );
+  const useGroup = !props.readOnly
+    && sel.length > 1
+    && sel.includes(field.instanceId)
+    && pageFiltered.length > 1;
+
+  emit('fieldDragStart');
+  fieldPositionOverrides.value = {};
+
+  if (useGroup) {
+    const groupStartNormalized: Record<string, { nx: number; ny: number; nw: number; nh: number }> = {};
+    for (const f of pageFiltered) {
+      groupStartNormalized[f.instanceId] = {
+        nx: f.normalizedX!,
+        ny: f.normalizedY ?? 0,
+        nw: f.normalizedWidth ?? 0,
+        nh: f.normalizedHeight ?? 0,
+      };
+    }
+    if (Object.keys(groupStartNormalized).length >= 2) {
+      activeDrag.value = {
+        isDragging: true,
+        mode: 'group',
+        field: fieldSnapshot,
+        offsetX: mouseCanvasX - fieldDisplayX,
+        offsetY: mouseCanvasY - fieldDisplayY,
+        displayWidth: (field as any).displayWidth ?? field.width ?? 150,
+        displayHeight: (field as any).displayHeight ?? field.height ?? 40,
+        groupStartNormalized,
+      };
+      emit('fieldSelected', field);
+      event.preventDefault();
+      event.stopPropagation();
+
+      document.addEventListener('mousemove', drag, { passive: false });
+      document.addEventListener('mouseup', stopDrag);
+      document.addEventListener('touchmove', drag, { passive: false });
+      document.addEventListener('touchend', stopDrag);
+      return;
+    }
+  }
+
   activeDrag.value = {
     isDragging: true,
+    mode: 'single',
     field: fieldSnapshot,
     offsetX: mouseCanvasX - fieldDisplayX,
     offsetY: mouseCanvasY - fieldDisplayY,
@@ -628,75 +704,115 @@ function drag(event: any): void {
   const containerRect = previewContainer.value.getBoundingClientRect();
   const uiScale = props.uiScale || 1;
 
-  // Mouse coords (screen space) → Canvas coords
   const mouseCanvasX = (coords.clientX - containerRect.left) / uiScale;
   const mouseCanvasY = (coords.clientY - containerRect.top) / uiScale;
 
   const field = activeDrag.value.field;
 
-  // Use fit-to-width display dimensions for bounds (not affected by CSS transform)
   const dw = displayWidth.value || 1;
   const dh = displayHeight.value || 1;
 
-  // Use display dimensions captured at drag start
   const fieldDisplayWidth = activeDrag.value.displayWidth;
   const fieldDisplayHeight = activeDrag.value.displayHeight;
 
-  // Constrain to display bounds
+  if (activeDrag.value.mode === 'group' && activeDrag.value.groupStartNormalized) {
+    const gsm = activeDrag.value.groupStartNormalized;
+    let newDisplayX = mouseCanvasX - activeDrag.value.offsetX;
+    let newDisplayY = mouseCanvasY - activeDrag.value.offsetY;
+    newDisplayX = Math.max(0, Math.min(newDisplayX, dw - fieldDisplayWidth));
+    newDisplayY = Math.max(0, Math.min(newDisplayY, dh - fieldDisplayHeight));
+
+    const primaryId = field!.instanceId;
+    const startN = gsm[primaryId];
+    if (!startN) {
+      return;
+    }
+
+    const startPrimaryDisplay = normToDisplay(startN.nx, startN.ny, startN.nw, startN.nh);
+    const newPrimaryNorm = displayToNorm(newDisplayX, newDisplayY, startPrimaryDisplay.width, startPrimaryDisplay.height);
+
+    const dnx = newPrimaryNorm.x - startN.nx;
+    const dny = newPrimaryNorm.y - startN.ny;
+
+    const next: Record<string, PositionOverride> = {};
+    for (const id of Object.keys(gsm)) {
+      const s = gsm[id]!;
+      let nx = s.nx + dnx;
+      let ny = s.ny + dny;
+      nx = Math.max(0, Math.min(nx, 1 - s.nw));
+      ny = Math.max(0, Math.min(ny, 1 - s.nh));
+      next[id] = {
+        normalizedX: nx,
+        normalizedY: ny,
+        normalizedWidth: s.nw,
+        normalizedHeight: s.nh,
+      };
+    }
+    fieldPositionOverrides.value = next;
+    return;
+  }
+
   let newDisplayX = mouseCanvasX - activeDrag.value.offsetX;
   let newDisplayY = mouseCanvasY - activeDrag.value.offsetY;
   newDisplayX = Math.max(0, Math.min(newDisplayX, dw - fieldDisplayWidth));
   newDisplayY = Math.max(0, Math.min(newDisplayY, dh - fieldDisplayHeight));
 
-  // Convert display coordinates back to normalized for storage
   if (field!.normalizedX !== undefined && field!.normalizedWidth !== undefined) {
     const normalized = displayToNorm(newDisplayX, newDisplayY, fieldDisplayWidth, fieldDisplayHeight);
-    // Update position override for reactive display — does NOT mutate the prop
-    fieldPositionOverride.value = {
-      instanceId: field!.instanceId,
-      normalizedX: normalized.x,
-      normalizedY: normalized.y,
-      normalizedWidth: normalized.width,
-      normalizedHeight: normalized.height,
+    fieldPositionOverrides.value = {
+      [field!.instanceId]: {
+        normalizedX: normalized.x,
+        normalizedY: normalized.y,
+        normalizedWidth: normalized.width,
+        normalizedHeight: normalized.height,
+      },
     };
   }
   else {
-    // Image fields: update override with pixel coords
-    fieldPositionOverride.value = {
-      instanceId: field!.instanceId,
-      x: Math.round(newDisplayX),
-      y: Math.round(newDisplayY),
+    fieldPositionOverrides.value = {
+      [field!.instanceId]: {
+        x: Math.round(newDisplayX),
+        y: Math.round(newDisplayY),
+      },
     };
   }
 }
 
 function stopDrag(): void {
   if (activeDrag.value.isDragging) {
-    // Emit final position from override to parent — this is the only place we write to parent state
-    if (fieldPositionOverride.value) {
-      const ov = fieldPositionOverride.value;
-      if (ov.normalizedX !== undefined) {
-        emit('fieldUpdated', {
-          instanceId: ov.instanceId,
-          updates: {
-            normalizedX: ov.normalizedX,
-            normalizedY: ov.normalizedY,
-            normalizedWidth: ov.normalizedWidth,
-            normalizedHeight: ov.normalizedHeight,
-          },
-        });
+    const ovMap = fieldPositionOverrides.value;
+    const keys = Object.keys(ovMap);
+    if (keys.length > 0) {
+      for (const instanceId of keys) {
+        const ov = ovMap[instanceId];
+        if (!ov) {
+          continue;
+        }
+        if (ov.normalizedX !== undefined) {
+          emit('fieldUpdated', {
+            instanceId,
+            updates: {
+              normalizedX: ov.normalizedX,
+              normalizedY: ov.normalizedY,
+              normalizedWidth: ov.normalizedWidth,
+              normalizedHeight: ov.normalizedHeight,
+            },
+          });
+        }
+        else if (ov.x !== undefined) {
+          emit('fieldUpdated', {
+            instanceId,
+            updates: { x: ov.x, y: ov.y },
+          });
+        }
       }
-      else if (ov.x !== undefined) {
-        emit('fieldUpdated', {
-          instanceId: ov.instanceId,
-          updates: { x: ov.x, y: ov.y },
-        });
-      }
-      fieldPositionOverride.value = null;
     }
+    fieldPositionOverrides.value = {};
 
     activeDrag.value.isDragging = false;
     activeDrag.value.field = null;
+    activeDrag.value.mode = 'single';
+    activeDrag.value.groupStartNormalized = undefined;
 
     document.removeEventListener('mousemove', drag);
     document.removeEventListener('mouseup', stopDrag);
@@ -711,6 +827,9 @@ function startResize(event: any, field: Field, direction: string): void {
 
   event.preventDefault();
   event.stopPropagation();
+
+  emit('fieldDragStart');
+  fieldPositionOverrides.value = {};
 
   // Get current display size from normalized coordinates
   const currentDisplay = field.normalizedWidth !== undefined
@@ -765,53 +884,62 @@ function handleResize(event: any): void {
   if (field.normalizedX !== undefined) {
     const currentDisplay = normToDisplay(field.normalizedX, field.normalizedY, field.normalizedWidth, field.normalizedHeight);
     const normalized = displayToNorm(currentDisplay.x, currentDisplay.y, newWidth, newHeight);
-    fieldPositionOverride.value = {
-      instanceId: field.instanceId,
-      normalizedX: normalized.x,
-      normalizedY: normalized.y,
-      normalizedWidth: normalized.width,
-      normalizedHeight: normalized.height,
+    fieldPositionOverrides.value = {
+      [field.instanceId]: {
+        normalizedX: normalized.x,
+        normalizedY: normalized.y,
+        normalizedWidth: normalized.width,
+        normalizedHeight: normalized.height,
+      },
     };
   }
   else {
-    fieldPositionOverride.value = {
-      instanceId: field.instanceId,
-      x: field.x,
-      y: field.y,
-    };
     field.width = Math.round(newWidth);
     field.height = Math.round(newHeight);
+    fieldPositionOverrides.value = {
+      [field.instanceId]: {
+        x: field.x,
+        y: field.y,
+        width: field.width,
+        height: field.height,
+      },
+    };
   }
 }
 
 function stopResize(): void {
   if (activeResize.value.isResizing) {
-    // Emit final size from override to parent — this is the only place we write to parent state
-    if (fieldPositionOverride.value) {
-      const ov = fieldPositionOverride.value;
-      if (ov.normalizedX !== undefined) {
-        emit('fieldUpdated', {
-          instanceId: ov.instanceId,
-          updates: {
-            normalizedX: ov.normalizedX,
-            normalizedY: ov.normalizedY,
-            normalizedWidth: ov.normalizedWidth,
-            normalizedHeight: ov.normalizedHeight,
-          },
-        });
+    const ovMap = fieldPositionOverrides.value;
+    const keys = Object.keys(ovMap);
+    if (keys.length > 0) {
+      for (const instanceId of keys) {
+        const ov = ovMap[instanceId];
+        if (!ov) {
+          continue;
+        }
+        if (ov.normalizedX !== undefined) {
+          emit('fieldUpdated', {
+            instanceId,
+            updates: {
+              normalizedX: ov.normalizedX,
+              normalizedY: ov.normalizedY,
+              normalizedWidth: ov.normalizedWidth,
+              normalizedHeight: ov.normalizedHeight,
+            },
+          });
+        }
+        else if (activeResize.value.field?.instanceId === instanceId) {
+          emit('fieldUpdated', {
+            instanceId,
+            updates: {
+              width: activeResize.value.field.width,
+              height: activeResize.value.field.height,
+            },
+          });
+        }
       }
-      else if (activeResize.value.field) {
-        // Image field: emit pixel width/height
-        emit('fieldUpdated', {
-          instanceId: activeResize.value.field.instanceId,
-          updates: {
-            width: activeResize.value.field.width,
-            height: activeResize.value.field.height,
-          },
-        });
-      }
-      fieldPositionOverride.value = null;
     }
+    fieldPositionOverrides.value = {};
 
     activeResize.value.isResizing = false;
     activeResize.value.field = null;
@@ -989,10 +1117,8 @@ const fieldsWithDisplayCoords = computed(() => {
   return props.placedFields
     .filter((field: Field) => !field.pageNumber || field.pageNumber === currentPage.value)
     .map((field: Field) => {
-      // Merge position override during active drag/resize (no prop mutation)
-      const activeField = fieldPositionOverride.value?.instanceId === field.instanceId
-        ? { ...field, ...fieldPositionOverride.value }
-        : field;
+      const ov = fieldPositionOverrides.value[field.instanceId];
+      const activeField = ov ? { ...field, ...ov } : field;
 
       if (activeField.normalizedX !== undefined) {
         const display = normToDisplay(
@@ -1013,8 +1139,8 @@ const fieldsWithDisplayCoords = computed(() => {
         ...field,
         displayX: activeField.x || 50,
         displayY: activeField.y || 50,
-        displayWidth: field.width || 150,
-        displayHeight: field.height || 40,
+        displayWidth: (activeField as any).width ?? field.width ?? 150,
+        displayHeight: (activeField as any).height ?? field.height ?? 40,
       };
     });
 });
@@ -1070,47 +1196,71 @@ watch(
 );
 
 // ========================================
-// Pan Scrolling (Drag to Scroll)
+// Pan scrolling (drag past threshold → scroll viewerArea; release without drag → deselect)
 // ========================================
-function startPan(event: MouseEvent) {
-  // ไม่ pan ถ้ากำลังลาก field หรือ resize
+function isPanExcludedTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el?.closest)
+    return true;
+  return Boolean(
+    el.closest('.placed-field')
+    || el.closest('.resize-handle')
+    || el.closest('.preview-page-bar')
+    || el.closest('select')
+    || el.closest('button')
+    || el.closest('a')
+    || el.closest('input')
+    || el.closest('textarea')
+    || el.closest('label'),
+  );
+}
+
+function onPanPointerDown(event: MouseEvent) {
   if (activeDrag.value.isDragging || activeResize.value.isResizing)
     return;
-
-  // ไม่ pan ถ้าคลิกบน field
-  if ((event.target as HTMLElement)?.closest('.placed-field'))
+  if (isPanExcludedTarget(event.target))
     return;
-
-  // ใช้เฉพาะ left click (button 0)
   if (event.button !== 0)
     return;
 
-  if (!previewContainer.value)
-    return;
-
-  isPanning.value = true;
-  panStart.value = {
-    x: event.clientX,
-    y: event.clientY,
-    scrollLeft: previewContainer.value.scrollLeft,
-    scrollTop: previewContainer.value.scrollTop,
-  };
-
-  event.preventDefault();
+  panPointerDown.value = { clientX: event.clientX, clientY: event.clientY };
 }
 
 function handlePan(event: MouseEvent) {
-  if (!isPanning.value || !previewContainer.value)
-    return;
+  if (panPointerDown.value && !isPanning.value) {
+    const dx = event.clientX - panPointerDown.value.clientX;
+    const dy = event.clientY - panPointerDown.value.clientY;
+    if (dx * dx + dy * dy >= PAN_DRAG_THRESHOLD_PX * PAN_DRAG_THRESHOLD_PX) {
+      const scroller = viewerArea.value;
+      if (!scroller)
+        return;
+      isPanning.value = true;
+      panStart.value = {
+        x: event.clientX,
+        y: event.clientY,
+        scrollLeft: scroller.scrollLeft,
+        scrollTop: scroller.scrollTop,
+      };
+      panPointerDown.value = null;
+    }
+  }
 
-  const dx = event.clientX - panStart.value.x;
-  const dy = event.clientY - panStart.value.y;
-
-  previewContainer.value.scrollLeft = panStart.value.scrollLeft - dx;
-  previewContainer.value.scrollTop = panStart.value.scrollTop - dy;
+  if (isPanning.value && viewerArea.value) {
+    const dx = event.clientX - panStart.value.x;
+    const dy = event.clientY - panStart.value.y;
+    viewerArea.value.scrollLeft = panStart.value.scrollLeft - dx;
+    viewerArea.value.scrollTop = panStart.value.scrollTop - dy;
+  }
 }
 
 function stopPan() {
+  if (panPointerDown.value && !isPanning.value && !props.readOnly) {
+    emit('fieldSelected', null);
+    nextTick(() => {
+      viewerArea.value?.focus({ preventScroll: true });
+    });
+  }
+  panPointerDown.value = null;
   isPanning.value = false;
 }
 
@@ -1140,22 +1290,23 @@ onMounted(() => {
   }
 
   if (previewContainer.value) {
-    previewContainer.value.addEventListener('mousedown', startPan);
-    document.addEventListener('mousemove', handlePan);
-    document.addEventListener('mouseup', stopPan);
-    document.addEventListener('mouseleave', stopPan);
+    previewContainer.value.addEventListener('mousedown', onPanPointerDown);
   }
+  document.addEventListener('mousemove', handlePan);
+  document.addEventListener('mouseup', stopPan);
+  document.addEventListener('mouseleave', stopPan);
 });
 
 onUnmounted(() => {
   resizeObserver?.disconnect();
+
+  previewContainer.value?.removeEventListener('mousedown', onPanPointerDown);
 
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
   document.removeEventListener('touchend', stopDrag);
 
-  // Remove pan scrolling listeners
   document.removeEventListener('mousemove', handlePan);
   document.removeEventListener('mouseup', stopPan);
   document.removeEventListener('mouseleave', stopPan);
@@ -1188,7 +1339,11 @@ defineExpose<{
 <template>
   <div class="w-full h-full flex flex-col">
     <!-- Canvas Area – Scrollable -->
-    <div ref="viewerArea" class="flex-1 overflow-auto bg-gray-100 p-4">
+    <div
+      ref="viewerArea"
+      tabindex="-1"
+      class="flex-1 overflow-auto bg-gray-100 p-4 outline-none focus-visible:ring-2 focus-visible:ring-blue-400/40 rounded-sm"
+    >
       <div
         id="pdf-preview-container"
         ref="previewContainer"
@@ -1227,7 +1382,7 @@ defineExpose<{
               :key="field.instanceId"
               class="placed-field"
               :class="{
-                'field-selected': selectedField?.instanceId === field.instanceId && !props.readOnly,
+                'field-selected': isFieldInstanceSelected(field) && !props.readOnly,
                 'fill-mode': props.readOnly && props.fillMode,
                 'fill-mode--strike-omit': props.readOnly && props.fillMode && isStrikeThroughUncheckedShowingDash(field),
                 'read-only': props.readOnly && !props.fillMode && !props.signingSteps.length,
@@ -1240,7 +1395,7 @@ defineExpose<{
                 top: `${field.displayY}px`,
                 width: `${field.displayWidth}px`,
                 height: `${field.displayHeight}px`,
-                zIndex: selectedField?.instanceId === field.instanceId ? 1000 : 100,
+                zIndex: isFieldInstanceSelected(field) ? 1000 : 100,
                 fontSize: `${(field.fontSize || 14) * fitScale}px`,
                 fontFamily: resolveDisplayFontFamily(field.fontFamily),
                 fontWeight: field.fontWeight || 'normal',
@@ -1258,7 +1413,7 @@ defineExpose<{
               }"
               @mousedown.stop.prevent="!props.readOnly && startDrag($event, field)"
               @touchstart.stop.prevent="!props.readOnly && startDrag($event, field)"
-              @click.stop="props.readOnly && props.signingSteps.length > 0 ? emit('fieldClicked', field) : !props.readOnly && selectField(field)"
+              @click.stop="props.readOnly && props.signingSteps.length > 0 ? emit('fieldClicked', field) : !props.readOnly && selectField(field, $event)"
             >
               <div
                 v-if="!props.readOnly && hasVisibilityRule(field)"
@@ -1317,16 +1472,19 @@ defineExpose<{
                 v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
                 class="resize-handle resize-handle-right"
                 @mousedown.stop.prevent="startResize($event, field, 'right')"
+                @click.stop
               />
               <div
                 v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
                 class="resize-handle resize-handle-bottom"
                 @mousedown.stop.prevent="startResize($event, field, 'bottom')"
+                @click.stop
               />
               <div
                 v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
                 class="resize-handle resize-handle-corner"
                 @mousedown.stop.prevent="startResize($event, field, 'corner')"
+                @click.stop
               />
             </div>
           </div>
@@ -1334,7 +1492,7 @@ defineExpose<{
         <!-- End of scale wrapper -->
 
         <!-- Page Selector -->
-        <div v-if="pdfLoaded && totalPages > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
+        <div v-if="pdfLoaded && totalPages > 1" class="preview-page-bar absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
           <label class="text-xs font-semibold text-gray-600">Page</label>
           <select
             v-model="currentPage"
@@ -1391,6 +1549,7 @@ defineExpose<{
   /* Fixed dimensions based on PDF - NOT responsive */
   display: flex;
   justify-content: flex-start;
+  cursor: default;
 }
 
 .pdf-canvas {
@@ -1399,6 +1558,7 @@ defineExpose<{
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #ddd;
   background: white;
+  cursor: default;
   /* Canvas internal resolution used only for rendering */
   /* Displayed size controlled by getBoundingClientRect() in coordinate functions */
 }
@@ -1454,8 +1614,9 @@ defineExpose<{
 
 .signer-tag {
   position: absolute;
-  top: -8px;
+  bottom: -8px;
   right: -4px;
+  top: auto;
   font-size: 0.55rem;
   color: white;
   padding: 1px 4px;
