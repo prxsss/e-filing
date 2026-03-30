@@ -4,6 +4,11 @@ import type { FieldInstance, FieldVisibilityRule, FileTypeValue, PdfRef, Signing
 import { getAutoDateTimeFormatConfig } from '../../../../shared/auto-date-time-format';
 import { getFieldDisplayInstanceNumber, getNextFieldInstanceNumber } from '../../../../shared/field-instance-number';
 import { placeField } from '../../../utils/place-field';
+import {
+  buildPastedFieldInstance,
+  readTemplateFieldFromClipboard,
+  writeTemplateFieldToSystemClipboard,
+} from '../../../utils/template-field-clipboard';
 
 type Field = any;
 
@@ -1321,10 +1326,51 @@ function handleTemplateSaved(templateData: any): void {
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 
 function handleKeyDown(event: KeyboardEvent): void {
-  // Prevent moving fields when typing in inputs/textareas
-  const activeTag = document.activeElement?.tagName.toLowerCase();
-  if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+  const activeEl = document.activeElement;
+  const activeTag = activeEl?.tagName?.toLowerCase();
+  const isEditableTarget = activeTag === 'input'
+    || activeTag === 'textarea'
+    || activeTag === 'select'
+    || (activeEl instanceof HTMLElement && activeEl.isContentEditable);
+
+  if (isEditableTarget) {
     return;
+  }
+
+  const mod = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+
+  if (mod && (key === 'c' || key === 'v') && currentWizardStep.value === 1 && uploadedFile.value) {
+    if (key === 'c') {
+      if (!selectedFieldInstanceId.value)
+        return;
+      const source = placedFields.value.find(f => f.instanceId === selectedFieldInstanceId.value);
+      if (!source)
+        return;
+      event.preventDefault();
+      void writeTemplateFieldToSystemClipboard(source);
+      return;
+    }
+    if (key === 'v') {
+      event.preventDefault();
+      void (async () => {
+        const snapshot = await readTemplateFieldFromClipboard();
+        if (!snapshot)
+          return;
+        const newField = buildPastedFieldInstance(snapshot, placedFields.value, {
+          pdfRef: templatePdfRef.value,
+          fileType: fileType.value,
+          currentPage: currentPdfPage.value,
+        });
+        placedFields.value.push(newField);
+        selectedFieldInstanceId.value = newField.instanceId;
+        hasChanges.value = true;
+        if (fieldHasPreviewContent(newField)) {
+          schedulePreviewRefresh();
+        }
+      })();
+      return;
+    }
   }
 
   if (!selectedFieldInstanceId.value || !templatePdfRef.value)
@@ -1809,59 +1855,75 @@ watch(
           </div>
         </div>
 
-        <div v-if="isPreviewOutputEnabled && uploadedFile && fileType === 'pdf' && selectedField && (canTypePreviewValue || canTogglePreviewCheckbox)" class="h-12 bg-white border-b border-gray-200 px-4 flex items-center shrink-0 gap-3">
+        <div v-if="isPreviewOutputEnabled && uploadedFile && fileType === 'pdf'" class="min-h-12 bg-white border-b border-gray-200 px-4 py-2 flex items-center shrink-0 gap-3">
           <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">Preview Output</span>
-          <span class="text-xs text-gray-400 truncate max-w-40 shrink-0">{{ selectedField.label || selectedField.name }}</span>
-          <UBadge
-            v-if="hasFieldVisibilityRule(selectedField)"
-            color="warning"
-            variant="subtle"
-            size="xs"
-            class="shrink-0"
-          >
-            Conditional
-          </UBadge>
 
-          <template v-if="canTypePreviewValue">
+          <template v-if="!selectedField">
             <input
-              :value="selectedFieldPreviewValue"
-              :maxlength="selectedFieldMaxLength || undefined"
               type="text"
-              class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Type sample text to preview actual PDF output"
-              @input="handlePreviewInput"
+              disabled
+              class="flex-1 min-w-0 h-8 rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-400 cursor-not-allowed"
+              placeholder="Select a field on the PDF to type sample preview text here"
             >
-            <UButton
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              :disabled="!selectedFieldPreviewValue"
-              @click="selectedFieldPreviewValue = ''"
-            >
-              Clear
-            </UButton>
-            <span v-if="selectedFieldMaxLength" class="text-[11px] text-gray-400 shrink-0">{{ selectedFieldPreviewCharacterCount }}/{{ selectedFieldMaxLength }}</span>
           </template>
 
-          <template v-else-if="canTogglePreviewCheckbox">
-            <label class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm text-gray-700 flex items-center gap-2">
-              <input
-                :checked="selectedFieldPreviewChecked"
-                type="checkbox"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                @change="handlePreviewCheckboxChange"
-              >
-              <span class="truncate">Toggle to show check mark in Preview PDF</span>
-            </label>
-            <UButton
+          <template v-else>
+            <span class="text-xs text-gray-600 truncate max-w-40 shrink-0">{{ selectedField.label || selectedField.name }}</span>
+            <UBadge
+              v-if="hasFieldVisibilityRule(selectedField)"
+              color="warning"
+              variant="subtle"
               size="xs"
-              color="neutral"
-              variant="ghost"
-              :disabled="!selectedFieldPreviewChecked"
-              @click="selectedFieldPreviewChecked = false"
+              class="shrink-0"
             >
-              Clear
-            </UButton>
+              Conditional
+            </UBadge>
+
+            <template v-if="canTypePreviewValue">
+              <input
+                :value="selectedFieldPreviewValue"
+                :maxlength="selectedFieldMaxLength || undefined"
+                type="text"
+                class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Type sample text to preview actual PDF output"
+                @input="handlePreviewInput"
+              >
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :disabled="!selectedFieldPreviewValue"
+                @click="selectedFieldPreviewValue = ''"
+              >
+                Clear
+              </UButton>
+              <span v-if="selectedFieldMaxLength" class="text-[11px] text-gray-400 shrink-0">{{ selectedFieldPreviewCharacterCount }}/{{ selectedFieldMaxLength }}</span>
+            </template>
+
+            <template v-else-if="canTogglePreviewCheckbox">
+              <label class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm text-gray-700 flex items-center gap-2">
+                <input
+                  :checked="selectedFieldPreviewChecked"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  @change="handlePreviewCheckboxChange"
+                >
+                <span class="truncate">Toggle to show check mark in Preview PDF</span>
+              </label>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :disabled="!selectedFieldPreviewChecked"
+                @click="selectedFieldPreviewChecked = false"
+              >
+                Clear
+              </UButton>
+            </template>
+
+            <template v-else>
+              <span class="flex-1 min-w-0 text-xs text-gray-500">This field type is shown directly on the PDF — no sample text box here.</span>
+            </template>
           </template>
 
           <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? 'Syncing preview...' : 'Preview only · not saved' }}</span>

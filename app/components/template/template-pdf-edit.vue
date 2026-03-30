@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  fieldSelected: [field: FieldInstance];
+  fieldSelected: [field: FieldInstance | null];
   pdfLoaded: [];
   templateSaved: [data: any];
   currentPageChanged: [pageNumber: number];
@@ -44,6 +44,7 @@ const emit = defineEmits<{
 }>();
 
 // Refs
+const viewerArea = ref<HTMLDivElement | null>(null);
 const previewContainer = ref<HTMLDivElement | null>(null);
 const pdfPageContainer = ref<HTMLDivElement | null>(null);
 const pdfCanvas = ref<HTMLCanvasElement | null>(null);
@@ -440,6 +441,30 @@ function selectField(field: FieldInstance): void {
   emit('fieldSelected', field);
 }
 
+function isBackdropDeselectExcluded(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el?.closest)
+    return true;
+  return Boolean(
+    el.closest('.placed-field')
+    || el.closest('.preview-page-bar')
+    || el.closest('select')
+    || el.closest('button')
+    || el.closest('a')
+    || el.closest('input')
+    || el.closest('textarea')
+    || el.closest('label'),
+  );
+}
+
+/** Click on PDF / empty preview (not on a field) clears selection so shortcuts like copy/paste work on the page. */
+function deselectFieldOnCanvasBackdrop(event: MouseEvent): void {
+  if (isBackdropDeselectExcluded(event.target))
+    return;
+  emit('fieldSelected', null);
+  nextTick(() => viewerArea.value?.focus({ preventScroll: true }));
+}
+
 function getEventCoordinates(event: MouseEvent | TouchEvent): { clientX: number; clientY: number } {
   if ('touches' in event && event.touches?.[0]) {
     return { clientX: event.touches[0].clientX, clientY: event.touches[0].clientY };
@@ -800,11 +825,16 @@ defineExpose({
 <template>
   <div class="w-full h-full flex flex-col">
     <!-- Canvas Area – Scrollable -->
-    <div class="flex-1 overflow-auto bg-gray-100 p-8 flex justify-center items-start">
+    <div
+      ref="viewerArea"
+      tabindex="-1"
+      class="flex-1 overflow-auto bg-gray-100 p-8 flex justify-center items-start outline-none focus-visible:ring-2 focus-visible:ring-blue-400/40 rounded-sm"
+    >
       <div
         id="pdf-preview-container"
         ref="previewContainer"
         class="preview-area"
+        @click="deselectFieldOnCanvasBackdrop"
       >
         <!-- Scale wrapper: scales PDF and fields together via CSS transform -->
         <div
@@ -830,6 +860,7 @@ defineExpose({
               v-show="pdfLoaded"
               ref="pdfCanvas"
               class="pdf-canvas"
+              @click.stop="deselectFieldOnCanvasBackdrop"
             />
 
             <!-- Placed Fields Overlay (inside pdf-container so position: absolute aligns with canvas) -->
@@ -856,7 +887,7 @@ defineExpose({
               }"
               @mousedown="startDrag($event, field)"
               @touchstart="startDrag($event, field)"
-              @click="selectField(field)"
+              @click.stop="selectField(field)"
             >
               <div
                 v-if="hasVisibilityRule(field)"
@@ -911,7 +942,7 @@ defineExpose({
         <!-- End of scale wrapper -->
 
         <!-- Page Selector -->
-        <div v-if="pdfLoaded && totalPages > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
+        <div v-if="pdfLoaded && totalPages > 1" class="preview-page-bar absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
           <label class="text-xs font-semibold text-gray-600">Page</label>
           <select
             v-model="currentPage"
@@ -962,15 +993,16 @@ defineExpose({
   position: relative;
   display: flex;
   justify-content: flex-start;
+  cursor: default;
 }
 
 .pdf-canvas {
-  /* Fixed dimensions - do NOT use max-width: 100% */
-  /* Canvas buffer size is the source of truth for coordinate conversion */
+  /* Fixed dimensions: do NOT use max-width: 100% */
   display: block;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #ddd;
   background: white;
+  cursor: default;
 }
 
 .placed-field {

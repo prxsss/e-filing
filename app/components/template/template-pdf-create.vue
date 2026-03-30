@@ -23,7 +23,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits<{
-  fieldSelected: [field: Field];
+  fieldSelected: [field: Field | null];
   pdfLoaded: [];
   templateSaved: [data: any];
   currentPageChanged: [pageNumber: number];
@@ -303,9 +303,11 @@ const activeResize = ref<{
   startHeight: 0,
 });
 
-// Pan scrolling state
+// Pan: drag past threshold on background scrolls viewerArea; short click deselects field (no @click — avoids deselect after pan).
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+const PAN_DRAG_THRESHOLD_PX = 6;
+const panPointerDown = ref<{ clientX: number; clientY: number } | null>(null);
 
 // Local position override used during drag/resize for real-time visual feedback
 // Avoids direct prop mutation — parent receives the final update only via emit('fieldUpdated')
@@ -1070,47 +1072,71 @@ watch(
 );
 
 // ========================================
-// Pan Scrolling (Drag to Scroll)
+// Pan scrolling (drag past threshold → scroll viewerArea; release without drag → deselect)
 // ========================================
-function startPan(event: MouseEvent) {
-  // ไม่ pan ถ้ากำลังลาก field หรือ resize
+function isPanExcludedTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el?.closest)
+    return true;
+  return Boolean(
+    el.closest('.placed-field')
+    || el.closest('.resize-handle')
+    || el.closest('.preview-page-bar')
+    || el.closest('select')
+    || el.closest('button')
+    || el.closest('a')
+    || el.closest('input')
+    || el.closest('textarea')
+    || el.closest('label'),
+  );
+}
+
+function onPanPointerDown(event: MouseEvent) {
   if (activeDrag.value.isDragging || activeResize.value.isResizing)
     return;
-
-  // ไม่ pan ถ้าคลิกบน field
-  if ((event.target as HTMLElement)?.closest('.placed-field'))
+  if (isPanExcludedTarget(event.target))
     return;
-
-  // ใช้เฉพาะ left click (button 0)
   if (event.button !== 0)
     return;
 
-  if (!previewContainer.value)
-    return;
-
-  isPanning.value = true;
-  panStart.value = {
-    x: event.clientX,
-    y: event.clientY,
-    scrollLeft: previewContainer.value.scrollLeft,
-    scrollTop: previewContainer.value.scrollTop,
-  };
-
-  event.preventDefault();
+  panPointerDown.value = { clientX: event.clientX, clientY: event.clientY };
 }
 
 function handlePan(event: MouseEvent) {
-  if (!isPanning.value || !previewContainer.value)
-    return;
+  if (panPointerDown.value && !isPanning.value) {
+    const dx = event.clientX - panPointerDown.value.clientX;
+    const dy = event.clientY - panPointerDown.value.clientY;
+    if (dx * dx + dy * dy >= PAN_DRAG_THRESHOLD_PX * PAN_DRAG_THRESHOLD_PX) {
+      const scroller = viewerArea.value;
+      if (!scroller)
+        return;
+      isPanning.value = true;
+      panStart.value = {
+        x: event.clientX,
+        y: event.clientY,
+        scrollLeft: scroller.scrollLeft,
+        scrollTop: scroller.scrollTop,
+      };
+      panPointerDown.value = null;
+    }
+  }
 
-  const dx = event.clientX - panStart.value.x;
-  const dy = event.clientY - panStart.value.y;
-
-  previewContainer.value.scrollLeft = panStart.value.scrollLeft - dx;
-  previewContainer.value.scrollTop = panStart.value.scrollTop - dy;
+  if (isPanning.value && viewerArea.value) {
+    const dx = event.clientX - panStart.value.x;
+    const dy = event.clientY - panStart.value.y;
+    viewerArea.value.scrollLeft = panStart.value.scrollLeft - dx;
+    viewerArea.value.scrollTop = panStart.value.scrollTop - dy;
+  }
 }
 
 function stopPan() {
+  if (panPointerDown.value && !isPanning.value && !props.readOnly) {
+    emit('fieldSelected', null);
+    nextTick(() => {
+      viewerArea.value?.focus({ preventScroll: true });
+    });
+  }
+  panPointerDown.value = null;
   isPanning.value = false;
 }
 
@@ -1140,22 +1166,23 @@ onMounted(() => {
   }
 
   if (previewContainer.value) {
-    previewContainer.value.addEventListener('mousedown', startPan);
-    document.addEventListener('mousemove', handlePan);
-    document.addEventListener('mouseup', stopPan);
-    document.addEventListener('mouseleave', stopPan);
+    previewContainer.value.addEventListener('mousedown', onPanPointerDown);
   }
+  document.addEventListener('mousemove', handlePan);
+  document.addEventListener('mouseup', stopPan);
+  document.addEventListener('mouseleave', stopPan);
 });
 
 onUnmounted(() => {
   resizeObserver?.disconnect();
+
+  previewContainer.value?.removeEventListener('mousedown', onPanPointerDown);
 
   document.removeEventListener('mousemove', drag);
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', drag);
   document.removeEventListener('touchend', stopDrag);
 
-  // Remove pan scrolling listeners
   document.removeEventListener('mousemove', handlePan);
   document.removeEventListener('mouseup', stopPan);
   document.removeEventListener('mouseleave', stopPan);
@@ -1188,7 +1215,11 @@ defineExpose<{
 <template>
   <div class="w-full h-full flex flex-col">
     <!-- Canvas Area – Scrollable -->
-    <div ref="viewerArea" class="flex-1 overflow-auto bg-gray-100 p-4">
+    <div
+      ref="viewerArea"
+      tabindex="-1"
+      class="flex-1 overflow-auto bg-gray-100 p-4 outline-none focus-visible:ring-2 focus-visible:ring-blue-400/40 rounded-sm"
+    >
       <div
         id="pdf-preview-container"
         ref="previewContainer"
@@ -1317,16 +1348,19 @@ defineExpose<{
                 v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
                 class="resize-handle resize-handle-right"
                 @mousedown.stop.prevent="startResize($event, field, 'right')"
+                @click.stop
               />
               <div
                 v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
                 class="resize-handle resize-handle-bottom"
                 @mousedown.stop.prevent="startResize($event, field, 'bottom')"
+                @click.stop
               />
               <div
                 v-if="selectedField?.instanceId === field.instanceId && !props.readOnly"
                 class="resize-handle resize-handle-corner"
                 @mousedown.stop.prevent="startResize($event, field, 'corner')"
+                @click.stop
               />
             </div>
           </div>
@@ -1334,7 +1368,7 @@ defineExpose<{
         <!-- End of scale wrapper -->
 
         <!-- Page Selector -->
-        <div v-if="pdfLoaded && totalPages > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
+        <div v-if="pdfLoaded && totalPages > 1" class="preview-page-bar absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
           <label class="text-xs font-semibold text-gray-600">Page</label>
           <select
             v-model="currentPage"
@@ -1391,6 +1425,7 @@ defineExpose<{
   /* Fixed dimensions based on PDF - NOT responsive */
   display: flex;
   justify-content: flex-start;
+  cursor: default;
 }
 
 .pdf-canvas {
@@ -1399,6 +1434,7 @@ defineExpose<{
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
   border: 1px solid #ddd;
   background: white;
+  cursor: default;
   /* Canvas internal resolution used only for rendering */
   /* Displayed size controlled by getBoundingClientRect() in coordinate functions */
 }
