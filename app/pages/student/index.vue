@@ -12,12 +12,10 @@ const localePath = useLocalePath();
 const router = useRouter();
 
 // === Status Helpers ===
-type RequestStatus = 'draft' | 'submitted' | 'pending' | 'approved' | 'rejected' | 'completed';
+type RequestStatus = 'in_progress' | 'approved' | 'rejected' | 'completed';
 
 const statusColorMap: Record<RequestStatus, 'neutral' | 'info' | 'warning' | 'success' | 'error'> = {
-  draft: 'neutral',
-  submitted: 'info',
-  pending: 'warning',
+  in_progress: 'warning',
   approved: 'success',
   rejected: 'error',
   completed: 'success',
@@ -30,9 +28,7 @@ function getStatusColor(status: string) {
 function getStatusLabel(status: string): string {
   const key = status as RequestStatus;
   const labels: Record<RequestStatus, string> = {
-    draft: t('draft'),
-    submitted: t('submitted'),
-    pending: t('pending'),
+    in_progress: t('inProgress'),
     approved: t('approved'),
     rejected: t('rejected'),
     completed: t('completed'),
