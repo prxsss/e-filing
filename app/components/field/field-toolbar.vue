@@ -177,15 +177,6 @@ const selectedFieldType = computed(() => String(props.selectedField?.type || pro
 const isDateField = computed(() => selectedFieldType.value === 'date');
 const isTimeField = computed(() => selectedFieldType.value === 'time');
 const isCheckboxType = computed(() => selectedFieldType.value === 'checkbox');
-const isGroupedCheckboxField = computed(() => {
-  if (!isCheckboxType.value) {
-    return false;
-  }
-
-  const groupId = String(props.selectedField?.groupId || '').trim();
-  const groupSize = Number(props.selectedField?.groupSize || 0);
-  return groupId.length > 0 || groupSize > 1;
-});
 
 const supportsMaxLength = computed(() => {
   return selectedFieldType.value !== 'signature'
@@ -1000,7 +991,7 @@ function onFieldHeightPopoverInput() {
         </div>
       </template>
 
-      <template v-if="isGroupedCheckboxField">
+      <template v-if="isCheckboxType">
         <div class="h-5 w-px bg-gray-200" />
         <label class="toolbar-inline-checkbox">
           <input
@@ -1012,7 +1003,7 @@ function onFieldHeightPopoverInput() {
         </label>
       </template>
 
-      <template v-if="isGroupedCheckboxField && localField.strikeThroughGroupMode">
+      <template v-if="isCheckboxType && localField.strikeThroughGroupMode">
         <UTooltip text="ความหนาเส้นขีดฆ่า (ใช้เมื่อเปิดโหมดขีดฆ่า)" :popper="{ placement: 'top' }">
           <div class="toolbar-input-group">
             <span class="toolbar-prefix text-gray-400">
