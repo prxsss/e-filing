@@ -17,6 +17,7 @@ type FacultyWorkloadItem = {
   faculty: string;
   completed: number;
   pending: number;
+  rejected: number;
 };
 
 type WorkloadRow = {
@@ -58,6 +59,8 @@ const chartData = computed<FacultyWorkloadItem[]>(() => {
     faculty: locale.value === 'th' ? row.facultyNameTh : row.facultyNameEn,
     completed: row.completed,
     pending: row.pending,
+    rejected: row.rejected,
+    total: row.total,
   }));
 });
 
@@ -66,8 +69,9 @@ watch(() => props.refreshToken, () => {
 });
 
 const categories = {
-  completed: { name: t('adminDashboard.workloadByFaculty.completed'), color: '#3b82f6' },
-  pending: { name: t('adminDashboard.workloadByFaculty.pending'), color: '#dbeafe' },
+  completed: { name: t('adminDashboard.workloadByFaculty.completed'), color: '#00bc7d' },
+  pending: { name: t('adminDashboard.workloadByFaculty.pending'), color: '#f0b100' },
+  rejected: { name: t('adminDashboard.workloadByFaculty.rejected'), color: '#fb2c36' },
 };
 
 function yFormatter(tick: number, _i?: number, _ticks?: number[]) {
@@ -97,7 +101,7 @@ function yFormatter(tick: number, _i?: number, _ticks?: number[]) {
         :stacked="true"
         :height="300"
         :categories="categories"
-        :y-axis="['completed', 'pending']"
+        :y-axis="['completed', 'pending', 'rejected']"
         :group-padding="0"
         :bar-padding="0.2"
         :x-num-ticks="6"
