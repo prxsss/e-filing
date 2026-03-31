@@ -537,7 +537,9 @@ function applyAdvancedSearch() {
         <p>{{ t('adminUsers.description') }}</p>
       </div>
       <div class="flex items-center gap-2">
-        <AdminUsersImportCsvModal v-if="authStore.can('user.import')" @imported="refresh" />
+        <ClientOnly>
+          <AdminUsersImportCsvModal v-if="authStore.can('user.import')" @imported="refresh" />
+        </ClientOnly>
 
         <UButton v-if="authStore.can('user.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/users/create')">
           {{ t('adminUsers.list.addButton') }}
