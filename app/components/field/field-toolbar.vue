@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { getAutoDateTimeFormatConfig } from '../../../shared/auto-date-time-format';
-import { getFieldDisplayInstanceNumber } from '../../../shared/field-instance-number';
+import { getAutoDateTimeFormatConfig } from '~~/shared/auto-date-time-format';
+import { getFieldDisplayInstanceNumber } from '~~/shared/field-instance-number';
 
 type Field = any;
 

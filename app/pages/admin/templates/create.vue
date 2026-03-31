@@ -1,14 +1,15 @@
 <script setup lang="ts">
+import { getAutoDateTimeFormatConfig } from '~~/shared/auto-date-time-format';
+import { getFieldDisplayInstanceNumber, getNextFieldInstanceNumber } from '~~/shared/field-instance-number';
+
 import type { FieldInstance, FieldVisibilityRule, FileTypeValue, PdfRef, SigningStep, WizardStep } from '~/types/template';
 
-import { getAutoDateTimeFormatConfig } from '../../../../shared/auto-date-time-format';
-import { getFieldDisplayInstanceNumber, getNextFieldInstanceNumber } from '../../../../shared/field-instance-number';
-import { placeField } from '../../../utils/place-field';
+import { placeField } from '~/utils/place-field';
 import {
   buildPastedFieldInstance,
   readTemplateFieldsFromClipboard,
   writeTemplateFieldsToSystemClipboard,
-} from '../../../utils/template-field-clipboard';
+} from '~/utils/template-field-clipboard';
 
 type Field = any;
 
