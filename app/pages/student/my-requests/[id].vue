@@ -97,6 +97,8 @@ const isRefreshingPreview = ref(false);
 
 // Signing flow
 const signingStatus = ref<SigningStatus | null>(null);
+// Confirmed signature fields for this student (used for separate overlay display).
+const confirmedSignatureFields = ref<any[]>([]);
 
 // Attachments
 const attachments = ref<Attachment[]>([]);
@@ -325,8 +327,6 @@ async function fetchRequestData() {
               (field: any) => {
                 if (field.isFillable === false || field.is_fillable === false)
                   return false;
-                if (field.type === 'Signature')
-                  return false;
                 if (studentStepId) {
                   const stepId = field.signerStepId ?? field.signer_step_id ?? null;
                   return !stepId || stepId === studentStepId;
@@ -541,7 +541,10 @@ function resolveCurrentFieldValue(field: any): string {
   return value;
 }
 
-const previewDisplayFile = computed(() => previewPdfFile.value || templatePdfFile.value || filledPdfFile.value);
+const previewDisplayFile = computed(() => {
+  // Always prefer template-based preview to avoid showing signatures embedded in `filledDocumentUrl`.
+  return previewPdfFile.value || templatePdfFile.value || filledPdfFile.value;
+});
 
 const previewOverlayFields = computed(() => {
   return visibleFillableFields.value.filter((field: any) => {
@@ -551,6 +554,21 @@ const previewOverlayFields = computed(() => {
     return currentValue.length === 0 || currentValue !== syncedValue;
   });
 });
+
+const signatureFieldsForDisplay = computed(() => {
+  // Only show the signature overlay when we have a confirmed image.
+  return confirmedSignatureFields.value
+    .filter((f: any) => Boolean(f?.imageUrl))
+    .map((f: any) => ({
+      ...f,
+      type: 'Signature',
+    }));
+});
+
+const previewPlacedFields = computed(() => [
+  ...previewOverlayFields.value,
+  ...signatureFieldsForDisplay.value,
+]);
 
 async function refreshPreviewPdf() {
   if (!templatePdfFile.value) {
@@ -846,6 +864,7 @@ async function fetchSigningStatus() {
         note: result.data.note ?? null,
         flowSteps: result.data.flowSteps ?? [],
       };
+      confirmedSignatureFields.value = result.data.confirmedSignatureFields ?? [];
     }
   }
   catch (err: any) {
@@ -968,7 +987,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
           >
             <template-pdf-create
               :pdf-file="previewDisplayFile"
-              :placed-fields="previewOverlayFields"
+              :placed-fields="previewPlacedFields"
               :strike-group-context-fields="visibleFillableFields"
               :selected-field="undefined"
               :ui-scale="scale"

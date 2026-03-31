@@ -165,7 +165,7 @@ const submitterSignatureField = computed<any | null>(() => {
   }) || null;
 });
 
-const submitterSignatureFieldScale = 4;
+const submitterSignatureFieldScale = 5.5;
 
 function getPositiveDimension(value: unknown): number | null {
   const parsed = Number(value);

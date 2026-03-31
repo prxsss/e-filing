@@ -138,6 +138,9 @@ export const signatures = pgTable("signatures", {
 	fieldInstanceId: text("field_instance_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	pdfHash: text("pdf_hash"),
+	// Persist the actual signature image so we can render it as a separate overlay
+	// (without relying on the PDF already having the signature embedded).
+	dataUrl: text("data_url"),
 }, (table) => [
 	foreignKey({
 			columns: [table.requestId],

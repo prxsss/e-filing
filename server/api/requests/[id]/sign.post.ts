@@ -136,7 +136,10 @@ export default defineEventHandler(async (event) => {
     const templateHeight = template.documentHeight || 842;
 
     const signatureFields = allFields.filter(
-      (f: any) => assignedIds.includes(f.instanceId) && f.type === 'Signature',
+      (f: any) => {
+        const fieldType = String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase();
+        return assignedIds.includes(f.instanceId) && fieldType === 'signature';
+      },
     );
 
     for (const field of signatureFields) {
@@ -208,13 +211,34 @@ export default defineEventHandler(async (event) => {
       .where(eq(request.id, requestId));
 
     // ── Save audit-quality signature record ──────────────────────────────────
-    await db.insert(signatures).values({
-      requestId,
-      signatureFlowId: flowEntry.id,
-      userId,
-      fieldInstanceId: assignedIds[0] ?? null,
-      pdfHash,
-    });
+    // Insert one row per signature field instance so the client can render
+    // signatures as separate overlays.
+    const signatureFieldInstanceIds = signatureFields
+      .map((f: any) => f?.instanceId as string | undefined)
+      .filter((id: any) => Boolean(id));
+
+    if (signatureFieldInstanceIds.length > 0) {
+      for (const fieldInstanceId of signatureFieldInstanceIds) {
+        await db.insert(signatures).values({
+          requestId,
+          signatureFlowId: flowEntry.id,
+          userId,
+          fieldInstanceId: fieldInstanceId ?? null,
+          pdfHash,
+          dataUrl: signatureDataUrl,
+        });
+      }
+    }
+    else {
+      await db.insert(signatures).values({
+        requestId,
+        signatureFlowId: flowEntry.id,
+        userId,
+        fieldInstanceId: assignedIds[0] ?? null,
+        pdfHash,
+        dataUrl: signatureDataUrl,
+      });
+    }
 
     // Mark current step as signed
     const [updatedFlowEntry] = await db

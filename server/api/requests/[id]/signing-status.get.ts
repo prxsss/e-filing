@@ -1,7 +1,7 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, signatureFlow, userRoles } from '../../../../lib/db/schema';
+import { request, requestTemplate, signatureFlow, signatures, userRoles } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -67,7 +67,10 @@ export default defineEventHandler(async (event) => {
     const allFields = (template?.placedFieldsData as any[]) ?? [];
     const assignedIds = (pendingStep?.assignedFieldInstanceIds as string[]) ?? [];
     const signatureFields = allFields
-      .filter((f: any) => assignedIds.includes(f.instanceId) && f.type === 'Signature')
+      .filter((f: any) => {
+        const fieldType = String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase();
+        return assignedIds.includes(f.instanceId) && fieldType === 'signature';
+      })
       .map((f: any) => ({
         instanceId: f.instanceId as string,
         pageNumber: (f.pageNumber ?? 1) as number,
@@ -81,6 +84,47 @@ export default defineEventHandler(async (event) => {
         height: f.height as number | undefined,
       }));
 
+    // Confirmed signature images for the current user (used for preview overlay).
+    // This lets the client render signatures separately instead of relying on the PDF
+    // already having them embedded.
+    const signatureRows = await db
+      .select()
+      .from(signatures)
+      .where(and(
+        eq(signatures.requestId, requestId),
+        eq(signatures.userId, userId),
+      ))
+      .orderBy(asc(signatures.createdAt));
+
+    const imageUrlByFieldInstanceId = new Map<string, string>();
+    for (const row of signatureRows) {
+      const instanceId = row.fieldInstanceId;
+      const dataUrl = (row as any).dataUrl as string | null | undefined;
+      if (instanceId && dataUrl) {
+        imageUrlByFieldInstanceId.set(String(instanceId), dataUrl);
+      }
+    }
+
+    const confirmedAssignedIds = Array.from(imageUrlByFieldInstanceId.keys());
+    const confirmedSignatureFields = allFields
+      .filter((f: any) => {
+        const fieldType = String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase();
+        return confirmedAssignedIds.includes(f.instanceId) && fieldType === 'signature';
+      })
+      .map((f: any) => ({
+        instanceId: f.instanceId as string,
+        pageNumber: (f.pageNumber ?? 1) as number,
+        normalizedX: f.normalizedX as number | undefined,
+        normalizedY: f.normalizedY as number | undefined,
+        normalizedWidth: f.normalizedWidth as number | undefined,
+        normalizedHeight: f.normalizedHeight as number | undefined,
+        x: f.x as number | undefined,
+        y: f.y as number | undefined,
+        width: f.width as number | undefined,
+        height: f.height as number | undefined,
+        imageUrl: imageUrlByFieldInstanceId.get(String(f.instanceId)) || null,
+      }));
+
     return {
       success: true,
       data: {
@@ -92,6 +136,7 @@ export default defineEventHandler(async (event) => {
         flowSteps,
         pendingStep,
         signatureFields,
+        confirmedSignatureFields,
         documentWidth: template?.documentWidth ?? undefined,
         documentHeight: template?.documentHeight ?? undefined,
       },
