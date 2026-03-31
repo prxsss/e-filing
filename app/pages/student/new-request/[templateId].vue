@@ -1450,7 +1450,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 :key="step.id"
               >
                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                  {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order}` : `Recipient for step ${step.order}` }}
+                  {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order - 1}` : `Recipient for step ${step.order - 1}` }}
                   <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
                   <span class="ml-1 text-red-500">*</span>
                 </label>
