@@ -74,7 +74,7 @@ const systemFields: Array<{ key: SystemFieldKey; labelKey: string; required: boo
   { key: 'image', labelKey: 'adminUsers.importCsv.fields.imageUrl', required: false },
   { key: 'role', labelKey: 'common.table.role', required: true },
   { key: 'faculty', labelKey: 'common.table.faculty', required: true },
-  { key: 'department', labelKey: 'common.table.department', required: true },
+  { key: 'department', labelKey: 'common.table.department', required: false },
 ];
 
 const csvTemplateHeaders = systemFields.map(field => field.key).join(',');

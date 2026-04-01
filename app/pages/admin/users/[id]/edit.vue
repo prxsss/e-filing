@@ -699,6 +699,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                         <UFormField
                           :label="t('common.table.faculty')"
                           name="faculty"
+                          required
                         >
                           <USelectMenu v-model="newRoleAssignment.facultyId" :items="faculties || []" :label-key="locale === 'th' ? 'labelTh' : 'label'" value-key="value" :placeholder="t('adminUsers.shared.roleTable.selectFaculty')" :clear="true" size="xl" class="w-full" />
                         </UFormField>
@@ -714,7 +715,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
                     <template #footer="{ close }">
                       <UButton :label="t('common.actions.cancel')" color="neutral" variant="outline" @click="close" />
-                      <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId || !canAssignSelectedRole" @click="addRoleAssignment" />
+                      <UButton :label="t('adminUsers.shared.roleTable.addBtn')" color="primary" :disabled="!newRoleAssignment.roleId || !newRoleAssignment.facultyId || !canAssignSelectedRole" @click="addRoleAssignment" />
                     </template>
                   </UModal>
                 </div>
