@@ -256,11 +256,16 @@ export default defineEventHandler(async (event) => {
       .select({
         roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
         permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
+        facultyNameTh: sql<string | null>`max(${faculties.nameTh})`,
+        departmentCode: sql<string | null>`max(${departments.departmentCode})`,
+        departmentNameTh: sql<string | null>`max(${departments.nameTh})`,
       })
       .from(userRoles)
       .leftJoin(roles, eq(userRoles.roleId, roles.id))
       .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
       .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
+      .leftJoin(departments, eq(userRoles.departmentId, departments.id))
       .where(eq(userRoles.userId, user.id));
 
     const mappedRoles = userAuth?.roles ?? [];
@@ -279,6 +284,9 @@ export default defineEventHandler(async (event) => {
         typePerson: userInfo['type-person'],
         studentId: user.studentId || undefined,
         staffId: user.staffId || undefined,
+        facultyNameTh: userAuth?.facultyNameTh || undefined,
+        departmentCode: userAuth?.departmentCode || undefined,
+        departmentNameTh: userAuth?.departmentNameTh || undefined,
         campus: userInfo.campus,
         email: user.email,
         idToken,

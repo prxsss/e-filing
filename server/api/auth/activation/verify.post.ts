@@ -1,5 +1,5 @@
 import db from '~~/lib/db';
-import { activationOtps, permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
+import { activationOtps, departments, faculties, permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
 import { USER_STATUS } from '~~/shared/types/user-status';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 
@@ -69,11 +69,16 @@ export default defineEventHandler(async (event) => {
     .select({
       roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
       permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
+      facultyNameTh: sql<string | null>`max(${faculties.nameTh})`,
+      departmentCode: sql<string | null>`max(${departments.departmentCode})`,
+      departmentNameTh: sql<string | null>`max(${departments.nameTh})`,
     })
     .from(userRoles)
     .leftJoin(roles, eq(userRoles.roleId, roles.id))
     .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
     .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
+    .leftJoin(departments, eq(userRoles.departmentId, departments.id))
     .where(eq(userRoles.userId, existingUser.id));
 
   // Log in the user immediately after activation
@@ -90,6 +95,9 @@ export default defineEventHandler(async (event) => {
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
       email: existingUser.email,
+      facultyNameTh: userAuth.facultyNameTh || undefined,
+      departmentCode: userAuth.departmentCode || undefined,
+      departmentNameTh: userAuth.departmentNameTh || undefined,
       authProvider: 'local',
     },
     lastLoggedIn: new Date(),

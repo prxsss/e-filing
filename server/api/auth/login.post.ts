@@ -1,5 +1,5 @@
 import db from '~~/lib/db';
-import { permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
+import { departments, faculties, permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
 import { USER_STATUS } from '~~/shared/types/user-status';
 import { eq, sql } from 'drizzle-orm';
 import * as zod from 'zod';
@@ -52,11 +52,16 @@ export default defineEventHandler(async (event) => {
     .select({
       roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
       permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
+      facultyNameTh: sql<string | null>`max(${faculties.nameTh})`,
+      departmentCode: sql<string | null>`max(${departments.departmentCode})`,
+      departmentNameTh: sql<string | null>`max(${departments.nameTh})`,
     })
     .from(userRoles)
     .leftJoin(roles, eq(userRoles.roleId, roles.id))
     .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
     .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .leftJoin(faculties, eq(userRoles.facultyId, faculties.id))
+    .leftJoin(departments, eq(userRoles.departmentId, departments.id))
     .where(eq(userRoles.userId, user.id));
 
   await setUserSession(event, {
@@ -72,6 +77,9 @@ export default defineEventHandler(async (event) => {
       email: user.email,
       studentId: user.studentId || undefined,
       staffId: user.staffId || undefined,
+      facultyNameTh: userAuth.facultyNameTh || undefined,
+      departmentCode: userAuth.departmentCode || undefined,
+      departmentNameTh: userAuth.departmentNameTh || undefined,
       authProvider: 'local',
     },
     lastLoggedIn: new Date(),
@@ -89,6 +97,9 @@ export default defineEventHandler(async (event) => {
       fullNameTh: user.fullNameTh,
       titleEn: user.titleEn || undefined,
       titleTh: user.titleTh || undefined,
+      facultyNameTh: userAuth.facultyNameTh || undefined,
+      departmentCode: userAuth.departmentCode || undefined,
+      departmentNameTh: userAuth.departmentNameTh || undefined,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,

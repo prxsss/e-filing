@@ -20,7 +20,7 @@ const { user } = useUserSession();
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
 const sessionFieldBinding = computed(() => {
   const binding = String(props.field?.sessionField ?? props.field?.session_field ?? '').trim();
-  if (binding === 'studentName' || binding === 'studentId') {
+  if (['studentName', 'studentId', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(binding)) {
     return binding;
   }
 
@@ -31,20 +31,44 @@ const sessionFieldBinding = computed(() => {
   if (['student id', 'รหัสนิสิต', 'รหัส นิสิต'].includes(fallbackName)) {
     return 'studentId';
   }
+  if (['faculty', 'คณะ'].includes(fallbackName)) {
+    return 'facultyNameTh';
+  }
+  if (['department', 'major', 'สาขา'].includes(fallbackName)) {
+    return 'departmentNameTh';
+  }
+  if (['department code', 'major code', 'รหัสสาขา'].includes(fallbackName)) {
+    return 'departmentCode';
+  }
 
   return null;
 });
 const isSessionBoundField = computed(() => sessionFieldBinding.value !== null);
 const isStudentNameField = computed(() => sessionFieldBinding.value === 'studentName');
 const isStudentIdField = computed(() => sessionFieldBinding.value === 'studentId');
+const isFacultyNameField = computed(() => sessionFieldBinding.value === 'facultyNameTh');
+const isDepartmentNameField = computed(() => sessionFieldBinding.value === 'departmentNameTh');
+const isDepartmentCodeField = computed(() => sessionFieldBinding.value === 'departmentCode');
 const sessionFullNameTh = computed(() => String(user.value?.fullNameTh ?? user.value?.fullNameEn ?? ''));
 const sessionStudentId = computed(() => String(user.value?.studentId ?? ''));
+const sessionFacultyNameTh = computed(() => String(user.value?.facultyNameTh ?? ''));
+const sessionDepartmentNameTh = computed(() => String(user.value?.departmentNameTh ?? ''));
+const sessionDepartmentCode = computed(() => String(user.value?.departmentCode ?? ''));
 const sessionBoundValue = computed(() => {
   if (isStudentNameField.value) {
     return sessionFullNameTh.value;
   }
   if (isStudentIdField.value) {
     return sessionStudentId.value;
+  }
+  if (isFacultyNameField.value) {
+    return sessionFacultyNameTh.value;
+  }
+  if (isDepartmentNameField.value) {
+    return sessionDepartmentNameTh.value;
+  }
+  if (isDepartmentCodeField.value) {
+    return sessionDepartmentCode.value;
   }
   return '';
 });

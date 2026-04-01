@@ -38,6 +38,8 @@ function normalizeMaxLength(value) {
   return parsePositiveInteger(value);
 }
 
+const allowedSessionFieldBindings = ['studentName', 'studentId', 'facultyNameTh', 'departmentNameTh', 'departmentCode'];
+
 const formData = ref({
   name: '',
   type: 'Text',
@@ -232,7 +234,7 @@ function buildFieldPayload() {
     letterSpacing: supportsLetterSpacing.value ? parseFiniteNumber(formData.value.letterSpacing, 0) : 0,
     lineHeight: parseFiniteNumber(formData.value.lineHeight, 1.5),
     maxLength: supportsMaxLength.value ? normalizeMaxLength(formData.value.maxLength) : null,
-    sessionField: supportsSessionFieldBinding.value && ['studentName', 'studentId'].includes(formData.value.sessionField)
+    sessionField: supportsSessionFieldBinding.value && allowedSessionFieldBindings.includes(formData.value.sessionField)
       ? formData.value.sessionField
       : null,
     strikeThroughGroupMode: supportsAmountSetting.value
@@ -515,6 +517,15 @@ async function handleDelete() {
                 </option>
                 <option value="studentId">
                   รหัสนิสิต (กรอกอัตโนมัติ)
+                </option>
+                <option value="facultyNameTh">
+                  คณะ (กรอกอัตโนมัติ)
+                </option>
+                <option value="departmentNameTh">
+                  สาขา (กรอกอัตโนมัติ)
+                </option>
+                <option value="departmentCode">
+                  รหัสสาขา (กรอกอัตโนมัติ)
                 </option>
               </select>
             </div>

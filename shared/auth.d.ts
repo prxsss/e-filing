@@ -13,6 +13,9 @@ declare module '#auth-utils' {
     permissions: string[];
     typePerson?: string;
     campus?: string;
+    facultyNameTh?: string;
+    departmentCode?: string;
+    departmentNameTh?: string;
     email?: string;
     idToken?: string;
     authProvider?: 'local' | 'ku-all-login';
