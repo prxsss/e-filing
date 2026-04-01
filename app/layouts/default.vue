@@ -79,15 +79,15 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
     },
     visible: computed(() => authStore.can('request.sign_history.view')),
   },
-  {
-    label: t('profile.menu'),
-    icon: 'i-lucide-user-pen',
-    to: localePath('/profile'),
-    onSelect: () => {
-      open.value = false;
-    },
-    visible: computed(() => authStore.can('request.sign')),
-  },
+  // {
+  //   label: t('profile.menu'),
+  //   icon: 'i-lucide-user-pen',
+  //   to: localePath('/profile'),
+  //   onSelect: () => {
+  //     open.value = false;
+  //   },
+  //   visible: computed(() => authStore.can('request.sign')),
+  // },
   {
     label: t('requests'),
     icon: 'i-lucide-files',

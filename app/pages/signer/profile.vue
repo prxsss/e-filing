@@ -10,8 +10,9 @@ import type { Role } from '~/types/user';
 
 definePageMeta({
   title: 'profile.title',
-  middleware: ['permission'],
-  permission: 'request.sign',
+  middleware: ['disable-page'],
+  // middleware: ['permission'],
+  // permission: 'request.sign',
 });
 
 type RoleAssignment = {
