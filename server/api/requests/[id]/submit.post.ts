@@ -158,16 +158,22 @@ export default defineEventHandler(async (event) => {
 
       // ── Pass 2: assign flow status ───────────────────────────────────────
       // auto-signed → 'signed' (submission = acknowledgement)
-      // first non-auto-signed step → 'pending'  (next person to act)
+      // All steps at the first non-auto-signed order group → 'pending'  (parallel signers)
       // rest → 'waiting'
       const now = new Date().toISOString();
-      let firstPendingAssigned = false;
+
+      // Find the order number of the first stage that requires real signing action.
+      // All steps at this order level become 'pending' simultaneously (parallel).
+      const firstPendingOrder = draftEntries
+        .filter(e => !e.autoSigned)
+        .sort((a, b) => a.stepOrder - b.stepOrder)[0]
+        ?.stepOrder ?? null;
+
       const flowEntries = draftEntries.map(({ autoSigned, requiresSignature: _requiresSignature, ...entry }) => {
         if (autoSigned) {
           return { ...entry, status: 'signed', signedBy: submitterId, signedAt: now };
         }
-        if (!firstPendingAssigned) {
-          firstPendingAssigned = true;
+        if (firstPendingOrder !== null && entry.stepOrder === firstPendingOrder) {
           return {
             ...entry,
             status: 'pending',

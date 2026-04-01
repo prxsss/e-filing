@@ -149,6 +149,39 @@ const assignedFieldsForSelectedStep = computed<FieldInstance[]>(() => {
 
 const unassignedCount = computed(() => unassignedFields.value.length);
 
+// ── Stage / parallel-group helpers ────────────────────────────────────────
+
+/**
+ * Returns steps grouped by their order number, sorted ascending.
+ * Steps that share the same order belong to the same parallel stage.
+ */
+const stages = computed(() => {
+  const groups = new Map<number, SigningStep[]>();
+  for (const step of props.signingSteps) {
+    const group = groups.get(step.order) ?? [];
+    group.push(step);
+    groups.set(step.order, group);
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([order, steps]) => ({ order, steps }));
+});
+
+/** Sorted unique order-numbers (one per stage). */
+const stageOrders = computed(() => stages.value.map(s => s.order));
+
+// Which stage the "add step" form is targeting.
+// null  → new sequential stage
+// number → parallel to that stage's order
+const addingToStageOrder = ref<number | null>(null);
+
+function openAddStepForm(toStageOrder: number | null): void {
+  addingToStageOrder.value = toStageOrder;
+  isAddingStep.value = true;
+  newStepRoleId.value = undefined;
+  newStepIsRequired.value = true;
+}
+
 // Get the next available color
 function getNextColor(): string {
   const usedColors = props.signingSteps.map(s => s.color);
@@ -156,7 +189,7 @@ function getNextColor(): string {
   return available.length > 0 ? available[0]! : SIGNER_COLORS[props.signingSteps.length % SIGNER_COLORS.length]!;
 }
 
-// Add a new signing step
+// Add a new signing step (parallel to addingToStageOrder, or new sequential stage)
 function addStep(): void {
   if (!selectedNewRole.value)
     return;
@@ -164,9 +197,14 @@ function addStep(): void {
   // Capture role info before resetting form
   const role = selectedNewRole.value;
 
+  const maxOrder = props.signingSteps.length > 0
+    ? Math.max(...props.signingSteps.map(s => s.order))
+    : 0;
+  const targetOrder = addingToStageOrder.value ?? (maxOrder + 1);
+
   const newStep: SigningStep = {
     id: `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    order: props.signingSteps.length + 1,
+    order: targetOrder,
     roleId: role.id,
     roleName: role.name,
     description: getRoleDescription(role) || undefined,
@@ -182,66 +220,70 @@ function addStep(): void {
   newStepRoleId.value = undefined;
   newStepIsRequired.value = true;
   isAddingStep.value = false;
+  addingToStageOrder.value = null;
 
   // Auto-select the new step
   selectedStepId.value = newStep.id;
 }
 
-// Remove a signing step
+// Remove a signing step (parallel-aware)
 function removeStep(stepId: string): void {
+  const stepToRemove = props.signingSteps.find(s => s.id === stepId);
+  if (!stepToRemove)
+    return;
+
   // Unassign all fields from this step
   const updatedFields = props.placedFields.map((f) => {
-    if (f.signerStepId === stepId) {
+    if (f.signerStepId === stepId)
       return { ...f, signerStepId: undefined };
-    }
     return f;
   });
   emit('update:placedFields', updatedFields);
 
-  // Remove the step and re-order
-  const updatedSteps = props.signingSteps
-    .filter(s => s.id !== stepId)
-    .map((s, index) => ({ ...s, order: index + 1 }));
+  const remaining = props.signingSteps.filter(s => s.id !== stepId);
+
+  // If the stage still has other steps, remove without re-numbering.
+  // If the stage is now empty, collapse it by decrementing later stages.
+  const stageStillHasSteps = remaining.some(s => s.order === stepToRemove.order);
+  const updatedSteps = stageStillHasSteps
+    ? remaining
+    : remaining.map(s => s.order > stepToRemove.order ? { ...s, order: s.order - 1 } : s);
+
   emit('update:signingSteps', updatedSteps);
 
-  // Clear selection if the removed step was selected
   if (selectedStepId.value === stepId) {
     selectedStepId.value = updatedSteps.length > 0 ? updatedSteps[0]!.id : null;
   }
 }
 
-// Move step up in order
-function moveStepUp(stepId: string): void {
-  const idx = props.signingSteps.findIndex(s => s.id === stepId);
+// Move an entire stage up (swap its order with the previous stage)
+function moveStageUp(stageOrder: number): void {
+  const idx = stageOrders.value.indexOf(stageOrder);
   if (idx <= 0)
     return;
-
-  const updatedSteps = [...props.signingSteps];
-  const temp = updatedSteps[idx - 1]!;
-  updatedSteps[idx - 1] = updatedSteps[idx]!;
-  updatedSteps[idx] = temp;
-
-  // Re-assign order numbers
-  updatedSteps.forEach((s, i) => {
-    s.order = i + 1;
+  const prevOrder = stageOrders.value[idx - 1]!;
+  const updatedSteps = props.signingSteps.map((s) => {
+    if (s.order === stageOrder)
+      return { ...s, order: prevOrder };
+    if (s.order === prevOrder)
+      return { ...s, order: stageOrder };
+    return s;
   });
   emit('update:signingSteps', updatedSteps);
 }
 
-// Move step down in order
-function moveStepDown(stepId: string): void {
-  const idx = props.signingSteps.findIndex(s => s.id === stepId);
-  if (idx < 0 || idx >= props.signingSteps.length - 1)
+// Move an entire stage down (swap its order with the next stage)
+function moveStageDown(stageOrder: number): void {
+  const idx = stageOrders.value.indexOf(stageOrder);
+  if (idx < 0 || idx >= stageOrders.value.length - 1)
     return;
-
-  const updatedSteps = [...props.signingSteps];
-  const temp = updatedSteps[idx + 1]!;
-  updatedSteps[idx + 1] = updatedSteps[idx]!;
-  updatedSteps[idx] = temp;
-
-  // Re-assign order numbers
-  updatedSteps.forEach((s, i) => {
-    s.order = i + 1;
+  const nextOrder = stageOrders.value[idx + 1]!;
+  const updatedSteps = props.signingSteps.map((s) => {
+    if (s.order === stageOrder)
+      return { ...s, order: nextOrder };
+    if (s.order === nextOrder)
+      return { ...s, order: stageOrder };
+    return s;
   });
   emit('update:signingSteps', updatedSteps);
 }
@@ -332,69 +374,147 @@ watch(() => props.signingSteps.length, (newLen) => {
       </div>
 
       <div class="overflow-y-auto flex-1 p-4 space-y-3">
-        <!-- Step Cards -->
+        <!-- Stage Groups (parallel-aware) -->
         <div
-          v-for="step in signingSteps"
-          :key="step.id"
-          class="rounded-lg border-2 p-3 cursor-pointer transition-all hover:shadow-sm"
-          :class="selectedStepId === step.id
-            ? 'border-primary-500 bg-primary-50'
-            : 'border-gray-200 bg-white hover:border-gray-300'"
-          @click="selectedStepId = step.id"
+          v-for="(stage, stageIndex) in stages"
+          :key="stage.order"
+          class="rounded-lg border border-gray-200 overflow-hidden"
         >
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-2 min-w-0 flex-1">
-              <span
-                class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                :style="{ backgroundColor: step.color }"
-              >
-                {{ step.order }}
+          <!-- Stage header -->
+          <div class="bg-gray-50 border-b border-gray-200 px-3 py-1.5 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-xs font-semibold text-gray-500 uppercase shrink-0">
+                {{ t('stage') }} {{ stageIndex + 1 }}
               </span>
-              <div class="min-w-0 flex-1">
-                <p v-if="step.description" class="font-semibold text-sm text-gray-900 truncate">
-                  {{ step.description }}
-                </p>
-                <p v-else class="font-semibold text-sm text-gray-900 truncate">
-                  {{ step.roleName }}
-                </p>
-              </div>
+              <UBadge
+                v-if="stage.steps.length > 1"
+                color="info"
+                variant="subtle"
+                size="xs"
+                icon="i-heroicons-arrows-right-left"
+                class="shrink-0"
+              >
+                {{ t('parallel') }}
+              </UBadge>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
+            <div class="flex items-center gap-0.5 shrink-0">
               <UButton
                 icon="i-heroicons-chevron-up"
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                :disabled="step.order === 1"
-                @click.stop="moveStepUp(step.id)"
+                :disabled="stageIndex === 0"
+                @click="moveStageUp(stage.order)"
               />
               <UButton
                 icon="i-heroicons-chevron-down"
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                :disabled="step.order === signingSteps.length"
-                @click.stop="moveStepDown(step.id)"
-              />
-              <UButton
-                icon="i-heroicons-trash"
-                size="xs"
-                color="error"
-                variant="ghost"
-                @click.stop="removeStep(step.id)"
+                :disabled="stageIndex === stages.length - 1"
+                @click="moveStageDown(stage.order)"
               />
             </div>
           </div>
 
-          <div class="mt-2 flex items-center gap-2 flex-wrap">
-            <UBadge color="neutral" variant="subtle" size="xs">
-              {{ step.assignedFieldInstanceIds.length }} {{ t('fields') }}
-            </UBadge>
+          <!-- Steps within this stage -->
+          <div class="p-2 space-y-1.5">
+            <div
+              v-for="step in stage.steps"
+              :key="step.id"
+              class="rounded-md border-2 p-2.5 cursor-pointer transition-all hover:shadow-sm"
+              :class="selectedStepId === step.id
+                ? 'border-primary-500 bg-primary-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'"
+              @click="selectedStepId = step.id"
+            >
+              <div class="flex items-start justify-between gap-1.5">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span
+                    class="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    :style="{ backgroundColor: step.color }"
+                  >
+                    {{ stageIndex + 1 }}
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-semibold text-sm text-gray-900 truncate">
+                      {{ step.description || step.roleName }}
+                    </p>
+                  </div>
+                </div>
+                <UButton
+                  icon="i-heroicons-trash"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click.stop="removeStep(step.id)"
+                />
+              </div>
+              <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <UBadge color="neutral" variant="subtle" size="xs">
+                  {{ step.assignedFieldInstanceIds.length }} {{ t('fields') }}
+                </UBadge>
+              </div>
+            </div>
+
+            <!-- Add parallel signer form (inline within stage) -->
+            <div
+              v-if="isAddingStep && addingToStageOrder === stage.order"
+              class="rounded-md border-2 border-dashed border-info-300 bg-info-50 p-2.5 space-y-2"
+            >
+              <p class="text-xs font-semibold text-info-600 flex items-center gap-1">
+                <UIcon name="i-heroicons-arrows-right-left" class="w-3.5 h-3.5" />
+                {{ t('addParallelSigner') }}
+              </p>
+              <USelect
+                v-model="newStepRoleId"
+                :items="roleItems"
+                :placeholder="t('selectRole')"
+                value-key="value"
+                label-key="label"
+                size="sm"
+                :loading="isLoadingRoles"
+                icon="i-heroicons-user-circle"
+                class="w-full"
+              />
+              <div class="flex items-center justify-end gap-1">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :label="t('cancel')"
+                  @click="isAddingStep = false; newStepRoleId = undefined; addingToStageOrder = null"
+                />
+                <UButton
+                  size="xs"
+                  color="info"
+                  :label="t('add')"
+                  :disabled="!newStepRoleId"
+                  @click="addStep"
+                />
+              </div>
+            </div>
+
+            <!-- Add parallel signer button (only when not already adding to this stage) -->
+            <UButton
+              v-if="!(isAddingStep && addingToStageOrder === stage.order)"
+              icon="i-heroicons-arrows-right-left"
+              :label="t('addParallelSigner')"
+              color="info"
+              variant="ghost"
+              size="xs"
+              block
+              @click="openAddStepForm(stage.order)"
+            />
           </div>
         </div>
 
-        <!-- Add Step Button / Form -->
-        <div v-if="isAddingStep" class="rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 p-3 space-y-2">
+        <!-- Add New Stage form (sequential) -->
+        <div v-if="isAddingStep && addingToStageOrder === null" class="rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 p-3 space-y-2">
+          <p class="text-xs font-semibold text-primary-600 flex items-center gap-1">
+            <UIcon name="i-heroicons-queue-list" class="w-3.5 h-3.5" />
+            {{ t('addNewStage') }}
+          </p>
           <USelect
             v-model="newStepRoleId"
             :items="roleItems"
@@ -412,8 +532,8 @@ watch(() => props.signingSteps.length, (newLen) => {
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                :label="t('previous')"
-                @click="isAddingStep = false; newStepRoleId = undefined"
+                :label="t('cancel')"
+                @click="isAddingStep = false; newStepRoleId = undefined; addingToStageOrder = null"
               />
               <UButton
                 size="xs"
@@ -426,15 +546,15 @@ watch(() => props.signingSteps.length, (newLen) => {
           </div>
         </div>
 
-        <!-- Add Step Button -->
+        <!-- Add New Stage Button -->
         <UButton
           v-if="!isAddingStep"
           icon="i-heroicons-plus"
-          :label="t('addSigningStep')"
+          :label="t('addNewStage')"
           color="primary"
           variant="soft"
           block
-          @click="isAddingStep = true"
+          @click="openAddStepForm(null)"
         />
       </div>
     </aside>
@@ -477,13 +597,27 @@ watch(() => props.signingSteps.length, (newLen) => {
               class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
               :style="{ backgroundColor: selectedStep.color }"
             >
-              {{ selectedStep.order }}
+              {{ stageOrders.indexOf(selectedStep.order) + 1 }}
             </span>
             <span class="font-semibold text-sm">{{ selectedStep.roleName }}</span>
           </div>
           <p v-if="selectedStep.description" class="text-xs text-gray-500">
             {{ selectedStep.description }}
           </p>
+          <div class="flex items-center gap-1 flex-wrap">
+            <UBadge color="neutral" variant="outline" size="xs">
+              {{ t('stage') }} {{ stageOrders.indexOf(selectedStep.order) + 1 }}
+            </UBadge>
+            <UBadge
+              v-if="(stages.find(s => s.order === selectedStep.order)?.steps.length ?? 0) > 1"
+              color="info"
+              variant="subtle"
+              size="xs"
+              icon="i-heroicons-arrows-right-left"
+            >
+              {{ t('parallel') }}
+            </UBadge>
+          </div>
         </div>
 
         <!-- Assigned Fields -->
