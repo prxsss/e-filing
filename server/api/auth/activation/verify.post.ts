@@ -9,11 +9,15 @@ export default defineEventHandler(async (event) => {
   const [existingUser] = await db
     .select({
       id: users.id,
+      studentId: users.studentId,
+      staffId: users.staffId,
+      titleEn: users.titleEn,
       fullNameEn: sql<string>`
-          concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+          concat_ws(' ', ${users.firstNameEn}, ${users.lastNameEn})
         `,
+      titleTh: users.titleTh,
       fullNameTh: sql<string>`
-          concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
+          concat_ws(' ', ${users.firstNameTh}, ${users.lastNameTh})
         `,
       email: users.email,
       status: users.status,
@@ -76,8 +80,12 @@ export default defineEventHandler(async (event) => {
   await setUserSession(event, {
     user: {
       id: existingUser.id,
+      studentId: existingUser.studentId || undefined,
+      staffId: existingUser.staffId || undefined,
       fullNameEn: existingUser.fullNameEn,
       fullNameTh: existingUser.fullNameTh,
+      titleEn: existingUser.titleEn || undefined,
+      titleTh: existingUser.titleTh || undefined,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,

@@ -41,6 +41,7 @@ function normalizeMaxLength(value) {
 const formData = ref({
   name: '',
   type: 'Text',
+  sessionField: 'none',
   icon: getIconForType('Text'),
   amount: 1,
   width: 150,
@@ -106,6 +107,10 @@ const supportsMaxLength = computed(() => {
   return !['signature', 'icon', 'date', 'time', 'checkbox'].includes(selectedFieldType.value);
 });
 
+const supportsSessionFieldBinding = computed(() => {
+  return ['text', 'number'].includes(selectedFieldType.value);
+});
+
 const isOpen = computed({
   get: () => props.modelValue,
   set: value => emit('update:modelValue', value),
@@ -119,6 +124,7 @@ watch(() => props.editField, (newField) => {
     formData.value = {
       name: newField.name || newField.label || '',
       type: newField.type || 'Text',
+      sessionField: String(newField.sessionField ?? newField.session_field ?? '').trim() || 'none',
       icon: newField.icon || getIconForType(newField.type || 'Text'),
       amount: normalizedAmount,
       width: newField.default_width || newField.width || 150,
@@ -157,6 +163,12 @@ watch(supportsAmountSetting, (enabled) => {
   }
 });
 
+watch(supportsSessionFieldBinding, (enabled) => {
+  if (!enabled) {
+    formData.value.sessionField = 'none';
+  }
+});
+
 watch(
   () => [String(formData.value.type || '').toLowerCase(), parsePositiveInteger(formData.value.amount) ?? 1],
   ([type, amount]) => {
@@ -172,6 +184,7 @@ function resetForm() {
   formData.value = {
     name: '',
     type: 'Text',
+    sessionField: 'none',
     icon: getIconForType('Text'),
     amount: 1,
     width: 150,
@@ -219,6 +232,9 @@ function buildFieldPayload() {
     letterSpacing: supportsLetterSpacing.value ? parseFiniteNumber(formData.value.letterSpacing, 0) : 0,
     lineHeight: parseFiniteNumber(formData.value.lineHeight, 1.5),
     maxLength: supportsMaxLength.value ? normalizeMaxLength(formData.value.maxLength) : null,
+    sessionField: supportsSessionFieldBinding.value && ['studentName', 'studentId'].includes(formData.value.sessionField)
+      ? formData.value.sessionField
+      : null,
     strikeThroughGroupMode: supportsAmountSetting.value
       ? Boolean(formData.value.strikeThroughGroupMode)
       : false,
@@ -481,6 +497,26 @@ async function handleDelete() {
                   size="md"
                 />
               </div>
+            </div>
+
+            <div v-if="supportsSessionFieldBinding">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                การกรอกข้อมูลอัตโนมัติ
+              </label>
+              <select
+                v-model="formData.sessionField"
+                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
+              >
+                <option value="none">
+                  ให้ผู้ยื่นกรอกเอง
+                </option>
+                <option value="studentName">
+                  ชื่อ-นามสกุลนักศึกษา (กรอกอัตโนมัติ)
+                </option>
+                <option value="studentId">
+                  รหัสนิสิต (กรอกอัตโนมัติ)
+                </option>
+              </select>
             </div>
 
             <div v-if="supportsAmountSetting" class="space-y-1.5 border-t border-gray-100 pt-2">

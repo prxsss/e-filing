@@ -27,6 +27,8 @@ export default defineEventHandler(async (_event: H3Event) => {
       textAlign: field.textAlign,
       letterSpacing: field.letterSpacing,
       lineHeight: field.lineHeight,
+      sessionField: field.sessionField,
+      session_field: field.sessionField,
       strikeThroughGroupMode: field.strikeThroughGroupMode,
       strike_through_group_mode: field.strikeThroughGroupMode,
       strikeLineThickness: field.strikeLineThickness,

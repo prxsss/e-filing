@@ -2,7 +2,11 @@
 declare module '#auth-utils' {
   interface User {
     id: string;
+    studentId?: string;
+    staffId?: string;
+    titleEn?: string;
     fullNameEn: string;
+    titleTh?: string;
     fullNameTh: string;
     roles: string[];
     currentRole: string;

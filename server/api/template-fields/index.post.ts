@@ -40,6 +40,14 @@ function resolveStrikeLineThickness(value: unknown): number {
   return Math.min(8, Math.max(0.5, parsed));
 }
 
+function normalizeSessionField(value: unknown): 'studentName' | 'studentId' | null {
+  const normalized = String(value ?? '').trim();
+  if (normalized === 'studentName' || normalized === 'studentId') {
+    return normalized;
+  }
+  return null;
+}
+
 export default defineEventHandler(async (event: H3Event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
 
@@ -63,6 +71,7 @@ export default defineEventHandler(async (event: H3Event) => {
     const isCheckboxGroup = String(body.type || '').toLowerCase() === 'checkbox' && amount > 1;
     const strikeThroughGroupMode = isCheckboxGroup ? Boolean(body.strikeThroughGroupMode ?? body.strike_through_group_mode ?? false) : false;
     const strikeLineThickness = resolveStrikeLineThickness(body.strikeLineThickness ?? body.strike_line_thickness);
+    const sessionField = normalizeSessionField(body.sessionField ?? body.session_field);
 
     const [newField] = await db.insert(requestTemplateFields).values({
       name: body.name,
@@ -80,6 +89,7 @@ export default defineEventHandler(async (event: H3Event) => {
       textAlign: normalizeEnum(body.textAlign, ['left', 'center', 'right'], 'left'),
       letterSpacing: parseFiniteNumber(body.letterSpacing, 0),
       lineHeight: parseFiniteNumber(body.lineHeight, 1.5),
+      sessionField,
       strikeThroughGroupMode,
       strikeLineThickness,
       maxLength,
@@ -107,6 +117,8 @@ export default defineEventHandler(async (event: H3Event) => {
       textAlign: newField.textAlign,
       letterSpacing: newField.letterSpacing,
       lineHeight: newField.lineHeight,
+      sessionField: newField.sessionField,
+      session_field: newField.sessionField,
       strikeThroughGroupMode: newField.strikeThroughGroupMode,
       strike_through_group_mode: newField.strikeThroughGroupMode,
       strikeLineThickness: newField.strikeLineThickness,

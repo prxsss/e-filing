@@ -15,11 +15,15 @@ export default defineEventHandler(async (event) => {
   const [user] = await db
     .select({
       id: users.id,
+      studentId: users.studentId,
+      staffId: users.staffId,
+      titleEn: users.titleEn,
       fullNameEn: sql<string>`
-          concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+          concat_ws(${users.firstNameEn}, ${users.lastNameEn})
         `,
+      titleTh: users.titleTh,
       fullNameTh: sql<string>`
-          concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
+          concat_ws(${users.firstNameTh}, ${users.lastNameTh})
         `,
       email: users.email,
       passwordHash: users.passwordHash,
@@ -58,12 +62,16 @@ export default defineEventHandler(async (event) => {
   await setUserSession(event, {
     user: {
       id: user.id,
+      titleEn: user.titleEn || undefined,
       fullNameEn: user.fullNameEn,
+      titleTh: user.titleTh || undefined,
       fullNameTh: user.fullNameTh,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
       email: user.email,
+      studentId: user.studentId || undefined,
+      staffId: user.staffId || undefined,
       authProvider: 'local',
     },
     lastLoggedIn: new Date(),
@@ -74,9 +82,13 @@ export default defineEventHandler(async (event) => {
     user:
     {
       id: user.id,
+      studentId: user.studentId || undefined,
+      staffId: user.staffId || undefined,
       email: user.email,
       fullNameEn: user.fullNameEn,
       fullNameTh: user.fullNameTh,
+      titleEn: user.titleEn || undefined,
+      titleTh: user.titleTh || undefined,
       roles: userAuth.roles,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,

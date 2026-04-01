@@ -323,6 +323,7 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	textAlign: text("text_align").default('left'),
 	letterSpacing: doublePrecision("letter_spacing").default(0),
 	lineHeight: doublePrecision("line_height").default(1.5),
+	sessionField: text("session_field"),
 	maxLength: integer("max_length"),
 	strikeThroughGroupMode: boolean("strike_through_group_mode").default(false),
 	strikeLineThickness: doublePrecision("strike_line_thickness").default(1.5),

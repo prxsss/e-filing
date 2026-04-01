@@ -15,8 +15,39 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue']);
+const { user } = useUserSession();
 
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
+const sessionFieldBinding = computed(() => {
+  const binding = String(props.field?.sessionField ?? props.field?.session_field ?? '').trim();
+  if (binding === 'studentName' || binding === 'studentId') {
+    return binding;
+  }
+
+  const fallbackName = String(props.field?.name ?? props.field?.label ?? '').trim().toLowerCase();
+  if (['student name', 'ชื่อนิสิต', 'ชื่อ นิสิต'].includes(fallbackName)) {
+    return 'studentName';
+  }
+  if (['student id', 'รหัสนิสิต', 'รหัส นิสิต'].includes(fallbackName)) {
+    return 'studentId';
+  }
+
+  return null;
+});
+const isSessionBoundField = computed(() => sessionFieldBinding.value !== null);
+const isStudentNameField = computed(() => sessionFieldBinding.value === 'studentName');
+const isStudentIdField = computed(() => sessionFieldBinding.value === 'studentId');
+const sessionFullNameTh = computed(() => String(user.value?.fullNameTh ?? user.value?.fullNameEn ?? ''));
+const sessionStudentId = computed(() => String(user.value?.studentId ?? ''));
+const sessionBoundValue = computed(() => {
+  if (isStudentNameField.value) {
+    return sessionFullNameTh.value;
+  }
+  if (isStudentIdField.value) {
+    return sessionStudentId.value;
+  }
+  return '';
+});
 const isNumericField = computed(() => fieldType.value === 'number');
 const isCheckboxField = computed(() => fieldType.value === 'checkbox');
 const isDateField = computed(() => fieldType.value === 'date');
@@ -95,8 +126,21 @@ function normalizeInputValue(value) {
 }
 
 const localValue = computed({
-  get: () => normalizeInputValue(props.modelValue),
-  set: value => emit('update:modelValue', normalizeInputValue(value)),
+  get: () => {
+    if (isSessionBoundField.value) {
+      return sessionBoundValue.value;
+    }
+
+    return normalizeInputValue(props.modelValue);
+  },
+  set: (value) => {
+    if (isSessionBoundField.value) {
+      emit('update:modelValue', sessionBoundValue.value);
+      return;
+    }
+
+    emit('update:modelValue', normalizeInputValue(value));
+  },
 });
 
 function handleCheckboxChange(event) {
@@ -107,11 +151,32 @@ function handleCheckboxChange(event) {
 watch(
   () => props.modelValue,
   (newValue) => {
+    if (isSessionBoundField.value) {
+      if (String(newValue ?? '') !== sessionBoundValue.value) {
+        emit('update:modelValue', sessionBoundValue.value);
+      }
+      return;
+    }
+
     const normalizedValue = normalizeInputValue(newValue);
     if (normalizedValue !== String(newValue ?? '')) {
       emit('update:modelValue', normalizedValue);
     }
   },
+);
+
+watch(
+  [isSessionBoundField, sessionBoundValue],
+  ([isTargetField, boundValue]) => {
+    if (!isTargetField) {
+      return;
+    }
+
+    if (String(props.modelValue ?? '') !== boundValue) {
+      emit('update:modelValue', boundValue);
+    }
+  },
+  { immediate: true },
 );
 
 // Get appropriate input type based on field type
@@ -203,7 +268,7 @@ onMounted(() => {
         ref="textAreaRef"
         v-model="localValue"
         :placeholder="placeholder"
-        :disabled="disabled"
+        :disabled="disabled || isSessionBoundField"
         :maxlength="maxLength || undefined"
         rows="1"
         class="form-input form-textarea"
@@ -215,7 +280,7 @@ onMounted(() => {
         :type="inputType"
         :inputmode="inputMode"
         :placeholder="placeholder"
-        :disabled="disabled"
+        :disabled="disabled || isSessionBoundField"
         :maxlength="maxLength || undefined"
         class="form-input"
       >

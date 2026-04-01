@@ -36,6 +36,9 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
     result.isFillable = Boolean(field.isFillable);
   if (typeof field?.isAutoGenerate !== 'undefined')
     result.isAutoGenerate = Boolean(field.isAutoGenerate);
+  const sessionField = String(field?.sessionField ?? field?.session_field ?? '').trim();
+  if (sessionField === 'studentName' || sessionField === 'studentId')
+    result.sessionField = sessionField;
 
   // Generic font / rendering props (include for date, checkbox, signature, etc. when present)
   if (Number.isFinite(field?.fontSize))

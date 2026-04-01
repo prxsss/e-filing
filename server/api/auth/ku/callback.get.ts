@@ -225,11 +225,15 @@ export default defineEventHandler(async (event) => {
     const [user] = await db
       .select({
         id: users.id,
+        studentId: users.studentId,
+        staffId: users.staffId,
+        titleEn: users.titleEn,
         fullNameEn: sql<string>`
-          concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})
+          concat_ws(' ', ${users.firstNameEn}, ${users.lastNameEn})
         `,
+        titleTh: users.titleTh,
         fullNameTh: sql<string>`
-          concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
+          concat_ws(' ', ${users.firstNameTh}, ${users.lastNameTh})
         `,
         email: users.email,
         status: users.status,
@@ -265,12 +269,16 @@ export default defineEventHandler(async (event) => {
     await setUserSession(event, {
       user: {
         id: user.id,
+        titleEn: user.titleEn || undefined,
         fullNameEn: user.fullNameEn,
         fullNameTh: user.fullNameTh,
+        titleTh: user.titleTh || undefined,
         roles: mappedRoles,
         currentRole: mappedRoles[0] ?? '',
         permissions: mappedPermissions,
         typePerson: userInfo['type-person'],
+        studentId: user.studentId || undefined,
+        staffId: user.staffId || undefined,
         campus: userInfo.campus,
         email: user.email,
         idToken,
