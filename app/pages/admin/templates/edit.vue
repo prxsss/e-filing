@@ -1169,7 +1169,7 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
     lineHeight: parseFiniteNumber(payload.defaults?.lineHeight ?? (fieldDefinition as any).lineHeight, 1.5),
     sessionField: (() => {
       const rawSessionField = String(payload.defaults?.sessionField ?? (fieldDefinition as any).sessionField ?? (fieldDefinition as any).session_field ?? '').trim();
-      return ['studentName', 'studentId', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(rawSessionField) ? rawSessionField : null;
+      return ['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(rawSessionField) ? rawSessionField : null;
     })(),
     strikeThroughGroupMode: typeLower === 'checkbox' && (parsePositiveInteger((fieldDefinition as any).amount) ?? 1) > 1
       ? Boolean(payload.defaults?.strikeThroughGroupMode ?? (fieldDefinition as any).strikeThroughGroupMode ?? (fieldDefinition as any).strike_through_group_mode ?? false)

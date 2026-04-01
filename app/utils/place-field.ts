@@ -37,7 +37,7 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
   if (typeof field?.isAutoGenerate !== 'undefined')
     result.isAutoGenerate = Boolean(field.isAutoGenerate);
   const sessionField = String(field?.sessionField ?? field?.session_field ?? '').trim();
-  if (['studentName', 'studentId', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(sessionField))
+  if (['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(sessionField))
     result.sessionField = sessionField;
 
   // Generic font / rendering props (include for date, checkbox, signature, etc. when present)

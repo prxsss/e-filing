@@ -1,4 +1,6 @@
 <script setup>
+import { getStudentYear } from '../../utils/student';
+
 const props = defineProps({
   field: {
     type: Object,
@@ -20,7 +22,7 @@ const { user } = useUserSession();
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
 const sessionFieldBinding = computed(() => {
   const binding = String(props.field?.sessionField ?? props.field?.session_field ?? '').trim();
-  if (['studentName', 'studentId', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(binding)) {
+  if (['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(binding)) {
     return binding;
   }
 
@@ -30,6 +32,9 @@ const sessionFieldBinding = computed(() => {
   }
   if (['student id', 'รหัสนิสิต', 'รหัส นิสิต'].includes(fallbackName)) {
     return 'studentId';
+  }
+  if (['student year', 'year level', 'ชั้นปี', 'ชั้นปีนิสิต'].includes(fallbackName)) {
+    return 'studentYearCurrent';
   }
   if (['faculty', 'คณะ'].includes(fallbackName)) {
     return 'facultyNameTh';
@@ -46,6 +51,7 @@ const sessionFieldBinding = computed(() => {
 const isSessionBoundField = computed(() => sessionFieldBinding.value !== null);
 const isStudentNameField = computed(() => sessionFieldBinding.value === 'studentName');
 const isStudentIdField = computed(() => sessionFieldBinding.value === 'studentId');
+const isStudentYearField = computed(() => sessionFieldBinding.value === 'studentYearCurrent');
 const isFacultyNameField = computed(() => sessionFieldBinding.value === 'facultyNameTh');
 const isDepartmentNameField = computed(() => sessionFieldBinding.value === 'departmentNameTh');
 const isDepartmentCodeField = computed(() => sessionFieldBinding.value === 'departmentCode');
@@ -54,12 +60,23 @@ const sessionStudentId = computed(() => String(user.value?.studentId ?? ''));
 const sessionFacultyNameTh = computed(() => String(user.value?.facultyNameTh ?? ''));
 const sessionDepartmentNameTh = computed(() => String(user.value?.departmentNameTh ?? ''));
 const sessionDepartmentCode = computed(() => String(user.value?.departmentCode ?? ''));
+const sessionStudentYearCurrent = computed(() => {
+  const studentId = String(user.value?.studentId ?? '').trim();
+  if (!studentId) {
+    return '';
+  }
+  const currentYear = getStudentYear(studentId);
+  return Number.isFinite(currentYear) ? String(currentYear) : '';
+});
 const sessionBoundValue = computed(() => {
   if (isStudentNameField.value) {
     return sessionFullNameTh.value;
   }
   if (isStudentIdField.value) {
     return sessionStudentId.value;
+  }
+  if (isStudentYearField.value) {
+    return sessionStudentYearCurrent.value;
   }
   if (isFacultyNameField.value) {
     return sessionFacultyNameTh.value;

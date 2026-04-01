@@ -38,7 +38,7 @@ function normalizeMaxLength(value) {
   return parsePositiveInteger(value);
 }
 
-const allowedSessionFieldBindings = ['studentName', 'studentId', 'facultyNameTh', 'departmentNameTh', 'departmentCode'];
+const allowedSessionFieldBindings = ['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode'];
 
 const formData = ref({
   name: '',
@@ -517,6 +517,9 @@ async function handleDelete() {
                 </option>
                 <option value="studentId">
                   รหัสนิสิต (กรอกอัตโนมัติ)
+                </option>
+                <option value="studentYearCurrent">
+                  ชั้นปีนิสิต (กรอกอัตโนมัติ)
                 </option>
                 <option value="facultyNameTh">
                   คณะ (กรอกอัตโนมัติ)
