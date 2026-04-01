@@ -40,14 +40,18 @@ function resolveStrikeLineThickness(value: unknown): number {
   return Math.min(8, Math.max(0.5, parsed));
 }
 
-function normalizeSessionField(value: unknown): 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode' | null {
+function normalizeSessionField(value: unknown): 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode' | 'titleThAutoChecked' | 'titleThMrChecked' | 'titleThMissChecked' | 'titleThMrsChecked' | null {
   const normalized = String(value ?? '').trim();
   if (normalized === 'studentName'
     || normalized === 'studentId'
     || normalized === 'studentYearCurrent'
     || normalized === 'facultyNameTh'
     || normalized === 'departmentNameTh'
-    || normalized === 'departmentCode') {
+    || normalized === 'departmentCode'
+    || normalized === 'titleThAutoChecked'
+    || normalized === 'titleThMrChecked'
+    || normalized === 'titleThMissChecked'
+    || normalized === 'titleThMrsChecked') {
     return normalized;
   }
   return null;

@@ -22,7 +22,7 @@ const { user } = useUserSession();
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
 const sessionFieldBinding = computed(() => {
   const binding = String(props.field?.sessionField ?? props.field?.session_field ?? '').trim();
-  if (['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode'].includes(binding)) {
+  if (['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode', 'titleThAutoChecked', 'titleThMrChecked', 'titleThMissChecked', 'titleThMrsChecked'].includes(binding)) {
     return binding;
   }
 
@@ -55,8 +55,13 @@ const isStudentYearField = computed(() => sessionFieldBinding.value === 'student
 const isFacultyNameField = computed(() => sessionFieldBinding.value === 'facultyNameTh');
 const isDepartmentNameField = computed(() => sessionFieldBinding.value === 'departmentNameTh');
 const isDepartmentCodeField = computed(() => sessionFieldBinding.value === 'departmentCode');
+const isTitleAutoCheckboxField = computed(() => sessionFieldBinding.value === 'titleThAutoChecked');
+const isTitleMrCheckboxField = computed(() => sessionFieldBinding.value === 'titleThMrChecked');
+const isTitleMissCheckboxField = computed(() => sessionFieldBinding.value === 'titleThMissChecked');
+const isTitleMrsCheckboxField = computed(() => sessionFieldBinding.value === 'titleThMrsChecked');
 const sessionFullNameTh = computed(() => String(user.value?.fullNameTh ?? user.value?.fullNameEn ?? ''));
 const sessionStudentId = computed(() => String(user.value?.studentId ?? ''));
+const sessionTitleTh = computed(() => String(user.value?.titleTh ?? '').trim());
 const sessionFacultyNameTh = computed(() => String(user.value?.facultyNameTh ?? ''));
 const sessionDepartmentNameTh = computed(() => String(user.value?.departmentNameTh ?? ''));
 const sessionDepartmentCode = computed(() => String(user.value?.departmentCode ?? ''));
@@ -68,6 +73,27 @@ const sessionStudentYearCurrent = computed(() => {
   const currentYear = getStudentYear(studentId);
   return Number.isFinite(currentYear) ? String(currentYear) : '';
 });
+
+function inferTitleFromField(field) {
+  const candidates = [field?.formQuestionLabel, field?.label, field?.name]
+    .map(value => String(value ?? '').trim().toLowerCase())
+    .filter(value => value.length > 0);
+
+  for (const text of candidates) {
+    if (text.includes('นางสาว') || text.includes('miss') || text.includes('ms.')) {
+      return 'นางสาว';
+    }
+    if (text.includes('นาง') || text.includes('mrs')) {
+      return 'นาง';
+    }
+    if (text.includes('นาย') || text.includes(' mr') || text.startsWith('mr')) {
+      return 'นาย';
+    }
+  }
+
+  return null;
+}
+
 const sessionBoundValue = computed(() => {
   if (isStudentNameField.value) {
     return sessionFullNameTh.value;
@@ -86,6 +112,19 @@ const sessionBoundValue = computed(() => {
   }
   if (isDepartmentCodeField.value) {
     return sessionDepartmentCode.value;
+  }
+  if (isTitleAutoCheckboxField.value) {
+    const fieldTitle = inferTitleFromField(props.field);
+    return fieldTitle !== null && sessionTitleTh.value === fieldTitle ? 'true' : '';
+  }
+  if (isTitleMrCheckboxField.value) {
+    return sessionTitleTh.value === 'นาย' ? 'true' : '';
+  }
+  if (isTitleMissCheckboxField.value) {
+    return sessionTitleTh.value === 'นางสาว' ? 'true' : '';
+  }
+  if (isTitleMrsCheckboxField.value) {
+    return sessionTitleTh.value === 'นาง' ? 'true' : '';
   }
   return '';
 });
@@ -285,7 +324,7 @@ onMounted(() => {
         <input
           :checked="checkboxChecked"
           type="checkbox"
-          :disabled="disabled"
+          :disabled="disabled || isSessionBoundField"
           class="form-checkbox"
           @change="handleCheckboxChange"
         >

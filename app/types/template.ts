@@ -11,7 +11,7 @@ export type Field = {
   name: string;
   label?: string;
   fieldType: string;
-  sessionField?: 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode' | null;
+  sessionField?: 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode' | 'titleThAutoChecked' | 'titleThMrChecked' | 'titleThMissChecked' | 'titleThMrsChecked' | null;
   maxLength?: number | null;
   amount?: number;
   fontSize?: number;

@@ -38,7 +38,15 @@ function normalizeMaxLength(value) {
   return parsePositiveInteger(value);
 }
 
-const allowedSessionFieldBindings = ['studentName', 'studentId', 'studentYearCurrent', 'facultyNameTh', 'departmentNameTh', 'departmentCode'];
+const allowedSessionFieldBindings = [
+  'studentName',
+  'studentId',
+  'studentYearCurrent',
+  'facultyNameTh',
+  'departmentNameTh',
+  'departmentCode',
+  'titleThAutoChecked',
+];
 
 const formData = ref({
   name: '',
@@ -110,7 +118,7 @@ const supportsMaxLength = computed(() => {
 });
 
 const supportsSessionFieldBinding = computed(() => {
-  return ['text', 'number'].includes(selectedFieldType.value);
+  return ['text', 'number', 'checkbox'].includes(selectedFieldType.value);
 });
 
 const isOpen = computed({
@@ -512,23 +520,26 @@ async function handleDelete() {
                 <option value="none">
                   ให้ผู้ยื่นกรอกเอง
                 </option>
-                <option value="studentName">
+                <option v-if="selectedFieldType !== 'checkbox'" value="studentName">
                   ชื่อ-นามสกุลนักศึกษา (กรอกอัตโนมัติ)
                 </option>
-                <option value="studentId">
+                <option v-if="selectedFieldType !== 'checkbox'" value="studentId">
                   รหัสนิสิต (กรอกอัตโนมัติ)
                 </option>
-                <option value="studentYearCurrent">
+                <option v-if="selectedFieldType !== 'checkbox'" value="studentYearCurrent">
                   ชั้นปีนิสิต (กรอกอัตโนมัติ)
                 </option>
-                <option value="facultyNameTh">
+                <option v-if="selectedFieldType !== 'checkbox'" value="facultyNameTh">
                   คณะ (กรอกอัตโนมัติ)
                 </option>
-                <option value="departmentNameTh">
+                <option v-if="selectedFieldType !== 'checkbox'" value="departmentNameTh">
                   สาขา (กรอกอัตโนมัติ)
                 </option>
-                <option value="departmentCode">
+                <option v-if="selectedFieldType !== 'checkbox'" value="departmentCode">
                   รหัสสาขา (กรอกอัตโนมัติ)
+                </option>
+                <option v-if="selectedFieldType === 'checkbox'" value="titleThAutoChecked">
+                  คำนำหน้าชื่อ (ติ๊กอัตโนมัติจากข้อมูลนิสิต)
                 </option>
               </select>
             </div>

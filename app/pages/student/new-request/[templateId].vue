@@ -21,7 +21,7 @@ type VisibilityRule = {
   clearWhenHidden?: boolean;
 };
 
-type SessionFieldBinding = 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode';
+type SessionFieldBinding = 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode' | 'titleThAutoChecked' | 'titleThMrChecked' | 'titleThMissChecked' | 'titleThMrsChecked';
 
 type SigningStep = {
   id: string;
@@ -390,7 +390,11 @@ function getSessionFieldBinding(field: any): SessionFieldBinding | null {
     || rawValue === 'studentYearCurrent'
     || rawValue === 'facultyNameTh'
     || rawValue === 'departmentNameTh'
-    || rawValue === 'departmentCode') {
+    || rawValue === 'departmentCode'
+    || rawValue === 'titleThAutoChecked'
+    || rawValue === 'titleThMrChecked'
+    || rawValue === 'titleThMissChecked'
+    || rawValue === 'titleThMrsChecked') {
     return rawValue;
   }
 
@@ -417,10 +421,45 @@ function getSessionFieldBinding(field: any): SessionFieldBinding | null {
   return null;
 }
 
+function inferTitleFromField(field: any): 'นาย' | 'นางสาว' | 'นาง' | null {
+  const candidates = [field?.formQuestionLabel, field?.label, field?.name]
+    .map(value => String(value ?? '').trim().toLowerCase())
+    .filter(value => value.length > 0);
+
+  for (const text of candidates) {
+    if (text.includes('นางสาว') || text.includes('miss') || text.includes('ms.')) {
+      return 'นางสาว';
+    }
+    if (text.includes('นาง') || text.includes('mrs')) {
+      return 'นาง';
+    }
+    if (text.includes('นาย') || text.includes(' mr') || text.startsWith('mr')) {
+      return 'นาย';
+    }
+  }
+
+  return null;
+}
+
 function resolveSessionBoundFieldValue(field: any): string {
   const binding = getSessionFieldBinding(field);
   if (!binding) {
     return '';
+  }
+
+  if (binding === 'titleThAutoChecked' || binding === 'titleThMrChecked' || binding === 'titleThMissChecked' || binding === 'titleThMrsChecked') {
+    const title = String(user.value?.titleTh ?? '').trim();
+    if (binding === 'titleThAutoChecked') {
+      const fieldTitle = inferTitleFromField(field);
+      return fieldTitle !== null && title === fieldTitle ? 'true' : '';
+    }
+    if (binding === 'titleThMrChecked') {
+      return title === 'นาย' ? 'true' : '';
+    }
+    if (binding === 'titleThMissChecked') {
+      return title === 'นางสาว' ? 'true' : '';
+    }
+    return title === 'นาง' ? 'true' : '';
   }
 
   if (binding === 'studentName') {
@@ -1304,7 +1343,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
 
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <pre>fieldValues: {{ fieldValues }}</pre>
       <!-- Loading State -->
       <div v-if="isLoading" class="flex items-center justify-center h-96">
         <div class="text-center">
