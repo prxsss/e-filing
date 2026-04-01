@@ -1,9 +1,11 @@
+import type { UserStatus } from '~~/shared/types/user-status';
+
 type UserSearchFilters = {
   search?: Ref<string>;
   facultyId?: Ref<number | null | undefined>;
   departmentId?: Ref<number | null | undefined>;
   roleId?: Ref<number | null | undefined>;
-  status?: Ref<'active' | 'banned' | 'inactive' | null | undefined>;
+  status?: Ref<UserStatus | null | undefined>;
 };
 
 export function useUsers(filters: UserSearchFilters = {}) {

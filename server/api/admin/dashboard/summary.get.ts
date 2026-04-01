@@ -3,6 +3,7 @@ import type { SQL } from 'drizzle-orm';
 import db from '~~/lib/db';
 import { request, userRoles, users } from '~~/lib/db/schema';
 import { resolveDashboardRange } from '~~/server/utils/dashboard-period';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { and, count, eq, gte, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 
 function parseFacultyId(value: unknown): number | undefined {
@@ -93,8 +94,7 @@ export default defineEventHandler(async (event) => {
     .where(and(...medianConditions));
 
   const activeUserConditions: SQL[] = [
-    eq(users.isActive, true),
-    eq(users.banned, false),
+    eq(users.status, USER_STATUS.ACTIVE),
     isNull(users.deletedAt),
   ];
 

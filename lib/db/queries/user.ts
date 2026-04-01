@@ -1,6 +1,8 @@
+import type { UserStatus } from '~~/shared/types/user-status';
 import type { SQL } from 'drizzle-orm';
 
-import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { USER_STATUS } from '~~/shared/types/user-status';
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import db from '..';
 import { departments, faculties, request, roles, userRoles, users } from '../schema';
@@ -10,7 +12,7 @@ type UserListFilters = {
   facultyId?: number | null;
   departmentId?: number | null;
   roleId?: number | null;
-  status?: 'active' | 'banned' | 'inactive' | null;
+  status?: UserStatus | null;
 };
 
 function getUsersWhere(filters: UserListFilters): SQL | undefined {
@@ -63,16 +65,14 @@ function getUsersWhere(filters: UserListFilters): SQL | undefined {
     );
   }
 
-  if (filters.status === 'active') {
-    conditions.push(eq(users.banned, false));
-    conditions.push(eq(users.isActive, true));
+  if (filters.status === USER_STATUS.ACTIVE) {
+    conditions.push(eq(users.status, USER_STATUS.ACTIVE));
   }
-  else if (filters.status === 'banned') {
-    conditions.push(eq(users.banned, true));
+  else if (filters.status === USER_STATUS.BANNED) {
+    conditions.push(eq(users.status, USER_STATUS.BANNED));
   }
-  else if (filters.status === 'inactive') {
-    conditions.push(eq(users.banned, false));
-    conditions.push(or(eq(users.isActive, false), isNull(users.isActive))!);
+  else if (filters.status === USER_STATUS.INACTIVE) {
+    conditions.push(eq(users.status, USER_STATUS.INACTIVE));
   }
 
   return conditions.length > 0 ? and(...conditions)! : undefined;
@@ -104,8 +104,7 @@ export async function getUsers({
         `,
 
       email: users.email,
-      banned: users.banned,
-      isActive: users.isActive,
+      status: users.status,
 
       faculties: sql<{ nameEn: string; nameTh: string }[]>`
           coalesce(
@@ -190,9 +189,8 @@ export async function getUserById(id: string) {
 
       email: users.email,
       image: users.image,
-      banned: users.banned,
+      status: users.status,
       banReason: users.banReason,
-      isActive: users.isActive,
 
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,

@@ -3,6 +3,7 @@ import type { AllowedTypePerson, KuAllCallback } from '~~/shared/types/ku-all-ca
 import db from '~~/lib/db';
 import { departments, faculties, permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
 import env from '~~/lib/env';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { eq, sql } from 'drizzle-orm';
 
 type TokenResponse = {
@@ -162,8 +163,7 @@ export default defineEventHandler(async (event) => {
     const [existingUser] = await db
       .select({
         id: users.id,
-        isActive: users.isActive,
-        banned: users.banned,
+        status: users.status,
         firstNameEn: users.firstNameEn,
         lastNameEn: users.lastNameEn,
       })
@@ -171,7 +171,7 @@ export default defineEventHandler(async (event) => {
       .where(eq(users.id, userInfo.uid))
       .limit(1);
 
-    if (existingUser?.banned) {
+    if (existingUser?.status === USER_STATUS.BANNED) {
       console.warn('[KU OAuth] banned user login blocked', { uid: userInfo.uid });
       return sendRedirect(event, getLoginRedirectUrl().toString());
     }
@@ -196,7 +196,7 @@ export default defineEventHandler(async (event) => {
           firstNameTh: userInfo['first-name'],
           lastNameTh: userInfo['last-name'],
           email: userInfo['google-mail'] ?? '',
-          isActive: true,
+          status: USER_STATUS.ACTIVE,
         });
 
         await tx.insert(userRoles).values({
@@ -232,7 +232,7 @@ export default defineEventHandler(async (event) => {
           concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
         `,
         email: users.email,
-        banned: users.banned,
+        status: users.status,
       })
       .from(users)
       .where(eq(users.id, userInfo.uid))
@@ -243,7 +243,7 @@ export default defineEventHandler(async (event) => {
       return sendRedirect(event, getLoginRedirectUrl().toString());
     }
 
-    if (user.banned) {
+    if (user.status === USER_STATUS.BANNED) {
       console.warn('[KU OAuth] banned user login blocked after upsert', { uid: userInfo.uid });
       return sendRedirect(event, getLoginRedirectUrl().toString());
     }

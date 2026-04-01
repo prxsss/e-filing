@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
 import { roles, userRoles, users } from '~~/lib/db/schema';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { eq, sql } from 'drizzle-orm';
 import * as z from 'zod';
 
@@ -29,7 +30,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  if (user.banned) {
+  if (user.status === USER_STATUS.BANNED) {
     throw createError({
       statusCode: 400,
       message: `User with id ${id} is already banned`,
@@ -53,7 +54,7 @@ export default defineEventHandler(async (event) => {
       .from(userRoles)
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .innerJoin(users, eq(userRoles.userId, users.id))
-      .where(sql`lower(${roles.name}) = 'admin' and ${users.banned} = false and ${userRoles.userId} <> ${id}`);
+      .where(sql`lower(${roles.name}) = 'admin' and ${users.status} <> ${USER_STATUS.BANNED} and ${userRoles.userId} <> ${id}`);
 
     if ((otherUnbannedAdminCount?.count ?? 0) < 1) {
       throw createError({
@@ -66,11 +67,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const [updatedUser] = await db.update(users).set({ banned: true, banReason: body.banReason, updatedAt: new Date().toISOString() }).where(eq(users.id, id)).returning();
+  const [updatedUser] = await db.update(users).set({ status: USER_STATUS.BANNED, banReason: body.banReason, updatedAt: new Date().toISOString() }).where(eq(users.id, id)).returning();
 
   return {
     id: updatedUser.id,
-    banned: updatedUser.banned,
+    status: updatedUser.status,
     banReason: updatedUser.banReason,
     bannedAt: new Date(),
   };

@@ -2,6 +2,7 @@
 import type { DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui';
 
 import { LazyBaseConfirmDialog, LazyBaseConfirmDialogWithReason } from '#components';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { h, resolveComponent } from 'vue';
 
 import type { UserDetail } from '~/types/user';
@@ -179,7 +180,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     label: t('adminUsers.detail.actions.banUser'),
     icon: 'i-lucide-user-x',
     color: 'error',
-    visible: computed(() => !user.value?.banned && user.value?.id !== authStore.session.user?.id && authStore.can('user.status')),
+    visible: computed(() => user.value?.status !== USER_STATUS.BANNED && user.value?.id !== authStore.session.user?.id && authStore.can('user.status')),
     onSelect: async () => {
       const instance = confirmDialogWithReason.open({
         title: t('adminUsers.detail.banDialog.confirm'),
@@ -219,7 +220,7 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
     label: t('adminUsers.detail.actions.unbanUser'),
     icon: 'i-lucide-user-check',
     color: 'success',
-    visible: computed(() => user.value?.banned && authStore.can('user.status')),
+    visible: computed(() => user.value?.status === USER_STATUS.BANNED && authStore.can('user.status')),
     onSelect: async () => {
       const instance = confirmDialog.open({
         title: t('adminUsers.detail.unbanDialog.confirm'),
@@ -285,17 +286,17 @@ const actionMenuItems = computed<DropdownMenuItemWithVisibility[]>(() => ([
                   {{ locale === 'en' ? user.fullNameEn : user.fullNameTh }}
                 </h1>
                 <UBadge
-                  :color="user.banned ? 'error' : user.isActive ? 'success' : 'neutral'"
+                  :color="user.status === USER_STATUS.BANNED ? 'error' : user.status === USER_STATUS.ACTIVE ? 'success' : 'neutral'"
                   variant="subtle"
                   class="uppercase text-xs"
                 >
-                  {{ user.banned ? t('common.status.banned') : user.isActive ? t('common.status.active') : t('common.status.inactive') }}
+                  {{ user.status === USER_STATUS.BANNED ? t('common.status.banned') : user.status === USER_STATUS.ACTIVE ? t('common.status.active') : t('common.status.inactive') }}
                 </UBadge>
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400">
                 {{ [user.studentId ? `${t('adminUsers.shared.form.studentId')}: ${user.studentId}` : null, user.staffId ? `${t('adminUsers.shared.form.staffId')}: ${user.staffId}` : null].filter(Boolean).join(' / ') || user.email }}
               </p>
-              <p v-if="user.banned" class="text-sm text-error mt-1">
+              <p v-if="user.status === USER_STATUS.BANNED" class="text-sm text-error mt-1">
                 {{ t('adminUsers.detail.banReasonLabel') }}: {{ user.banReason || '-' }}
               </p>
             </div>

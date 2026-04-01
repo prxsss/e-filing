@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
 import { permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { eq, sql } from 'drizzle-orm';
 import * as zod from 'zod';
 
@@ -22,19 +23,18 @@ export default defineEventHandler(async (event) => {
         `,
       email: users.email,
       passwordHash: users.passwordHash,
-      isActive: users.isActive,
-      banned: users.banned,
+      status: users.status,
     })
     .from(users)
     .where(eq(users.email, body.email));
   if (!user) {
     throw createError({ statusCode: 401, message: 'Invalid email or password' });
   }
-  if (!user.isActive) {
+  if (user.status === USER_STATUS.INACTIVE) {
     throw createError({ statusCode: 403, message: 'Account is not activated.' });
   }
 
-  if (user.banned) {
+  if (user.status === USER_STATUS.BANNED) {
     throw createError({ statusCode: 403, message: 'Account is banned.' });
   }
 

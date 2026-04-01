@@ -1,8 +1,10 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import {nanoid} from "nanoid";
+import { USER_STATUS, USER_STATUS_VALUES } from '../../../shared/types/user-status'
+import { nanoid} from 'nanoid'
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
+export const userStatus = pgEnum("user_status", USER_STATUS_VALUES)
 
 
 export const users = pgTable("users", {
@@ -26,6 +28,7 @@ export const users = pgTable("users", {
 	isActive: boolean("is_active").default(false),
 	studentId: text("student_id"),
 	staffId: text("staff_id"),
+	status: userStatus().default(USER_STATUS.INACTIVE).notNull(),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
 	unique("users_student_id_key").on(table.studentId),
@@ -138,8 +141,6 @@ export const signatures = pgTable("signatures", {
 	fieldInstanceId: text("field_instance_id"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	pdfHash: text("pdf_hash"),
-	// Persist the actual signature image so we can render it as a separate overlay
-	// (without relying on the PDF already having the signature embedded).
 	dataUrl: text("data_url"),
 }, (table) => [
 	foreignKey({

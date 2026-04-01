@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
 import { activationOtps, permissions, rolePermissions, roles, userRoles, users } from '~~/lib/db/schema';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
           concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
         `,
       email: users.email,
-      banned: users.banned,
+      status: users.status,
     })
     .from(users)
     .where(eq(users.email, email))
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Email not found.' });
   }
 
-  if (existingUser.banned) {
+  if (existingUser.status === USER_STATUS.BANNED) {
     throw createError({ statusCode: 403, message: 'Account is banned.' });
   }
 
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event) => {
 
     await tx
       .update(users)
-      .set({ passwordHash, isActive: true })
+      .set({ passwordHash, status: USER_STATUS.ACTIVE })
       .where(eq(users.id, existingUser.id));
   });
 

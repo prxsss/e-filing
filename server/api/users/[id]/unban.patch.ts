@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
 import { users } from '~~/lib/db/schema';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { eq } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
@@ -15,18 +16,18 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  if (!user.banned) {
+  if (user.status !== USER_STATUS.BANNED) {
     throw createError({
       statusCode: 400,
       message: `User with id ${id} is not banned`,
     });
   }
 
-  const [updatedUser] = await db.update(users).set({ banned: false, banReason: null, updatedAt: new Date().toISOString() }).where(eq(users.id, id)).returning();
+  const [updatedUser] = await db.update(users).set({ status: USER_STATUS.ACTIVE, banReason: null, updatedAt: new Date().toISOString() }).where(eq(users.id, id)).returning();
 
   return {
     id: updatedUser.id,
-    banned: updatedUser.banned,
+    status: updatedUser.status,
     banReason: updatedUser.banReason,
     unbannedAt: new Date(),
   };

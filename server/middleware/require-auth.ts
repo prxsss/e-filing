@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
 import { users } from '~~/lib/db/schema';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { eq } from 'drizzle-orm';
 
 const PUBLIC_ROUTES = [
@@ -27,13 +28,13 @@ export default defineEventHandler(async (event) => {
   const [currentUser] = await db
     .select({
       id: users.id,
-      banned: users.banned,
+      status: users.status,
     })
     .from(users)
     .where(eq(users.id, user.id))
     .limit(1);
 
-  if (!currentUser || currentUser.banned) {
+  if (!currentUser || currentUser.status !== USER_STATUS.ACTIVE) {
     await clearUserSession(event);
     throw createError({
       statusCode: 401,

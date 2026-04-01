@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui';
+import type { UserStatus } from '~~/shared/types/user-status';
 
 import { LazyBaseConfirmDialog, LazyBaseConfirmDialogWithReason } from '#components';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { h, resolveComponent } from 'vue';
 
 import type { UserListItem } from '~/types/user';
@@ -65,7 +67,7 @@ type AdvancedSearchFilters = {
   facultyId: number | null;
   departmentId: number | null;
   roleId: number | null;
-  status: 'active' | 'banned' | 'inactive' | null;
+  status: UserStatus | null;
 };
 
 function defaultAdvancedFilters(): AdvancedSearchFilters {
@@ -113,10 +115,10 @@ const roleOptions = computed<SelectOption<number>[]>(() => {
   }));
 });
 
-const statusOptions: SelectOption<'active' | 'banned' | 'inactive'>[] = [
-  { label: t('common.status.active'), value: 'active' },
-  { label: t('common.status.banned'), value: 'banned' },
-  { label: t('common.status.inactive'), value: 'inactive' },
+const statusOptions: SelectOption<UserStatus>[] = [
+  { label: t('common.status.active'), value: USER_STATUS.ACTIVE },
+  { label: t('common.status.banned'), value: USER_STATUS.BANNED },
+  { label: t('common.status.inactive'), value: USER_STATUS.INACTIVE },
 ];
 
 const filteredDepartmentOptions = computed(() => {
@@ -155,7 +157,7 @@ const roleFilterModel = computed<number | undefined>({
   set: value => advancedFilters.value.roleId = value ?? null,
 });
 
-const statusFilterModel = computed<'active' | 'banned' | 'inactive' | undefined>({
+const statusFilterModel = computed<UserStatus | undefined>({
   get: () => advancedFilters.value.status ?? undefined,
   set: value => advancedFilters.value.status = value ?? null,
 });
@@ -274,12 +276,12 @@ const columns: TableColumn<UserListItem>[] = [
     },
   },
   {
-    accessorKey: 'banned',
+    accessorKey: 'status',
     header: t('common.table.status'),
     cell: ({ row }) => {
-      const { banned, isActive } = row.original;
-      const color = banned ? 'error' : isActive ? 'success' : 'neutral';
-      const statusText = banned ? t('common.status.banned') : isActive ? t('common.status.active') : t('common.status.inactive');
+      const { status } = row.original;
+      const color = status === USER_STATUS.BANNED ? 'error' : status === USER_STATUS.ACTIVE ? 'success' : 'neutral';
+      const statusText = status === USER_STATUS.BANNED ? t('common.status.banned') : status === USER_STATUS.ACTIVE ? t('common.status.active') : t('common.status.inactive');
       return h(UBadge, { variant: 'soft', color }, statusText);
     },
   },
@@ -370,7 +372,7 @@ async function onBulkBan() {
   bulkBanLoading.value = true;
   try {
     for (const targetUser of selectedUsers.value) {
-      if (targetUser.banned) {
+      if (targetUser.status === USER_STATUS.BANNED) {
         summary.skippedAlreadyBanned++;
         continue;
       }
@@ -464,7 +466,7 @@ async function onBulkUnban() {
   bulkUnbanLoading.value = true;
   try {
     for (const targetUser of selectedUsers.value) {
-      if (!targetUser.banned) {
+      if (targetUser.status !== USER_STATUS.BANNED) {
         summary.skippedNotBanned++;
         continue;
       }

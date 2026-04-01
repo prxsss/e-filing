@@ -1,3 +1,5 @@
+import type { UserStatus } from '~~/shared/types/user-status';
+
 export type Role = {
   id: number;
   name: string;
@@ -15,8 +17,7 @@ export type UserListItem = {
   email: string;
   faculties: { nameEn: string; nameTh: string }[];
   roles: { name: string; count: number }[];
-  banned: boolean;
-  isActive: boolean | null;
+  status: UserStatus;
 };
 
 export type UserDetail = {
@@ -33,9 +34,8 @@ export type UserDetail = {
   fullNameTh: string;
   email: string;
   image: string | null;
-  banned: boolean;
+  status: UserStatus;
   banReason: string | null;
-  isActive: boolean | null;
   createdAt: string;
   updatedAt: string;
   assignments: {

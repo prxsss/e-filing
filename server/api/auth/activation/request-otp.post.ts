@@ -1,6 +1,7 @@
 import db from '~~/lib/db';
 import { activationOtps, users } from '~~/lib/db/schema';
 import { activationOtpTemplate } from '~~/server/utils/email/templates/activation-otp';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
       fullNameTh: sql<string>`
           concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
       `,
-      isActive: users.isActive,
+      status: users.status,
     })
     .from(users)
     .where(eq(users.email, email))
@@ -24,7 +25,10 @@ export default defineEventHandler(async (event) => {
   if (!existingUser) {
     throw createError({ statusCode: 404, message: 'Email not found.' });
   }
-  if (existingUser.isActive) {
+  if (existingUser.status === USER_STATUS.BANNED) {
+    throw createError({ statusCode: 403, message: 'Account is banned.' });
+  }
+  if (existingUser.status === USER_STATUS.ACTIVE) {
     throw createError({ statusCode: 400, message: 'This account is already activated.' });
   }
 

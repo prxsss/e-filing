@@ -1,6 +1,7 @@
 import db from '~~/lib/db';
 import { activationOtps, users } from '~~/lib/db/schema';
 import { resetPasswordOtpTemplate } from '~~/server/utils/email/templates/reset-password-otp';
+import { USER_STATUS } from '~~/shared/types/user-status';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import * as zod from 'zod';
@@ -19,8 +20,7 @@ export default defineEventHandler(async (event) => {
       fullNameTh: sql<string>`
           concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})
       `,
-      isActive: users.isActive,
-      banned: users.banned,
+      status: users.status,
       passwordHash: users.passwordHash,
     })
     .from(users)
@@ -30,12 +30,14 @@ export default defineEventHandler(async (event) => {
   if (!existingUser) {
     throw createError({ statusCode: 404, message: 'Email not found.' });
   }
-  if (!existingUser.isActive) {
+  if (existingUser.status === USER_STATUS.INACTIVE) {
     throw createError({ statusCode: 400, message: 'This account is not activated.' });
   }
-  if (existingUser.banned) {
+  if (existingUser.status === USER_STATUS.BANNED) {
     throw createError({ statusCode: 403, message: 'Account is banned.' });
   }
+
+  // KU ALL Account
   if (!existingUser.passwordHash) {
     throw createError({ statusCode: 400, message: 'This account does not support password reset.' });
   }
