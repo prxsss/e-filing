@@ -42,7 +42,8 @@ export default defineEventHandler(async (event) => {
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
-    // Find current pending flow entry for this request
+    // Find all pending flow entries for this request
+    // (with parallel signing there can be multiple pending steps at the same order)
     const pendingFlows = await db
       .select()
       .from(signatureFlow)
@@ -50,10 +51,13 @@ export default defineEventHandler(async (event) => {
         eq(signatureFlow.requestId, requestId),
         eq(signatureFlow.status, 'pending'),
       ))
-      .orderBy(asc(signatureFlow.stepOrder))
-      .limit(1);
+      .orderBy(asc(signatureFlow.stepOrder));
 
-    const flowEntry = pendingFlows[0];
+    // Find the pending step this user is authorized to sign
+    const flowEntry = pendingFlows.find(f =>
+      f.assignedUserId === userId
+      || (f.assignedUserId === null && userRoleIds.includes(f.roleId)),
+    );
 
     if (!flowEntry) {
       return { success: false, error: 'No pending signing step found for this request' };
@@ -251,7 +255,32 @@ export default defineEventHandler(async (event) => {
     const context = await getSignRequestContext(requestId);
 
     // ── Advance workflow ─────────────────────────────────────────────────────
-    const [nextStep] = await db
+    // With parallel signing: only advance to the next stage when ALL steps
+    // at the current order level are signed.
+    const siblingsAtSameOrder = await db
+      .select()
+      .from(signatureFlow)
+      .where(and(
+        eq(signatureFlow.requestId, requestId),
+        eq(signatureFlow.stepOrder, updatedFlowEntry.stepOrder),
+      ));
+
+    const allSignedAtCurrentOrder = siblingsAtSameOrder.every(s => s.status === 'signed');
+
+    if (!allSignedAtCurrentOrder) {
+      // Parallel siblings are still pending — stay in progress, wait for the others
+      return {
+        success: true,
+        data: {
+          status: 'in_progress',
+          nextRole: null,
+          filledDocumentUrl: signedPdfUrl,
+        },
+      };
+    }
+
+    // All parallel siblings are done — activate the next order group
+    const nextWaiting = await db
       .select()
       .from(signatureFlow)
       .where(and(
@@ -261,45 +290,53 @@ export default defineEventHandler(async (event) => {
       .orderBy(asc(signatureFlow.stepOrder))
       .limit(1);
 
-    if (nextStep) {
+    if (nextWaiting[0]) {
+      const nextGroupOrder = nextWaiting[0].stepOrder;
+
+      // Activate ALL steps at this order group simultaneously (parallel)
       await db
         .update(signatureFlow)
         .set({ status: 'pending', pendingAt: new Date().toISOString() })
-        .where(eq(signatureFlow.id, nextStep.id));
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.stepOrder, nextGroupOrder),
+          eq(signatureFlow.status, 'waiting'),
+        ));
 
       await db
         .update(request)
         .set({ status: 'in_progress' })
         .where(eq(request.id, requestId));
 
-      // Skip notification for the initial step (student submission).
-      // Notifications should only be sent to actual signers (stepOrder > 1).
+      // Notify all newly-activated signers in the next group
       if (flowEntry.stepOrder > 1) {
-        const [[currentSigner], [nextSigner]] = await Promise.all([
-
-          // Get current signer name for notification
+        const [[currentSigner], nextSigners] = await Promise.all([
           db.select({
             signerName: sql<string>`
             concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
           }).from(users).where(eq(users.id, userId)),
 
-          // Get next signer email and name for notification
           db.select({
             signerEmail: users.email,
             signerName: sql<string>`
             concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
-          }).from(users).where(eq(users.id, nextStep.assignedUserId!)),
+            stepOrder: signatureFlow.stepOrder,
+          })
+            .from(signatureFlow)
+            .innerJoin(users, eq(signatureFlow.assignedUserId, users.id))
+            .where(and(
+              eq(signatureFlow.requestId, requestId),
+              eq(signatureFlow.stepOrder, nextGroupOrder),
+            )),
         ]);
 
         await Promise.all([
-
-          // Notify requester about the signed step
           signNotificationService.notifySigned({ signerName: currentSigner.signerName, stepOrder: updatedFlowEntry.stepOrder }, context),
-
-          // Notify next signer
-          signNotificationService.notifySigner({ signerEmail: nextSigner.signerEmail, signerName: nextSigner.signerName, stepOrder: nextStep.stepOrder }, context),
+          ...nextSigners.map(ns =>
+            signNotificationService.notifySigner({ signerEmail: ns.signerEmail, signerName: ns.signerName, stepOrder: ns.stepOrder }, context),
+          ),
         ]);
       }
 
@@ -307,7 +344,7 @@ export default defineEventHandler(async (event) => {
         success: true,
         data: {
           status: 'in_progress',
-          nextRole: nextStep.roleName,
+          nextRole: nextWaiting[0].roleName,
           filledDocumentUrl: signedPdfUrl,
         },
       };

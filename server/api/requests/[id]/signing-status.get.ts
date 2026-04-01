@@ -51,16 +51,19 @@ export default defineEventHandler(async (event) => {
       .where(eq(signatureFlow.requestId, requestId))
       .orderBy(asc(signatureFlow.stepOrder));
 
-    // Determine whether the current user may act on the pending step.
+    // Determine whether the current user may act on a pending step.
+    // With parallel signing there can be multiple pending steps at the same order;
+    // find the one specifically assigned to (or accessible by) the current user.
     // Mirrors the same dual-pattern routing used in for-signing.get.ts:
     //   Pattern A — direct assignment: assignedUserId === me (role not required)
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
-    const overallPendingStep = flowSteps.find(s => s.status === 'pending') ?? null;
-    const isCurrentUsersTurn = overallPendingStep !== null && (
-      overallPendingStep.assignedUserId === userId
-      || (overallPendingStep.assignedUserId === null && userRoleIds.includes(overallPendingStep.roleId))
-    );
-    const pendingStep = isCurrentUsersTurn ? overallPendingStep : null;
+    const pendingStep = flowSteps.find(s =>
+      s.status === 'pending'
+      && (
+        s.assignedUserId === userId
+        || (s.assignedUserId === null && userRoleIds.includes(s.roleId))
+      ),
+    ) ?? null;
 
     // Build the list of signature field positions for the pending step so the
     // client can render a live preview of the signature on the actual document.
