@@ -18,6 +18,12 @@ const updateProfileSchema = zod.object({
 });
 
 export default defineEventHandler(async (event) => {
+  // Disable Signer Profile API
+  throw createError({
+    statusCode: 404,
+    message: 'Not Found',
+  });
+
   await requirePermission(event, 'request.sign');
 
   const user = event.context.user!; // We can assert this because of the require-auth middleware
@@ -102,8 +108,10 @@ export default defineEventHandler(async (event) => {
     .select({
       id: users.id,
       email: users.email,
-      fullNameEn: sql<string>`concat_ws(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`,
-      fullNameTh: sql<string>`concat_ws(' ', ${users.titleTh}, ${users.firstNameTh}, ${users.lastNameTh})`,
+      titleEn: users.titleEn,
+      fullNameEn: sql<string>`concat_ws(' ', ${users.firstNameEn}, ${users.lastNameEn})`,
+      titleTh: users.titleTh,
+      fullNameTh: sql<string>`concat_ws(' ', ${users.firstNameTh}, ${users.lastNameTh})`,
     })
     .from(users)
     .where(eq(users.id, user.id))
@@ -143,8 +151,10 @@ export default defineEventHandler(async (event) => {
   await replaceUserSession(event, {
     user: {
       id: updatedUser.id,
+      titleEn: updatedUser.titleEn || undefined,
       fullNameEn: updatedUser.fullNameEn,
       fullNameTh: updatedUser.fullNameTh,
+      titleTh: updatedUser.titleTh || undefined,
       roles: mappedRoles,
       currentRole: mappedRoles[0] ?? '',
       permissions: mappedPermissions,
@@ -161,8 +171,10 @@ export default defineEventHandler(async (event) => {
     success: true,
     user: {
       id: updatedUser.id,
+      titleEn: updatedUser.titleEn || undefined,
       fullNameEn: updatedUser.fullNameEn,
       fullNameTh: updatedUser.fullNameTh,
+      titleTh: updatedUser.titleTh || undefined,
       roles: mappedRoles,
       currentRole: mappedRoles[0] ?? '',
       permissions: mappedPermissions,
