@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
-import { DateFormatter, getLocalTimeZone } from '@internationalized/date';
 import { useDebounceFn } from '@vueuse/core';
 
 import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
@@ -82,11 +81,30 @@ function getStatusLabel(status: string) {
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '-';
-  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
+
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime()))
+    return '-';
+
+  return new Intl.DateTimeFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  });
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+function formatCalendarDate(value: { year: number; month: number; day: number } | null | undefined): string {
+  if (!value)
+    return '-';
+
+  const date = new Date(Date.UTC(value.year, value.month - 1, value.day));
+  return new Intl.DateTimeFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
 }
 
 // === Table Columns ===
@@ -184,8 +202,6 @@ async function onBulkDownload() {
 // === Shared Filter State (Pinia) ===
 const filterStore = useRequestFiltersStore();
 const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
-
-const df = new DateFormatter('en-US', { dateStyle: 'medium' });
 
 function getSingleQueryValue(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value))
@@ -457,10 +473,10 @@ const statsMap = computed(() => {
                     <UButton color="neutral" variant="outline" size="sm" class="w-full font-normal">
                       <template v-if="modelValue.start">
                         <template v-if="modelValue.end">
-                          {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }} - {{ df.format(modelValue.end.toDate(getLocalTimeZone())) }}
+                          {{ formatCalendarDate(modelValue.start) }} - {{ formatCalendarDate(modelValue.end) }}
                         </template>
                         <template v-else>
-                          {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }}
+                          {{ formatCalendarDate(modelValue.start) }}
                         </template>
                       </template>
                       <template v-else>

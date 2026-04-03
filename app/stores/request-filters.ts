@@ -1,4 +1,4 @@
-import { CalendarDate, getLocalTimeZone } from '@internationalized/date';
+import { CalendarDate } from '@internationalized/date';
 import { defineStore } from 'pinia';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ const DEFAULT_PERIOD: PeriodOption = 'This month';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toPlainDate(date: Date): PlainDateRange['start'] {
-  return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() };
 }
 
 function toCalendarDate(plain: PlainDateRange['start']): CalendarDate {
@@ -56,72 +56,82 @@ function toCalendarDate(plain: PlainDateRange['start']): CalendarDate {
 }
 
 function isoFromPlain(plain: PlainDateRange['start'], endOfDay = false): string {
-  const d = new CalendarDate(plain.year, plain.month, plain.day).toDate(getLocalTimeZone());
-  endOfDay ? d.setHours(23, 59, 59, 999) : d.setHours(0, 0, 0, 0);
+  const d = new Date(Date.UTC(
+    plain.year,
+    plain.month - 1,
+    plain.day,
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0,
+  ));
   return d.toISOString();
 }
 
 export function resolvePresetDateRange(period: string): PlainDateRange {
   const now = new Date();
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-  let start = new Date(now);
-  start.setHours(0, 0, 0, 0);
+  const baseYear = now.getUTCFullYear();
+  const baseMonth = now.getUTCMonth();
+  const baseDay = now.getUTCDate();
+
+  const end = new Date(Date.UTC(baseYear, baseMonth, baseDay, 23, 59, 59, 999));
+  let start = new Date(Date.UTC(baseYear, baseMonth, baseDay, 0, 0, 0, 0));
 
   switch (period) {
     case 'Today':
       break;
     case 'Yesterday':
-      start.setDate(start.getDate() - 1);
-      end.setDate(end.getDate() - 1);
+      start.setUTCDate(start.getUTCDate() - 1);
+      end.setUTCDate(end.getUTCDate() - 1);
       break;
     case 'Last 7 days':
-      start.setDate(start.getDate() - 6);
+      start.setUTCDate(start.getUTCDate() - 6);
       break;
     case 'Last 14 days':
-      start.setDate(start.getDate() - 13);
+      start.setUTCDate(start.getUTCDate() - 13);
       break;
     case 'This week': {
-      const day = start.getDay();
-      start.setDate(start.getDate() + (day === 0 ? -6 : 1 - day));
+      const day = start.getUTCDay();
+      start.setUTCDate(start.getUTCDate() + (day === 0 ? -6 : 1 - day));
       break;
     }
     case 'Last week': {
-      const day = start.getDay();
-      start.setDate(start.getDate() + (day === 0 ? -6 : 1 - day) - 7);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
+      const day = start.getUTCDay();
+      start.setUTCDate(start.getUTCDate() + (day === 0 ? -6 : 1 - day) - 7);
+      end.setTime(start.getTime());
+      end.setUTCDate(start.getUTCDate() + 6);
+      end.setUTCHours(23, 59, 59, 999);
       break;
     }
     case 'This month':
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      start = new Date(Date.UTC(baseYear, baseMonth, 1, 0, 0, 0, 0));
       break;
     case 'Last month':
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      end.setFullYear(start.getFullYear(), start.getMonth() + 1, 0);
-      end.setHours(23, 59, 59, 999);
+      start = new Date(Date.UTC(baseYear, baseMonth - 1, 1, 0, 0, 0, 0));
+      end.setUTCFullYear(start.getUTCFullYear(), start.getUTCMonth() + 1, 0);
+      end.setUTCHours(23, 59, 59, 999);
       break;
     case 'This quarter': {
-      const qStart = now.getMonth() - (now.getMonth() % 3);
-      start = new Date(now.getFullYear(), qStart, 1, 0, 0, 0, 0);
+      const qStart = baseMonth - (baseMonth % 3);
+      start = new Date(Date.UTC(baseYear, qStart, 1, 0, 0, 0, 0));
       break;
     }
     case 'Last quarter': {
-      const thisQStart = now.getMonth() - (now.getMonth() % 3);
-      start = new Date(now.getFullYear(), thisQStart - 3, 1, 0, 0, 0, 0);
-      end.setFullYear(start.getFullYear(), start.getMonth() + 3, 0);
-      end.setHours(23, 59, 59, 999);
+      const thisQStart = baseMonth - (baseMonth % 3);
+      start = new Date(Date.UTC(baseYear, thisQStart - 3, 1, 0, 0, 0, 0));
+      end.setUTCFullYear(start.getUTCFullYear(), start.getUTCMonth() + 3, 0);
+      end.setUTCHours(23, 59, 59, 999);
       break;
     }
     case 'Year to date (YTD)':
-      start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      start = new Date(Date.UTC(baseYear, 0, 1, 0, 0, 0, 0));
       break;
     case 'Last 12 months':
-      start = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
+      start = new Date(Date.UTC(baseYear, baseMonth - 11, 1, 0, 0, 0, 0));
       break;
     case 'Last 30 days':
     default:
-      start.setDate(start.getDate() - 29);
+      start.setUTCDate(start.getUTCDate() - 29);
       break;
   }
 
@@ -171,14 +181,14 @@ function loadFromStorage(): { period: string; range: PlainDateRange } | null {
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useRequestFiltersStore = defineStore('requestFilters', () => {
-  const stored = loadFromStorage();
-
-  const selectedPeriod = ref<PeriodOption>(stored?.period as PeriodOption ?? DEFAULT_PERIOD);
+  const selectedPeriod = ref<PeriodOption>(DEFAULT_PERIOD);
 
   // ✅ Plain POJO — safe for SSR/devalue serialisation, no CalendarDate in state
   const plainRange = ref<PlainDateRange>(
-    stored?.range ?? resolvePresetDateRange(DEFAULT_PERIOD),
+    resolvePresetDateRange(DEFAULT_PERIOD),
   );
+
+  const hasRestoredClientState = ref(false);
 
   // ✅ CalendarDate instances — derived computed, never held in Pinia state
   // Used as v-model on UCalendar in templates
@@ -197,6 +207,20 @@ export const useRequestFiltersStore = defineStore('requestFilters', () => {
 
   // Guard to stop the period→range and range→'Custom' watches from looping
   const syncingFromPeriod = ref(false);
+
+  onMounted(() => {
+    const stored = loadFromStorage();
+    if (stored) {
+      syncingFromPeriod.value = true;
+      selectedPeriod.value = stored.period as PeriodOption;
+      plainRange.value = stored.range;
+      nextTick(() => {
+        syncingFromPeriod.value = false;
+      });
+    }
+
+    hasRestoredClientState.value = true;
+  });
 
   // ISO startDate/endDate — spread directly into useFetch query params
   const dateRangeQuery = computed(() => ({
@@ -224,7 +248,7 @@ export const useRequestFiltersStore = defineStore('requestFilters', () => {
 
   // Persist to localStorage whenever period or range changes
   watch([plainRange, selectedPeriod], ([range, period]) => {
-    if (!import.meta.client)
+    if (!import.meta.client || !hasRestoredClientState.value)
       return;
     const payload: StoredDateRange = {
       period,
