@@ -113,10 +113,28 @@ export default defineEventHandler(async (event) => {
     const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
     const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
-    // ── Load PDF: either rebuild from DB (signer flow) or fetch stored URL ──
+    // ── Load PDF: incremental update — build on top of the previous PDF ────
+    // Each signing step only adds its own form fields to the existing PDF so
+    // that earlier signatures and field values are never discarded.
     let pdfBytesForSign: Uint8Array;
     if (effectiveRegenerateFilledPdf) {
-      const built = await buildFilledPdfBytesForRequest(requestId, userId);
+      // Collect only the non-signature field instance IDs for this step.
+      // Signature fields are drawn separately below; passing them to the
+      // renderer would have no effect (no stored text value) but is harmless.
+      const nonSigAssignedIds = assignedIds.filter((id) => {
+        const f = allFields.find((f: any) => String(f?.instanceId ?? '').trim() === id);
+        return f && String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase() !== 'signature';
+      });
+
+      // Use the existing filled PDF as base (incremental mode).
+      // Fall back to the template only when there is no previous PDF yet
+      // (e.g. the very first step where generate-filled-pdf was not called).
+      const basePdfUrl = requestData.filledDocumentUrl || template.documentUrl;
+
+      const built = await buildFilledPdfBytesForRequest(requestId, userId, {
+        fieldInstanceIdFilter: nonSigAssignedIds,
+        basePdfUrl,
+      });
       if (!built.success) {
         return { success: false, error: built.error === 'Forbidden' ? 'Not allowed to regenerate PDF' : built.error };
       }
