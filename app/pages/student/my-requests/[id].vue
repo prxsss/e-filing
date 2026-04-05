@@ -74,7 +74,6 @@ type WorkflowStep = {
 };
 // --- State ---
 const route = useRoute();
-const authStore = useAuthStore();
 const requestId = route.params.id;
 const localePath = useLocalePath();
 const { user } = useUserSession();
@@ -1180,7 +1179,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                   ไฟล์แนบ
                 </h3>
                 <UButton
-                  v-if="requestData?.status === 'draft' && authStore.can('request.edit_draft')"
+                  v-if="requestData?.status === 'draft'"
                   size="xs"
                   color="primary"
                   variant="soft"
@@ -1226,7 +1225,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                     ดู
                   </UButton>
                   <UButton
-                    v-if="requestData?.status === 'draft' && authStore.can('request.edit_draft')"
+                    v-if="requestData?.status === 'draft'"
                     size="xs"
                     variant="ghost"
                     color="error"
