@@ -14,6 +14,14 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  renderAsRadio: {
+    type: Boolean,
+    default: false,
+  },
+  hideRequiredAsterisk: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -132,6 +140,10 @@ const isNumericField = computed(() => fieldType.value === 'number');
 const isCheckboxField = computed(() => fieldType.value === 'checkbox');
 const isDateField = computed(() => fieldType.value === 'date');
 const isTimeField = computed(() => fieldType.value === 'time');
+const checkboxGroupId = computed(() => String(props.field?.groupId ?? '').trim());
+const renderCheckboxAsRadio = computed(() => {
+  return Boolean(props.renderAsRadio) && isCheckboxField.value && checkboxGroupId.value.length > 0;
+});
 
 const isMultilineTextField = computed(() =>
   !isCheckboxField.value
@@ -142,6 +154,10 @@ const isMultilineTextField = computed(() =>
 
 /** From template Form Layout (`formRequired`); default required when unset */
 const showRequiredAsterisk = computed(() => {
+  if (props.hideRequiredAsterisk) {
+    return false;
+  }
+
   const f = props.field;
   if (!f || typeof f !== 'object') {
     return true;
@@ -225,6 +241,13 @@ const localValue = computed({
 
 function handleCheckboxChange(event) {
   const target = event.target;
+  if (renderCheckboxAsRadio.value) {
+    if (target?.checked) {
+      emit('update:modelValue', 'true');
+    }
+    return;
+  }
+
   emit('update:modelValue', target?.checked ? 'true' : '');
 }
 
@@ -323,9 +346,10 @@ onMounted(() => {
       <label class="field-checkbox-row">
         <input
           :checked="checkboxChecked"
-          type="checkbox"
+          :type="renderCheckboxAsRadio ? 'radio' : 'checkbox'"
+          :name="renderCheckboxAsRadio ? checkboxGroupId : undefined"
           :disabled="disabled || isSessionBoundField"
-          class="form-checkbox"
+          :class="renderCheckboxAsRadio ? 'form-radio' : 'form-checkbox'"
           @change="handleCheckboxChange"
         >
         <span class="field-label mb-0">
@@ -391,6 +415,12 @@ onMounted(() => {
 }
 
 .form-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #10b981;
+}
+
+.form-radio {
   width: 1rem;
   height: 1rem;
   accent-color: #10b981;
