@@ -60,7 +60,6 @@ type PendingAttachment = {
 
 // --- State ---
 const route = useRoute();
-const authStore = useAuthStore();
 const templateId = Number(route.params.templateId);
 const isLoading = ref(true);
 const isSaving = ref(false);
@@ -1658,7 +1657,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
 
           <div class="flex flex-col gap-3">
             <UButton
-              v-if="authStore.can('request.submit')"
               block
               color="success"
               size="lg"
