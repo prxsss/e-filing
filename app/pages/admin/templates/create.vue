@@ -320,13 +320,17 @@ function toAutoDateTimeFormatPayload(field: any) {
     dateShowDay: config.dateShowDay,
     dateShowMonth: config.dateShowMonth,
     dateShowYear: config.dateShowYear,
+    dateShowDayOfWeek: config.dateShowDayOfWeek,
+    dateDayOfWeekStyle: config.dateDayOfWeekStyle,
+    dateDayOfWeekGap: config.dateDayOfWeekGap,
+    dateMonthStyle: config.dateMonthStyle,
+    dateCalendar: config.dateCalendar,
     timeSeparator: config.timeSeparator,
     timeSeparatorSpacing: config.timeSeparatorSpacing,
     timeShowHour: config.timeShowHour,
     timeShowMinute: config.timeShowMinute,
   };
 }
-
 function getFieldType(field?: any): string {
   return String(field?.type || field?.fieldType || '').toLowerCase();
 }

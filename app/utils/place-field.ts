@@ -97,6 +97,16 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
       result.dateShowMonth = Boolean(field.dateShowMonth);
     if (typeof field?.dateShowYear !== 'undefined')
       result.dateShowYear = Boolean(field.dateShowYear);
+    if (typeof field?.dateShowDayOfWeek !== 'undefined')
+      result.dateShowDayOfWeek = Boolean(field.dateShowDayOfWeek);
+    if (typeof field?.dateDayOfWeekStyle !== 'undefined')
+      result.dateDayOfWeekStyle = field.dateDayOfWeekStyle === 'short' ? 'short' : 'long';
+    if (Number.isFinite(Number(field?.dateDayOfWeekGap)))
+      result.dateDayOfWeekGap = Number(field.dateDayOfWeekGap);
+    if (typeof field?.dateMonthStyle !== 'undefined')
+      result.dateMonthStyle = (field.dateMonthStyle === 'short' || field.dateMonthStyle === 'long') ? field.dateMonthStyle : 'numeric';
+    if (typeof field?.dateCalendar !== 'undefined')
+      result.dateCalendar = field.dateCalendar === 'be' ? 'be' : 'ad';
     if (typeof field?.timeShowHour !== 'undefined')
       result.timeShowHour = Boolean(field.timeShowHour);
     if (typeof field?.timeShowMinute !== 'undefined')
