@@ -1,11 +1,27 @@
 import db from '~~/lib/db';
-import { request, requestTemplate, signatureFlow, signatures, userRoles, users } from '~~/lib/db/schema';
+import { request, requestTemplate, signatureFlow, signatures, userRoles, users, userSignatures } from '~~/lib/db/schema';
 import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
+
+function normalizeSignatureDataUrl(raw: unknown): string {
+  const value = String(raw ?? '').trim();
+  if (!value)
+    return '';
+
+  const isDataUrl = /^data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+$/.test(value);
+  if (isDataUrl)
+    return value;
+
+  const looksLikeBase64 = /^[A-Z0-9+/=\s]+$/i.test(value) && value.length >= 64;
+  if (looksLikeBase64)
+    return `data:image/png;base64,${value.replace(/\s+/g, '')}`;
+
+  return '';
+}
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -18,19 +34,46 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    const { signatureDataUrl, regenerateFilledPdf } = body as {
-      signatureDataUrl: string;
+    const { signatureDataUrl, regenerateFilledPdf, userSignatureId } = body as {
+      signatureDataUrl?: string;
       /** When true, rebuild filled PDF from DB in memory (avoids extra HTTP round-trip + re-download after generate-filled-pdf). */
       regenerateFilledPdf?: boolean;
+      /** Optional saved signature id owned by current signer. */
+      userSignatureId?: number;
     };
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
-    if (!signatureDataUrl || !signatureDataUrl.startsWith('data:image/')) {
+    let finalSignatureDataUrl = normalizeSignatureDataUrl(signatureDataUrl);
+    let selectedUserSignatureId: number | null = null;
+
+    if (Number.isFinite(Number(userSignatureId)) && Number(userSignatureId) > 0) {
+      const wantedId = Number(userSignatureId);
+      const [savedSignature] = await db
+        .select({
+          id: userSignatures.id,
+          dataUrl: userSignatures.dataUrl,
+        })
+        .from(userSignatures)
+        .where(and(
+          eq(userSignatures.id, wantedId),
+          eq(userSignatures.userId, userId),
+        ))
+        .limit(1);
+
+      if (!savedSignature) {
+        return { success: false, error: 'Saved signature not found for current user' };
+      }
+
+      finalSignatureDataUrl = normalizeSignatureDataUrl(savedSignature.dataUrl);
+      selectedUserSignatureId = savedSignature.id;
+    }
+
+    if (!finalSignatureDataUrl) {
       return { success: false, error: 'Invalid signature data' };
     }
 
     // Enforce a reasonable payload size limit (~1 MB base64 ≈ 750 KB image)
-    if (signatureDataUrl.length > 1_048_576) {
+    if (finalSignatureDataUrl.length > 1_048_576) {
       return { success: false, error: 'Signature image is too large (max 1 MB)' };
     }
 
@@ -110,7 +153,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // ── Decode signature and embed into PDF ────────────────────────────────
-    const base64Data = signatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
+    const base64Data = finalSignatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
     const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // ── Load PDF: incremental update — build on top of the previous PDF ────
@@ -247,7 +290,8 @@ export default defineEventHandler(async (event) => {
           userId,
           fieldInstanceId: fieldInstanceId ?? null,
           pdfHash,
-          dataUrl: signatureDataUrl,
+          dataUrl: finalSignatureDataUrl,
+          userSignatureId: selectedUserSignatureId,
         });
       }
     }
@@ -258,7 +302,8 @@ export default defineEventHandler(async (event) => {
         userId,
         fieldInstanceId: assignedIds[0] ?? null,
         pdfHash,
-        dataUrl: signatureDataUrl,
+        dataUrl: finalSignatureDataUrl,
+        userSignatureId: selectedUserSignatureId,
       });
     }
 

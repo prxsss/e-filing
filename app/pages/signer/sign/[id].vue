@@ -44,6 +44,13 @@ type Attachment = {
   createdAt: string;
 };
 
+type SavedUserSignature = {
+  id: number;
+  dataUrl: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type SigningStatus = {
   requestId: number;
   status: string;
@@ -79,6 +86,11 @@ const successMessage = ref('');
 
 const signingStatus = ref<SigningStatus | null>(null);
 const signatureDataUrl = ref<string | null>(null);
+const signatureSource = ref<'none' | 'saved' | 'drawn'>('none');
+const savedUserSignature = ref<SavedUserSignature | null>(null);
+const selectedSavedSignatureId = ref<number | null>(null);
+const isLoadingSavedSignature = ref(false);
+const isSavingSignature = ref(false);
 const showSignaturePopup = ref(false);
 const showSignatureSubmitError = ref(false);
 const showRequiredFieldErrors = ref(false);
@@ -629,6 +641,76 @@ function closeSignaturePopup() {
   showSignaturePopup.value = false;
 }
 
+async function fetchSavedUserSignature() {
+  isLoadingSavedSignature.value = true;
+  try {
+    const result = await $fetch<{ success: boolean; data: SavedUserSignature | null; error?: string }>(
+      '/api/users/signature',
+    );
+    if (!result.success) {
+      throw new Error(result.error ?? 'Failed to load saved signature');
+    }
+    savedUserSignature.value = result.data ?? null;
+  }
+  catch (err: any) {
+    console.error('Failed to fetch saved signer signature:', err);
+  }
+  finally {
+    isLoadingSavedSignature.value = false;
+  }
+}
+
+function useSavedSignatureForCurrentSign() {
+  if (!savedUserSignature.value)
+    return;
+  signatureDataUrl.value = savedUserSignature.value.dataUrl;
+  signatureSource.value = 'saved';
+  selectedSavedSignatureId.value = savedUserSignature.value.id;
+  showSignatureSubmitError.value = false;
+}
+
+async function saveCurrentSignatureForFuture() {
+  if (!signatureDataUrl.value)
+    return;
+
+  isSavingSignature.value = true;
+  try {
+    const result = await $fetch<{ success: boolean; data: SavedUserSignature; error?: string }>(
+      '/api/users/signature',
+      {
+        method: 'PUT',
+        body: {
+          signatureDataUrl: signatureDataUrl.value,
+        },
+      },
+    );
+
+    if (!result.success) {
+      throw new Error(result.error ?? 'Failed to save signature');
+    }
+
+    savedUserSignature.value = result.data;
+    signatureSource.value = 'saved';
+    signatureDataUrl.value = result.data.dataUrl;
+    selectedSavedSignatureId.value = result.data.id;
+    toast.add({
+      title: 'บันทึกลายเซ็นแล้ว',
+      description: 'คุณสามารถเรียกใช้ลายเซ็นนี้ในการลงนามครั้งถัดไปได้',
+      color: 'success',
+    });
+  }
+  catch (err: any) {
+    toast.add({
+      title: 'บันทึกลายเซ็นไม่สำเร็จ',
+      description: err?.message ?? 'เกิดข้อผิดพลาด',
+      color: 'error',
+    });
+  }
+  finally {
+    isSavingSignature.value = false;
+  }
+}
+
 // Enriches signature fields with the confirmed signature image URL so TemplatePdfPreview can overlay it
 const signatureFieldsForDisplay = computed(() => {
   const fields = signingStatus.value?.signatureFields ?? [];
@@ -688,6 +770,8 @@ async function fetchStatus() {
 
 function handleSignatureConfirmed(dataUrl: string) {
   signatureDataUrl.value = dataUrl;
+  signatureSource.value = 'drawn';
+  selectedSavedSignatureId.value = null;
   showSignaturePopup.value = false;
   showSignatureSubmitError.value = false;
 }
@@ -744,6 +828,8 @@ async function rejectRequest() {
         console.error('Failed to send rejection notification:', notifyErr);
       }
       signatureDataUrl.value = null;
+      signatureSource.value = 'none';
+      selectedSavedSignatureId.value = null;
       showSignaturePopup.value = false;
       await fetchStatus();
     }
@@ -820,6 +906,8 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
   }
 
   signatureDataUrl.value = null;
+  signatureSource.value = 'none';
+  selectedSavedSignatureId.value = null;
   showSignaturePopup.value = false;
   showSignatureSubmitError.value = false;
 
@@ -859,12 +947,20 @@ async function submitSignature() {
       }
     }
 
-    const signBody: { signatureDataUrl: string; regenerateFilledPdf?: boolean } = {
-      signatureDataUrl:
-        hasSignatureField.value && signatureDataUrl.value
-          ? signatureDataUrl.value
-          : TRANSPARENT_1PX_PNG,
-    };
+    const signBody: { signatureDataUrl?: string; userSignatureId?: number; regenerateFilledPdf?: boolean } = {};
+
+    if (hasSignatureField.value) {
+      if (signatureSource.value === 'saved' && selectedSavedSignatureId.value) {
+        signBody.userSignatureId = selectedSavedSignatureId.value;
+      }
+      else {
+        signBody.signatureDataUrl = signatureDataUrl.value ?? TRANSPARENT_1PX_PNG;
+      }
+    }
+    else {
+      signBody.signatureDataUrl = TRANSPARENT_1PX_PNG;
+    }
+
     if (hasSignerProcessableFields.value) {
       signBody.regenerateFilledPdf = true;
     }
@@ -953,12 +1049,20 @@ const breadcrumbLinks = computed(() => [
 ]);
 
 const hasConfirmedSignature = computed(() => (signatureDataUrl.value ?? '').length > 0);
+const hasSavedSignature = computed(() => Boolean(savedUserSignature.value?.dataUrl));
+const isUsingSavedSignature = computed(() => signatureSource.value === 'saved' && Boolean(selectedSavedSignatureId.value));
 
 watch(
   () => signingStatus.value?.pendingStep?.stepId,
   (newId, oldId) => {
-    if (oldId !== undefined && newId !== oldId)
+    if (oldId !== undefined && newId !== oldId) {
       fieldValues.value = {};
+      signatureDataUrl.value = null;
+      signatureSource.value = 'none';
+      selectedSavedSignatureId.value = null;
+      showSignaturePopup.value = false;
+      showSignatureSubmitError.value = false;
+    }
   },
 );
 
@@ -977,6 +1081,7 @@ watch([fieldValues, signerFillableFields], () => {
 onMounted(() => {
   fetchStatus();
   fetchAttachments();
+  fetchSavedUserSignature();
 });
 
 onUnmounted(() => {
@@ -1233,30 +1338,64 @@ onUnmounted(() => {
               <div class="flex flex-col gap-3">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <p class="text-xs text-gray-500">
-                    กดปุ่มเพื่อเปิด popup เซ็นเอกสาร จากนั้นวาดและกดยืนยันในกล่อง
+                    เลือกใช้ลายเซ็นที่บันทึกไว้ หรือเปิดกล่องเพื่อวาด/แก้ไขลายเซ็น
                   </p>
-                  <UButton
-                    color="primary"
-                    icon="i-heroicons-pencil-square"
-                    @click="openSignaturePopup"
-                  >
-                    {{ hasConfirmedSignature ? 'แก้ไขลายเซ็น' : 'เปิดกล่องเซ็นลายมือชื่อ' }}
-                  </UButton>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <UButton
+                      v-if="hasSavedSignature"
+                      color="neutral"
+                      variant="soft"
+                      icon="i-heroicons-bookmark"
+                      :disabled="isSigning || isLoadingSavedSignature"
+                      @click="useSavedSignatureForCurrentSign"
+                    >
+                      ใช้ลายเซ็นที่บันทึกไว้
+                    </UButton>
+                    <UButton
+                      color="primary"
+                      icon="i-heroicons-pencil-square"
+                      :disabled="isSigning"
+                      @click="openSignaturePopup"
+                    >
+                      {{ hasConfirmedSignature ? 'วาด/แก้ไขลายเซ็นใหม่' : 'เปิดกล่องเซ็นลายมือชื่อ' }}
+                    </UButton>
+                  </div>
                 </div>
 
                 <p
                   v-if="showSignatureSubmitError"
                   class="text-sm text-red-600"
                 >
-                  กรุณาวาดลายเซ็นและกดยืนยันในกล่อง ก่อนกดส่ง
+                  กรุณาเลือกลายเซ็นที่บันทึกไว้ หรือวาดลายเซ็นและกดยืนยันในกล่อง ก่อนกดส่ง
                 </p>
 
                 <p
-                  v-if="hasConfirmedSignature"
+                  v-if="isUsingSavedSignature"
+                  class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2"
+                >
+                  กำลังใช้ลายเซ็นที่บันทึกไว้ กดส่งเพื่อดำเนินการต่อ หรือวาดใหม่หากต้องการแก้ไข
+                </p>
+
+                <p
+                  v-else-if="hasConfirmedSignature"
                   class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
                 >
                   ยืนยันลายเซ็นแล้ว กดส่งเพื่อดำเนินการต่อ
                 </p>
+
+                <div v-if="signatureSource === 'drawn' && hasConfirmedSignature" class="pt-1">
+                  <UButton
+                    size="sm"
+                    color="neutral"
+                    variant="outline"
+                    icon="i-heroicons-bookmark-square"
+                    :loading="isSavingSignature"
+                    :disabled="isSigning"
+                    @click="saveCurrentSignatureForFuture"
+                  >
+                    บันทึกลายเซ็นนี้ไว้ใช้ครั้งถัดไป
+                  </UButton>
+                </div>
                 <!-- Action buttons moved out of the signature card for layout parity with student new-request -->
               </div>
             </UCard>

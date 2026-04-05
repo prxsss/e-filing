@@ -1,10 +1,9 @@
-import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, integer, bigint, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, bigint, integer, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import { USER_STATUS, USER_STATUS_VALUES } from '../../../shared/types/user-status'
-import { nanoid} from 'nanoid'
+import {nanoid} from 'nanoid'
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
-export const userStatus = pgEnum("user_status", USER_STATUS_VALUES)
+export const userStatus = pgEnum("user_status", ['active', 'inactive', 'banned'])
 
 
 export const users = pgTable("users", {
@@ -28,7 +27,7 @@ export const users = pgTable("users", {
 	isActive: boolean("is_active").default(false),
 	studentId: text("student_id"),
 	staffId: text("staff_id"),
-	status: userStatus().default(USER_STATUS.INACTIVE).notNull(),
+	status: userStatus().default('inactive').notNull(),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
 	unique("users_student_id_key").on(table.studentId),
@@ -42,6 +41,22 @@ export const permissions = pgTable("permissions", {
 	descriptionTh: text("description_th"),
 }, (table) => [
 	unique("permissions_code_unique").on(table.code),
+]);
+
+export const userSignatures = pgTable("user_signatures", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "user_signatures_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	userId: text("user_id").notNull(),
+	dataUrl: text("data_url").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "user_signatures_user_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	unique("user_signatures_user_id_key").on(table.userId),
 ]);
 
 export const faculties = pgTable("faculties", {
@@ -101,6 +116,43 @@ export const departments = pgTable("departments", {
 	unique("departments_department_code_key").on(table.departmentCode),
 ]);
 
+export const signatures = pgTable("signatures", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signatures_id_seq1", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	requestId: bigint("request_id", { mode: "number" }).notNull(),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	signatureFlowId: bigint("signature_flow_id", { mode: "number" }),
+	userId: text("user_id").notNull(),
+	fieldInstanceId: text("field_instance_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	pdfHash: text("pdf_hash"),
+	dataUrl: text("data_url"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	userSignatureId: bigint("user_signature_id", { mode: "number" }),
+}, (table) => [
+	foreignKey({
+			columns: [table.requestId],
+			foreignColumns: [request.id],
+			name: "signatures_request_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.signatureFlowId],
+			foreignColumns: [signatureFlow.id],
+			name: "signatures_signature_flow_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "signatures_user_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.userSignatureId],
+			foreignColumns: [userSignatures.id],
+			name: "signatures_user_signature_id_fkey"
+		}).onUpdate("cascade").onDelete("set null"),
+]);
+
 export const signatureFlow = pgTable("signature_flow", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signature_flow_id_seq1", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -128,36 +180,6 @@ export const signatureFlow = pgTable("signature_flow", {
 			foreignColumns: [roles.id],
 			name: "signature_flow_role_id_fkey"
 		}),
-]);
-
-export const signatures = pgTable("signatures", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "signatures_id_seq1", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	requestId: bigint("request_id", { mode: "number" }).notNull(),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	signatureFlowId: bigint("signature_flow_id", { mode: "number" }),
-	userId: text("user_id").notNull(),
-	fieldInstanceId: text("field_instance_id"),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	pdfHash: text("pdf_hash"),
-	dataUrl: text("data_url"),
-}, (table) => [
-	foreignKey({
-			columns: [table.requestId],
-			foreignColumns: [request.id],
-			name: "signatures_request_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
-	foreignKey({
-			columns: [table.signatureFlowId],
-			foreignColumns: [signatureFlow.id],
-			name: "signatures_signature_flow_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "signatures_user_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
 ]);
 
 export const attachments = pgTable("attachments", {
@@ -323,10 +345,10 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	textAlign: text("text_align").default('left'),
 	letterSpacing: doublePrecision("letter_spacing").default(0),
 	lineHeight: doublePrecision("line_height").default(1.5),
-	sessionField: text("session_field"),
 	maxLength: integer("max_length"),
 	strikeThroughGroupMode: boolean("strike_through_group_mode").default(false),
 	strikeLineThickness: doublePrecision("strike_line_thickness").default(1.5),
+	sessionField: text("session_field"),
 });
 
 export const rolePermissions = pgTable("role_permissions", {
