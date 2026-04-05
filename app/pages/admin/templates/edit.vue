@@ -2043,19 +2043,6 @@ watch(
             </div>
           </div>
 
-          <!-- Image Editor -->
-          <template-image-create
-            v-else-if="fileType === 'image' && previewImageUrl"
-            :preview-image-url="previewImageUrl"
-            :placed-fields="placedFields"
-            :selected-field="selectedField || undefined"
-            :new-template-name="templateName"
-            :original-file="(uploadedFile as File | undefined)"
-            @field-selected="selectField"
-            @field-updated="handleFieldUpdate"
-            @image-loaded="onImageLoad"
-          />
-
           <!-- PDF Editor -->
           <template-pdf-create
             v-else-if="fileType === 'pdf' && previewDisplayFile"
