@@ -19,11 +19,11 @@ export default defineEventHandler(async (event) => {
       staffId: users.staffId,
       titleEn: users.titleEn,
       fullNameEn: sql<string>`
-          concat_ws(${users.firstNameEn}, ${users.lastNameEn})
+          concat_ws(' ', ${users.firstNameEn}, ${users.lastNameEn})
         `,
       titleTh: users.titleTh,
       fullNameTh: sql<string>`
-          concat_ws(${users.firstNameTh}, ${users.lastNameTh})
+          concat_ws(' ', ${users.firstNameTh}, ${users.lastNameTh})
         `,
       email: users.email,
       passwordHash: users.passwordHash,
