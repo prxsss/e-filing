@@ -4,7 +4,7 @@ import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 function normalizeSignatureDataUrl(raw: unknown): string {
@@ -106,6 +106,15 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'No pending signing step found for this request' };
     }
 
+    const activeStepOrder = flowEntry.stepOrder;
+    const flowEntriesForUserAtActiveStep = pendingFlows.filter((flow) => {
+      if (flow.stepOrder !== activeStepOrder) {
+        return false;
+      }
+      return flow.assignedUserId === userId
+        || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId));
+    });
+
     // Authorization: mirrors the same dual-pattern routing used in for-signing.get.ts
     //   Pattern A — direct assignment: assignedUserId === me (role not required)
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
@@ -138,7 +147,12 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'Template not found' };
     }
 
-    const assignedIds = (flowEntry.assignedFieldInstanceIds as string[]) ?? [];
+    const assignedIds = Array.from(new Set(
+      flowEntriesForUserAtActiveStep.flatMap((flow) => {
+        const ids = (flow.assignedFieldInstanceIds as string[]) ?? [];
+        return ids.map(id => String(id ?? '').trim()).filter(id => id.length > 0);
+      }),
+    ));
     const allFields = (template.placedFieldsData as any[]) ?? [];
     const pendingStepHasNonSignatureFields = allFields.some(
       (f: any) =>
@@ -251,7 +265,7 @@ export default defineEventHandler(async (event) => {
     // ── Upload versioned PDF snapshot (one file per signing step) ────────────
     // Each step produces its own immutable snapshot so nothing is ever lost.
     // The request record always points to the latest (most-signed) copy.
-    const pdfFilename = `request-${requestId}-step-${flowEntry.stepOrder}-${Date.now()}.pdf`;
+    const pdfFilename = `request-${requestId}-step-${activeStepOrder}-${Date.now()}.pdf`;
 
     const { error: pdfUploadError } = await supabaseAdmin.storage
       .from('filled-requests')
@@ -278,41 +292,49 @@ export default defineEventHandler(async (event) => {
     // ── Save audit-quality signature record ──────────────────────────────────
     // Insert one row per signature field instance so the client can render
     // signatures as separate overlays.
-    const signatureFieldInstanceIds = signatureFields
-      .map((f: any) => f?.instanceId as string | undefined)
-      .filter((id: any) => Boolean(id));
+    for (const flow of flowEntriesForUserAtActiveStep) {
+      const flowAssignedIds = ((flow.assignedFieldInstanceIds as string[]) ?? [])
+        .map(id => String(id ?? '').trim())
+        .filter(id => id.length > 0);
 
-    if (signatureFieldInstanceIds.length > 0) {
-      for (const fieldInstanceId of signatureFieldInstanceIds) {
-        await db.insert(signatures).values({
-          requestId,
-          signatureFlowId: flowEntry.id,
-          userId,
-          fieldInstanceId: fieldInstanceId ?? null,
-          pdfHash,
-          dataUrl: finalSignatureDataUrl,
-          userSignatureId: selectedUserSignatureId,
-        });
+      const flowSignatureFieldInstanceIds = allFields
+        .filter((f: any) => {
+          const fieldType = String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase();
+          return flowAssignedIds.includes(String(f?.instanceId ?? '').trim()) && fieldType === 'signature';
+        })
+        .map((f: any) => String(f?.instanceId ?? '').trim())
+        .filter((id: string) => id.length > 0);
+
+      if (flowSignatureFieldInstanceIds.length > 0) {
+        for (const fieldInstanceId of flowSignatureFieldInstanceIds) {
+          await db.insert(signatures).values({
+            requestId,
+            signatureFlowId: flow.id,
+            userId,
+            fieldInstanceId: fieldInstanceId ?? null,
+            pdfHash,
+            dataUrl: signatureDataUrl,
+          });
+        }
+        continue;
       }
-    }
-    else {
+
       await db.insert(signatures).values({
         requestId,
-        signatureFlowId: flowEntry.id,
+        signatureFlowId: flow.id,
         userId,
-        fieldInstanceId: assignedIds[0] ?? null,
+        fieldInstanceId: flowAssignedIds[0] ?? null,
         pdfHash,
         dataUrl: finalSignatureDataUrl,
         userSignatureId: selectedUserSignatureId,
       });
     }
 
-    // Mark current step as signed
-    const [updatedFlowEntry] = await db
+    // Mark all current user's pending entries at this active stage as signed
+    await db
       .update(signatureFlow)
       .set({ status: 'signed', signedBy: userId, signedAt: new Date().toISOString() })
-      .where(eq(signatureFlow.id, flowEntry.id))
-      .returning();
+      .where(inArray(signatureFlow.id, flowEntriesForUserAtActiveStep.map(flow => flow.id)));
 
     // Get context for notification
     const context = await getSignRequestContext(requestId);
@@ -325,7 +347,7 @@ export default defineEventHandler(async (event) => {
       .from(signatureFlow)
       .where(and(
         eq(signatureFlow.requestId, requestId),
-        eq(signatureFlow.stepOrder, updatedFlowEntry.stepOrder),
+        eq(signatureFlow.stepOrder, activeStepOrder),
       ));
 
     const allSignedAtCurrentOrder = siblingsAtSameOrder.every(s => s.status === 'signed');
@@ -372,7 +394,7 @@ export default defineEventHandler(async (event) => {
         .where(eq(request.id, requestId));
 
       // Notify all newly-activated signers in the next group
-      if (flowEntry.stepOrder > 1) {
+      if (activeStepOrder > 1) {
         const [[currentSigner], nextSigners] = await Promise.all([
           db.select({
             signerName: sql<string>`
@@ -396,7 +418,7 @@ export default defineEventHandler(async (event) => {
         ]);
 
         await Promise.all([
-          signNotificationService.notifySigned({ signerName: currentSigner.signerName, stepOrder: updatedFlowEntry.stepOrder }, context),
+          signNotificationService.notifySigned({ signerName: currentSigner.signerName, stepOrder: activeStepOrder }, context),
           ...nextSigners.map(ns =>
             signNotificationService.notifySigner({ signerEmail: ns.signerEmail, signerName: ns.signerName, stepOrder: ns.stepOrder }, context),
           ),

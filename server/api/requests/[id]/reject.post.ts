@@ -43,10 +43,12 @@ export default defineEventHandler(async (event) => {
         eq(signatureFlow.requestId, requestId),
         eq(signatureFlow.status, 'pending'),
       ))
-      .orderBy(asc(signatureFlow.stepOrder))
-      .limit(1);
+      .orderBy(asc(signatureFlow.stepOrder));
 
-    const flowEntry = pendingFlows[0];
+    const flowEntry = pendingFlows.find(flow =>
+      flow.assignedUserId === userId
+      || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId)),
+    );
 
     if (!flowEntry) {
       return { success: false, error: 'ไม่พบขั้นตอนที่รอดำเนินการสำหรับคำร้องนี้' };
