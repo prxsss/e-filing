@@ -3,26 +3,35 @@ import { eq } from 'drizzle-orm';
 import db from '../../../../lib/db';
 import { requestTemplate } from '../../../../lib/db/schema';
 
-type LayoutFieldInput = {
+type EntryField = {
+  kind: 'field';
+  order: number;
   instanceId: string;
   questionLabel?: string;
-  order?: number;
-  /** When false, field is optional on student form; default true */
   required?: boolean;
 };
 
+type EntryGroup = {
+  kind: 'group';
+  order: number;
+  id: string;
+  title?: string;
+  required?: boolean;
+  fields: Array<{ instanceId: string; questionLabel?: string }>;
+};
+
+type LayoutEntry = EntryField | EntryGroup;
+
 function getPlacedFieldInstanceId(field: Record<string, unknown> | null | undefined): string {
-  if (!field || typeof field !== 'object') {
+  if (!field || typeof field !== 'object')
     return '';
-  }
   const raw = (field as any).instanceId ?? (field as any).instance_id;
   return String(raw ?? '').trim();
 }
 
 function parseMaybeJson(value: unknown): unknown {
-  if (typeof value !== 'string') {
+  if (typeof value !== 'string')
     return value;
-  }
   try {
     return JSON.parse(value);
   }
@@ -37,28 +46,64 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Invalid template ID' });
   }
 
-  const body = await readBody<{ sectionTitle?: string; fields?: LayoutFieldInput[] } | null>(event);
+  const body = await readBody<{ sectionTitle?: string; entries?: LayoutEntry[] } | null>(event);
   const sectionTitle = String(body?.sectionTitle || 'Request Information').trim() || 'Request Information';
-  const fields = Array.isArray(body?.fields) ? body!.fields! : [];
-  const fieldConfigMap = new Map<string, { questionLabel: string; order: number; required: boolean }>();
+  const entries: LayoutEntry[] = Array.isArray(body?.entries) ? body!.entries! : [];
 
-  for (const field of fields) {
-    const instanceId = String(field?.instanceId || '').trim();
-    if (!instanceId.length) {
-      continue;
+  type FieldConfig = {
+    questionLabel: string;
+    formOrder: number;
+    required: boolean;
+    formGroupId: string | null;
+    formGroupTitle: string | null;
+  };
+  const fieldConfigMap = new Map<string, FieldConfig>();
+  const groupsToStore: Array<{ id: string; title: string; required: boolean; order: number; fieldInstanceIds: string[] }> = [];
+
+  let flatOrder = 0;
+  for (const entry of entries) {
+    if (entry.kind === 'field') {
+      flatOrder++;
+      const iid = String(entry.instanceId || '').trim();
+      if (iid) {
+        fieldConfigMap.set(iid, {
+          questionLabel: String(entry.questionLabel || '').trim(),
+          formOrder: flatOrder * 100,
+          required: entry.required !== false,
+          formGroupId: null,
+          formGroupTitle: null,
+        });
+      }
     }
-    fieldConfigMap.set(instanceId, {
-      questionLabel: String(field?.questionLabel || '').trim(),
-      order: Number.isFinite(Number(field?.order)) ? Number(field!.order) : Number.MAX_SAFE_INTEGER,
-      required: field?.required !== false,
-    });
+    else if (entry.kind === 'group') {
+      flatOrder++;
+      const groupId = String(entry.id || '').trim();
+      const groupTitle = String(entry.title || '').trim();
+      const groupRequired = entry.required !== false;
+      const fieldInstanceIds: string[] = [];
+      if (groupId) {
+        let fieldPos = 0;
+        for (const gf of (entry.fields ?? [])) {
+          fieldPos++;
+          const iid = String(gf.instanceId || '').trim();
+          if (iid) {
+            fieldInstanceIds.push(iid);
+            fieldConfigMap.set(iid, {
+              questionLabel: String(gf.questionLabel || '').trim(),
+              formOrder: flatOrder * 100 + fieldPos,
+              required: groupRequired,
+              formGroupId: groupId,
+              formGroupTitle: groupTitle,
+            });
+          }
+        }
+        groupsToStore.push({ id: groupId, title: groupTitle, required: groupRequired, order: flatOrder * 100, fieldInstanceIds });
+      }
+    }
   }
 
   const currentTemplate = await db
-    .select({
-      id: requestTemplate.id,
-      placedFieldsData: requestTemplate.placedFieldsData,
-    })
+    .select({ id: requestTemplate.id, placedFieldsData: requestTemplate.placedFieldsData })
     .from(requestTemplate)
     .where(eq(requestTemplate.id, id))
     .limit(1);
@@ -72,35 +117,30 @@ export default defineEventHandler(async (event) => {
 
   const updatedPlacedFieldsData = placedFieldsData.map((field: any) => {
     const instanceId = getPlacedFieldInstanceId(field);
-    if (!instanceId.length) {
+    if (!instanceId.length)
       return field;
-    }
     const config = fieldConfigMap.get(instanceId);
-    const formRequired = config !== undefined
-      ? config.required
-      : (field?.formRequired !== false && field?.form_required !== false);
+    if (!config)
+      return field;
     return {
       ...field,
       formSectionTitle: sectionTitle,
-      formQuestionLabel: config?.questionLabel || String(field?.formQuestionLabel || field?.label || field?.name || ''),
-      formOrder: config?.order ?? field?.formOrder ?? Number.MAX_SAFE_INTEGER,
-      formRequired,
+      formQuestionLabel: config.questionLabel || String(field?.formQuestionLabel || field?.label || field?.name || ''),
+      formOrder: config.formOrder,
+      formRequired: config.required,
+      formGroupId: config.formGroupId,
+      formGroupTitle: config.formGroupTitle,
     };
   });
 
   const updated = await db
     .update(requestTemplate)
-    .set({
-      placedFieldsData: updatedPlacedFieldsData,
-    })
+    .set({ placedFieldsData: updatedPlacedFieldsData })
     .where(eq(requestTemplate.id, id))
     .returning({
       id: requestTemplate.id,
       placedFieldsData: requestTemplate.placedFieldsData,
     });
 
-  return {
-    success: true,
-    data: updated[0],
-  };
+  return { success: true, data: updated[0] };
 });

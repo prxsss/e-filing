@@ -580,6 +580,7 @@ function handleFieldValueUpdate(field: any, nextValue: string) {
   }
 
   if (normalizedNextValue === 'true') {
+    const alreadySelected = fieldValues.value[key] === 'true';
     for (const candidate of placedFields.value) {
       if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
         continue;
@@ -588,7 +589,7 @@ function handleFieldValueUpdate(field: any, nextValue: string) {
       if (!candidateKey) {
         continue;
       }
-      fieldValues.value[candidateKey] = candidateKey === key ? 'true' : '';
+      fieldValues.value[candidateKey] = (!alreadySelected && candidateKey === key) ? 'true' : '';
     }
     return;
   }
@@ -1546,23 +1547,28 @@ watch([pdfFile, placedFields, fieldValues], () => {
                         class="field-group rounded-lg px-2 py-2.5 sm:px-3 sm:py-3 transition-colors"
                         :class="hasCheckboxGroupValidationError(item.fields) ? 'border border-red-400 bg-white' : 'border border-transparent bg-white'"
                       >
-                        <div class="mb-2 flex items-center gap-1 text-sm font-medium text-gray-700">
-                          <span>{{ locale === 'th' ? 'เลือกได้ 1 ตัวเลือก' : 'Select one option' }}</span>
+                        <div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-700">
+                          <span>{{ item.fields[0]?.formGroupTitle?.trim() || item.fields[0]?.formGroupLabel?.trim() }}</span>
                           <span v-if="isCheckboxGroupRequired(item.fields)" class="text-red-500">*</span>
                         </div>
 
-                        <div class="flex flex-wrap items-start gap-x-4 gap-y-2.5 sm:gap-x-6 sm:gap-y-2">
-                          <form-field-input
+                        <div class="flex flex-col gap-y-2">
+                          <div
                             v-for="optionField in item.fields"
                             :key="optionField.instanceId"
-                            class="mb-0! w-full sm:w-auto"
-                            :model-value="fieldValues[getFieldValueKey(optionField)]"
-                            :field="{ ...optionField, label: optionField.formQuestionLabel || optionField.label }"
-                            :disabled="isSaving || isCheckboxTemporarilyDisabled(optionField)"
-                            :render-as-radio="true"
-                            :hide-required-asterisk="true"
-                            @update:model-value="(value) => handleFieldValueUpdate(optionField, String(value ?? ''))"
-                          />
+                            class="contents"
+                            @click.capture="() => { if (fieldValues[getFieldValueKey(optionField)] === 'true') handleFieldValueUpdate(optionField, 'false') }"
+                          >
+                            <form-field-input
+                              class="mb-0! w-full sm:w-auto"
+                              :model-value="fieldValues[getFieldValueKey(optionField)]"
+                              :field="{ ...optionField, label: optionField.formQuestionLabel || optionField.label }"
+                              :disabled="isSaving || isCheckboxTemporarilyDisabled(optionField)"
+                              :render-as-radio="true"
+                              :hide-required-asterisk="true"
+                              @update:model-value="(value) => handleFieldValueUpdate(optionField, String(value ?? ''))"
+                            />
+                          </div>
                         </div>
 
                         <p

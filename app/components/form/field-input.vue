@@ -418,12 +418,14 @@ onMounted(() => {
   width: 1rem;
   height: 1rem;
   accent-color: #10b981;
+  flex-shrink: 0;
 }
 
 .form-radio {
   width: 1rem;
   height: 1rem;
   accent-color: #10b981;
+  flex-shrink: 0;
 }
 
 .form-input {
