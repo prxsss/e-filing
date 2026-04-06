@@ -49,10 +49,28 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    // recipients: Array<{ stepId: string; userId: string }>
-    const recipientMap = new Map<string, string>(
-      (body?.recipients ?? []).map((r: { stepId: string; userId: string }) => [r.stepId, r.userId]),
-    );
+    const rawRecipients = Array.isArray(body?.recipients)
+      ? body.recipients as Array<{ stepId?: unknown; userId?: unknown }>
+      : [];
+
+    const recipientMap = new Map<string, string>();
+    const seenStepIds = new Set<string>();
+
+    for (const recipient of rawRecipients) {
+      const stepId = String(recipient?.stepId ?? '').trim();
+      const userId = String(recipient?.userId ?? '').trim();
+
+      if (!stepId.length || !userId.length) {
+        return { success: false, error: 'Invalid recipient assignment payload' };
+      }
+
+      if (seenStepIds.has(stepId)) {
+        return { success: false, error: `Duplicate recipient assignment for step ${stepId}` };
+      }
+
+      seenStepIds.add(stepId);
+      recipientMap.set(stepId, userId);
+    }
 
     const signingSteps = (template.signingFlowData as any[]) || [];
     const placedFields = (template.placedFieldsData as any[]) || [];

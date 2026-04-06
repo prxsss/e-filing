@@ -65,10 +65,27 @@ export default defineEventHandler(async (event) => {
       ),
     ) ?? null;
 
+    const activeStageOrder = pendingStep?.stepOrder ?? null;
+    const pendingStepsForCurrentUser = activeStageOrder === null
+      ? []
+      : flowSteps.filter(step =>
+          step.status === 'pending'
+          && step.stepOrder === activeStageOrder
+          && (
+            step.assignedUserId === userId
+            || (step.assignedUserId === null && userRoleIds.includes(step.roleId))
+          ),
+        );
+
     // Build the list of signature field positions for the pending step so the
     // client can render a live preview of the signature on the actual document.
     const allFields = (template?.placedFieldsData as any[]) ?? [];
-    const assignedIds = (pendingStep?.assignedFieldInstanceIds as string[]) ?? [];
+    const assignedIds = Array.from(new Set(
+      pendingStepsForCurrentUser.flatMap((step) => {
+        const ids = (step.assignedFieldInstanceIds as string[]) ?? [];
+        return ids.map(id => String(id ?? '').trim()).filter(id => id.length > 0);
+      }),
+    ));
     const signatureFields = allFields
       .filter((f: any) => {
         const fieldType = String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase();
@@ -138,6 +155,8 @@ export default defineEventHandler(async (event) => {
         note: requestData.note ?? null,
         flowSteps,
         pendingStep,
+        pendingStepsForCurrentUser,
+        activeStageOrder,
         signatureFields,
         confirmedSignatureFields,
         documentWidth: template?.documentWidth ?? undefined,

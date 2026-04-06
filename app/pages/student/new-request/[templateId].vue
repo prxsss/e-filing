@@ -130,6 +130,21 @@ const recipientSteps = computed(() => {
   return steps.filter(s => !s.assignedUserId && s.id !== submitterStepId);
 });
 
+const recipientStages = computed(() => {
+  const grouped = new Map<number, SigningStep[]>();
+
+  for (const step of recipientSteps.value) {
+    const order = Number(step.order) || 0;
+    const stageSteps = grouped.get(order) ?? [];
+    stageSteps.push(step);
+    grouped.set(order, stageSteps);
+  }
+
+  return Array.from(grouped.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([order, steps]) => ({ order, steps }));
+});
+
 const allRecipientsSelected = computed(() =>
   recipientSteps.value.every(step => !!selectedRecipients.value[step.id]),
 );
@@ -1679,32 +1694,42 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 }}
               </p>
               <div
-                v-for="step in recipientSteps"
-                :key="step.id"
+                v-for="stage in recipientStages"
+                :key="`stage-${stage.order}`"
+                class="space-y-3"
               >
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                  {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order - 1}` : `Recipient for step ${step.order - 1}` }}
-                  <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
-                  <span class="ml-1 text-red-500">*</span>
-                </label>
-                <USelectMenu
-                  v-model="selectedRecipients[step.id]"
-                  :items="getUserItems(step)"
-                  value-key="value"
-                  label-key="label"
-                  :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? (locale === 'th' ? 'กำลังโหลด...' : 'Loading...') : (locale === 'th' ? 'เลือกผู้รับ...' : 'Select recipient...')"
-                  :disabled="isSaving || !!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                  :loading="!!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                  :search-input="{ placeholder: locale === 'th' ? 'ค้นหา...' : 'Search...' }"
-                  icon="i-heroicons-user"
-                  class="w-full"
-                />
-                <p
-                  v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                  class="mt-1 text-xs text-gray-400"
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {{ locale === 'th' ? `ขั้นตอนลำดับที่ ${stage.order}` : `Stage ${stage.order}` }}
+                </div>
+
+                <div
+                  v-for="step in stage.steps"
+                  :key="step.id"
                 >
-                  {{ locale === 'th' ? 'ไม่พบผู้ใช้ที่มีบทบาทนี้' : 'No users found with this role' }}
-                </p>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order}` : `Recipient for step ${step.order}` }}
+                    <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
+                    <span class="ml-1 text-red-500">*</span>
+                  </label>
+                  <USelectMenu
+                    v-model="selectedRecipients[step.id]"
+                    :items="getUserItems(step)"
+                    value-key="value"
+                    label-key="label"
+                    :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? (locale === 'th' ? 'กำลังโหลด...' : 'Loading...') : (locale === 'th' ? 'เลือกผู้รับ...' : 'Select recipient...')"
+                    :disabled="isSaving || !!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                    :loading="!!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                    :search-input="{ placeholder: locale === 'th' ? 'ค้นหา...' : 'Search...' }"
+                    icon="i-heroicons-user"
+                    class="w-full"
+                  />
+                  <p
+                    v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                    class="mt-1 text-xs text-gray-400"
+                  >
+                    {{ locale === 'th' ? 'ไม่พบผู้ใช้ที่มีบทบาทนี้' : 'No users found with this role' }}
+                  </p>
+                </div>
               </div>
             </div>
           </UCard>
