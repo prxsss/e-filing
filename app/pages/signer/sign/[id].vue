@@ -526,8 +526,8 @@ const pendingSignatureField = computed<SignatureField | undefined>(() => {
   if (!pendingSteps.length)
     return undefined;
   const assignedIds = pendingSteps.flatMap(step => step.assignedFieldInstanceIds ?? []);
-  return status.signatureFields.find(f => assignedIds.includes(f.instanceId))
-    ?? status.signatureFields[0];
+  return status?.signatureFields.find(f => assignedIds.includes(f.instanceId))
+    ?? status?.signatureFields[0];
 });
 
 const signatureFieldAspectRatio = computed<number | undefined>(() => {
@@ -820,10 +820,19 @@ async function rejectRequest() {
     );
 
     if (res.success) {
+      const rejectionMode = String(res.data?.rejectionMode ?? 'full_request');
+      const isLocalReject = rejectionMode === 'local_step';
+
       toast.add({
-        title: 'ปฏิเสธการลงนามแล้ว',
-        description: 'คำร้องถูกปฏิเสธเรียบร้อย',
-        color: 'error',
+        title: isLocalReject ? 'ปฏิเสธส่วนของคุณแล้ว' : 'ปฏิเสธการลงนามแล้ว',
+        description: isLocalReject
+          ? (res.data?.status === 'completed'
+              ? 'ปฏิเสธในขั้นตอนของคุณแล้ว และคำร้องดำเนินการเสร็จสมบูรณ์'
+              : (res.data?.nextRole
+                  ? `ปฏิเสธในขั้นตอนของคุณแล้ว ส่งต่อไปยัง ${res.data.nextRole}`
+                  : 'ปฏิเสธในขั้นตอนของคุณแล้ว คำร้องยังดำเนินการต่อ'))
+          : 'คำร้องถูกปฏิเสธเรียบร้อย',
+        color: isLocalReject ? 'warning' : 'error',
       });
       signatureDataUrl.value = null;
       signatureSource.value = 'none';

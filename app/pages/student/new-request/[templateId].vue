@@ -116,6 +116,96 @@ function getFieldSignerStepId(field: any): string | null {
   return rawStepId.length > 0 ? rawStepId : null;
 }
 
+function getStoredFieldValueForTemplateField(field: any): string {
+  const instanceId = String(field?.instanceId ?? '').trim();
+  if (instanceId.length > 0 && fieldValues.value[instanceId] !== undefined) {
+    return String(fieldValues.value[instanceId] ?? '');
+  }
+
+  const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
+  if (Number.isFinite(fieldId) && fieldValues.value[String(fieldId)] !== undefined) {
+    return String(fieldValues.value[String(fieldId)] ?? '');
+  }
+
+  return '';
+}
+
+function resolveTemplateFieldValue(field: any): string {
+  const sourceInstanceId = String(field?.instanceId ?? '').trim();
+  if (sourceInstanceId.length > 0) {
+    const matchingPlacedField = placedFields.value.find(candidate => String(candidate?.instanceId ?? '').trim() === sourceInstanceId);
+    if (matchingPlacedField) {
+      return resolveCurrentFieldValue(matchingPlacedField);
+    }
+  }
+
+  const storedValue = getStoredFieldValueForTemplateField(field);
+  return isCheckboxField(field) ? normalizeCheckboxValue(storedValue) : storedValue;
+}
+
+function isTemplateFieldVisible(field: any): boolean {
+  const rule = getVisibilityRule(field);
+  if (!rule || rule.enabled === false) {
+    return true;
+  }
+
+  const templateFields = Array.isArray(templateData.value?.placedFieldsData)
+    ? templateData.value!.placedFieldsData as any[]
+    : [];
+
+  let isChecked = false;
+  if (rule.sourceGroupId) {
+    const groupCheckboxes = templateFields.filter((candidate) => {
+      return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+    });
+    isChecked = groupCheckboxes.some(candidate => normalizeCheckboxValue(resolveTemplateFieldValue(candidate)) === 'true');
+  }
+  else {
+    const sourceField = templateFields.find(
+      candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+    );
+
+    if (!sourceField) {
+      return true;
+    }
+
+    const sourceValue = normalizeCheckboxValue(resolveTemplateFieldValue(sourceField));
+    isChecked = sourceValue === 'true';
+  }
+
+  return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+}
+
+const activeSignerStepIds = computed(() => {
+  const templateFields = Array.isArray(templateData.value?.placedFieldsData)
+    ? templateData.value!.placedFieldsData as any[]
+    : [];
+  const activeStepIds = new Set<string>();
+
+  for (const field of templateFields) {
+    const signerStepId = getFieldSignerStepId(field);
+    if (!signerStepId) {
+      continue;
+    }
+
+    const fieldType = getFieldType(field);
+    const contributesToSignerStep = fieldType === 'signature'
+      || (field.isFillable !== false && field.is_fillable !== false);
+
+    if (!contributesToSignerStep) {
+      continue;
+    }
+
+    if (!isTemplateFieldVisible(field)) {
+      continue;
+    }
+
+    activeStepIds.add(signerStepId);
+  }
+
+  return activeStepIds;
+});
+
 const recipientSteps = computed(() => {
   const steps = signingSteps.value;
   if (!steps.length)
@@ -127,7 +217,7 @@ const recipientSteps = computed(() => {
   // Steps that are pre-assigned (template creator locked a specific person) and
   // steps that belong to the submitter (self-signed by role match on the server)
   // are handled automatically — no user interaction needed.
-  return steps.filter(s => !s.assignedUserId && s.id !== submitterStepId);
+  return steps.filter(s => !s.assignedUserId && s.id !== submitterStepId && activeSignerStepIds.value.has(String(s.id)));
 });
 
 const recipientStages = computed(() => {
@@ -1207,32 +1297,14 @@ async function submitRequest() {
     const recipients = recipientSteps.value
       .filter(step => selectedRecipients.value[step.id])
       .map(step => ({ stepId: step.id, userId: selectedRecipients.value[step.id] }));
+    const activeStepIds = Array.from(activeSignerStepIds.value);
 
     const updateResult: any = await $fetch(`/api/requests/${activeRequestId}/submit`, {
       method: 'POST',
-      body: { recipients },
+      body: { recipients, activeStepIds },
     });
 
     if (updateResult.success) {
-      // Notify the next step's user (first recipient)
-      const firstRecipient = recipients.length > 0 ? recipients[0] : null;
-      if (firstRecipient && firstRecipient.userId) {
-        try {
-          await $fetch('/api/notifications/notify', {
-            method: 'POST',
-            body: JSON.stringify({
-              userId: firstRecipient.userId,
-              message: 'You have a new request to sign.',
-              type: 'sign_request',
-              link: `/signer/sign/${activeRequestId}`,
-            }),
-          });
-        }
-        catch (notifyErr) {
-          console.error('Failed to send notification:', notifyErr);
-        }
-      }
-
       const needsSubmitterSignature = Boolean(updateResult?.data?.requiresSubmitterSignature);
       if (needsSubmitterSignature) {
         if (submitterSignatureDataUrl.value) {
@@ -1377,6 +1449,17 @@ watch(recipientSteps, (steps) => {
     showRecipientSelectionError.value = false;
   }
 }, { immediate: true });
+
+watch(activeSignerStepIds, (activeStepIds) => {
+  for (const stepId of Object.keys(selectedRecipients.value)) {
+    if (!activeStepIds.has(stepId)) {
+      delete selectedRecipients.value[stepId];
+    }
+  }
+  if (recipientSteps.value.length === 0) {
+    showRecipientSelectionError.value = false;
+  }
+});
 
 watch([pdfFile, placedFields, fieldValues], () => {
   hydrateFieldValueKeys();

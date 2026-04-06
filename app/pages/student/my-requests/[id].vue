@@ -56,6 +56,8 @@ type FlowStep = {
   status: string;
   signedBy: string | null;
   signedAt: string | null;
+  assignedUserName?: string | null;
+  signedByName?: string | null;
 };
 
 type SigningStatus = {
@@ -655,6 +657,7 @@ type BadgeColor = 'success' | 'error' | 'primary' | 'secondary' | 'info' | 'warn
 const _statusColorMap: Record<string, BadgeColor> = {
   draft: 'neutral',
   submitted: 'info',
+  pending_signature: 'warning',
   pending: 'warning',
   in_progress: 'warning',
   rejected: 'error',
@@ -663,6 +666,7 @@ const _statusColorMap: Record<string, BadgeColor> = {
 const _statusLabelMap: Record<string, string> = {
   draft: 'ร่าง',
   submitted: 'รอดำเนินการ',
+  pending_signature: 'รอลงนาม',
   pending: 'รอดำเนินการ',
   in_progress: 'กำลังดำเนินการ',
   rejected: 'ปฏิเสธ',
@@ -673,9 +677,12 @@ const statusLabel = computed(() => _statusLabelMap[requestData.value?.status ?? 
 
 const workflowSteps = computed<WorkflowStep[]>(() => {
   const steps = signingStatus.value?.flowSteps ?? [];
-  const firstPendingIndex = steps.findIndex(step => step.status === 'pending');
+  const activePendingOrder = steps
+    .filter(step => step.status === 'pending')
+    .map(step => Number(step.stepOrder))
+    .sort((a, b) => a - b)[0];
 
-  return steps.map((step, index) => {
+  return steps.map((step) => {
     let status: WorkflowDisplayStatus = 'pending';
     if (step.status === 'signed') {
       status = 'completed';
@@ -683,18 +690,26 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
     else if (step.status === 'rejected') {
       status = 'rejected';
     }
-    else if (step.status === 'pending' && index === firstPendingIndex) {
+    else if (step.status === 'pending' && step.stepOrder === activePendingOrder) {
       status = 'in-progress';
     }
 
     return {
       id: step.id,
-      title: step.roleName,
+      title: String(step.assignedUserName ?? '').trim() || step.roleName,
       status,
       icon: 'i-heroicons-user-circle',
-      subtitle: step.signedBy || undefined,
+      subtitle: `บทบาท: ${step.roleName}`,
     };
   });
+});
+
+const hasLocalRejectedSteps = computed(() => {
+  if (!signingStatus.value || signingStatus.value.status === 'rejected') {
+    return false;
+  }
+
+  return (signingStatus.value.flowSteps ?? []).some(step => step.status === 'rejected');
 });
 
 // Open PDF in new tab
@@ -909,9 +924,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
           </div>
           <div class="flex gap-2">
             <UButton
-              variant="ghost"
-              color="neutral"
-              icon="i-heroicons-arrow-left"
+              variant="ghost" color="neutral" icon="i-heroicons-arrow-left"
               :to="localePath('/student/my-requests')"
             >
               กลับ
@@ -954,18 +967,12 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
           <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-2.5">
             <span class="text-sm font-medium text-gray-500">Zoom:</span>
             <UButton
-              icon="i-heroicons-minus"
-              size="xs"
-              variant="ghost"
-              :disabled="scale <= 0.5"
+              icon="i-heroicons-minus" size="xs" variant="ghost" :disabled="scale <= 0.5"
               @click="scale = Math.max(0.5, scale - 0.25)"
             />
             <span class="text-sm font-semibold w-12 text-center">{{ Math.round(scale * 100) }}%</span>
             <UButton
-              icon="i-heroicons-plus"
-              size="xs"
-              variant="ghost"
-              :disabled="scale >= 3"
+              icon="i-heroicons-plus" size="xs" variant="ghost" :disabled="scale >= 3"
               @click="scale = Math.min(3, scale + 0.25)"
             />
             <UButton size="xs" variant="ghost" @click="scale = 1">
@@ -980,19 +987,15 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
             style="min-height: 600px"
           >
             <template-pdf-create
-              :pdf-file="previewDisplayFile"
-              :placed-fields="previewPlacedFields"
-              :strike-group-context-fields="visibleFillableFields"
-              :selected-field="undefined"
-              :ui-scale="scale"
-              :read-only="true"
-              :fill-mode="true"
-              :field-values="fieldValues"
+              :pdf-file="previewDisplayFile" :placed-fields="previewPlacedFields"
+              :strike-group-context-fields="visibleFillableFields" :selected-field="undefined" :ui-scale="scale"
+              :read-only="true" :fill-mode="true" :field-values="fieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...
             </div>
           </div>
+
           <div
             v-else
             class="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-200 text-gray-400 shadow-sm"
@@ -1074,23 +1077,20 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
             </template>
 
             <UAlert
-              v-if="signingStatus.status === 'rejected' && signingStatus.note"
-              icon="i-heroicons-x-circle"
-              color="error"
-              variant="soft"
-              :title="`ปฏิเสธ: ${signingStatus.note}`"
-              class="mb-3"
+              v-if="signingStatus.status === 'rejected' && signingStatus.note" icon="i-heroicons-x-circle"
+              color="error" variant="soft" :title="`ปฏิเสธ: ${signingStatus.note}`" class="mb-3"
+            />
+
+            <UAlert
+              v-else-if="hasLocalRejectedSteps" icon="i-heroicons-information-circle" color="warning"
+              variant="soft" title="มีบางขั้นตอนถูกปฏิเสธ แต่คำร้องยังดำเนินการต่อ" class="mb-3"
             />
 
             <div class="space-y-0">
-              <template
-                v-for="(step, index) in workflowSteps"
-                :key="step.id"
-              >
+              <template v-for="(step, index) in workflowSteps" :key="step.id">
                 <div class="flex items-center gap-3 py-2">
                   <div
-                    class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border"
-                    :class="{
+                    class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border" :class="{
                       'bg-green-50 border-green-200': step.status === 'completed',
                       'bg-blue-50 border-blue-200': step.status === 'in-progress',
                       'bg-red-50 border-red-200': step.status === 'rejected',
@@ -1098,20 +1098,17 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                     }"
                   >
                     <UIcon
-                      :name="step.icon"
-                      :class="{
+                      :name="step.icon" :class="{
                         'text-green-600': step.status === 'completed',
                         'text-blue-600': step.status === 'in-progress',
                         'text-red-600': step.status === 'rejected',
                         'text-gray-400': step.status === 'pending',
-                      }"
-                      class="text-xl"
+                      }" class="text-xl"
                     />
                   </div>
                   <div class="flex-1 min-w-0">
                     <p
-                      class="text-sm font-medium"
-                      :class="{
+                      class="text-sm font-medium" :class="{
                         'text-gray-900': step.status !== 'pending',
                         'text-gray-500': step.status === 'pending',
                       }"
@@ -1119,47 +1116,35 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                       {{ step.title }}
                     </p>
                     <p v-if="step.subtitle" class="text-xs text-gray-400 mt-0.5 truncate">
-                      โดย: {{ step.subtitle }}
+                      {{ step.subtitle }}
                     </p>
                     <UBadge
-                      v-if="step.status === 'completed'"
-                      color="success"
-                      variant="subtle"
-                      size="xs"
+                      v-if="step.status === 'completed'" color="success" variant="subtle" size="xs"
                       class="mt-1.5"
                     >
                       Signed
                     </UBadge>
                     <UBadge
-                      v-else-if="step.status === 'in-progress'"
-                      color="info"
-                      variant="subtle"
-                      size="xs"
+                      v-else-if="step.status === 'in-progress'" color="info" variant="subtle" size="xs"
                       class="mt-1.5"
                     >
                       In Progress
                     </UBadge>
                     <UBadge
-                      v-else-if="step.status === 'rejected'"
-                      color="error"
-                      variant="subtle"
-                      size="xs"
+                      v-else-if="step.status === 'rejected'" color="error" variant="subtle" size="xs"
                       class="mt-1.5"
                     >
                       Rejected
                     </UBadge>
+                    <UBadge v-else color="neutral" variant="subtle" size="xs" class="mt-1.5">
+                      Pending
+                    </UBadge>
                   </div>
                 </div>
 
-                <div
-                  v-if="index < workflowSteps.length - 1"
-                  class="flex items-center gap-3"
-                >
+                <div v-if="index < workflowSteps.length - 1" class="flex items-center gap-3">
                   <div class="w-10 flex justify-center py-0.5">
-                    <UIcon
-                      name="i-heroicons-arrow-down"
-                      class="text-gray-300 text-sm"
-                    />
+                    <UIcon name="i-heroicons-arrow-down" class="text-gray-300 text-sm" />
                   </div>
                 </div>
               </template>
@@ -1174,31 +1159,19 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                   ไฟล์แนบ
                 </h3>
                 <UButton
-                  v-if="requestData?.status === 'draft'"
-                  size="xs"
-                  color="primary"
-                  variant="soft"
-                  icon="i-heroicons-paper-clip"
-                  :loading="isUploadingAttachment"
-                  @click="triggerFileUpload"
+                  v-if="requestData?.status === 'draft'" size="xs" color="primary" variant="soft"
+                  icon="i-heroicons-paper-clip" :loading="isUploadingAttachment" @click="triggerFileUpload"
                 >
                   เพิ่มไฟล์
                 </UButton>
               </div>
             </template>
 
-            <input
-              ref="fileInputRef"
-              type="file"
-              class="hidden"
-              accept="*/*"
-              @change="handleFileUpload"
-            >
+            <input ref="fileInputRef" type="file" class="hidden" accept="*/*" @change="handleFileUpload">
 
             <div class="space-y-2">
               <div
-                v-for="attachment in attachments"
-                :key="attachment.id"
+                v-for="attachment in attachments" :key="attachment.id"
                 class="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg border border-gray-200 group"
               >
                 <UIcon :name="getFileIcon(attachment.fileName)" class="w-5 h-5 text-gray-400 shrink-0" />
@@ -1212,33 +1185,33 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                 </div>
                 <div class="flex items-center gap-1.5">
                   <UButton
-                    size="xs"
-                    variant="ghost"
-                    icon="i-heroicons-eye"
+                    size="xs" variant="ghost" icon="i-heroicons-eye"
                     @click="attachment.fileUrl ? openPdfInNewTab(attachment.fileUrl) : undefined"
                   >
                     ดู
                   </UButton>
                   <UButton
-                    v-if="requestData?.status === 'draft'"
-                    size="xs"
-                    variant="ghost"
-                    color="error"
-                    icon="i-heroicons-trash"
-                    :loading="isDeletingAttachment === attachment.id"
+                    v-if="requestData?.status === 'draft'" size="xs" variant="ghost" color="error"
+                    icon="i-heroicons-trash" :loading="isDeletingAttachment === attachment.id"
                     @click="deleteAttachment(attachment.id)"
                   />
                 </div>
               </div>
 
-              <div v-if="attachments.length === 0 && !isUploadingAttachment" class="text-center py-6 text-gray-400 border border-dashed border-gray-200 rounded-lg">
+              <div
+                v-if="attachments.length === 0 && !isUploadingAttachment"
+                class="text-center py-6 text-gray-400 border border-dashed border-gray-200 rounded-lg"
+              >
                 <UIcon name="i-heroicons-paper-clip" class="w-8 h-8 mx-auto mb-1.5 opacity-40" />
                 <p class="text-sm">
                   ยังไม่มีไฟล์แนบ
                 </p>
               </div>
 
-              <div v-if="isUploadingAttachment" class="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+              <div
+                v-if="isUploadingAttachment"
+                class="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg"
+              >
                 <UIcon name="i-heroicons-arrow-path" class="animate-spin text-blue-500 w-4 h-4" />
                 <span class="text-sm text-blue-700">กำลังอัปโหลด...</span>
               </div>
@@ -1249,33 +1222,20 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
           <div class="flex flex-col gap-2.5">
             <template v-if="requestData?.status === 'draft'">
               <UButton
-                block
-                color="primary"
-                size="lg"
-                icon="i-heroicons-document-check"
-                :loading="isSaving"
-                :disabled="!canSaveOrSubmitDraft"
-                @click="saveFieldValues"
+                block color="primary" size="lg" icon="i-heroicons-document-check" :loading="isSaving"
+                :disabled="!canSaveOrSubmitDraft" @click="saveFieldValues"
               >
                 บันทึก
               </UButton>
               <UButton
-                block
-                color="success"
-                size="lg"
-                icon="i-heroicons-paper-airplane"
-                :loading="isSaving"
-                :disabled="!canSaveOrSubmitDraft"
-                @click="submitRequest"
+                block color="success" size="lg" icon="i-heroicons-paper-airplane" :loading="isSaving"
+                :disabled="!canSaveOrSubmitDraft" @click="submitRequest"
               >
                 ยืนยันการยื่นคำร้อง
               </UButton>
             </template>
             <UButton
-              block
-              variant="outline"
-              color="neutral"
-              icon="i-heroicons-arrow-left"
+              block variant="outline" color="neutral" icon="i-heroicons-arrow-left"
               :to="localePath('/student/my-requests')"
             >
               กลับไปยังคำร้องของฉัน
