@@ -77,51 +77,173 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'คำร้องนี้ดำเนินการเสร็จสิ้นแล้ว ไม่สามารถปฏิเสธได้' };
     }
 
-    // Mark the current step as rejected
+    const activeStepOrder = flowEntry.stepOrder;
+    const stageEntries = await db
+      .select()
+      .from(signatureFlow)
+      .where(and(
+        eq(signatureFlow.requestId, requestId),
+        eq(signatureFlow.stepOrder, activeStepOrder),
+      ));
+
+    const isParallelStage = stageEntries.length > 1;
+
+    // Non-parallel stage: preserve existing full-request rejection behavior.
+    if (!isParallelStage) {
+      await db
+        .update(signatureFlow)
+        .set({ status: 'rejected', signedBy: userId, signedAt: new Date().toISOString() })
+        .where(eq(signatureFlow.id, flowEntry.id));
+
+      await db
+        .update(signatureFlow)
+        .set({ status: 'cancelled' })
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.status, 'waiting'),
+        ));
+
+      await db
+        .update(request)
+        .set({ status: 'rejected', note: reason })
+        .where(eq(request.id, requestId));
+
+      const [context, [signer], [template]] = await Promise.all([
+        getSignRequestContext(requestId),
+
+        db.select({
+          signerName: sql<string>`
+      concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+    `,
+        })
+          .from(users)
+          .where(eq(users.id, userId)),
+
+        db.select({ templateId: request.templateId })
+          .from(request)
+          .where(eq(request.id, requestId)),
+      ]);
+      await signNotificationService.notifyRejected({ signerName: signer.signerName }, { ...context, templateId: template.templateId }, reason);
+
+      return {
+        success: true,
+        data: {
+          status: 'rejected',
+          rejectedBy: flowEntry.roleName,
+          reason,
+          rejectionMode: 'full_request',
+        },
+      };
+    }
+
+    // Parallel stage: reject only current signer's part.
     await db
       .update(signatureFlow)
       .set({ status: 'rejected', signedBy: userId, signedAt: new Date().toISOString() })
       .where(eq(signatureFlow.id, flowEntry.id));
 
-    // Cancel all remaining waiting steps
-    await db
-      .update(signatureFlow)
-      .set({ status: 'cancelled' })
+    const updatedStageEntries = await db
+      .select()
+      .from(signatureFlow)
+      .where(and(
+        eq(signatureFlow.requestId, requestId),
+        eq(signatureFlow.stepOrder, activeStepOrder),
+      ));
+
+    const stageResolved = updatedStageEntries.every(step => step.status === 'signed' || step.status === 'rejected');
+
+    if (!stageResolved) {
+      return {
+        success: true,
+        data: {
+          status: requestData.status ?? 'in_progress',
+          rejectedBy: flowEntry.roleName,
+          reason,
+          rejectionMode: 'local_step',
+          nextRole: null,
+        },
+      };
+    }
+
+    const nextWaiting = await db
+      .select()
+      .from(signatureFlow)
       .where(and(
         eq(signatureFlow.requestId, requestId),
         eq(signatureFlow.status, 'waiting'),
-      ));
+      ))
+      .orderBy(asc(signatureFlow.stepOrder))
+      .limit(1);
 
-    // Update the request: status → rejected, store reason in note
-    await db
-      .update(request)
-      .set({ status: 'rejected', note: reason })
-      .where(eq(request.id, requestId));
+    if (nextWaiting[0]) {
+      const nextGroupOrder = nextWaiting[0].stepOrder;
 
-    // Send notification to requester about rejection
-    const [context, [signer], [template]] = await Promise.all([
-      getSignRequestContext(requestId),
+      await db
+        .update(signatureFlow)
+        .set({ status: 'pending', pendingAt: new Date().toISOString() })
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.stepOrder, nextGroupOrder),
+          eq(signatureFlow.status, 'waiting'),
+        ));
 
-      db.select({
-        signerName: sql<string>`
+      await db
+        .update(request)
+        .set({ status: 'in_progress' })
+        .where(eq(request.id, requestId));
+
+      const [context, nextSigners] = await Promise.all([
+        getSignRequestContext(requestId),
+        db.select({
+          signerEmail: users.email,
+          signerName: sql<string>`
       concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
     `,
-      })
-        .from(users)
-        .where(eq(users.id, userId)),
+          stepOrder: signatureFlow.stepOrder,
+        })
+          .from(signatureFlow)
+          .innerJoin(users, eq(signatureFlow.assignedUserId, users.id))
+          .where(and(
+            eq(signatureFlow.requestId, requestId),
+            eq(signatureFlow.stepOrder, nextGroupOrder),
+          )),
+      ]);
 
-      db.select({ templateId: request.templateId })
-        .from(request)
-        .where(eq(request.id, requestId)),
-    ]);
-    await signNotificationService.notifyRejected({ signerName: signer.signerName }, { ...context, templateId: template.templateId }, reason);
+      if (nextSigners.length > 0) {
+        await Promise.all(
+          nextSigners.map(step => signNotificationService.notifySigner({
+            signerEmail: step.signerEmail,
+            signerName: step.signerName,
+            stepOrder: step.stepOrder,
+          }, context)),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          status: 'in_progress',
+          rejectedBy: flowEntry.roleName,
+          reason,
+          rejectionMode: 'local_step',
+          nextRole: nextWaiting[0].roleName,
+        },
+      };
+    }
+
+    await db
+      .update(request)
+      .set({ status: 'completed', completedAt: new Date().toISOString() })
+      .where(eq(request.id, requestId));
 
     return {
       success: true,
       data: {
-        status: 'rejected',
+        status: 'completed',
         rejectedBy: flowEntry.roleName,
         reason,
+        rejectionMode: 'local_step',
+        nextRole: null,
       },
     };
   }

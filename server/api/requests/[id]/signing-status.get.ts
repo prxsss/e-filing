@@ -1,7 +1,7 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, signatureFlow, signatures, userRoles } from '../../../../lib/db/schema';
+import { request, requestTemplate, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -51,13 +51,46 @@ export default defineEventHandler(async (event) => {
       .where(eq(signatureFlow.requestId, requestId))
       .orderBy(asc(signatureFlow.stepOrder));
 
+    const flowUserIds = Array.from(new Set(
+      flowSteps.flatMap(step => [step.assignedUserId, step.signedBy])
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0),
+    ));
+
+    const userNameById = new Map<string, string>();
+    if (flowUserIds.length > 0) {
+      const flowUsers = await db
+        .select({
+          id: users.id,
+          titleTh: users.titleTh,
+          firstNameTh: users.firstNameTh,
+          lastNameTh: users.lastNameTh,
+          titleEn: users.titleEn,
+          firstNameEn: users.firstNameEn,
+          lastNameEn: users.lastNameEn,
+        })
+        .from(users)
+        .where(inArray(users.id, flowUserIds));
+
+      for (const flowUser of flowUsers) {
+        const fullNameTh = `${flowUser.titleTh ?? ''}${flowUser.firstNameTh ?? ''} ${flowUser.lastNameTh ?? ''}`.trim();
+        const fullNameEn = `${flowUser.titleEn ?? ''} ${flowUser.firstNameEn ?? ''} ${flowUser.lastNameEn ?? ''}`.trim();
+        userNameById.set(flowUser.id, fullNameTh || fullNameEn || flowUser.id);
+      }
+    }
+
+    const flowStepsWithNames = flowSteps.map(step => ({
+      ...step,
+      assignedUserName: step.assignedUserId ? (userNameById.get(step.assignedUserId) ?? null) : null,
+      signedByName: step.signedBy ? (userNameById.get(step.signedBy) ?? null) : null,
+    }));
+
     // Determine whether the current user may act on a pending step.
     // With parallel signing there can be multiple pending steps at the same order;
     // find the one specifically assigned to (or accessible by) the current user.
     // Mirrors the same dual-pattern routing used in for-signing.get.ts:
     //   Pattern A — direct assignment: assignedUserId === me (role not required)
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
-    const pendingStep = flowSteps.find(s =>
+    const pendingStep = flowStepsWithNames.find(s =>
       s.status === 'pending'
       && (
         s.assignedUserId === userId
@@ -68,7 +101,7 @@ export default defineEventHandler(async (event) => {
     const activeStageOrder = pendingStep?.stepOrder ?? null;
     const pendingStepsForCurrentUser = activeStageOrder === null
       ? []
-      : flowSteps.filter(step =>
+      : flowStepsWithNames.filter(step =>
           step.status === 'pending'
           && step.stepOrder === activeStageOrder
           && (
@@ -153,7 +186,7 @@ export default defineEventHandler(async (event) => {
         filledDocumentUrl: requestData.filledDocumentUrl,
         templateName: template?.name ?? null,
         note: requestData.note ?? null,
-        flowSteps,
+        flowSteps: flowStepsWithNames,
         pendingStep,
         pendingStepsForCurrentUser,
         activeStageOrder,
