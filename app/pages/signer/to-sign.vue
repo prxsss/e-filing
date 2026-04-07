@@ -51,6 +51,7 @@ const tableData = computed(() =>
   tasks.value.map(task => ({
     ...task,
     id: task.flowId,
+    studentName: task.studentNameTh || task.studentNameEn || '-',
     templateName: task.request?.templateName ?? 'เอกสาร',
     submittedAt: task.request?.submittedAt ?? null,
     status: task.request?.status ?? '',
@@ -113,7 +114,7 @@ const columns: any[] = [
   },
   { accessorKey: 'studentId', header: 'รหัสนิสิต' },
   { accessorKey: 'studentName', header: 'ชื่อนิสิต' },
-  { accessorKey: 'templateName', header: 'เอกสาร' },
+  { accessorKey: 'templateName', header: 'เอกสาร', size: 420 },
   { accessorKey: 'stepInfo', header: 'ขั้นตอน' },
   { accessorKey: 'submittedAt', header: 'วันที่ยื่น' },
   {
@@ -186,6 +187,11 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           >
             {{ row.original.stepInfo }}
           </UBadge>
+        </template>
+        <template #templateName-cell="{ row }">
+          <div class="max-w-md truncate" :title="row.original.templateName">
+            {{ row.original.templateName }}
+          </div>
         </template>
       </UTable>
 
