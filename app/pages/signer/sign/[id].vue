@@ -239,6 +239,11 @@ const hasAnyEnteredSignerInputValue = computed(() => {
   });
 });
 
+const canShowRejectWithFieldButton = computed(() => {
+  const hasConfirmedSignatureValue = String(signatureDataUrl.value ?? '').length > 0;
+  return hasAnyEnteredSignerInputValue.value || hasConfirmedSignatureValue;
+});
+
 function normalizeFieldValue(value: unknown): string {
   return String(value ?? '').trim();
 }
@@ -835,6 +840,43 @@ function getFirstEnteredFieldPayload(): { fieldId: number; instanceId: string; v
   return null;
 }
 
+function validateAllVisibleSignerFieldsForRejectWithData(): string | null {
+  const fields = visibleSignerInputFields.value;
+  const validatedCheckboxGroups = new Set<string>();
+
+  for (const field of fields) {
+    if (isCheckboxField(field)) {
+      const groupId = getCheckboxGroupId(field);
+      if (groupId.length > 0) {
+        if (validatedCheckboxGroups.has(groupId)) {
+          continue;
+        }
+
+        validatedCheckboxGroups.add(groupId);
+        const groupFields = fields.filter(candidate => isCheckboxField(candidate) && getCheckboxGroupId(candidate) === groupId);
+        const anyChecked = groupFields.some(candidate => normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true');
+        if (!anyChecked) {
+          return 'กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม';
+        }
+
+        continue;
+      }
+
+      if (normalizeCheckboxValue(resolveCurrentFieldValue(field)) !== 'true') {
+        return 'กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม';
+      }
+
+      continue;
+    }
+
+    if (!normalizeFieldValue(resolveCurrentFieldValue(field)).length) {
+      return 'กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม';
+    }
+  }
+
+  return null;
+}
+
 async function rejectRequest(mode: RejectMode = 'status_only') {
   const pendingRoleNames = Array.from(new Set(currentPendingSteps.value.map(step => step.roleName))).join(', ');
   const instance = confirmDialogWithReason.open({
@@ -859,6 +901,16 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
 
   let selectedFieldPayload: { fieldId: number; instanceId: string; value: string } | null = null;
   if (mode === 'with_signature_and_field') {
+    const allFieldsValidationError = validateAllVisibleSignerFieldsForRejectWithData();
+    if (allFieldsValidationError) {
+      toast.add({
+        title: 'ข้อมูลยังไม่ครบถ้วน',
+        description: allFieldsValidationError,
+        color: 'warning',
+      });
+      return;
+    }
+
     selectedFieldPayload = getFirstEnteredFieldPayload();
     if (!selectedFieldPayload) {
       toast.add({
@@ -1478,7 +1530,7 @@ onUnmounted(() => {
             </UCard>
 
             <div v-if="hasCurrentPendingSteps" class="flex flex-col gap-3">
-              <template v-if="!hasAnyEnteredSignerInputValue">
+              <template v-if="!canShowRejectWithFieldButton">
                 <UButton
                   color="error"
                   variant="soft"
@@ -1515,7 +1567,7 @@ onUnmounted(() => {
                   :disabled="isSigning"
                   @click="rejectRequest('with_signature_and_field')"
                 >
-                  ปฏิเสธพร้อมข้อมูล
+                  ลงนามปฏิเสธ
                 </UButton>
               </div>
               <UButton
@@ -1527,7 +1579,7 @@ onUnmounted(() => {
                 :disabled="!canSubmit"
                 @click="submitSignature"
               >
-                {{ hasSignatureField ? 'ส่งลายเซ็นและดำเนินการต่อ' : 'ยืนยันและดำเนินการต่อ' }}
+                {{ hasSignatureField ? 'ลงนามและดำเนินการต่อ' : 'ยืนยันและดำเนินการต่อ' }}
               </UButton>
             </div>
 
