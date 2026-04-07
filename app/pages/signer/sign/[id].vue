@@ -73,6 +73,8 @@ type VisibilityRule = {
   operator?: 'isChecked' | 'isUnchecked';
 };
 
+type RejectMode = 'status_only' | 'with_signature_and_field';
+
 const route = useRoute();
 const requestId = Number(route.params.id);
 
@@ -229,6 +231,13 @@ const visibleSignerInputFields = computed(() =>
 const hasSignerInputFields = computed(() => visibleSignerInputFields.value.length > 0);
 
 const hasSignerProcessableFields = computed(() => visibleSignerFillableFields.value.length > 0);
+
+const hasAnyEnteredSignerInputValue = computed(() => {
+  return visibleSignerInputFields.value.some((field) => {
+    const value = resolveCurrentFieldValue(field);
+    return normalizeFieldValue(value).length > 0;
+  });
+});
 
 function normalizeFieldValue(value: unknown): string {
   return String(value ?? '').trim();
@@ -646,6 +655,13 @@ function closeSignaturePopup() {
   showSignaturePopup.value = false;
 }
 
+function clearConfirmedSignature() {
+  signatureDataUrl.value = null;
+  signatureSource.value = 'none';
+  selectedSavedSignatureId.value = null;
+  showSignatureSubmitError.value = false;
+}
+
 async function fetchSavedUserSignature() {
   isLoadingSavedSignature.value = true;
   try {
@@ -791,10 +807,38 @@ function handleSignatureConfirmed(dataUrl: string) {
   showSignatureSubmitError.value = false;
 }
 
-async function rejectRequest() {
+function getFirstEnteredFieldPayload(): { fieldId: number; instanceId: string; value: string } | null {
+  for (const field of visibleSignerInputFields.value) {
+    const instanceId = String(field?.instanceId ?? '').trim();
+    if (!instanceId.length) {
+      continue;
+    }
+
+    const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
+    if (!Number.isFinite(fieldId) || fieldId <= 0) {
+      continue;
+    }
+
+    const value = resolveCurrentFieldValue(field);
+    const normalized = normalizeFieldValue(value);
+    if (!normalized.length) {
+      continue;
+    }
+
+    return {
+      fieldId,
+      instanceId,
+      value,
+    };
+  }
+
+  return null;
+}
+
+async function rejectRequest(mode: RejectMode = 'status_only') {
   const pendingRoleNames = Array.from(new Set(currentPendingSteps.value.map(step => step.roleName))).join(', ');
   const instance = confirmDialogWithReason.open({
-    title: 'ปฏิเสธการลงนาม',
+    title: mode === 'with_signature_and_field' ? 'ปฏิเสธพร้อมบันทึกข้อมูล' : 'ปฏิเสธการลงนาม',
     description: `ขั้นตอนที่ ${currentPendingStep.value?.stepOrder ?? '-'} (${pendingRoleNames || '-'}) — กรุณาระบุเหตุผลในการปฏิเสธ`,
     reasonRequired: true,
     reasonPlaceholder: 'ระบุเหตุผลในการปฏิเสธ เช่น ข้อมูลไม่ถูกต้อง / เอกสารไม่ครบ...',
@@ -804,27 +848,74 @@ async function rejectRequest() {
   });
 
   const result = await instance.result;
-  if (!result.confirmed)
+  if (!result.confirmed) {
     return;
+  }
+
+  const reason = String(result.confirmationReason || '').trim();
+  if (!reason.length) {
+    return;
+  }
+
+  let selectedFieldPayload: { fieldId: number; instanceId: string; value: string } | null = null;
+  if (mode === 'with_signature_and_field') {
+    selectedFieldPayload = getFirstEnteredFieldPayload();
+    if (!selectedFieldPayload) {
+      toast.add({
+        title: 'ยังไม่มีค่าฟิลด์สำหรับโหมดนี้',
+        description: 'กรุณากรอกข้อมูลอย่างน้อย 1 ฟิลด์ก่อนปฏิเสธพร้อมบันทึกข้อมูล',
+        color: 'warning',
+      });
+      return;
+    }
+
+    if (!signatureDataUrl.value && !selectedSavedSignatureId.value) {
+      toast.add({
+        title: 'ต้องมีลายเซ็นก่อน',
+        description: 'กรุณาเลือกลายเซ็นที่บันทึกไว้ หรือวาดลายเซ็นก่อนปฏิเสธพร้อมบันทึกข้อมูล',
+        color: 'error',
+      });
+      return;
+    }
+  }
 
   isRejecting.value = true;
   error.value = null;
 
   try {
+    const requestBody: Record<string, unknown> = {
+      reason,
+      rejectMode: mode,
+    };
+
+    if (mode === 'with_signature_and_field' && selectedFieldPayload) {
+      requestBody.selectedField = selectedFieldPayload;
+      if (signatureSource.value === 'saved' && selectedSavedSignatureId.value) {
+        requestBody.userSignatureId = selectedSavedSignatureId.value;
+      }
+      else {
+        requestBody.signatureDataUrl = signatureDataUrl.value;
+      }
+    }
+
     const res = await $fetch<{ success: boolean; data: any; error?: string }>(
       `/api/requests/${requestId}/reject`,
       {
         method: 'POST',
-        body: { reason: result.confirmationReason },
+        body: requestBody,
       },
     );
 
     if (res.success) {
       const rejectionMode = String(res.data?.rejectionMode ?? 'full_request');
+      const rejectDataMode = String(res.data?.rejectDataMode ?? mode);
       const isLocalReject = rejectionMode === 'local_step';
+      const rejectedWithData = rejectDataMode === 'with_signature_and_field';
 
       toast.add({
-        title: isLocalReject ? 'ปฏิเสธส่วนของคุณแล้ว' : 'ปฏิเสธการลงนามแล้ว',
+        title: rejectedWithData
+          ? (isLocalReject ? 'ปฏิเสธพร้อมบันทึกลายเซ็นและฟิลด์แล้ว' : 'ปฏิเสธคำร้องพร้อมบันทึกข้อมูลแล้ว')
+          : (isLocalReject ? 'ปฏิเสธส่วนของคุณแล้ว' : 'ปฏิเสธการลงนามแล้ว'),
         description: isLocalReject
           ? (res.data?.status === 'completed'
               ? 'ปฏิเสธในขั้นตอนของคุณแล้ว และคำร้องดำเนินการเสร็จสมบูรณ์'
@@ -1369,11 +1460,64 @@ onUnmounted(() => {
                     บันทึกลายเซ็นนี้ไว้ใช้ครั้งถัดไป
                   </UButton>
                 </div>
+
+                <div v-if="hasConfirmedSignature" class="pt-1">
+                  <UButton
+                    size="sm"
+                    color="error"
+                    variant="ghost"
+                    icon="i-heroicons-trash"
+                    :disabled="isSigning"
+                    @click="clearConfirmedSignature"
+                  >
+                    ล้างลายเซ็นที่ยืนยันแล้ว
+                  </UButton>
+                </div>
                 <!-- Action buttons moved out of the signature card for layout parity with student new-request -->
               </div>
             </UCard>
 
             <div v-if="hasCurrentPendingSteps" class="flex flex-col gap-3">
+              <template v-if="!hasAnyEnteredSignerInputValue">
+                <UButton
+                  color="error"
+                  variant="soft"
+                  size="lg"
+                  block
+                  icon="i-heroicons-x-circle"
+                  :loading="isRejecting"
+                  :disabled="isSigning"
+                  @click="rejectRequest('status_only')"
+                >
+                  ปฏิเสธ
+                </UButton>
+              </template>
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <UButton
+                  color="error"
+                  variant="soft"
+                  size="lg"
+                  block
+                  icon="i-heroicons-x-circle"
+                  :loading="isRejecting"
+                  :disabled="isSigning"
+                  @click="rejectRequest('status_only')"
+                >
+                  ปฏิเสธ
+                </UButton>
+                <UButton
+                  color="error"
+                  variant="outline"
+                  size="lg"
+                  block
+                  icon="i-heroicons-document-text"
+                  :loading="isRejecting"
+                  :disabled="isSigning"
+                  @click="rejectRequest('with_signature_and_field')"
+                >
+                  ปฏิเสธพร้อมข้อมูล
+                </UButton>
+              </div>
               <UButton
                 color="success"
                 size="lg"
@@ -1384,18 +1528,6 @@ onUnmounted(() => {
                 @click="submitSignature"
               >
                 {{ hasSignatureField ? 'ส่งลายเซ็นและดำเนินการต่อ' : 'ยืนยันและดำเนินการต่อ' }}
-              </UButton>
-              <UButton
-                color="error"
-                variant="soft"
-                size="lg"
-                block
-                icon="i-heroicons-x-circle"
-                :loading="isRejecting"
-                :disabled="isSigning"
-                @click="rejectRequest"
-              >
-                ปฏิเสธการลงนาม
               </UButton>
             </div>
 
@@ -1504,7 +1636,7 @@ onUnmounted(() => {
 
         <!-- Signature popup (same pattern as student new-request) -->
         <div
-          v-if="showSignaturePopup && hasCurrentPendingSteps && hasSignatureField"
+          v-if="showSignaturePopup && hasCurrentPendingSteps"
           class="fixed inset-0 z-50 bg-black/20 backdrop-blur-[1px]"
           @click.self="closeSignaturePopup"
         >
