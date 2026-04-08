@@ -6,12 +6,23 @@
 /**
  * Base field structure from database
  */
+export type DropdownSourceTable = 'faculties' | 'departments' | 'roles' | 'users';
+
+export type DropdownConfig = {
+  sourceTable: DropdownSourceTable;
+  labelColumn?: string;
+  roleId?: number;
+  dataLabel?: string;
+  valueColumn: 'id';
+};
+
 export type Field = {
   id: number | string;
   name: string;
   label?: string;
   fieldType: string;
   sessionField?: 'studentName' | 'studentId' | 'studentYearCurrent' | 'facultyNameTh' | 'departmentNameTh' | 'departmentCode' | 'titleThAutoChecked' | 'titleThMrChecked' | 'titleThMissChecked' | 'titleThMrsChecked' | null;
+  dropdownConfig?: DropdownConfig | null;
   maxLength?: number | null;
   amount?: number;
   fontSize?: number;

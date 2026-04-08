@@ -75,7 +75,9 @@ const pdfFile = ref<File | null>(null);
 const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<string, string>>({});
+const overlayDisplayFieldValues = ref<Record<string, string>>({});
 const previewSyncedFieldValues = ref<Record<string, string>>({});
+const dropdownOptionsCache = ref<Record<string, Array<{ value: string; label: string }>>>({});
 const scale = ref(1);
 const isRefreshingPreview = ref(false);
 const submitterSignatureDataUrl = ref<string | null>(null);
@@ -87,6 +89,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 
 let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let previewRequestToken = 0;
+let overlayValueSyncToken = 0;
 
 // --- Recipient selection ---
 const { locale } = useI18n();
@@ -612,6 +615,144 @@ function getPreviewFieldKey(field: any): string {
   return getFieldValueKey(field);
 }
 
+function getDropdownConfig(field: any): { sourceTable: string; labelColumn?: string; roleId?: number } | null {
+  const rawConfig = field?.dropdownConfig ?? field?.dropdown_config;
+  if (!rawConfig || typeof rawConfig !== 'object') {
+    return null;
+  }
+
+  const sourceTable = String(rawConfig.sourceTable ?? rawConfig.source_table ?? '').trim();
+  const labelColumn = String(rawConfig.labelColumn ?? rawConfig.label_column ?? '').trim();
+  const roleId = Number.parseInt(String(rawConfig.roleId ?? rawConfig.role_id ?? ''), 10);
+
+  if (!sourceTable) {
+    return null;
+  }
+
+  if (sourceTable === 'users') {
+    if (!Number.isFinite(roleId) || roleId <= 0) {
+      return null;
+    }
+
+    return {
+      sourceTable,
+      roleId,
+    };
+  }
+
+  if (!labelColumn) {
+    return null;
+  }
+
+  return {
+    sourceTable,
+    labelColumn,
+  };
+}
+
+function buildDropdownCacheKey(config: { sourceTable: string; labelColumn?: string; roleId?: number }): string {
+  return `${config.sourceTable}|${config.labelColumn ?? ''}|${config.roleId ?? ''}`;
+}
+
+async function getDropdownOptionsForField(field: any): Promise<Array<{ value: string; label: string }>> {
+  const config = getDropdownConfig(field);
+  if (!config) {
+    return [];
+  }
+
+  const cacheKey = buildDropdownCacheKey(config);
+  const cached = dropdownOptionsCache.value[cacheKey];
+  if (Array.isArray(cached)) {
+    return cached;
+  }
+
+  try {
+    const response = await $fetch('/api/template-fields/dropdown-options', {
+      query: {
+        table: config.sourceTable,
+        labelColumn: config.labelColumn,
+        roleId: config.roleId,
+      },
+    });
+
+    const options = response?.success && Array.isArray(response.data)
+      ? response.data
+          .filter(item => item && (item.id ?? null) !== null)
+          .map(item => ({
+            value: String(item.id),
+            label: String(item.label ?? item.id),
+          }))
+      : [];
+
+    dropdownOptionsCache.value[cacheKey] = options;
+    return options;
+  }
+  catch (err) {
+    console.error('Failed to load dropdown options for preview:', err);
+    dropdownOptionsCache.value[cacheKey] = [];
+    return [];
+  }
+}
+
+async function resolvePreviewFieldValue(field: any): Promise<string> {
+  const rawValue = resolveCurrentFieldValue(field);
+  if (getFieldType(field) !== 'dropdown') {
+    return rawValue;
+  }
+
+  const selectedValue = String(rawValue ?? '').trim();
+  if (!selectedValue.length) {
+    return '';
+  }
+
+  const options = await getDropdownOptionsForField(field);
+  const matched = options.find(option => option.value === selectedValue);
+  return matched ? matched.label : selectedValue;
+}
+
+async function syncOverlayDisplayFieldValues() {
+  const requestToken = ++overlayValueSyncToken;
+  const rawSnapshot = { ...fieldValues.value };
+  const nextValues: Record<string, string> = { ...rawSnapshot };
+  const visibleFields = getVisiblePlacedFields();
+
+  await Promise.all(
+    visibleFields.map(async (field: any) => {
+      if (getFieldType(field) !== 'dropdown') {
+        return;
+      }
+
+      const valueKey = getFieldValueKey(field);
+      if (!valueKey) {
+        return;
+      }
+
+      const selectedValue = String(rawSnapshot[valueKey] ?? '').trim();
+      if (!selectedValue.length) {
+        nextValues[valueKey] = '';
+        return;
+      }
+
+      const options = await getDropdownOptionsForField(field);
+      const matched = options.find(option => option.value === selectedValue);
+      const displayValue = matched ? matched.label : selectedValue;
+
+      nextValues[valueKey] = displayValue;
+
+      const manualKey = getManualFieldKey(field);
+      if (manualKey && manualKey !== valueKey && Object.prototype.hasOwnProperty.call(rawSnapshot, manualKey)) {
+        nextValues[manualKey] = displayValue;
+      }
+    }),
+  );
+
+  if (requestToken !== overlayValueSyncToken) {
+    return;
+  }
+
+  overlayDisplayFieldValues.value = nextValues;
+}
+
 function getVisibilityRule(field: any): VisibilityRule | null {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -908,24 +1049,38 @@ async function refreshPreviewPdf() {
   }
 
   const requestToken = ++previewRequestToken;
-  const fieldValueSnapshot = Object.fromEntries(
-    getVisiblePlacedFields()
-      .map((field: any) => {
-        const key = getPreviewFieldKey(field);
-        if (!key) {
-          return null;
-        }
-        return [key, resolveCurrentFieldValue(field)] as const;
-      })
-      .filter((entry): entry is readonly [string, string] => Array.isArray(entry)),
+  const visibleFields = getVisiblePlacedFields();
+  const rawValueSnapshotEntries = visibleFields
+    .map((field: any) => {
+      const key = getPreviewFieldKey(field);
+      if (!key) {
+        return null;
+      }
+      return [key, resolveCurrentFieldValue(field)] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => Array.isArray(entry));
+  const rawFieldValueSnapshot = Object.fromEntries(rawValueSnapshotEntries);
+
+  const displayValueSnapshotEntries = await Promise.all(
+    visibleFields.map(async (field: any) => {
+      const key = getPreviewFieldKey(field);
+      if (!key) {
+        return null;
+      }
+      const displayValue = await resolvePreviewFieldValue(field);
+      return [key, displayValue] as const;
+    }),
+  );
+  const displayFieldValueSnapshot = Object.fromEntries(
+    displayValueSnapshotEntries.filter((entry): entry is readonly [string, string] => Array.isArray(entry)),
   );
 
   const formData = new FormData();
   formData.append('pdfFile', pdfFile.value, pdfFile.value.name);
   formData.append('fields', JSON.stringify(
-    getVisiblePlacedFields().map((field: any) => ({
+    visibleFields.map((field: any) => ({
       ...field,
-      sampleValue: fieldValueSnapshot[getPreviewFieldKey(field)] || '',
+      sampleValue: displayFieldValueSnapshot[getPreviewFieldKey(field)] || '',
       useFallbackLabel: false,
       showFieldHighlight: false,
     })),
@@ -952,7 +1107,7 @@ async function refreshPreviewPdf() {
     previewPdfFile.value = new File([
       previewBytes,
     ], `template-preview-${templateId}.pdf`, { type: 'application/pdf' });
-    previewSyncedFieldValues.value = fieldValueSnapshot;
+    previewSyncedFieldValues.value = rawFieldValueSnapshot;
   }
   catch (err) {
     console.error('Failed to refresh preview PDF:', err);
@@ -1465,6 +1620,7 @@ watch(activeSignerStepIds, (activeStepIds) => {
 watch([pdfFile, placedFields, fieldValues], () => {
   hydrateFieldValueKeys();
   clearHiddenFieldValues();
+  void syncOverlayDisplayFieldValues();
   schedulePreviewRefresh();
 }, { deep: true, immediate: true });
 </script>
@@ -1561,7 +1717,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
-              :field-values="fieldValues"
+              :field-values="overlayDisplayFieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...

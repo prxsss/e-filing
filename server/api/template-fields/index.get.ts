@@ -2,6 +2,7 @@ import type { H3Event } from 'h3';
 
 import db from '../../../lib/db/index';
 import { requestTemplateFields } from '../../../lib/db/schema';
+import { serializeDropdownConfig } from '../../utils/template-field-dropdown';
 
 export default defineEventHandler(async (_event: H3Event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -29,6 +30,8 @@ export default defineEventHandler(async (_event: H3Event) => {
       lineHeight: field.lineHeight,
       sessionField: field.sessionField,
       session_field: field.sessionField,
+      dropdownConfig: serializeDropdownConfig(field.dropdownConfig),
+      dropdown_config: serializeDropdownConfig(field.dropdownConfig),
       strikeThroughGroupMode: field.strikeThroughGroupMode,
       strike_through_group_mode: field.strikeThroughGroupMode,
       strikeLineThickness: field.strikeLineThickness,

@@ -90,6 +90,29 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
       result.maxLength = Number(field.maxLength);
   }
 
+  if (type === 'dropdown') {
+    const dropdownConfig = field?.dropdownConfig ?? field?.dropdown_config;
+    if (dropdownConfig && typeof dropdownConfig === 'object') {
+      const sourceTable = String((dropdownConfig as any).sourceTable ?? (dropdownConfig as any).source_table ?? '').trim();
+      const labelColumn = String((dropdownConfig as any).labelColumn ?? (dropdownConfig as any).label_column ?? '').trim();
+      const roleId = Number.parseInt(String((dropdownConfig as any).roleId ?? (dropdownConfig as any).role_id ?? ''), 10);
+      if (['faculties', 'departments', 'roles'].includes(sourceTable) && labelColumn.length > 0) {
+        result.dropdownConfig = {
+          sourceTable,
+          labelColumn,
+          valueColumn: 'id',
+        };
+      }
+      else if (sourceTable === 'users' && Number.isFinite(roleId) && roleId > 0) {
+        result.dropdownConfig = {
+          sourceTable,
+          roleId,
+          valueColumn: 'id',
+        };
+      }
+    }
+  }
+
   if (type === 'date' || type === 'time' || type === 'datetime') {
     if (typeof field?.dateShowDay !== 'undefined')
       result.dateShowDay = Boolean(field.dateShowDay);
