@@ -4,7 +4,7 @@ import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 function normalizeSignatureDataUrl(raw: unknown): string {
@@ -126,21 +126,22 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'You are not authorized to sign this step' };
     }
 
-    // Get the request record
-    const [requestData] = await db
-      .select()
+    const [requestMeta] = await db
+      .select({
+        templateId: request.templateId,
+      })
       .from(request)
       .where(eq(request.id, requestId))
       .limit(1);
 
-    if (!requestData) {
+    if (!requestMeta) {
       return { success: false, error: 'Request not found' };
     }
 
     const [template] = await db
       .select()
       .from(requestTemplate)
-      .where(eq(requestTemplate.id, Number(requestData.templateId)))
+      .where(eq(requestTemplate.id, Number(requestMeta.templateId)))
       .limit(1);
 
     if (!template) {
@@ -162,57 +163,15 @@ export default defineEventHandler(async (event) => {
     // Never trust the client alone: if this step includes form fields, we must burn DB values into the PDF.
     const effectiveRegenerateFilledPdf = Boolean(regenerateFilledPdf) || pendingStepHasNonSignatureFields;
 
-    if (!effectiveRegenerateFilledPdf && !requestData.filledDocumentUrl) {
-      return { success: false, error: 'No filled PDF found. Please try again.' };
-    }
-
     // ── Decode signature and embed into PDF ────────────────────────────────
     const base64Data = finalSignatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
     const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
-    // ── Load PDF: incremental update — build on top of the previous PDF ────
-    // Each signing step only adds its own form fields to the existing PDF so
-    // that earlier signatures and field values are never discarded.
-    let pdfBytesForSign: Uint8Array;
-    if (effectiveRegenerateFilledPdf) {
-      // Collect only the non-signature field instance IDs for this step.
-      // Signature fields are drawn separately below; passing them to the
-      // renderer would have no effect (no stored text value) but is harmless.
-      const nonSigAssignedIds = assignedIds.filter((id) => {
-        const f = allFields.find((f: any) => String(f?.instanceId ?? '').trim() === id);
-        return f && String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase() !== 'signature';
-      });
-
-      // Use the existing filled PDF as base (incremental mode).
-      // Fall back to the template only when there is no previous PDF yet
-      // (e.g. the very first step where generate-filled-pdf was not called).
-      const basePdfUrl = requestData.filledDocumentUrl ?? template.documentUrl ?? undefined;
-
-      const built = await buildFilledPdfBytesForRequest(requestId, userId, {
-        fieldInstanceIdFilter: nonSigAssignedIds,
-        basePdfUrl,
-      });
-      if (!built.success) {
-        return { success: false, error: built.error === 'Forbidden' ? 'Not allowed to regenerate PDF' : built.error };
-      }
-      pdfBytesForSign = built.bytes;
-    }
-    else {
-      const pdfResponse = await fetch(requestData.filledDocumentUrl!);
-      if (!pdfResponse.ok) {
-        return { success: false, error: 'Failed to fetch current PDF' };
-      }
-      pdfBytesForSign = new Uint8Array(await pdfResponse.arrayBuffer());
-    }
-
-    const PDFLib = await import('pdf-lib');
-    const pdfDoc = await PDFLib.PDFDocument.load(pdfBytesForSign);
-    const pages = pdfDoc.getPages();
-
-    const sigImage = await pdfDoc.embedPng(sigBytes);
-
-    const templateWidth = template.documentWidth || 595;
-    const templateHeight = template.documentHeight || 842;
+    // Collect only the non-signature field instance IDs for this step.
+    const nonSigAssignedIds = assignedIds.filter((id) => {
+      const f = allFields.find((field: any) => String(field?.instanceId ?? '').trim() === id);
+      return f && String(f?.type ?? f?.fieldType ?? '').trim().toLowerCase() !== 'signature';
+    });
 
     const signatureFields = allFields.filter(
       (f: any) => {
@@ -221,73 +180,148 @@ export default defineEventHandler(async (event) => {
       },
     );
 
-    for (const field of signatureFields) {
-      const pageIndex = (field.pageNumber || 1) - 1;
-      const targetPage = pages[pageIndex];
-      if (!targetPage)
-        continue;
+    let signedPdfUrl: string | null = null;
+    let pdfHash = '';
 
-      const { height: pageHeight } = targetPage.getSize();
+    // Handle parallel signers safely: update request.filledDocumentUrl with a
+    // compare-and-swap condition and retry against the latest base PDF on conflict.
+    const maxMergeAttempts = 3;
+    for (let attempt = 1; attempt <= maxMergeAttempts; attempt++) {
+      const [requestSnapshot] = await db
+        .select({
+          filledDocumentUrl: request.filledDocumentUrl,
+        })
+        .from(request)
+        .where(eq(request.id, requestId))
+        .limit(1);
 
-      let x: number;
-      let y: number;
-      let width: number;
-      let height: number;
+      if (!requestSnapshot) {
+        return { success: false, error: 'Request not found' };
+      }
 
-      if (field.normalizedX !== undefined) {
-        x = field.normalizedX * templateWidth;
-        y = field.normalizedY * templateHeight;
-        width = field.normalizedWidth * templateWidth;
-        height = field.normalizedHeight * templateHeight;
+      const baseFilledDocumentUrl = requestSnapshot.filledDocumentUrl ?? null;
+      if (!effectiveRegenerateFilledPdf && !baseFilledDocumentUrl) {
+        return { success: false, error: 'No filled PDF found. Please try again.' };
+      }
+
+      // ── Load PDF: incremental update — build on top of the previous PDF ────
+      let pdfBytesForSign: Uint8Array;
+      if (effectiveRegenerateFilledPdf) {
+        const basePdfUrl = baseFilledDocumentUrl ?? template.documentUrl ?? undefined;
+
+        const built = await buildFilledPdfBytesForRequest(requestId, userId, {
+          fieldInstanceIdFilter: nonSigAssignedIds,
+          basePdfUrl,
+        });
+        if (!built.success) {
+          return { success: false, error: built.error === 'Forbidden' ? 'Not allowed to regenerate PDF' : built.error };
+        }
+        pdfBytesForSign = built.bytes;
       }
       else {
-        x = field.x || 0;
-        y = field.y || 0;
-        width = field.width || 150;
-        height = field.height || 60;
+        const pdfResponse = await fetch(baseFilledDocumentUrl!);
+        if (!pdfResponse.ok) {
+          return { success: false, error: 'Failed to fetch current PDF' };
+        }
+        pdfBytesForSign = new Uint8Array(await pdfResponse.arrayBuffer());
       }
 
-      // PDF coordinate system: y=0 is bottom-left; UI: y=0 is top-left
-      targetPage.drawImage(sigImage, {
-        x,
-        y: pageHeight - y - height,
-        width,
-        height,
-        opacity: 1,
-      });
+      const PDFLib = await import('pdf-lib');
+      const pdfDoc = await PDFLib.PDFDocument.load(pdfBytesForSign);
+      const pages = pdfDoc.getPages();
+      const sigImage = await pdfDoc.embedPng(sigBytes);
+
+      const templateWidth = template.documentWidth || 595;
+      const templateHeight = template.documentHeight || 842;
+
+      for (const field of signatureFields) {
+        const pageIndex = (field.pageNumber || 1) - 1;
+        const targetPage = pages[pageIndex];
+        if (!targetPage)
+          continue;
+
+        const { height: pageHeight } = targetPage.getSize();
+
+        let x: number;
+        let y: number;
+        let width: number;
+        let height: number;
+
+        if (field.normalizedX !== undefined) {
+          x = field.normalizedX * templateWidth;
+          y = field.normalizedY * templateHeight;
+          width = field.normalizedWidth * templateWidth;
+          height = field.normalizedHeight * templateHeight;
+        }
+        else {
+          x = field.x || 0;
+          y = field.y || 0;
+          width = field.width || 150;
+          height = field.height || 60;
+        }
+
+        // PDF coordinate system: y=0 is bottom-left; UI: y=0 is top-left
+        targetPage.drawImage(sigImage, {
+          x,
+          y: pageHeight - y - height,
+          width,
+          height,
+          opacity: 1,
+        });
+      }
+
+      const signedPdfBytes = await pdfDoc.save();
+      const nextPdfHash = createHash('sha256').update(new Uint8Array(signedPdfBytes)).digest('hex');
+
+      // Each step produces its own immutable snapshot so nothing is ever lost.
+      const pdfFilename = `request-${requestId}-step-${activeStepOrder}-${Date.now()}.pdf`;
+
+      const { error: pdfUploadError } = await supabaseAdmin.storage
+        .from('filled-requests')
+        .upload(pdfFilename, signedPdfBytes, {
+          contentType: 'application/pdf',
+          cacheControl: '31536000',
+          upsert: false,
+        });
+
+      if (pdfUploadError) {
+        return { success: false, error: `PDF upload failed: ${pdfUploadError.message}` };
+      }
+
+      const { data: { publicUrl: candidateSignedPdfUrl } } = supabaseAdmin.storage
+        .from('filled-requests')
+        .getPublicUrl(pdfFilename);
+
+      const whereCondition = baseFilledDocumentUrl === null
+        ? and(eq(request.id, requestId), isNull(request.filledDocumentUrl))
+        : and(eq(request.id, requestId), eq(request.filledDocumentUrl, baseFilledDocumentUrl));
+
+      const updatedRequest = await db
+        .update(request)
+        .set({ filledDocumentUrl: candidateSignedPdfUrl })
+        .where(whereCondition)
+        .returning({ id: request.id });
+
+      if (updatedRequest.length > 0) {
+        signedPdfUrl = candidateSignedPdfUrl;
+        pdfHash = nextPdfHash;
+        break;
+      }
+
+      if (attempt === maxMergeAttempts) {
+        return {
+          success: false,
+          error: 'Another signer updated this request at the same time. Please sign again.',
+        };
+      }
     }
 
-    const signedPdfBytes = await pdfDoc.save();
-
-    // ── Compute SHA-256 integrity hash of the exactly-as-stored PDF ─────────
-    const pdfHash = createHash('sha256').update(new Uint8Array(signedPdfBytes)).digest('hex');
-
-    // ── Upload versioned PDF snapshot (one file per signing step) ────────────
-    // Each step produces its own immutable snapshot so nothing is ever lost.
-    // The request record always points to the latest (most-signed) copy.
-    const pdfFilename = `request-${requestId}-step-${activeStepOrder}-${Date.now()}.pdf`;
-
-    const { error: pdfUploadError } = await supabaseAdmin.storage
-      .from('filled-requests')
-      .upload(pdfFilename, signedPdfBytes, {
-        contentType: 'application/pdf',
-        cacheControl: '31536000',
-        upsert: false,
-      });
-
-    if (pdfUploadError) {
-      return { success: false, error: `PDF upload failed: ${pdfUploadError.message}` };
+    if (!signedPdfUrl || !pdfHash) {
+      return {
+        success: false,
+        error: 'Failed to finalize signed PDF snapshot',
+      };
     }
-
-    const { data: { publicUrl: signedPdfUrl } } = supabaseAdmin.storage
-      .from('filled-requests')
-      .getPublicUrl(pdfFilename);
-
-    // Persist updated PDF URL (points to latest signed snapshot)
-    await db
-      .update(request)
-      .set({ filledDocumentUrl: signedPdfUrl })
-      .where(eq(request.id, requestId));
 
     // ── Save audit-quality signature record ──────────────────────────────────
     // Insert one row per signature field instance so the client can render
@@ -313,7 +347,8 @@ export default defineEventHandler(async (event) => {
             userId,
             fieldInstanceId: fieldInstanceId ?? null,
             pdfHash,
-            dataUrl: signatureDataUrl ?? undefined,
+            dataUrl: finalSignatureDataUrl ?? undefined,
+            userSignatureId: selectedUserSignatureId,
           });
         }
         continue;
