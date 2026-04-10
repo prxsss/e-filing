@@ -22,6 +22,11 @@ const emit = defineEmits<{
 }>();
 
 const localField = ref<any>({});
+const isLoadingDropdownSources = ref(false);
+const isLoadingRoles = ref(false);
+const dropdownSources = ref<any[]>([]);
+const roleOptions = ref<Array<{ id: number; label: string }>>([]);
+const allowedDropdownTables = ['faculties', 'departments', 'roles', 'users'];
 
 function getFieldType(field?: Field): string {
   return String(field?.type || field?.fieldType || '').toLowerCase();
@@ -122,6 +127,53 @@ function normalizeMaxLength(value: unknown): number | null {
   return parsed;
 }
 
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function normalizeDropdownConfig(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+  const sourceTable = String(source.sourceTable ?? source.source_table ?? '').trim();
+  const labelColumn = String(source.labelColumn ?? source.label_column ?? '').trim();
+  const roleId = parsePositiveInteger(source.roleId ?? source.role_id);
+  const dataLabel = String(source.dataLabel ?? source.data_label ?? '').trim();
+
+  if (!allowedDropdownTables.includes(sourceTable)) {
+    return null;
+  }
+
+  if (sourceTable === 'users') {
+    if (!roleId) {
+      return null;
+    }
+
+    return {
+      sourceTable,
+      roleId,
+      dataLabel: dataLabel || undefined,
+      valueColumn: 'id',
+    };
+  }
+
+  if (!labelColumn) {
+    return null;
+  }
+
+  return {
+    sourceTable,
+    labelColumn,
+    valueColumn: 'id',
+  };
+}
+
 function normalizeFontSize(value: unknown): number {
   const parsed = Number.parseFloat(String(value ?? ''));
   if (!Number.isFinite(parsed) || parsed <= 0)
@@ -175,6 +227,7 @@ function handleFontSizeBlur(): void {
 
 const selectedFieldType = computed(() => String(props.selectedField?.type || props.selectedField?.fieldType || '').toLowerCase());
 const isDateField = computed(() => selectedFieldType.value === 'date');
+const isDropdownField = computed(() => selectedFieldType.value === 'dropdown');
 
 // Use live current date so preview always matches actual output
 const dateFormatPreview = computed(() => {
@@ -185,6 +238,75 @@ const dateFormatPreview = computed(() => {
 const isTimeField = computed(() => selectedFieldType.value === 'time');
 const isCheckboxType = computed(() => selectedFieldType.value === 'checkbox');
 const supportsAutoGenerateToggle = computed(() => isDateField.value || isTimeField.value);
+const supportsDropdownConfig = computed(() => isDropdownField.value);
+
+const availableDropdownColumns = computed(() => {
+  const source = dropdownSources.value.find(item => item.table === localField.value.dropdownSourceTable);
+  if (!source || !Array.isArray(source.labelColumns)) {
+    return [];
+  }
+  return source.labelColumns;
+});
+
+const hasDropdownSourceSelection = computed(() => String(localField.value.dropdownSourceTable || '').trim().length > 0);
+const isUsersDropdownSource = computed(() => localField.value.dropdownSourceTable === 'users');
+
+const selectedDropdownRoleLabel = computed(() => {
+  const roleId = parsePositiveInteger(localField.value.dropdownRoleId);
+  const role = roleOptions.value.find(item => item.id === roleId);
+  return role?.label || '';
+});
+
+const selectedDropdownColumnLabel = computed(() => {
+  const key = String(localField.value.dropdownLabelColumn || '').trim();
+  const column = availableDropdownColumns.value.find((item: any) => item.key === key);
+  return column?.label || '';
+});
+
+async function loadDropdownSources() {
+  isLoadingDropdownSources.value = true;
+  try {
+    const response = await $fetch<{ success?: boolean; data?: any[] }>('/api/template-fields/dropdown-sources');
+    if (response?.success && Array.isArray(response.data)) {
+      dropdownSources.value = response.data;
+      return;
+    }
+    dropdownSources.value = [];
+  }
+  catch (error) {
+    console.error('Error loading dropdown sources:', error);
+    dropdownSources.value = [];
+  }
+  finally {
+    isLoadingDropdownSources.value = false;
+  }
+}
+
+async function loadRoles() {
+  isLoadingRoles.value = true;
+  try {
+    const roles = await $fetch<any[]>('/api/roles');
+    if (Array.isArray(roles)) {
+      roleOptions.value = roles
+        .map(role => ({
+          id: parsePositiveInteger(role?.id),
+          label: String(role?.nameTh ?? role?.name ?? '').trim(),
+        }))
+        .filter(role => role.id !== null && role.label.length > 0)
+        .map(role => ({ id: role.id as number, label: role.label }));
+      return;
+    }
+
+    roleOptions.value = [];
+  }
+  catch (error) {
+    console.error('Error loading roles:', error);
+    roleOptions.value = [];
+  }
+  finally {
+    isLoadingRoles.value = false;
+  }
+}
 
 const supportsMaxLength = computed(() => {
   return selectedFieldType.value !== 'signature'
@@ -262,6 +384,7 @@ watch(
       const fieldType = getFieldType(newField);
       const autoDateTimeConfig = getAutoDateTimeFormatConfig(newField);
       const visibilityRule = normalizeVisibilityRule(newField.visibilityRule ?? newField.visibility_rule);
+      const normalizedDropdownConfig = normalizeDropdownConfig(newField.dropdownConfig ?? newField.dropdown_config);
       const fontSize = normalizeFontSize(newField.fontSize ?? newField.font_size);
       localField.value = {
         ...newField,
@@ -282,6 +405,9 @@ watch(
         conditionalSourceFieldInstanceId: visibilityRule?.sourceFieldInstanceId || '',
         conditionalSourceGroupId: visibilityRule?.sourceGroupId || '',
         conditionalOperator: visibilityRule?.operator || 'isChecked',
+        dropdownSourceTable: normalizedDropdownConfig?.sourceTable || '',
+        dropdownLabelColumn: normalizedDropdownConfig?.labelColumn || '',
+        dropdownRoleId: String(normalizedDropdownConfig?.roleId ?? ''),
       };
 
       fontSizeCommitted.value = fontSize;
@@ -295,6 +421,48 @@ watch(
   },
   { immediate: true },
 );
+
+watch(supportsDropdownConfig, (enabled) => {
+  if (enabled) {
+    return;
+  }
+
+  localField.value.dropdownSourceTable = '';
+  localField.value.dropdownLabelColumn = '';
+  localField.value.dropdownRoleId = '';
+});
+
+watch(() => localField.value.dropdownSourceTable, () => {
+  if (!supportsDropdownConfig.value) {
+    return;
+  }
+
+  if (isUsersDropdownSource.value) {
+    const selectedRoleId = parsePositiveInteger(localField.value.dropdownRoleId);
+    const hasRole = roleOptions.value.some(role => role.id === selectedRoleId);
+    if (!hasRole) {
+      localField.value.dropdownRoleId = '';
+    }
+    localField.value.dropdownLabelColumn = '';
+    onPropertyChange();
+    return;
+  }
+
+  localField.value.dropdownRoleId = '';
+  const isValidColumn = availableDropdownColumns.value.some(
+    (column: any) => column.key === localField.value.dropdownLabelColumn,
+  );
+
+  if (!isValidColumn) {
+    localField.value.dropdownLabelColumn = '';
+  }
+
+  onPropertyChange();
+});
+
+onMounted(async () => {
+  await Promise.all([loadDropdownSources(), loadRoles()]);
+});
 
 function toggleConditionalVisibility() {
   if (!localField.value) {
@@ -345,6 +513,14 @@ function onPropertyChange() {
   const sourceGroupId = sourceType === 'group'
     ? String(localField.value.conditionalSourceGroupId || '').trim()
     : '';
+  const dropdownConfig = supportsDropdownConfig.value
+    ? normalizeDropdownConfig({
+        sourceTable: localField.value.dropdownSourceTable,
+        labelColumn: localField.value.dropdownLabelColumn,
+        roleId: localField.value.dropdownRoleId,
+        dataLabel: selectedDropdownRoleLabel.value,
+      })
+    : null;
 
   const commonStyleUpdates = {
     fontSize: normalizeFontSize(localField.value.fontSize),
@@ -378,6 +554,12 @@ function onPropertyChange() {
           clearWhenHidden: false,
         })
       : null,
+    ...(supportsDropdownConfig.value
+      ? {
+          dropdownConfig,
+          dropdown_config: dropdownConfig,
+        }
+      : {}),
     ...dateTimeFormatUpdates,
   };
 
@@ -448,6 +630,14 @@ function saveDefaults() {
           timeShowMinute: autoDateTimeConfig.timeShowMinute,
         }
       : {};
+  const dropdownDefaults = supportsDropdownConfig.value
+    ? normalizeDropdownConfig({
+        sourceTable: localField.value.dropdownSourceTable,
+        labelColumn: localField.value.dropdownLabelColumn,
+        roleId: localField.value.dropdownRoleId,
+        dataLabel: selectedDropdownRoleLabel.value,
+      })
+    : null;
 
   emit('saveDefaults', {
     fieldId,
@@ -470,6 +660,12 @@ function saveDefaults() {
       isAutoGenerated: supportsAutoGenerateToggle.value
         ? Boolean(localField.value.isAutoGenerated)
         : false,
+      ...(supportsDropdownConfig.value
+        ? {
+            dropdownConfig: dropdownDefaults,
+            dropdown_config: dropdownDefaults,
+          }
+        : {}),
       ...dateTimeDefaults,
     },
   });
@@ -1347,6 +1543,119 @@ function onFieldHeightPopoverInput() {
         </template>
       </UPopover>
 
+      <template v-if="supportsDropdownConfig">
+        <div class="h-5 w-px bg-gray-200" />
+
+        <UPopover
+          :content="{ align: 'center', side: 'bottom', sideOffset: 6 }"
+          :ui="{ content: 'w-fit min-w-0 max-w-[min(100vw,22rem)] p-0 overflow-visible' }"
+        >
+          <template #default="{ open }">
+            <UTooltip text="เลือกข้อมูล" :popper="{ placement: 'top' }">
+              <button
+                type="button"
+                class="toolbar-fmt-btn"
+                :class="{ active: open }"
+                aria-haspopup="dialog"
+                :aria-expanded="open"
+                aria-label="เลือกข้อมูล"
+              >
+                <UIcon name="i-heroicons-list-bullet" class="w-3.5 h-3.5" />
+              </button>
+            </UTooltip>
+          </template>
+
+          <template #content>
+            <div class="spacing-popover-panel dropdown-config-panel">
+              <div class="spacing-popover-section">
+                <label class="spacing-popover-label">ตารางข้อมูล</label>
+                <select
+                  v-model="localField.dropdownSourceTable"
+                  class="toolbar-select dropdown-config-select"
+                  :disabled="isLoadingDropdownSources"
+                  @change="onPropertyChange"
+                >
+                  <option value="" disabled>
+                    {{ isLoadingDropdownSources ? 'กำลังโหลด...' : 'เลือกตารางข้อมูล' }}
+                  </option>
+                  <option
+                    v-for="source in dropdownSources"
+                    :key="source.table"
+                    :value="source.table"
+                  >
+                    {{ source.label }}
+                  </option>
+                </select>
+              </div>
+
+              <template v-if="hasDropdownSourceSelection && !isUsersDropdownSource">
+                <div class="spacing-popover-divider" />
+                <div class="spacing-popover-section">
+                  <label class="spacing-popover-label">คอลัมน์แสดงผล</label>
+                  <select
+                    v-model="localField.dropdownLabelColumn"
+                    class="toolbar-select dropdown-config-select"
+                    @change="onPropertyChange"
+                  >
+                    <option value="" disabled>
+                      เลือกคอลัมน์
+                    </option>
+                    <option
+                      v-for="column in availableDropdownColumns"
+                      :key="column.key"
+                      :value="column.key"
+                    >
+                      {{ column.label }}
+                    </option>
+                  </select>
+                </div>
+              </template>
+
+              <template v-if="isUsersDropdownSource">
+                <div class="spacing-popover-divider" />
+                <div class="spacing-popover-section">
+                  <label class="spacing-popover-label">บทบาท</label>
+                  <select
+                    v-model="localField.dropdownRoleId"
+                    class="toolbar-select dropdown-config-select"
+                    :disabled="isLoadingRoles"
+                    @change="onPropertyChange"
+                  >
+                    <option value="" disabled>
+                      {{ isLoadingRoles ? 'กำลังโหลดบทบาท...' : 'เลือกบทบาท' }}
+                    </option>
+                    <option
+                      v-for="role in roleOptions"
+                      :key="role.id"
+                      :value="String(role.id)"
+                    >
+                      {{ role.label }}
+                    </option>
+                  </select>
+                </div>
+              </template>
+
+              <template v-if="hasDropdownSourceSelection">
+                <div class="spacing-popover-divider" />
+                <div class="spacing-popover-section">
+                  <p v-if="isUsersDropdownSource && selectedDropdownRoleLabel" class="spacing-popover-hint dropdown-valid-status">
+                    พร้อมใช้งาน: {{ selectedDropdownRoleLabel }}
+                  </p>
+                  <p v-else-if="!isUsersDropdownSource && selectedDropdownColumnLabel" class="spacing-popover-hint dropdown-valid-status">
+                    พร้อมใช้งาน: {{ selectedDropdownColumnLabel }}
+                  </p>
+                  <p v-else class="spacing-popover-hint dropdown-warn-status">
+                    กรุณาเลือกคอลัมน์หรือบทบาท
+                  </p>
+                </div>
+              </template>
+            </div>
+          </template>
+        </UPopover>
+
+        <div class="h-5 w-px bg-gray-200" />
+      </template>
+
       <div class="h-5 w-px bg-gray-200" />
 
       <!-- Conditional visibility toggle (details shown in second row) -->
@@ -1801,6 +2110,24 @@ function onFieldHeightPopoverInput() {
 /* Date format popover */
 .date-format-panel {
   max-width: min(22rem, calc(100vw - 1.5rem));
+}
+
+.dropdown-config-panel {
+  width: 17rem;
+  max-width: min(22rem, calc(100vw - 1.5rem));
+}
+
+.dropdown-config-select {
+  width: 100%;
+  max-width: 100%;
+}
+
+.dropdown-valid-status {
+  color: #065f46;
+}
+
+.dropdown-warn-status {
+  color: #b45309;
 }
 
 .date-format-preview {
