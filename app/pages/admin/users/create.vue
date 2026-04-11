@@ -44,6 +44,15 @@ const createUserSchema = z.object({
   lastNameTh: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.lastNameTh') })),
   email: z.email(t('common.validation.invalidEmail')),
   // password: z.string().min(8, 'Password must be at least 8 characters'),
+}).superRefine((data, ctx) => {
+  const hasStudentId = Boolean(data.studentId?.trim());
+  const hasStaffId = Boolean(data.staffId?.trim());
+
+  if (hasStudentId && hasStaffId) {
+    const message = t('adminUsers.shared.validation.studentStaffExclusive');
+    ctx.addIssue({ code: 'custom', path: ['studentId'], message });
+    ctx.addIssue({ code: 'custom', path: ['staffId'], message });
+  }
 });
 
 type CreateUserSchema = z.output<typeof createUserSchema>;
@@ -278,6 +287,10 @@ function resolveCreateUserErrorMessage(error: unknown) {
 
   const errorCode = fetchError.data?.code ?? fetchError.data?.data?.code;
   const duplicateFields = fetchError.data?.fields ?? fetchError.data?.data?.fields ?? [];
+
+  if (errorCode === 'STUDENT_STAFF_EXCLUSIVE') {
+    return t('adminUsers.shared.validation.studentStaffExclusive');
+  }
 
   if (errorCode === 'DUPLICATE_USER_FIELDS') {
     const fieldMessages = duplicateFields.map((field) => {
@@ -530,6 +543,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 >
                   <UInput
                     v-model="form.studentId"
+                    :disabled="Boolean(form.staffId?.trim())"
+                    :variant="Boolean(form.staffId?.trim()) ? 'subtle' : undefined"
                     class="w-full"
                   />
                 </UFormField>
@@ -542,6 +557,8 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                 >
                   <UInput
                     v-model="form.staffId"
+                    :disabled="Boolean(form.studentId?.trim())"
+                    :variant="Boolean(form.studentId?.trim()) ? 'subtle' : undefined"
                     class="w-full"
                   />
                 </UFormField>

@@ -24,6 +24,17 @@ export default defineEventHandler(async (event) => {
   const normalizedStudentId = body.studentId?.trim() || null;
   const normalizedStaffId = body.staffId?.trim() || null;
 
+  if (normalizedStudentId && normalizedStaffId) {
+    throw createError({
+      statusCode: 400,
+      message: 'Student ID and Staff ID cannot both be provided',
+      data: {
+        code: 'STUDENT_STAFF_EXCLUSIVE',
+        fields: ['studentId', 'staffId'],
+      },
+    });
+  }
+
   const [user] = await db.select().from(users).where(eq(users.id, id));
   if (!user) {
     throw createError({ statusCode: 404, message: `User with ID ${id} not found` });

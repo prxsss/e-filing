@@ -59,6 +59,7 @@
       },
       "validation": {
         "studentIdInvalid": "Student ID must be 10 digits",
+        "studentStaffExclusive": "Please enter either Student ID or Staff ID, not both.",
         "roleRequired": "Role is required.",
         "roleRequiredDesc": "Please assign at least one role to the user before continuing.",
         "roleAssignmentDuplicate": "This role assignment already exists."
