@@ -272,7 +272,7 @@ const columns: TableColumn<DepartmentListItem>[] = [
           :items="facultyOptions"
           label-key="label"
           value-key="value"
-          :placeholder="t('adminDepartments.list.search')"
+          :placeholder="t('adminDepartments.list.columns.faculty')"
           clear
           :ui="{
             input: 'hidden',
