@@ -26,6 +26,8 @@ type DepartmentListItem = {
 
 const UButton = resolveComponent('UButton');
 
+const route = useRoute();
+const router = useRouter();
 const localPath = useLocalePath();
 const { locale, t } = useI18n();
 const toast = useToast();
@@ -34,9 +36,37 @@ const overlay = useOverlay();
 const authStore = useAuthStore();
 
 const deletingDepartmentId = ref<number | null>(null);
-const searchInput = ref('');
-const appliedSearch = ref('');
-const selectedFacultyId = ref<number | undefined>(undefined);
+
+function getSearchQueryValue(queryValue: unknown) {
+  if (Array.isArray(queryValue)) {
+    const firstValue = queryValue[0];
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
+
+  return typeof queryValue === 'string' ? queryValue.trim() : '';
+}
+
+function getFacultyIdQueryValue(queryValue: unknown) {
+  const rawValue = getSearchQueryValue(queryValue);
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const parsedValue = Number(rawValue);
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return undefined;
+  }
+
+  return parsedValue;
+}
+
+const initialSearch = getSearchQueryValue(route.query.search);
+const initialFacultyId = getFacultyIdQueryValue(route.query.facultyId);
+
+const searchInput = ref(initialSearch);
+const appliedSearch = ref(initialSearch);
+const showClearSearchButton = computed(() => appliedSearch.value.length > 0);
+const selectedFacultyId = ref<number | undefined>(initialFacultyId);
 // const appliedFacultyId = ref<number | undefined>(undefined);
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
@@ -81,10 +111,50 @@ function resolveDeleteDepartmentErrorMessage(error: unknown) {
 }
 
 function applySearch() {
-  appliedSearch.value = searchInput.value.trim();
-  // appliedFacultyId.value = selectedFacultyId.value;
+  const normalizedSearch = searchInput.value.trim();
+  appliedSearch.value = normalizedSearch;
   page.value = 1;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  if (normalizedSearch) {
+    nextQuery.search = normalizedSearch;
+  }
+  else {
+    delete nextQuery.search;
+  }
+
+  if (selectedFacultyId.value) {
+    nextQuery.facultyId = String(selectedFacultyId.value);
+  }
+  else {
+    delete nextQuery.facultyId;
+  }
+
+  void router.replace({ query: nextQuery });
 }
+
+function clearSearch() {
+  searchInput.value = '';
+  appliedSearch.value = '';
+  page.value = 1;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  delete nextQuery.search;
+
+  void router.replace({ query: nextQuery });
+}
+
+watch(selectedFacultyId, (value) => {
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  if (value) {
+    nextQuery.facultyId = String(value);
+  }
+  else {
+    delete nextQuery.facultyId;
+  }
+
+  void router.replace({ query: nextQuery });
+});
 
 function getFacultyName(row: DepartmentListItem) {
   if (!row.faculty)
@@ -254,7 +324,18 @@ const columns: TableColumn<DepartmentListItem>[] = [
             variant="outline"
             :placeholder="t('adminDepartments.list.search')"
             @keyup.enter="applySearch"
-          />
+          >
+            <template v-if="showClearSearchButton" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                size="sm"
+                icon="i-lucide-x"
+                aria-label="Clear input"
+                @click="clearSearch"
+              />
+            </template>
+          </UInput>
           <UButton icon="i-lucide-search" :label="t('adminDepartments.list.search')" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
         </UFieldGroup>
       </div>

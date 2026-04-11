@@ -13,6 +13,7 @@ definePageMeta({
 const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
 
+const route = useRoute();
 const localPath = useLocalePath();
 const { locale, t } = useI18n();
 const router = useRouter();
@@ -23,8 +24,20 @@ const authStore = useAuthStore();
 
 const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const deletingFacultyId = ref<number | null>(null);
-const searchInput = ref('');
-const appliedSearch = ref('');
+
+function getSearchQueryValue(queryValue: unknown) {
+  if (Array.isArray(queryValue)) {
+    const firstValue = queryValue[0];
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
+
+  return typeof queryValue === 'string' ? queryValue.trim() : '';
+}
+
+const initialSearch = getSearchQueryValue(route.query.search);
+const searchInput = ref(initialSearch);
+const appliedSearch = ref(initialSearch);
+const showClearSearchButton = computed(() => appliedSearch.value.length > 0);
 
 type FacultyListItem = {
   id: number;
@@ -63,8 +76,30 @@ function resolveDeleteFacultyErrorMessage(error: unknown) {
 }
 
 function applySearch() {
-  appliedSearch.value = searchInput.value.trim();
+  const normalizedSearch = searchInput.value.trim();
+  appliedSearch.value = normalizedSearch;
   page.value = 1;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  if (normalizedSearch) {
+    nextQuery.search = normalizedSearch;
+  }
+  else {
+    delete nextQuery.search;
+  }
+
+  void router.replace({ query: nextQuery });
+}
+
+function clearSearch() {
+  searchInput.value = '';
+  appliedSearch.value = '';
+  page.value = 1;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  delete nextQuery.search;
+
+  void router.replace({ query: nextQuery });
 }
 
 const columns: TableColumn<FacultyListItem>[] = [
@@ -207,7 +242,18 @@ const columns: TableColumn<FacultyListItem>[] = [
     <div class="w-full">
       <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
-          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminFaculties.list.search')" @keyup.enter="applySearch" />
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminFaculties.list.search')" @keyup.enter="applySearch">
+            <template v-if="showClearSearchButton" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                size="sm"
+                icon="i-lucide-x"
+                aria-label="Clear input"
+                @click="clearSearch"
+              />
+            </template>
+          </UInput>
           <UButton icon="i-lucide-search" :label="t('adminFaculties.list.search')" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
         </UFieldGroup>
       </div>

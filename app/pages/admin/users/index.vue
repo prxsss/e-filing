@@ -18,6 +18,7 @@ const UButton = resolveComponent('UButton');
 const UBadge = resolveComponent('UBadge');
 const UCheckbox = resolveComponent('UCheckbox');
 
+const route = useRoute();
 const router = useRouter();
 const localPath = useLocalePath();
 const overlay = useOverlay();
@@ -79,11 +80,51 @@ function defaultAdvancedFilters(): AdvancedSearchFilters {
   };
 }
 
-const searchInput = ref('');
-const appliedSearch = ref('');
+function getSearchQueryValue(queryValue: unknown) {
+  if (Array.isArray(queryValue)) {
+    const firstValue = queryValue[0];
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
 
-const advancedFilters = ref<AdvancedSearchFilters>(defaultAdvancedFilters());
-const appliedAdvancedFilters = ref<AdvancedSearchFilters>(defaultAdvancedFilters());
+  return typeof queryValue === 'string' ? queryValue.trim() : '';
+}
+
+function getNumberQueryValue(queryValue: unknown) {
+  const rawValue = getSearchQueryValue(queryValue);
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsedValue = Number(rawValue);
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return parsedValue;
+}
+
+function getStatusQueryValue(queryValue: unknown): UserStatus | null {
+  const rawValue = getSearchQueryValue(queryValue);
+  if (!rawValue) {
+    return null;
+  }
+
+  const validStatuses = Object.values(USER_STATUS) as UserStatus[];
+  return validStatuses.includes(rawValue as UserStatus) ? (rawValue as UserStatus) : null;
+}
+
+const initialSearch = getSearchQueryValue(route.query.search);
+const initialAdvancedFilters: AdvancedSearchFilters = {
+  facultyId: getNumberQueryValue(route.query.facultyId),
+  departmentId: getNumberQueryValue(route.query.departmentId),
+  roleId: getNumberQueryValue(route.query.roleId),
+  status: getStatusQueryValue(route.query.status),
+};
+const searchInput = ref(initialSearch);
+const appliedSearch = ref(initialSearch);
+
+const advancedFilters = ref<AdvancedSearchFilters>({ ...initialAdvancedFilters });
+const appliedAdvancedFilters = ref<AdvancedSearchFilters>({ ...initialAdvancedFilters });
 
 const { data: facultiesData } = await useFetch<FacultyApiItem[]>('/api/faculties');
 const { data: departmentsData } = await useFetch<DepartmentApiItem[]>('/api/departments');
@@ -166,6 +207,7 @@ const appliedFacultyId = computed(() => appliedAdvancedFilters.value.facultyId);
 const appliedDepartmentId = computed(() => appliedAdvancedFilters.value.departmentId);
 const appliedRoleId = computed(() => appliedAdvancedFilters.value.roleId);
 const appliedStatus = computed(() => appliedAdvancedFilters.value.status);
+const showClearSearchButton = computed(() => appliedSearch.value.length > 0);
 
 const { rows: data, isLoading, page, pageSize, total, refresh } = useUsers({
   search: appliedSearch,
@@ -520,8 +562,30 @@ async function onBulkUnban() {
 }
 
 function applySearch() {
-  appliedSearch.value = searchInput.value.trim();
+  const normalizedSearch = searchInput.value.trim();
+  appliedSearch.value = normalizedSearch;
   page.value = 1;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  if (normalizedSearch) {
+    nextQuery.search = normalizedSearch;
+  }
+  else {
+    delete nextQuery.search;
+  }
+
+  void router.replace({ query: nextQuery });
+}
+
+function clearSearch() {
+  searchInput.value = '';
+  appliedSearch.value = '';
+  page.value = 1;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  delete nextQuery.search;
+
+  void router.replace({ query: nextQuery });
 }
 
 function clearAdvancedSearch() {
@@ -529,12 +593,52 @@ function clearAdvancedSearch() {
   appliedAdvancedFilters.value = { ...advancedFilters.value };
   page.value = 1;
   advancedSearchOpen.value = false;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+  delete nextQuery.facultyId;
+  delete nextQuery.departmentId;
+  delete nextQuery.roleId;
+  delete nextQuery.status;
+
+  void router.replace({ query: nextQuery });
 }
 
 function applyAdvancedSearch() {
   appliedAdvancedFilters.value = { ...advancedFilters.value };
   page.value = 1;
   advancedSearchOpen.value = false;
+
+  const nextQuery = { ...route.query } as Record<string, string | (string | null)[] | null | undefined>;
+
+  if (appliedAdvancedFilters.value.facultyId) {
+    nextQuery.facultyId = String(appliedAdvancedFilters.value.facultyId);
+  }
+  else {
+    delete nextQuery.facultyId;
+  }
+
+  if (appliedAdvancedFilters.value.departmentId) {
+    nextQuery.departmentId = String(appliedAdvancedFilters.value.departmentId);
+  }
+  else {
+    delete nextQuery.departmentId;
+  }
+
+  if (appliedAdvancedFilters.value.roleId) {
+    nextQuery.roleId = String(appliedAdvancedFilters.value.roleId);
+  }
+  else {
+    delete nextQuery.roleId;
+  }
+
+  if (appliedAdvancedFilters.value.status) {
+    nextQuery.status = appliedAdvancedFilters.value.status;
+  }
+  else {
+    delete nextQuery.status;
+  }
+
+  void router.replace({ query: nextQuery });
 }
 </script>
 
@@ -585,7 +689,18 @@ function applyAdvancedSearch() {
       </div>
       <div class="max-w-md ml-auto">
         <UFieldGroup class="w-full">
-          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminUsers.list.search')" @keyup.enter="applySearch" />
+          <UInput v-model="searchInput" class="w-full" icon="i-lucide-search" size="lg" variant="outline" :placeholder="t('adminUsers.list.search')" @keyup.enter="applySearch">
+            <template v-if="showClearSearchButton" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                size="sm"
+                icon="i-lucide-x"
+                aria-label="Clear input"
+                @click="clearSearch"
+              />
+            </template>
+          </UInput>
           <UButton icon="i-lucide-search" :label="t('adminUsers.list.search')" color="primary" variant="solid" :loading="isLoading" @click="applySearch" />
           <UPopover
             v-model:open="advancedSearchOpen"
