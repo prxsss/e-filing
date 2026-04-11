@@ -263,6 +263,57 @@ function handleCancel() {
   navigateTo(localPath('/admin/users'));
 }
 
+function resolveCreateUserErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      code?: string;
+      fields?: string[];
+      message?: string;
+      data?: {
+        code?: string;
+        fields?: string[];
+      };
+    };
+  };
+
+  const errorCode = fetchError.data?.code ?? fetchError.data?.data?.code;
+  const duplicateFields = fetchError.data?.fields ?? fetchError.data?.data?.fields ?? [];
+
+  if (errorCode === 'DUPLICATE_USER_FIELDS') {
+    const fieldMessages = duplicateFields.map((field) => {
+      switch (field) {
+        case 'email':
+          return t('adminUsers.create.feedback.duplicateEmail');
+        case 'studentId':
+          return t('adminUsers.create.feedback.duplicateStudentId');
+        case 'staffId':
+          return t('adminUsers.create.feedback.duplicateStaffId');
+        default:
+          return '';
+      }
+    }).filter(Boolean);
+
+    if (fieldMessages.length > 0) {
+      return fieldMessages.join(' ');
+    }
+  }
+
+  const backendMessage = fetchError.data?.message;
+  switch (backendMessage) {
+    case 'Email already exists':
+      return t('adminUsers.create.feedback.duplicateEmail');
+    case 'Student ID already exists':
+      return t('adminUsers.create.feedback.duplicateStudentId');
+    case 'Staff ID already exists':
+      return t('adminUsers.create.feedback.duplicateStaffId');
+    case 'User already exists':
+    case 'Duplicate user fields':
+      return t('adminUsers.create.feedback.userAlreadyExists');
+    default:
+      return t('adminUsers.create.feedback.createError');
+  }
+}
+
 async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
   try {
     let hasRoleError = false;
@@ -311,7 +362,11 @@ async function handleCreateUser(event: FormSubmitEvent<CreateUserSchema>) {
   }
   catch (error) {
     console.error('Error creating user:', error);
-    toast.add({ title: t('adminUsers.create.feedback.createError'), color: 'error' });
+    toast.add({
+      title: t('adminUsers.create.feedback.createError'),
+      description: resolveCreateUserErrorMessage(error),
+      color: 'error',
+    });
   }
   finally {
     loading.value = false;

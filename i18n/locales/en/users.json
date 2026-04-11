@@ -69,7 +69,11 @@
       "description": "Fill in the details below to add a new user.",
       "feedback": {
         "createSuccess": "User has been added successfully.",
-        "createError": "Failed to add user. Please try again."
+        "createError": "Failed to add user. Please try again.",
+        "duplicateEmail": "This email is already in use.",
+        "duplicateStudentId": "This student ID is already in use.",
+        "duplicateStaffId": "This staff ID is already in use.",
+        "userAlreadyExists": "This user already exists."
       }
     },
     "edit": {

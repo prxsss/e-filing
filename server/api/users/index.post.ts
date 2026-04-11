@@ -1,6 +1,6 @@
 import db from '~~/lib/db';
 import { roles, userRoles, users } from '~~/lib/db/schema';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import * as zod from 'zod';
 
 const createUserSchema = zod.object({
@@ -26,6 +26,53 @@ export default defineEventHandler(async (event) => {
   await requirePermission(event, 'user.create');
 
   const body = await readValidatedBody(event, createUserSchema.parse);
+  const normalizedEmail = body.email.trim();
+  const normalizedStudentId = body.studentId?.trim() || null;
+  const normalizedStaffId = body.staffId?.trim() || null;
+
+  const [existingByEmail, existingByStudentId, existingByStaffId] = await Promise.all([
+    db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1),
+    normalizedStudentId
+      ? db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.studentId, normalizedStudentId))
+          .limit(1)
+      : Promise.resolve([]),
+    normalizedStaffId
+      ? db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.staffId, normalizedStaffId))
+          .limit(1)
+      : Promise.resolve([]),
+  ]);
+
+  const duplicateFields: Array<'email' | 'studentId' | 'staffId'> = [];
+  if (existingByEmail[0]) {
+    duplicateFields.push('email');
+  }
+  if (existingByStudentId[0]) {
+    duplicateFields.push('studentId');
+  }
+  if (existingByStaffId[0]) {
+    duplicateFields.push('staffId');
+  }
+
+  if (duplicateFields.length > 0) {
+    throw createError({
+      statusCode: 409,
+      message: 'Duplicate user fields',
+      data: {
+        code: 'DUPLICATE_USER_FIELDS',
+        fields: duplicateFields,
+      },
+    });
+  }
 
   const isStudentRoleName = (name?: string | null) => {
     if (!name)
@@ -63,36 +110,72 @@ export default defineEventHandler(async (event) => {
 
   // const hashedPassword = await hashPassword(body.password);
 
-  const user = await db.transaction(async (tx) => {
-    const [createdUser] = await tx.insert(users).values({
-      studentId: body.studentId?.trim() || null,
-      staffId: body.staffId?.trim() || null,
-      titleEn: body.titleEn?.trim() || null,
-      firstNameEn: body.firstNameEn.trim(),
-      lastNameEn: body.lastNameEn.trim(),
-      titleTh: body.titleTh?.trim() || null,
-      firstNameTh: body.firstNameTh.trim(),
-      lastNameTh: body.lastNameTh.trim(),
-      email: body.email,
-      // passwordHash: hashedPassword,
-      image: body.image || null,
-    }).returning();
+  let user;
 
-    if (!createdUser) {
-      throw createError({ statusCode: 500, message: 'Failed to create user' });
+  try {
+    user = await db.transaction(async (tx) => {
+      const [createdUser] = await tx.insert(users).values({
+        studentId: normalizedStudentId,
+        staffId: normalizedStaffId,
+        titleEn: body.titleEn?.trim() || null,
+        firstNameEn: body.firstNameEn.trim(),
+        lastNameEn: body.lastNameEn.trim(),
+        titleTh: body.titleTh?.trim() || null,
+        firstNameTh: body.firstNameTh.trim(),
+        lastNameTh: body.lastNameTh.trim(),
+        email: normalizedEmail,
+        // passwordHash: hashedPassword,
+        image: body.image || null,
+      }).returning();
+
+      if (!createdUser) {
+        throw createError({ statusCode: 500, message: 'Failed to create user' });
+      }
+
+      await tx.insert(userRoles).values(
+        body.roleAssignments.map(role => ({
+          userId: createdUser.id,
+          roleId: role.roleId,
+          facultyId: role.facultyId,
+          departmentId: role.departmentId,
+        })),
+      );
+
+      return createdUser;
+    });
+  }
+  catch (error: any) {
+    if (error?.code === '23505') {
+      const duplicateFieldByConstraint: Record<string, 'email' | 'studentId' | 'staffId'> = {
+        users_email_unique: 'email',
+        users_student_id_key: 'studentId',
+        users_staff_id_key: 'staffId',
+      };
+
+      const duplicateField = duplicateFieldByConstraint[error?.constraint ?? ''];
+      if (duplicateField) {
+        throw createError({
+          statusCode: 409,
+          message: 'Duplicate user fields',
+          data: {
+            code: 'DUPLICATE_USER_FIELDS',
+            fields: [duplicateField],
+          },
+        });
+      }
+
+      throw createError({
+        statusCode: 409,
+        message: 'Duplicate user fields',
+        data: {
+          code: 'DUPLICATE_USER_FIELDS',
+          fields: [],
+        },
+      });
     }
 
-    await tx.insert(userRoles).values(
-      body.roleAssignments.map(role => ({
-        userId: createdUser.id,
-        roleId: role.roleId,
-        facultyId: role.facultyId,
-        departmentId: role.departmentId,
-      })),
-    );
-
-    return createdUser;
-  });
+    throw error;
+  }
 
   if (!user) {
     throw createError({ statusCode: 500, message: 'Failed to create user' });
