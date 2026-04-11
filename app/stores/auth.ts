@@ -2,11 +2,21 @@ import { defineStore } from 'pinia';
 
 export const useAuthStore = defineStore('auth', () => {
   const localePath = useLocalePath();
-  const { t } = useI18n();
 
   const session = useUserSession();
   const errorMessage = ref<string | null>(null);
   const loading = ref(false);
+
+  function translate(key: string, fallback: string) {
+    const nuxtApp = useNuxtApp() as {
+      $i18n?: {
+        t?: (messageKey: string) => unknown;
+      };
+    };
+
+    const translated = nuxtApp.$i18n?.t?.(key);
+    return typeof translated === 'string' ? translated : fallback;
+  }
 
   function resolveSafeRedirect(redirect?: string) {
     if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//') || redirect.includes('://')) {
@@ -31,12 +41,12 @@ export const useAuthStore = defineStore('auth', () => {
     if (backendMessage) {
       switch (backendMessage) {
         case 'Invalid email or password':
-          return t('auth.login.errors.invalidCredentials');
+          return translate('auth.login.errors.invalidCredentials', 'Invalid email or password');
         case 'Account is not activated.':
         case 'This account is not activated.':
-          return t('auth.login.errors.accountNotActivated');
+          return translate('auth.login.errors.accountNotActivated', 'Account is not activated.');
         case 'Account is banned.':
-          return t('auth.login.errors.accountBanned');
+          return translate('auth.login.errors.accountBanned', 'Account is banned.');
         default:
           return backendMessage;
       }
@@ -44,10 +54,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     const status = fetchError.statusCode ?? fetchError.response?.status;
     if (status === 401) {
-      return t('auth.login.errors.invalidCredentials');
+      return translate('auth.login.errors.invalidCredentials', 'Invalid email or password');
     }
 
-    return t('auth.login.errors.unableToLogin');
+    return translate('auth.login.errors.unableToLogin', 'Unable to login. Please try again.');
   }
 
   async function login(email: string, password: string, redirect?: string) {
