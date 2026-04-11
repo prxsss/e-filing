@@ -63,6 +63,30 @@ function handleCancel() {
   navigateTo(localPath('/admin/faculties'));
 }
 
+function resolveUpdateFacultyErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      code?: string;
+      message?: string;
+      data?: {
+        code?: string;
+      };
+    };
+    message?: string;
+  };
+
+  const errorCode = fetchError.data?.code ?? fetchError.data?.data?.code;
+  const backendMessage = fetchError.data?.message ?? fetchError.message;
+
+  if (errorCode === 'FACULTY_CODE_ALREADY_EXISTS' || backendMessage === 'Faculty code already exists') {
+    return t('adminFaculties.error.duplicateFacultyCode');
+  }
+
+  return t('adminFaculties.error.updateErrorMessage', {
+    message: backendMessage || 'Failed to update faculty. Please try again.',
+  });
+}
+
 async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) {
   try {
     loading.value = true;
@@ -86,9 +110,7 @@ async function handleUpdateFaculty(event: FormSubmitEvent<UpdateFacultySchema>) 
   catch (error: any) {
     toast.add({
       title: t('adminFaculties.error.updateError'),
-      description: t('adminFaculties.error.updateErrorMessage', {
-        message: error?.data?.message || 'Failed to update faculty. Please try again.',
-      }),
+      description: resolveUpdateFacultyErrorMessage(error),
       color: 'error',
     });
   }

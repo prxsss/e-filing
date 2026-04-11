@@ -40,6 +40,28 @@ const { rows, isLoading, page, pageSize, total, refresh } = useFaculties({
   search: appliedSearch,
 });
 
+function resolveDeleteFacultyErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      message?: string;
+    };
+    message?: string;
+  };
+
+  const backendMessage = fetchError.data?.message ?? fetchError.message;
+
+  switch (backendMessage) {
+    case 'Cannot delete this faculty because it still has departments linked to it.':
+      return t('adminFaculties.error.deleteBlockedByDepartments');
+    case 'Cannot delete this faculty because it is still used in role assignments.':
+      return t('adminFaculties.error.deleteBlockedByRoleAssignments');
+    default:
+      return t('adminFaculties.error.deleteErrorMessage', {
+        message: backendMessage || t('common.status.unknownError'),
+      });
+  }
+}
+
 function applySearch() {
   appliedSearch.value = searchInput.value.trim();
   page.value = 1;
@@ -139,15 +161,16 @@ const columns: TableColumn<FacultyListItem>[] = [
                   });
 
                   toast.add({
-                    title: t('adminFaculties.messages.deleteSuccess'),
+                    title: t('adminFaculties.success.deleteSuccess'),
                     color: 'success',
                   });
 
                   await refresh();
                 }
-                catch {
+                catch (error) {
                   toast.add({
-                    title: t('adminFaculties.messages.deleteError'),
+                    title: t('adminFaculties.error.deleteError'),
+                    description: resolveDeleteFacultyErrorMessage(error),
                     color: 'error',
                   });
                 }

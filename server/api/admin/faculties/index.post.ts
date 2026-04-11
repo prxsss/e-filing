@@ -22,8 +22,25 @@ export default defineEventHandler(async (event) => {
     return { success: true, faculty };
   }
   catch (error: any) {
-    if (error?.code === '23505') {
-      throw createError({ statusCode: 409, message: 'Faculty code already exists' });
+    const errorCode = error?.code ?? error?.cause?.code;
+    const errorConstraint = error?.constraint ?? error?.cause?.constraint;
+    const combinedMessage = `${error?.message || ''} ${error?.cause?.message || ''}`.toLowerCase();
+
+    const isUniqueViolation = errorCode === '23505'
+      || combinedMessage.includes('duplicate key value violates unique constraint');
+
+    const isFacultyCodeDuplicate = (errorConstraint && String(errorConstraint).includes('faculties_faculty_code'))
+      || combinedMessage.includes('faculties_faculty_code')
+      || combinedMessage.includes('faculty_code');
+
+    if (isUniqueViolation && isFacultyCodeDuplicate) {
+      throw createError({
+        statusCode: 409,
+        message: 'Faculty code already exists',
+        data: {
+          code: 'FACULTY_CODE_ALREADY_EXISTS',
+        },
+      });
     }
 
     throw error;

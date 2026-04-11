@@ -38,10 +38,13 @@
     "error": {
       "createError": "ไม่สามารถเพิ่มคณะได้",
       "createErrorMessage": "เกิดข้อผิดพลาดขณะสร้างคณะ: {message}",
+      "duplicateFacultyCode": "รหัสคณะนี้มีอยู่แล้ว",
       "updateError": "ไม่สามารถอัปเดตคณะได้",
       "updateErrorMessage": "เกิดข้อผิดพลาดขณะอัปเดตคณะ: {message}",
       "deleteError": "ไม่สามารถลบคณะได้",
-      "deleteErrorMessage": "เกิดข้อผิดพลาดขณะลบคณะ: {message}"
+      "deleteErrorMessage": "เกิดข้อผิดพลาดขณะลบคณะ: {message}",
+      "deleteBlockedByDepartments": "ไม่สามารถลบคณะนี้ได้ เนื่องจากยังมีสาขาวิชาที่เชื่อมโยงอยู่",
+      "deleteBlockedByRoleAssignments": "ไม่สามารถลบคณะนี้ได้ เนื่องจากยังถูกใช้งานในการกำหนดบทบาท"
     }
   }
 }

@@ -36,6 +36,25 @@ function handleCancel() {
   navigateTo(localPath('/admin/faculties'));
 }
 
+function resolveCreateFacultyErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      message?: string;
+    };
+    message?: string;
+  };
+
+  const backendMessage = fetchError.data?.message ?? fetchError.message;
+
+  if (backendMessage === 'Faculty code already exists') {
+    return t('adminFaculties.error.duplicateFacultyCode');
+  }
+
+  return t('adminFaculties.error.createErrorMessage', {
+    message: backendMessage || 'Failed to create faculty. Please try again.',
+  });
+}
+
 async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) {
   try {
     loading.value = true;
@@ -59,9 +78,7 @@ async function handleCreateFaculty(event: FormSubmitEvent<CreateFacultySchema>) 
   catch (error: any) {
     toast.add({
       title: t('adminFaculties.error.createError'),
-      description: t('adminFaculties.error.createErrorMessage', {
-        message: error?.data?.message || 'Failed to create faculty. Please try again.',
-      }),
+      description: resolveCreateFacultyErrorMessage(error),
       color: 'error',
     });
   }

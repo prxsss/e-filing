@@ -38,10 +38,13 @@
     "error": {
       "createError": "Cannot create faculty",
       "createErrorMessage": "Failed to create faculty: {message}",
+      "duplicateFacultyCode": "This faculty code already exists.",
       "updateError": "Cannot update faculty",
       "updateErrorMessage": "Failed to update faculty: {message}",
       "deleteError": "Cannot delete faculty",
-      "deleteErrorMessage": "Failed to delete faculty: {message}"
+      "deleteErrorMessage": "Failed to delete faculty: {message}",
+      "deleteBlockedByDepartments": "Cannot delete this faculty because it still has departments linked to it.",
+      "deleteBlockedByRoleAssignments": "Cannot delete this faculty because it is still used in role assignments."
     }
   }
 }
