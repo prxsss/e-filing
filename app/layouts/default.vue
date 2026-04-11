@@ -235,16 +235,8 @@ const userDisplayName = computed(() => {
             <NotificationBell v-if="authStore.session.loggedIn" />
 
             <div class="pl-4 border-l-2 border-slate-200">
-              <div v-if="false" class="flex items-center gap-3">
-                <div class="hidden md:block space-y-1">
-                  <USkeleton class="h-4 w-24" />
-                  <USkeleton class="h-3 w-16 ml-auto" />
-                </div>
-                <USkeleton class="h-10 w-10 rounded-full" />
-              </div>
-
               <!-- User Info -->
-              <div v-else-if="authStore.session.loggedIn" class="flex items-center gap-3">
+              <div v-if="authStore.session.loggedIn" class="flex items-center gap-3">
                 <div class="text-right hidden md:block">
                   <p class="font-semibold text-sm">
                     {{ userDisplayName }}
@@ -258,11 +250,13 @@ const userDisplayName = computed(() => {
                   size="lg"
                 />
               </div>
-
-              <!-- Login Button -->
-              <UButton v-else :to="localePath('/login')" icon="i-lucide-log-in">
-                {{ t('login') }}
-              </UButton>
+              <div v-else class="flex items-center gap-3">
+                <div class="hidden md:block space-y-1">
+                  <USkeleton class="h-4 w-24" />
+                  <USkeleton class="h-3 w-16 ml-auto" />
+                </div>
+                <USkeleton class="h-10 w-10 rounded-full" />
+              </div>
             </div>
           </template>
         </UDashboardNavbar>
