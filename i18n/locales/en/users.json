@@ -83,7 +83,11 @@
       "feedback": {
         "userNotFound": "Sorry, user with ID {id} not found.",
         "updateSuccess": "User has been updated successfully.",
-        "updateError": "Failed to update user. Please try again."
+        "updateError": "Failed to update user. Please try again.",
+        "duplicateEmail": "This email is already in use.",
+        "duplicateStudentId": "This student ID is already in use.",
+        "duplicateStaffId": "This staff ID is already in use.",
+        "userAlreadyExists": "This user already exists."
       }
     },
     "detail": {

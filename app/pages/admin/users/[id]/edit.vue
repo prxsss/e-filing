@@ -330,6 +330,51 @@ function handleCancel() {
   navigateTo(localPath('/admin/users'));
 }
 
+function resolveUpdateUserErrorMessage(error: unknown) {
+  const apiError = error as {
+    data?: {
+      code?: string;
+      fields?: string[];
+      message?: string;
+      data?: {
+        code?: string;
+        fields?: string[];
+      };
+    };
+    message?: string;
+  };
+
+  const errorCode = apiError.data?.code ?? apiError.data?.data?.code;
+  const duplicateFields = apiError.data?.fields ?? apiError.data?.data?.fields ?? [];
+
+  if (errorCode === 'DUPLICATE_USER_FIELDS') {
+    const fieldMessages = duplicateFields.map((field) => {
+      switch (field) {
+        case 'email':
+          return t('adminUsers.edit.feedback.duplicateEmail');
+        case 'studentId':
+          return t('adminUsers.edit.feedback.duplicateStudentId');
+        case 'staffId':
+          return t('adminUsers.edit.feedback.duplicateStaffId');
+        default:
+          return '';
+      }
+    }).filter(Boolean);
+
+    if (fieldMessages.length > 0) {
+      return fieldMessages.join(' ');
+    }
+
+    return t('adminUsers.edit.feedback.userAlreadyExists');
+  }
+
+  if (errorCode === 'LAST_ADMIN_ROLE_LOCKED') {
+    return apiError.data?.message || apiError.message;
+  }
+
+  return undefined;
+}
+
 async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
   try {
     let hasRoleError = false;
@@ -410,12 +455,10 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
   }
   catch (error) {
     console.error('Error updating user:', error);
-    const apiError = error as { data?: { code?: string; message?: string }; message?: string };
-    const isLastAdminLocked = apiError.data?.code === 'LAST_ADMIN_ROLE_LOCKED';
 
     toast.add({
       title: t('adminUsers.edit.feedback.updateError'),
-      description: isLastAdminLocked ? apiError.data?.message || apiError.message : undefined,
+      description: resolveUpdateUserErrorMessage(error),
       color: 'error',
     });
   }
