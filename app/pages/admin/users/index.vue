@@ -289,7 +289,8 @@ const columns: TableColumn<UserListItem>[] = [
     id: 'actions',
     meta: {
       class: {
-        td: 'text-right',
+        th: 'text-right sticky right-0 z-20 bg-default',
+        td: 'text-right sticky right-0 z-10 bg-default',
       },
     },
     cell: ({ row }) => {
