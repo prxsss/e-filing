@@ -230,6 +230,11 @@ const columns: TableColumn<UserListItem>[] = [
   {
     accessorKey: 'studentId',
     header: t('adminUsers.list.columns.studentId'),
+    meta: {
+      class: {
+        th: 'w-30',
+      },
+    },
     cell: ({ getValue }) => {
       const studentId = getValue() as string | null;
       if (!studentId) {
@@ -241,6 +246,11 @@ const columns: TableColumn<UserListItem>[] = [
   {
     accessorKey: 'staffId',
     header: t('adminUsers.list.columns.staffId'),
+    meta: {
+      class: {
+        th: 'w-30',
+      },
+    },
     cell: ({ getValue }) => {
       const staffId = getValue() as string | null;
       if (!staffId) {
@@ -249,10 +259,10 @@ const columns: TableColumn<UserListItem>[] = [
       return h('div', null, staffId);
     },
   },
-  {
-    accessorKey: 'email',
-    header: t('common.table.email'),
-  },
+  // {
+  //   accessorKey: 'email',
+  //   header: t('common.table.email'),
+  // },
   {
     accessorKey: 'roles',
     header: t('common.table.role'),
