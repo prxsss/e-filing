@@ -21,6 +21,10 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 409,
       message: 'Cannot delete this department because it still has users linked to it.',
+      data: {
+        code: 'DEPARTMENT_HAS_LINKED_USERS',
+        linkedUserCount,
+      },
     });
   }
 

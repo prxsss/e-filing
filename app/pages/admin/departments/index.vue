@@ -55,6 +55,31 @@ const { rows, isLoading, page, pageSize, total, refresh } = useDepartments({
   facultyId: selectedFacultyId,
 });
 
+function resolveDeleteDepartmentErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      code?: string;
+      message?: string;
+      data?: {
+        code?: string;
+      };
+    };
+    message?: string;
+  };
+
+  const errorCode = fetchError.data?.code ?? fetchError.data?.data?.code;
+  const backendMessage = fetchError.data?.message ?? fetchError.message;
+
+  if (
+    errorCode === 'DEPARTMENT_HAS_LINKED_USERS'
+    || backendMessage === 'Cannot delete this department because it still has users linked to it.'
+  ) {
+    return t('adminDepartments.error.deleteBlockedByLinkedUsers');
+  }
+
+  return backendMessage || t('adminDepartments.error.delete');
+}
+
 function applySearch() {
   appliedSearch.value = searchInput.value.trim();
   // appliedFacultyId.value = selectedFacultyId.value;
@@ -105,9 +130,10 @@ async function handleDeleteDepartment(id: number, name: string) {
 
       await refresh();
     }
-    catch {
+    catch (error) {
       toast.add({
         title: t('adminDepartments.error.delete'),
+        description: resolveDeleteDepartmentErrorMessage(error),
         color: 'error',
       });
     }

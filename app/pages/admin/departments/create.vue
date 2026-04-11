@@ -73,6 +73,28 @@ function handleCancel() {
   navigateTo(localPath('/admin/departments'));
 }
 
+function resolveCreateDepartmentErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      code?: string;
+      message?: string;
+      data?: {
+        code?: string;
+      };
+    };
+    message?: string;
+  };
+
+  const errorCode = fetchError.data?.code ?? fetchError.data?.data?.code;
+  const backendMessage = fetchError.data?.message ?? fetchError.message;
+
+  if (errorCode === 'DEPARTMENT_CODE_ALREADY_EXISTS' || backendMessage === 'Department code already exists') {
+    return t('adminDepartments.error.duplicateDepartmentCode');
+  }
+
+  return t('adminDepartments.error.create');
+}
+
 async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSubmit>) {
   try {
     loading.value = true;
@@ -94,9 +116,10 @@ async function handleCreateDepartment(event: FormSubmitEvent<CreateDepartmentSub
 
     navigateTo(localPath('/admin/departments'));
   }
-  catch {
+  catch (error) {
     toast.add({
       title: t('adminDepartments.error.create'),
+      description: resolveCreateDepartmentErrorMessage(error),
       color: 'error',
     });
   }

@@ -44,8 +44,25 @@ export default defineEventHandler(async (event) => {
     };
   }
   catch (error: any) {
-    if (error?.code === '23505') {
-      throw createError({ statusCode: 409, message: 'Department code already exists' });
+    const errorCode = error?.code ?? error?.cause?.code;
+    const errorConstraint = error?.constraint ?? error?.cause?.constraint;
+    const combinedMessage = `${error?.message || ''} ${error?.cause?.message || ''}`.toLowerCase();
+
+    const isUniqueViolation = errorCode === '23505'
+      || combinedMessage.includes('duplicate key value violates unique constraint');
+
+    const isDepartmentCodeDuplicate = (errorConstraint && String(errorConstraint).includes('departments_department_code'))
+      || combinedMessage.includes('departments_department_code')
+      || combinedMessage.includes('department_code');
+
+    if (isUniqueViolation && isDepartmentCodeDuplicate) {
+      throw createError({
+        statusCode: 409,
+        message: 'Department code already exists',
+        data: {
+          code: 'DEPARTMENT_CODE_ALREADY_EXISTS',
+        },
+      });
     }
 
     throw error;

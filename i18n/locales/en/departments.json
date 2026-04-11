@@ -36,7 +36,9 @@
     "error": {
       "create": "Failed to add department. Please try again.",
       "update": "Failed to update department. Please try again.",
-      "delete": "Failed to delete department. Please try again."
+      "delete": "Failed to delete department. Please try again.",
+      "deleteBlockedByLinkedUsers": "Cannot delete this department because it still has users linked to it.",
+      "duplicateDepartmentCode": "This department code already exists."
     },
     "validation": {
       "facultyRequired": "Please select a faculty"
