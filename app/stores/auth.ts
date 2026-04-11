@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 
 export const useAuthStore = defineStore('auth', () => {
   const localePath = useLocalePath();
+  const { t } = useI18n();
 
   const session = useUserSession();
   const errorMessage = ref<string | null>(null);
@@ -28,15 +29,25 @@ export const useAuthStore = defineStore('auth', () => {
 
     const backendMessage = fetchError.data?.message;
     if (backendMessage) {
-      return backendMessage;
+      switch (backendMessage) {
+        case 'Invalid email or password':
+          return t('auth.login.errors.invalidCredentials');
+        case 'Account is not activated.':
+        case 'This account is not activated.':
+          return t('auth.login.errors.accountNotActivated');
+        case 'Account is banned.':
+          return t('auth.login.errors.accountBanned');
+        default:
+          return backendMessage;
+      }
     }
 
     const status = fetchError.statusCode ?? fetchError.response?.status;
     if (status === 401) {
-      return 'Invalid email or password';
+      return t('auth.login.errors.invalidCredentials');
     }
 
-    return 'Unable to login. Please try again.';
+    return t('auth.login.errors.unableToLogin');
   }
 
   async function login(email: string, password: string, redirect?: string) {
