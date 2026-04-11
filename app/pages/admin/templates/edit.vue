@@ -283,13 +283,21 @@ function normalizeFieldAutoGenerateShape<T extends Record<string, any>>(field: T
 }
 
 function toAutoDateTimeFormatPayload(field: any) {
-  const config = getAutoDateTimeFormatConfig(field);
+  // Merge stored config (from DB dateFormatConfig) with direct field properties;
+  // direct properties (set by toolbar) take precedence over stored config
+  const merged = { ...(field?.dateFormatConfig ?? {}), ...field };
+  const config = getAutoDateTimeFormatConfig(merged);
   return {
     dateSeparator: config.dateSeparator,
     dateSeparatorSpacing: config.dateSeparatorSpacing,
     dateShowDay: config.dateShowDay,
     dateShowMonth: config.dateShowMonth,
     dateShowYear: config.dateShowYear,
+    dateShowDayOfWeek: config.dateShowDayOfWeek,
+    dateDayOfWeekStyle: config.dateDayOfWeekStyle,
+    dateDayOfWeekGap: config.dateDayOfWeekGap,
+    dateMonthStyle: config.dateMonthStyle,
+    dateCalendar: config.dateCalendar,
     timeSeparator: config.timeSeparator,
     timeSeparatorSpacing: config.timeSeparatorSpacing,
     timeShowHour: config.timeShowHour,

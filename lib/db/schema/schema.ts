@@ -349,6 +349,8 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	strikeThroughGroupMode: boolean("strike_through_group_mode").default(false),
 	strikeLineThickness: doublePrecision("strike_line_thickness").default(1.5),
 	sessionField: text("session_field"),
+	dropdownConfig: jsonb("dropdown_config").default({}),
+	dateFormatConfig: jsonb("date_format_config").default({}),
 });
 
 export const rolePermissions = pgTable("role_permissions", {

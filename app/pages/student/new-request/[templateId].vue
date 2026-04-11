@@ -75,7 +75,9 @@ const pdfFile = ref<File | null>(null);
 const previewPdfFile = ref<File | null>(null);
 const placedFields = ref<any[]>([]);
 const fieldValues = ref<Record<string, string>>({});
+const overlayDisplayFieldValues = ref<Record<string, string>>({});
 const previewSyncedFieldValues = ref<Record<string, string>>({});
+const dropdownOptionsCache = ref<Record<string, Array<{ value: string; label: string }>>>({});
 const scale = ref(1);
 const isRefreshingPreview = ref(false);
 const submitterSignatureDataUrl = ref<string | null>(null);
@@ -87,6 +89,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 
 let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let previewRequestToken = 0;
+let overlayValueSyncToken = 0;
 
 // --- Recipient selection ---
 const { locale } = useI18n();
@@ -116,6 +119,96 @@ function getFieldSignerStepId(field: any): string | null {
   return rawStepId.length > 0 ? rawStepId : null;
 }
 
+function getStoredFieldValueForTemplateField(field: any): string {
+  const instanceId = String(field?.instanceId ?? '').trim();
+  if (instanceId.length > 0 && fieldValues.value[instanceId] !== undefined) {
+    return String(fieldValues.value[instanceId] ?? '');
+  }
+
+  const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
+  if (Number.isFinite(fieldId) && fieldValues.value[String(fieldId)] !== undefined) {
+    return String(fieldValues.value[String(fieldId)] ?? '');
+  }
+
+  return '';
+}
+
+function resolveTemplateFieldValue(field: any): string {
+  const sourceInstanceId = String(field?.instanceId ?? '').trim();
+  if (sourceInstanceId.length > 0) {
+    const matchingPlacedField = placedFields.value.find(candidate => String(candidate?.instanceId ?? '').trim() === sourceInstanceId);
+    if (matchingPlacedField) {
+      return resolveCurrentFieldValue(matchingPlacedField);
+    }
+  }
+
+  const storedValue = getStoredFieldValueForTemplateField(field);
+  return isCheckboxField(field) ? normalizeCheckboxValue(storedValue) : storedValue;
+}
+
+function isTemplateFieldVisible(field: any): boolean {
+  const rule = getVisibilityRule(field);
+  if (!rule || rule.enabled === false) {
+    return true;
+  }
+
+  const templateFields = Array.isArray(templateData.value?.placedFieldsData)
+    ? templateData.value!.placedFieldsData as any[]
+    : [];
+
+  let isChecked = false;
+  if (rule.sourceGroupId) {
+    const groupCheckboxes = templateFields.filter((candidate) => {
+      return isCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+    });
+    isChecked = groupCheckboxes.some(candidate => normalizeCheckboxValue(resolveTemplateFieldValue(candidate)) === 'true');
+  }
+  else {
+    const sourceField = templateFields.find(
+      candidate => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+    );
+
+    if (!sourceField) {
+      return true;
+    }
+
+    const sourceValue = normalizeCheckboxValue(resolveTemplateFieldValue(sourceField));
+    isChecked = sourceValue === 'true';
+  }
+
+  return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+}
+
+const activeSignerStepIds = computed(() => {
+  const templateFields = Array.isArray(templateData.value?.placedFieldsData)
+    ? templateData.value!.placedFieldsData as any[]
+    : [];
+  const activeStepIds = new Set<string>();
+
+  for (const field of templateFields) {
+    const signerStepId = getFieldSignerStepId(field);
+    if (!signerStepId) {
+      continue;
+    }
+
+    const fieldType = getFieldType(field);
+    const contributesToSignerStep = fieldType === 'signature'
+      || (field.isFillable !== false && field.is_fillable !== false);
+
+    if (!contributesToSignerStep) {
+      continue;
+    }
+
+    if (!isTemplateFieldVisible(field)) {
+      continue;
+    }
+
+    activeStepIds.add(signerStepId);
+  }
+
+  return activeStepIds;
+});
+
 const recipientSteps = computed(() => {
   const steps = signingSteps.value;
   if (!steps.length)
@@ -127,7 +220,22 @@ const recipientSteps = computed(() => {
   // Steps that are pre-assigned (template creator locked a specific person) and
   // steps that belong to the submitter (self-signed by role match on the server)
   // are handled automatically — no user interaction needed.
-  return steps.filter(s => !s.assignedUserId && s.id !== submitterStepId);
+  return steps.filter(s => !s.assignedUserId && s.id !== submitterStepId && activeSignerStepIds.value.has(String(s.id)));
+});
+
+const recipientStages = computed(() => {
+  const grouped = new Map<number, SigningStep[]>();
+
+  for (const step of recipientSteps.value) {
+    const order = Number(step.order) || 0;
+    const stageSteps = grouped.get(order) ?? [];
+    stageSteps.push(step);
+    grouped.set(order, stageSteps);
+  }
+
+  return Array.from(grouped.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([order, steps]) => ({ order, steps }));
 });
 
 const allRecipientsSelected = computed(() =>
@@ -507,6 +615,144 @@ function getPreviewFieldKey(field: any): string {
   return getFieldValueKey(field);
 }
 
+function getDropdownConfig(field: any): { sourceTable: string; labelColumn?: string; roleId?: number } | null {
+  const rawConfig = field?.dropdownConfig ?? field?.dropdown_config;
+  if (!rawConfig || typeof rawConfig !== 'object') {
+    return null;
+  }
+
+  const sourceTable = String(rawConfig.sourceTable ?? rawConfig.source_table ?? '').trim();
+  const labelColumn = String(rawConfig.labelColumn ?? rawConfig.label_column ?? '').trim();
+  const roleId = Number.parseInt(String(rawConfig.roleId ?? rawConfig.role_id ?? ''), 10);
+
+  if (!sourceTable) {
+    return null;
+  }
+
+  if (sourceTable === 'users') {
+    if (!Number.isFinite(roleId) || roleId <= 0) {
+      return null;
+    }
+
+    return {
+      sourceTable,
+      roleId,
+    };
+  }
+
+  if (!labelColumn) {
+    return null;
+  }
+
+  return {
+    sourceTable,
+    labelColumn,
+  };
+}
+
+function buildDropdownCacheKey(config: { sourceTable: string; labelColumn?: string; roleId?: number }): string {
+  return `${config.sourceTable}|${config.labelColumn ?? ''}|${config.roleId ?? ''}`;
+}
+
+async function getDropdownOptionsForField(field: any): Promise<Array<{ value: string; label: string }>> {
+  const config = getDropdownConfig(field);
+  if (!config) {
+    return [];
+  }
+
+  const cacheKey = buildDropdownCacheKey(config);
+  const cached = dropdownOptionsCache.value[cacheKey];
+  if (Array.isArray(cached)) {
+    return cached;
+  }
+
+  try {
+    const response = await $fetch('/api/template-fields/dropdown-options', {
+      query: {
+        table: config.sourceTable,
+        labelColumn: config.labelColumn,
+        roleId: config.roleId,
+      },
+    });
+
+    const options = response?.success && Array.isArray(response.data)
+      ? response.data
+          .filter(item => item && (item.id ?? null) !== null)
+          .map(item => ({
+            value: String(item.id),
+            label: String(item.label ?? item.id),
+          }))
+      : [];
+
+    dropdownOptionsCache.value[cacheKey] = options;
+    return options;
+  }
+  catch (err) {
+    console.error('Failed to load dropdown options for preview:', err);
+    dropdownOptionsCache.value[cacheKey] = [];
+    return [];
+  }
+}
+
+async function resolvePreviewFieldValue(field: any): Promise<string> {
+  const rawValue = resolveCurrentFieldValue(field);
+  if (getFieldType(field) !== 'dropdown') {
+    return rawValue;
+  }
+
+  const selectedValue = String(rawValue ?? '').trim();
+  if (!selectedValue.length) {
+    return '';
+  }
+
+  const options = await getDropdownOptionsForField(field);
+  const matched = options.find(option => option.value === selectedValue);
+  return matched ? matched.label : selectedValue;
+}
+
+async function syncOverlayDisplayFieldValues() {
+  const requestToken = ++overlayValueSyncToken;
+  const rawSnapshot = { ...fieldValues.value };
+  const nextValues: Record<string, string> = { ...rawSnapshot };
+  const visibleFields = getVisiblePlacedFields();
+
+  await Promise.all(
+    visibleFields.map(async (field: any) => {
+      if (getFieldType(field) !== 'dropdown') {
+        return;
+      }
+
+      const valueKey = getFieldValueKey(field);
+      if (!valueKey) {
+        return;
+      }
+
+      const selectedValue = String(rawSnapshot[valueKey] ?? '').trim();
+      if (!selectedValue.length) {
+        nextValues[valueKey] = '';
+        return;
+      }
+
+      const options = await getDropdownOptionsForField(field);
+      const matched = options.find(option => option.value === selectedValue);
+      const displayValue = matched ? matched.label : selectedValue;
+
+      nextValues[valueKey] = displayValue;
+
+      const manualKey = getManualFieldKey(field);
+      if (manualKey && manualKey !== valueKey && Object.prototype.hasOwnProperty.call(rawSnapshot, manualKey)) {
+        nextValues[manualKey] = displayValue;
+      }
+    }),
+  );
+
+  if (requestToken !== overlayValueSyncToken) {
+    return;
+  }
+
+  overlayDisplayFieldValues.value = nextValues;
+}
+
 function getVisibilityRule(field: any): VisibilityRule | null {
   const rawRule = field?.visibilityRule ?? field?.visibility_rule;
   if (!rawRule || typeof rawRule !== 'object') {
@@ -580,6 +826,7 @@ function handleFieldValueUpdate(field: any, nextValue: string) {
   }
 
   if (normalizedNextValue === 'true') {
+    const alreadySelected = fieldValues.value[key] === 'true';
     for (const candidate of placedFields.value) {
       if (!isCheckboxField(candidate) || getCheckboxGroupId(candidate) !== groupId) {
         continue;
@@ -588,7 +835,7 @@ function handleFieldValueUpdate(field: any, nextValue: string) {
       if (!candidateKey) {
         continue;
       }
-      fieldValues.value[candidateKey] = candidateKey === key ? 'true' : '';
+      fieldValues.value[candidateKey] = (!alreadySelected && candidateKey === key) ? 'true' : '';
     }
     return;
   }
@@ -802,24 +1049,38 @@ async function refreshPreviewPdf() {
   }
 
   const requestToken = ++previewRequestToken;
-  const fieldValueSnapshot = Object.fromEntries(
-    getVisiblePlacedFields()
-      .map((field: any) => {
-        const key = getPreviewFieldKey(field);
-        if (!key) {
-          return null;
-        }
-        return [key, resolveCurrentFieldValue(field)] as const;
-      })
-      .filter((entry): entry is readonly [string, string] => Array.isArray(entry)),
+  const visibleFields = getVisiblePlacedFields();
+  const rawValueSnapshotEntries = visibleFields
+    .map((field: any) => {
+      const key = getPreviewFieldKey(field);
+      if (!key) {
+        return null;
+      }
+      return [key, resolveCurrentFieldValue(field)] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => Array.isArray(entry));
+  const rawFieldValueSnapshot = Object.fromEntries(rawValueSnapshotEntries);
+
+  const displayValueSnapshotEntries = await Promise.all(
+    visibleFields.map(async (field: any) => {
+      const key = getPreviewFieldKey(field);
+      if (!key) {
+        return null;
+      }
+      const displayValue = await resolvePreviewFieldValue(field);
+      return [key, displayValue] as const;
+    }),
+  );
+  const displayFieldValueSnapshot = Object.fromEntries(
+    displayValueSnapshotEntries.filter((entry): entry is readonly [string, string] => Array.isArray(entry)),
   );
 
   const formData = new FormData();
   formData.append('pdfFile', pdfFile.value, pdfFile.value.name);
   formData.append('fields', JSON.stringify(
-    getVisiblePlacedFields().map((field: any) => ({
+    visibleFields.map((field: any) => ({
       ...field,
-      sampleValue: fieldValueSnapshot[getPreviewFieldKey(field)] || '',
+      sampleValue: displayFieldValueSnapshot[getPreviewFieldKey(field)] || '',
       useFallbackLabel: false,
       showFieldHighlight: false,
     })),
@@ -846,7 +1107,7 @@ async function refreshPreviewPdf() {
     previewPdfFile.value = new File([
       previewBytes,
     ], `template-preview-${templateId}.pdf`, { type: 'application/pdf' });
-    previewSyncedFieldValues.value = fieldValueSnapshot;
+    previewSyncedFieldValues.value = rawFieldValueSnapshot;
   }
   catch (err) {
     console.error('Failed to refresh preview PDF:', err);
@@ -1132,7 +1393,7 @@ async function submitRequest() {
 
     for (const field of getVisibleFillableFields()) {
       const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
-      if (!Number.isFinite(fieldId) || isAutoGeneratedField(field)) {
+      if (!Number.isFinite(fieldId)) {
         continue;
       }
 
@@ -1192,32 +1453,14 @@ async function submitRequest() {
     const recipients = recipientSteps.value
       .filter(step => selectedRecipients.value[step.id])
       .map(step => ({ stepId: step.id, userId: selectedRecipients.value[step.id] }));
+    const activeStepIds = Array.from(activeSignerStepIds.value);
 
     const updateResult: any = await $fetch(`/api/requests/${activeRequestId}/submit`, {
       method: 'POST',
-      body: { recipients },
+      body: { recipients, activeStepIds },
     });
 
     if (updateResult.success) {
-      // Notify the next step's user (first recipient)
-      const firstRecipient = recipients.length > 0 ? recipients[0] : null;
-      if (firstRecipient && firstRecipient.userId) {
-        try {
-          await $fetch('/api/notifications/notify', {
-            method: 'POST',
-            body: JSON.stringify({
-              userId: firstRecipient.userId,
-              message: 'You have a new request to sign.',
-              type: 'sign_request',
-              link: `/signer/sign/${activeRequestId}`,
-            }),
-          });
-        }
-        catch (notifyErr) {
-          console.error('Failed to send notification:', notifyErr);
-        }
-      }
-
       const needsSubmitterSignature = Boolean(updateResult?.data?.requiresSubmitterSignature);
       if (needsSubmitterSignature) {
         if (submitterSignatureDataUrl.value) {
@@ -1363,9 +1606,21 @@ watch(recipientSteps, (steps) => {
   }
 }, { immediate: true });
 
+watch(activeSignerStepIds, (activeStepIds) => {
+  for (const stepId of Object.keys(selectedRecipients.value)) {
+    if (!activeStepIds.has(stepId)) {
+      delete selectedRecipients.value[stepId];
+    }
+  }
+  if (recipientSteps.value.length === 0) {
+    showRecipientSelectionError.value = false;
+  }
+});
+
 watch([pdfFile, placedFields, fieldValues], () => {
   hydrateFieldValueKeys();
   clearHiddenFieldValues();
+  void syncOverlayDisplayFieldValues();
   schedulePreviewRefresh();
 }, { deep: true, immediate: true });
 </script>
@@ -1462,7 +1717,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
-              :field-values="fieldValues"
+              :field-values="overlayDisplayFieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...
@@ -1546,23 +1801,28 @@ watch([pdfFile, placedFields, fieldValues], () => {
                         class="field-group rounded-lg px-2 py-2.5 sm:px-3 sm:py-3 transition-colors"
                         :class="hasCheckboxGroupValidationError(item.fields) ? 'border border-red-400 bg-white' : 'border border-transparent bg-white'"
                       >
-                        <div class="mb-2 flex items-center gap-1 text-sm font-medium text-gray-700">
-                          <span>{{ locale === 'th' ? 'เลือกได้ 1 ตัวเลือก' : 'Select one option' }}</span>
+                        <div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-700">
+                          <span>{{ item.fields[0]?.formGroupTitle?.trim() || item.fields[0]?.formGroupLabel?.trim() }}</span>
                           <span v-if="isCheckboxGroupRequired(item.fields)" class="text-red-500">*</span>
                         </div>
 
-                        <div class="flex flex-wrap items-start gap-x-4 gap-y-2.5 sm:gap-x-6 sm:gap-y-2">
-                          <form-field-input
+                        <div class="flex flex-col gap-y-2">
+                          <div
                             v-for="optionField in item.fields"
                             :key="optionField.instanceId"
-                            class="mb-0! w-full sm:w-auto"
-                            :model-value="fieldValues[getFieldValueKey(optionField)]"
-                            :field="{ ...optionField, label: optionField.formQuestionLabel || optionField.label }"
-                            :disabled="isSaving || isCheckboxTemporarilyDisabled(optionField)"
-                            :render-as-radio="true"
-                            :hide-required-asterisk="true"
-                            @update:model-value="(value) => handleFieldValueUpdate(optionField, String(value ?? ''))"
-                          />
+                            class="contents"
+                            @click.capture="() => { if (fieldValues[getFieldValueKey(optionField)] === 'true') handleFieldValueUpdate(optionField, 'false') }"
+                          >
+                            <form-field-input
+                              class="mb-0! w-full sm:w-auto"
+                              :model-value="fieldValues[getFieldValueKey(optionField)]"
+                              :field="{ ...optionField, label: optionField.formQuestionLabel || optionField.label }"
+                              :disabled="isSaving || isCheckboxTemporarilyDisabled(optionField)"
+                              :render-as-radio="true"
+                              :hide-required-asterisk="true"
+                              @update:model-value="(value) => handleFieldValueUpdate(optionField, String(value ?? ''))"
+                            />
+                          </div>
                         </div>
 
                         <p
@@ -1679,32 +1939,42 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 }}
               </p>
               <div
-                v-for="step in recipientSteps"
-                :key="step.id"
+                v-for="stage in recipientStages"
+                :key="`stage-${stage.order}`"
+                class="space-y-3"
               >
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                  {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order - 1}` : `Recipient for step ${step.order - 1}` }}
-                  <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
-                  <span class="ml-1 text-red-500">*</span>
-                </label>
-                <USelectMenu
-                  v-model="selectedRecipients[step.id]"
-                  :items="getUserItems(step)"
-                  value-key="value"
-                  label-key="label"
-                  :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? (locale === 'th' ? 'กำลังโหลด...' : 'Loading...') : (locale === 'th' ? 'เลือกผู้รับ...' : 'Select recipient...')"
-                  :disabled="isSaving || !!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                  :loading="!!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                  :search-input="{ placeholder: locale === 'th' ? 'ค้นหา...' : 'Search...' }"
-                  icon="i-heroicons-user"
-                  class="w-full"
-                />
-                <p
-                  v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                  class="mt-1 text-xs text-gray-400"
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {{ locale === 'th' ? `ขั้นตอนลำดับที่ ${stage.order}` : `Stage ${stage.order}` }}
+                </div>
+
+                <div
+                  v-for="step in stage.steps"
+                  :key="step.id"
                 >
-                  {{ locale === 'th' ? 'ไม่พบผู้ใช้ที่มีบทบาทนี้' : 'No users found with this role' }}
-                </p>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order}` : `Recipient for step ${step.order}` }}
+                    <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
+                    <span class="ml-1 text-red-500">*</span>
+                  </label>
+                  <USelectMenu
+                    v-model="selectedRecipients[step.id]"
+                    :items="getUserItems(step)"
+                    value-key="value"
+                    label-key="label"
+                    :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? (locale === 'th' ? 'กำลังโหลด...' : 'Loading...') : (locale === 'th' ? 'เลือกผู้รับ...' : 'Select recipient...')"
+                    :disabled="isSaving || !!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                    :loading="!!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                    :search-input="{ placeholder: locale === 'th' ? 'ค้นหา...' : 'Search...' }"
+                    icon="i-heroicons-user"
+                    class="w-full"
+                  />
+                  <p
+                    v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
+                    class="mt-1 text-xs text-gray-400"
+                  >
+                    {{ locale === 'th' ? 'ไม่พบผู้ใช้ที่มีบทบาทนี้' : 'No users found with this role' }}
+                  </p>
+                </div>
               </div>
             </div>
           </UCard>

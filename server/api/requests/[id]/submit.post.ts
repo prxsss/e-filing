@@ -3,7 +3,7 @@ import { getSignRequestContext } from '~~/server/utils/get-sign-request-context'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, roles, signatureFlow, userRoles, users } from '../../../../lib/db/schema';
+import { notifications, request, requestTemplate, requestTemplateValues, roles, signatureFlow, userRoles, users } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -49,13 +49,177 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    // recipients: Array<{ stepId: string; userId: string }>
-    const recipientMap = new Map<string, string>(
-      (body?.recipients ?? []).map((r: { stepId: string; userId: string }) => [r.stepId, r.userId]),
+    const rawRecipients = Array.isArray(body?.recipients)
+      ? body.recipients as Array<{ stepId?: unknown; userId?: unknown }>
+      : [];
+
+    const recipientMap = new Map<string, string>();
+    const seenStepIds = new Set<string>();
+
+    for (const recipient of rawRecipients) {
+      const stepId = String(recipient?.stepId ?? '').trim();
+      const userId = String(recipient?.userId ?? '').trim();
+
+      if (!stepId.length || !userId.length) {
+        return { success: false, error: 'Invalid recipient assignment payload' };
+      }
+
+      if (seenStepIds.has(stepId)) {
+        return { success: false, error: `Duplicate recipient assignment for step ${stepId}` };
+      }
+
+      seenStepIds.add(stepId);
+      recipientMap.set(stepId, userId);
+    }
+
+    const rawActiveStepIds = Array.isArray(body?.activeStepIds)
+      ? body.activeStepIds as unknown[]
+      : [];
+    const requestedActiveStepIds = new Set<string>(
+      rawActiveStepIds
+        .map(stepId => String(stepId ?? '').trim())
+        .filter(stepId => stepId.length > 0),
     );
 
     const signingSteps = (template.signingFlowData as any[]) || [];
     const placedFields = (template.placedFieldsData as any[]) || [];
+
+    const storedFieldValues = await db
+      .select({
+        fieldId: requestTemplateValues.fieldId,
+        fieldInstanceId: requestTemplateValues.fieldInstanceId,
+        value: requestTemplateValues.value,
+      })
+      .from(requestTemplateValues)
+      .where(eq(requestTemplateValues.requestId, requestId));
+
+    const valueByInstanceId = new Map<string, string>();
+    const valueByFieldId = new Map<number, string>();
+    for (const row of storedFieldValues) {
+      const instanceId = String(row.fieldInstanceId ?? '').trim();
+      const value = String(row.value ?? '');
+      if (instanceId.length > 0) {
+        valueByInstanceId.set(instanceId, value);
+      }
+
+      const fieldId = Number.parseInt(String(row.fieldId ?? ''), 10);
+      if (Number.isFinite(fieldId) && !valueByFieldId.has(fieldId)) {
+        valueByFieldId.set(fieldId, value);
+      }
+    }
+
+    const getStoredTemplateFieldValue = (field: any): string => {
+      const instanceId = String(field?.instanceId ?? '').trim();
+      if (instanceId.length > 0 && valueByInstanceId.has(instanceId)) {
+        return String(valueByInstanceId.get(instanceId) ?? '');
+      }
+
+      const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
+      if (Number.isFinite(fieldId) && valueByFieldId.has(fieldId)) {
+        return String(valueByFieldId.get(fieldId) ?? '');
+      }
+
+      return '';
+    };
+
+    const getTemplateFieldType = (field: any): string =>
+      String(field?.type ?? field?.fieldType ?? '').trim().toLowerCase();
+
+    const isTemplateCheckboxField = (field: any): boolean => {
+      const fieldType = getTemplateFieldType(field);
+      const fieldName = String(field?.name ?? '').trim().toLowerCase();
+      return fieldType === 'checkbox' || fieldName === 'check mark';
+    };
+
+    const normalizeCheckboxValue = (value: unknown): string => {
+      const normalized = String(value ?? '').trim().toLowerCase();
+      return ['true', '1', 'yes', 'y', 'checked', 'on'].includes(normalized) ? 'true' : '';
+    };
+
+    const getTemplateVisibilityRule = (field: any) => {
+      const rawRule = field?.visibilityRule ?? field?.visibility_rule;
+      if (!rawRule || typeof rawRule !== 'object') {
+        return null;
+      }
+
+      const sourceFieldInstanceId = String(rawRule.sourceFieldInstanceId ?? rawRule.source_field_instance_id ?? '').trim();
+      const sourceGroupId = String(rawRule.sourceGroupId ?? rawRule.source_group_id ?? '').trim();
+      if (!sourceFieldInstanceId.length && !sourceGroupId.length) {
+        return null;
+      }
+
+      return {
+        enabled: rawRule.enabled !== false,
+        sourceFieldInstanceId: sourceFieldInstanceId || null,
+        sourceGroupId: sourceGroupId || null,
+        operator: rawRule.operator === 'isUnchecked' ? 'isUnchecked' as const : 'isChecked' as const,
+      };
+    };
+
+    const isTemplateFieldVisible = (field: any): boolean => {
+      const rule = getTemplateVisibilityRule(field);
+      if (!rule || rule.enabled === false) {
+        return true;
+      }
+
+      let isChecked = false;
+      if (rule.sourceGroupId) {
+        const groupCheckboxes = placedFields.filter((candidate: any) => {
+          return isTemplateCheckboxField(candidate) && String(candidate?.groupId ?? '').trim() === rule.sourceGroupId;
+        });
+
+        isChecked = groupCheckboxes.some((candidate: any) =>
+          normalizeCheckboxValue(getStoredTemplateFieldValue(candidate)) === 'true',
+        );
+      }
+      else {
+        const sourceField = placedFields.find(
+          (candidate: any) => String(candidate?.instanceId ?? '').trim() === String(rule.sourceFieldInstanceId ?? ''),
+        );
+
+        if (!sourceField) {
+          return true;
+        }
+
+        isChecked = normalizeCheckboxValue(getStoredTemplateFieldValue(sourceField)) === 'true';
+      }
+
+      return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
+    };
+
+    const activeStepIdsFromTemplate = new Set<string>();
+    for (const field of placedFields) {
+      const signerStepId = String(field?.signerStepId ?? field?.signer_step_id ?? '').trim();
+      if (!signerStepId.length) {
+        continue;
+      }
+
+      const fieldType = getTemplateFieldType(field);
+      const contributesToSignerStep = fieldType === 'signature'
+        || (field.isFillable !== false && field.is_fillable !== false);
+
+      if (!contributesToSignerStep || !isTemplateFieldVisible(field)) {
+        continue;
+      }
+
+      activeStepIdsFromTemplate.add(signerStepId);
+    }
+
+    const effectiveActiveStepIds = requestedActiveStepIds.size > 0
+      ? requestedActiveStepIds
+      : activeStepIdsFromTemplate;
+
+    for (const stepId of requestedActiveStepIds) {
+      if (!activeStepIdsFromTemplate.has(stepId)) {
+        return { success: false, error: `Step ${stepId} is not active for current request values` };
+      }
+    }
+
+    for (const stepId of recipientMap.keys()) {
+      if (!effectiveActiveStepIds.has(stepId)) {
+        return { success: false, error: `Recipient assignment for inactive step ${stepId} is not allowed` };
+      }
+    }
 
     // Signature fields require explicit signing; submission alone must not auto-sign them.
     const signatureFieldInstanceIdSet = new Set(
@@ -66,7 +230,9 @@ export default defineEventHandler(async (event) => {
     );
 
     // Create signature_flow entries sorted by order
-    const sorted = [...signingSteps].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const sorted = signingSteps
+      .filter((step: any) => effectiveActiveStepIds.has(String(step?.id ?? '').trim()))
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     if (sorted.length > 0) {
       // Fetch the submitter's DB role IDs for self-assignment logic (see below)
@@ -191,10 +357,10 @@ export default defineEventHandler(async (event) => {
       const insertedFlowEntries = await db.insert(signatureFlow).values(flowEntries).returning();
 
       // Some requests may have no signing steps at all —
-      // in that case, skip notifications and directly mark the request as submitted
-      if (insertedFlowEntries.length > 1) {
-      // Notify the first signer (teacher)
-        const [context, [firstStep]] = await Promise.all([
+      // in that case, skip notifications and directly mark the request as submitted.
+      // For parallel steps, notify every assignee in the first active pending group.
+      if (insertedFlowEntries.length > 0) {
+        const [context, pendingAssignees] = await Promise.all([
           getSignRequestContext(requestId),
           db
             .select({
@@ -203,22 +369,58 @@ export default defineEventHandler(async (event) => {
             concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
           `,
               stepOrder: signatureFlow.stepOrder,
+              assignedUserId: signatureFlow.assignedUserId,
             })
             .from(signatureFlow)
             .innerJoin(users, eq(signatureFlow.assignedUserId, users.id))
             .where(and(
-
-              // The first position ([0]) is a student who is the first signer, so index [1] (next signer -> teacher) must be used
-              // instead of [0]
-              eq(signatureFlow.id, insertedFlowEntries[1].id),
-
               eq(signatureFlow.requestId, requestId),
+              eq(signatureFlow.status, 'pending'),
             ))
-            .orderBy(asc(signatureFlow.stepOrder))
-            .limit(1),
+            .orderBy(asc(signatureFlow.stepOrder)),
         ]);
-        if (firstStep) {
-          await signNotificationService.notifySigner(firstStep, context);
+
+        const nitroApp = useNitroApp() as any;
+
+        const uniquePendingAssignees = Array.from(new Map(
+          pendingAssignees
+            .filter(step => step.assignedUserId && step.assignedUserId !== submitterId)
+            .map(step => [step.assignedUserId, {
+              userId: step.assignedUserId,
+              signerEmail: step.signerEmail,
+              signerName: step.signerName,
+              stepOrder: step.stepOrder,
+            }]),
+        ).values());
+
+        if (uniquePendingAssignees.length > 0) {
+          await Promise.allSettled(
+            uniquePendingAssignees.map(step => signNotificationService.notifySigner({
+              signerEmail: step.signerEmail,
+              signerName: step.signerName,
+              stepOrder: step.stepOrder,
+            }, context)),
+          );
+
+          const createdNotifications = await db
+            .insert(notifications)
+            .values(uniquePendingAssignees.map(step => ({
+              userId: String(step.userId),
+              message: 'You have a new request to sign.',
+              type: 'sign_request' as const,
+              link: `/signer/sign/${requestId}`,
+              isRead: false,
+            })))
+            .returning();
+
+          for (const notification of createdNotifications) {
+            try {
+              nitroApp.io.to(notification.userId).emit('notification', notification);
+            }
+            catch (socketErr) {
+              console.error('[submit notification socket emit error]', socketErr);
+            }
+          }
         }
       }
 

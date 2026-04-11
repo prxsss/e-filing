@@ -90,6 +90,29 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
       result.maxLength = Number(field.maxLength);
   }
 
+  if (type === 'dropdown') {
+    const dropdownConfig = field?.dropdownConfig ?? field?.dropdown_config;
+    if (dropdownConfig && typeof dropdownConfig === 'object') {
+      const sourceTable = String((dropdownConfig as any).sourceTable ?? (dropdownConfig as any).source_table ?? '').trim();
+      const labelColumn = String((dropdownConfig as any).labelColumn ?? (dropdownConfig as any).label_column ?? '').trim();
+      const roleId = Number.parseInt(String((dropdownConfig as any).roleId ?? (dropdownConfig as any).role_id ?? ''), 10);
+      if (['faculties', 'departments', 'roles'].includes(sourceTable) && labelColumn.length > 0) {
+        result.dropdownConfig = {
+          sourceTable,
+          labelColumn,
+          valueColumn: 'id',
+        };
+      }
+      else if (sourceTable === 'users' && Number.isFinite(roleId) && roleId > 0) {
+        result.dropdownConfig = {
+          sourceTable,
+          roleId,
+          valueColumn: 'id',
+        };
+      }
+    }
+  }
+
   if (type === 'date' || type === 'time' || type === 'datetime') {
     if (typeof field?.dateShowDay !== 'undefined')
       result.dateShowDay = Boolean(field.dateShowDay);
@@ -97,6 +120,16 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
       result.dateShowMonth = Boolean(field.dateShowMonth);
     if (typeof field?.dateShowYear !== 'undefined')
       result.dateShowYear = Boolean(field.dateShowYear);
+    if (typeof field?.dateShowDayOfWeek !== 'undefined')
+      result.dateShowDayOfWeek = Boolean(field.dateShowDayOfWeek);
+    if (typeof field?.dateDayOfWeekStyle !== 'undefined')
+      result.dateDayOfWeekStyle = field.dateDayOfWeekStyle === 'short' ? 'short' : 'long';
+    if (Number.isFinite(Number(field?.dateDayOfWeekGap)))
+      result.dateDayOfWeekGap = Number(field.dateDayOfWeekGap);
+    if (typeof field?.dateMonthStyle !== 'undefined')
+      result.dateMonthStyle = (field.dateMonthStyle === 'short' || field.dateMonthStyle === 'long') ? field.dateMonthStyle : 'numeric';
+    if (typeof field?.dateCalendar !== 'undefined')
+      result.dateCalendar = field.dateCalendar === 'be' ? 'be' : 'ad';
     if (typeof field?.timeShowHour !== 'undefined')
       result.timeShowHour = Boolean(field.timeShowHour);
     if (typeof field?.timeShowMinute !== 'undefined')

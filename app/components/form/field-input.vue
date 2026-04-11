@@ -140,6 +140,7 @@ const isNumericField = computed(() => fieldType.value === 'number');
 const isCheckboxField = computed(() => fieldType.value === 'checkbox');
 const isDateField = computed(() => fieldType.value === 'date');
 const isTimeField = computed(() => fieldType.value === 'time');
+const isDropdownField = computed(() => fieldType.value === 'dropdown');
 const checkboxGroupId = computed(() => String(props.field?.groupId ?? '').trim());
 const renderCheckboxAsRadio = computed(() => {
   return Boolean(props.renderAsRadio) && isCheckboxField.value && checkboxGroupId.value.length > 0;
@@ -147,10 +148,88 @@ const renderCheckboxAsRadio = computed(() => {
 
 const isMultilineTextField = computed(() =>
   !isCheckboxField.value
+  && !isDropdownField.value
   && !isNumericField.value
   && !isDateField.value
   && !isTimeField.value,
 );
+
+const dropdownConfig = computed(() => {
+  const rawConfig = props.field?.dropdownConfig ?? props.field?.dropdown_config;
+  if (!rawConfig || typeof rawConfig !== 'object') {
+    return null;
+  }
+
+  const sourceTable = String(rawConfig.sourceTable ?? rawConfig.source_table ?? '').trim();
+  const labelColumn = String(rawConfig.labelColumn ?? rawConfig.label_column ?? '').trim();
+  const roleId = Number.parseInt(String(rawConfig.roleId ?? rawConfig.role_id ?? ''), 10);
+  const dataLabel = String(rawConfig.dataLabel ?? rawConfig.data_label ?? '').trim();
+  if (!sourceTable) {
+    return null;
+  }
+
+  if (sourceTable === 'users') {
+    if (!Number.isFinite(roleId) || roleId <= 0) {
+      return null;
+    }
+
+    return {
+      sourceTable,
+      roleId,
+      dataLabel,
+    };
+  }
+
+  if (!labelColumn) {
+    return null;
+  }
+
+  return {
+    sourceTable,
+    labelColumn,
+    dataLabel,
+  };
+});
+
+const dropdownOptions = ref([]);
+const isLoadingDropdownOptions = ref(false);
+
+async function loadDropdownOptions() {
+  if (!isDropdownField.value || !dropdownConfig.value) {
+    dropdownOptions.value = [];
+    return;
+  }
+
+  isLoadingDropdownOptions.value = true;
+  try {
+    const response = await $fetch('/api/template-fields/dropdown-options', {
+      query: {
+        table: dropdownConfig.value.sourceTable,
+        labelColumn: dropdownConfig.value.labelColumn,
+        roleId: dropdownConfig.value.roleId,
+      },
+    });
+
+    if (response?.success && Array.isArray(response.data)) {
+      dropdownOptions.value = response.data
+        .filter(item => item && (item.id ?? null) !== null)
+        .map(item => ({
+          value: String(item.id),
+          label: String(item.label ?? item.id),
+        }));
+      return;
+    }
+
+    dropdownOptions.value = [];
+  }
+  catch (error) {
+    console.error('Error loading dropdown options:', error);
+    dropdownOptions.value = [];
+  }
+  finally {
+    isLoadingDropdownOptions.value = false;
+  }
+}
 
 /** From template Form Layout (`formRequired`); default required when unset */
 const showRequiredAsterisk = computed(() => {
@@ -192,6 +271,20 @@ function normalizeInputValue(value) {
 
   if (isCheckboxField.value) {
     return normalizeCheckboxValue(normalizedValue);
+  }
+
+  if (isDropdownField.value) {
+    const trimmed = normalizedValue.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (!dropdownOptions.value.length) {
+      return trimmed;
+    }
+
+    const hasOption = dropdownOptions.value.some(option => option.value === trimmed);
+    return hasOption ? trimmed : '';
   }
 
   // Number fields are rendered as text with numeric input mode so maxlength
@@ -307,6 +400,11 @@ const inputMode = computed(() => {
 
 // Get placeholder text
 const placeholder = computed(() => {
+  if (isDropdownField.value) {
+    const dataLabel = String(dropdownConfig.value?.dataLabel ?? '').trim();
+    return dataLabel.length > 0 ? `เลือก${dataLabel}` : 'เลือกข้อมูล';
+  }
+
   if (props.field.label) {
     return `Enter ${props.field.label}`;
   }
@@ -334,6 +432,10 @@ watch(localValue, () => {
 watch(isMultilineTextField, () => {
   nextTick(adjustTextareaHeight);
 });
+
+watch([isDropdownField, dropdownConfig], async () => {
+  await loadDropdownOptions();
+}, { immediate: true });
 
 onMounted(() => {
   nextTick(adjustTextareaHeight);
@@ -378,6 +480,19 @@ onMounted(() => {
         class="form-input form-textarea"
         @input="adjustTextareaHeight"
       />
+      <select
+        v-else-if="isDropdownField"
+        v-model="localValue"
+        :disabled="disabled || isLoadingDropdownOptions"
+        class="form-input"
+      >
+        <option value="">
+          {{ isLoadingDropdownOptions ? 'กำลังโหลดข้อมูล...' : placeholder }}
+        </option>
+        <option v-for="option in dropdownOptions" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </option>
+      </select>
       <input
         v-else
         v-model="localValue"
@@ -418,12 +533,14 @@ onMounted(() => {
   width: 1rem;
   height: 1rem;
   accent-color: #10b981;
+  flex-shrink: 0;
 }
 
 .form-radio {
   width: 1rem;
   height: 1rem;
   accent-color: #10b981;
+  flex-shrink: 0;
 }
 
 .form-input {

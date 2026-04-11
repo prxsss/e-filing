@@ -17,6 +17,10 @@ const toast = useToast();
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
 const showDeleteConfirm = ref(false);
+const isLoadingDropdownSources = ref(false);
+const isLoadingRoles = ref(false);
+const dropdownSources = ref([]);
+const roleOptions = ref([]);
 
 function parsePositiveInteger(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -48,6 +52,45 @@ const allowedSessionFieldBindings = [
   'titleThAutoChecked',
 ];
 
+const allowedDropdownTables = ['faculties', 'departments', 'roles', 'users'];
+
+function normalizeDropdownConfig(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const sourceTable = String(value.sourceTable ?? value.source_table ?? '').trim();
+  const labelColumn = String(value.labelColumn ?? value.label_column ?? '').trim();
+  const roleId = parsePositiveInteger(value.roleId ?? value.role_id);
+  const dataLabel = String(value.dataLabel ?? value.data_label ?? '').trim();
+  if (!allowedDropdownTables.includes(sourceTable)) {
+    return null;
+  }
+
+  if (sourceTable === 'users') {
+    if (!roleId) {
+      return null;
+    }
+
+    return {
+      sourceTable,
+      roleId,
+      dataLabel: dataLabel || undefined,
+      valueColumn: 'id',
+    };
+  }
+
+  if (!labelColumn) {
+    return null;
+  }
+
+  return {
+    sourceTable,
+    labelColumn,
+    valueColumn: 'id',
+  };
+}
+
 const formData = ref({
   name: '',
   type: 'Text',
@@ -67,11 +110,14 @@ const formData = ref({
   letterSpacing: 0,
   lineHeight: 1.5,
   maxLength: null,
+  dropdownSourceTable: '',
+  dropdownLabelColumn: '',
+  dropdownRoleId: '',
   strikeThroughGroupMode: false,
   strikeLineThickness: 1.5,
 });
 
-const fieldTypes = ['Text', 'Number', 'Checkbox', 'Signature', 'Date', 'Time'];
+const fieldTypes = ['Text', 'Number', 'Checkbox', 'Signature', 'Date', 'Time', 'Dropdown'];
 
 function getIconForType(type) {
   const t = String(type || '').toLowerCase();
@@ -86,6 +132,8 @@ function getIconForType(type) {
       return 'i-heroicons-calendar';
     case 'time':
       return 'i-heroicons-clock';
+    case 'dropdown':
+      return 'i-heroicons-chevron-down';
     default:
       return 'i-heroicons-document';
   }
@@ -121,6 +169,22 @@ const supportsSessionFieldBinding = computed(() => {
   return ['text', 'number', 'checkbox'].includes(selectedFieldType.value);
 });
 
+const supportsDropdownConfig = computed(() => selectedFieldType.value === 'dropdown');
+
+const availableDropdownColumns = computed(() => {
+  const source = dropdownSources.value.find(item => item.table === formData.value.dropdownSourceTable);
+  if (!source || !Array.isArray(source.labelColumns)) {
+    return [];
+  }
+  return source.labelColumns;
+});
+
+const hasDropdownSourceSelection = computed(() => {
+  return formData.value.dropdownSourceTable.length > 0;
+});
+
+const isUsersDropdownSource = computed(() => formData.value.dropdownSourceTable === 'users');
+
 const supportsAutoGenerateToggle = computed(() => {
   return ['date', 'time'].includes(selectedFieldType.value);
 });
@@ -135,6 +199,7 @@ watch(() => props.editField, (newField) => {
   if (newField && props.mode === 'edit') {
     const normalizedAmount = parsePositiveInteger(newField.amount) ?? 1;
     const isCheckboxGroup = String(newField.type || '').toLowerCase() === 'checkbox' && normalizedAmount > 1;
+    const normalizedDropdownConfig = normalizeDropdownConfig(newField.dropdownConfig ?? newField.dropdown_config);
     formData.value = {
       name: newField.name || newField.label || '',
       type: newField.type || 'Text',
@@ -154,6 +219,9 @@ watch(() => props.editField, (newField) => {
       letterSpacing: parseFiniteNumber(newField.letterSpacing, 0),
       lineHeight: parseFiniteNumber(newField.lineHeight, 1.5),
       maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
+      dropdownSourceTable: normalizedDropdownConfig?.sourceTable || '',
+      dropdownLabelColumn: normalizedDropdownConfig?.labelColumn || '',
+      dropdownRoleId: String(normalizedDropdownConfig?.roleId ?? ''),
       strikeThroughGroupMode: isCheckboxGroup
         ? Boolean(newField.strikeThroughGroupMode ?? newField.strike_through_group_mode ?? false)
         : false,
@@ -180,6 +248,35 @@ watch(supportsAmountSetting, (enabled) => {
 watch(supportsSessionFieldBinding, (enabled) => {
   if (!enabled) {
     formData.value.sessionField = 'none';
+  }
+});
+
+watch(supportsDropdownConfig, (enabled) => {
+  if (!enabled) {
+    formData.value.dropdownSourceTable = '';
+    formData.value.dropdownLabelColumn = '';
+    formData.value.dropdownRoleId = '';
+  }
+});
+
+watch(() => formData.value.dropdownSourceTable, () => {
+  if (isUsersDropdownSource.value) {
+    const selectedRoleId = parsePositiveInteger(formData.value.dropdownRoleId);
+    const hasRole = roleOptions.value.some(role => role.id === selectedRoleId);
+    if (!hasRole) {
+      formData.value.dropdownRoleId = '';
+    }
+    formData.value.dropdownLabelColumn = '';
+    return;
+  }
+
+  formData.value.dropdownRoleId = '';
+  const isValidColumn = availableDropdownColumns.value.some(
+    column => column.key === formData.value.dropdownLabelColumn,
+  );
+
+  if (!isValidColumn) {
+    formData.value.dropdownLabelColumn = '';
   }
 });
 
@@ -227,6 +324,9 @@ function resetForm() {
     letterSpacing: 0,
     lineHeight: 1.5,
     maxLength: null,
+    dropdownSourceTable: '',
+    dropdownLabelColumn: '',
+    dropdownRoleId: '',
     strikeThroughGroupMode: false,
     strikeLineThickness: 1.5,
   };
@@ -237,6 +337,63 @@ function closeModal() {
   resetForm();
 }
 
+async function loadDropdownSources() {
+  isLoadingDropdownSources.value = true;
+  try {
+    const response = await $fetch('/api/template-fields/dropdown-sources');
+    if (response?.success && Array.isArray(response.data)) {
+      dropdownSources.value = response.data;
+    }
+    else {
+      dropdownSources.value = [];
+    }
+  }
+  catch (error) {
+    console.error('Error loading dropdown sources:', error);
+    dropdownSources.value = [];
+    toast.add({
+      title: 'ไม่สามารถโหลดข้อมูล Dropdown ได้',
+      color: 'warning',
+    });
+  }
+  finally {
+    isLoadingDropdownSources.value = false;
+  }
+}
+
+async function loadRoles() {
+  isLoadingRoles.value = true;
+  try {
+    const roles = await $fetch('/api/roles');
+    if (Array.isArray(roles)) {
+      roleOptions.value = roles
+        .map(role => ({
+          id: parsePositiveInteger(role?.id),
+          label: String(role?.nameTh ?? role?.name ?? '').trim(),
+        }))
+        .filter(role => role.id !== null && role.label.length > 0)
+        .map(role => ({ id: role.id, label: role.label }));
+      return;
+    }
+    roleOptions.value = [];
+  }
+  catch (error) {
+    console.error('Error loading roles:', error);
+    roleOptions.value = [];
+    toast.add({
+      title: 'ไม่สามารถโหลดข้อมูลบทบาทได้',
+      color: 'warning',
+    });
+  }
+  finally {
+    isLoadingRoles.value = false;
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadDropdownSources(), loadRoles()]);
+});
+
 function buildFieldPayload() {
   const normalizedFontSize = parsePositiveInteger(formData.value.fontSize) ?? 14;
   const normalizedAmount = supportsAmountSetting.value
@@ -244,6 +401,15 @@ function buildFieldPayload() {
     : 1;
   const normalizedWidth = parsePositiveInteger(formData.value.width) ?? 150;
   const normalizedHeight = parsePositiveInteger(formData.value.height) ?? 40;
+
+  const dropdownConfig = supportsDropdownConfig.value
+    ? normalizeDropdownConfig({
+        sourceTable: formData.value.dropdownSourceTable,
+        labelColumn: formData.value.dropdownLabelColumn,
+        roleId: formData.value.dropdownRoleId,
+        dataLabel: roleOptions.value.find(role => String(role.id) === String(formData.value.dropdownRoleId))?.label,
+      })
+    : null;
 
   return {
     ...formData.value,
@@ -262,6 +428,7 @@ function buildFieldPayload() {
     sessionField: supportsSessionFieldBinding.value && allowedSessionFieldBindings.includes(formData.value.sessionField)
       ? formData.value.sessionField
       : null,
+    dropdownConfig,
     strikeThroughGroupMode: supportsAmountSetting.value
       ? Boolean(formData.value.strikeThroughGroupMode)
       : false,
@@ -282,6 +449,24 @@ async function handleSubmit() {
       color: 'error',
     });
     return;
+  }
+
+  if (supportsDropdownConfig.value) {
+    const config = normalizeDropdownConfig({
+      sourceTable: formData.value.dropdownSourceTable,
+      labelColumn: formData.value.dropdownLabelColumn,
+      roleId: formData.value.dropdownRoleId,
+      dataLabel: roleOptions.value.find(role => String(role.id) === String(formData.value.dropdownRoleId))?.label,
+    });
+    if (!config) {
+      toast.add({
+        title: isUsersDropdownSource.value
+          ? 'กรุณาเลือกตารางและบทบาทสำหรับ Dropdown'
+          : 'กรุณาเลือกตารางและคอลัมน์สำหรับ Dropdown',
+        color: 'error',
+      });
+      return;
+    }
   }
 
   isSubmitting.value = true;
@@ -559,6 +744,59 @@ async function handleDelete() {
                 </option>
                 <option v-if="selectedFieldType === 'checkbox'" value="titleThAutoChecked">
                   คำนำหน้าชื่อ (ติ๊กอัตโนมัติจากข้อมูลนิสิต)
+                </option>
+              </select>
+            </div>
+
+            <div v-else-if="supportsDropdownConfig" class="space-y-1.5">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                แหล่งข้อมูลสำหรับการเลือก
+              </label>
+              <div
+                v-if="isLoadingDropdownSources"
+                class="rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs text-gray-500 dark:text-gray-400"
+              >
+                กำลังโหลด...
+              </div>
+              <select
+                v-else
+                v-model="formData.dropdownSourceTable"
+                :disabled="isLoadingDropdownSources"
+                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
+              >
+                <option value="" disabled hidden>
+                  เลือกตาราง
+                </option>
+                <option v-for="source in dropdownSources" :key="source.table" :value="source.table">
+                  {{ source.label }}
+                </option>
+              </select>
+
+              <select
+                v-if="hasDropdownSourceSelection && !isUsersDropdownSource"
+                v-model="formData.dropdownLabelColumn"
+                :disabled="!formData.dropdownSourceTable || isLoadingDropdownSources"
+                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
+              >
+                <option value="" disabled hidden>
+                  เลือกคอลัมน์ที่จะแสดง
+                </option>
+                <option v-for="column in availableDropdownColumns" :key="column.key" :value="column.key">
+                  {{ column.label }}
+                </option>
+              </select>
+
+              <select
+                v-else-if="hasDropdownSourceSelection && isUsersDropdownSource"
+                v-model="formData.dropdownRoleId"
+                :disabled="isLoadingRoles"
+                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
+              >
+                <option value="" disabled hidden>
+                  {{ isLoadingRoles ? 'กำลังโหลดบทบาท...' : 'เลือกบทบาท' }}
+                </option>
+                <option v-for="role in roleOptions" :key="role.id" :value="String(role.id)">
+                  {{ role.label }}
                 </option>
               </select>
             </div>

@@ -62,16 +62,34 @@ const placedFields = ref<any[]>([]);
 const previewFieldValues = ref<Record<string, string>>({});
 const isEditingFormLayout = ref(false);
 const formSectionTitle = ref('Request Information');
-const formFieldLayout = ref<Array<{ instanceId: string; questionLabel: string; required: boolean }>>([]);
 const isSavingFormLayout = ref(false);
 const activeEditingFieldId = ref<string | null>(null);
 
-/** Snapshot when entering layout edit (for cancel restore). */
-type FormLayoutEditSnapshot = {
-  sectionTitle: string;
-  layout: Array<{ instanceId: string; questionLabel: string; required: boolean }>;
+// ─── Layout item types ────────────────────────────────────────────────────────
+type AdminLayoutField = {
+  kind: 'field';
+  instanceId: string;
+  questionLabel: string;
+  required: boolean;
 };
-const formLayoutEditSnapshot = ref<FormLayoutEditSnapshot | null>(null);
+
+type AdminLayoutGroup = {
+  kind: 'group';
+  id: string;
+  title: string;
+  required: boolean;
+  fields: Array<{ instanceId: string; questionLabel: string }>;
+};
+
+type AdminLayoutItem = AdminLayoutField | AdminLayoutGroup;
+
+type FormLayoutSnapshot = {
+  sectionTitle: string;
+  items: AdminLayoutItem[];
+};
+
+const layoutItems = ref<AdminLayoutItem[]>([]);
+const formLayoutEditSnapshot = ref<FormLayoutSnapshot | null>(null);
 
 const signingSteps = computed<SigningStepSummary[]>(() => normalizeSigningFlowData(template.value?.signingFlowData));
 
@@ -174,7 +192,7 @@ function isFieldVisible(field: any): boolean {
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
 }
 
-/** All student-fillable fields for the layout editor (ignore conditional visibility so every field can be reordered). */
+/** All student-fillable fields for the layout editor. */
 const layoutEditorFillableFields = computed(() => {
   return placedFields.value.filter((field: any) =>
     field.isFillable !== false
@@ -183,7 +201,7 @@ const layoutEditorFillableFields = computed(() => {
   );
 });
 
-const layoutEditorFieldsById = computed(() => {
+const orderedLayoutEditorFieldsById = computed(() => {
   const map = new Map<string, any>();
   for (const field of layoutEditorFillableFields.value) {
     map.set(String(field.instanceId), field);
@@ -191,136 +209,177 @@ const layoutEditorFieldsById = computed(() => {
   return map;
 });
 
-const orderedLayoutEditorFields = computed(() => {
-  const layoutIds = new Set(formFieldLayout.value.map(item => item.instanceId));
-  const ordered = formFieldLayout.value
-    .map(item => layoutEditorFieldsById.value.get(item.instanceId))
-    .filter(Boolean);
-  const remaining = layoutEditorFillableFields.value.filter(field => !layoutIds.has(String(field.instanceId)));
-  return [...ordered, ...remaining];
-});
+/** Groups currently in the layout. */
+const availableGroups = computed(() =>
+  layoutItems.value.filter((it): it is AdminLayoutGroup => it.kind === 'group'),
+);
 
-function syncFormFieldLayout() {
-  const existing = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
+// ─── Sync from template data ───────────────────────────────────────────────
+function syncLayoutItems() {
   const sourceFields = [...layoutEditorFillableFields.value].sort((a: any, b: any) => {
-    const aOrder = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
-    const bOrder = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
-    if (aOrder !== bOrder) {
-      return aOrder - bOrder;
+    const ao = Number.isFinite(Number(a?.formOrder)) ? Number(a.formOrder) : Number.MAX_SAFE_INTEGER;
+    const bo = Number.isFinite(Number(b?.formOrder)) ? Number(b.formOrder) : Number.MAX_SAFE_INTEGER;
+    return ao !== bo ? ao - bo : String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
+  });
+
+  const sectionField = sourceFields.find((f: any) => String(f?.formSectionTitle || '').trim().length > 0);
+  if (sectionField)
+    formSectionTitle.value = String((sectionField as any).formSectionTitle);
+
+  const groupMap = new Map<string, AdminLayoutGroup>();
+  const items: Array<{ order: number; item: AdminLayoutItem }> = [];
+
+  for (const field of sourceFields) {
+    const gid = String((field as any)?.formGroupId ?? '').trim();
+    const fo = Number.isFinite(Number((field as any)?.formOrder)) ? Number((field as any).formOrder) : Number.MAX_SAFE_INTEGER;
+
+    if (gid) {
+      if (!groupMap.has(gid)) {
+        const group: AdminLayoutGroup = {
+          kind: 'group',
+          id: gid,
+          title: String((field as any).formGroupTitle ?? '').trim(),
+          required: (field as any).formRequired !== false && (field as any).form_required !== false,
+          fields: [],
+        };
+        groupMap.set(gid, group);
+        items.push({ order: fo, item: group });
+      }
+      groupMap.get(gid)!.fields.push({
+        instanceId: String(field.instanceId),
+        questionLabel: String((field as any).formQuestionLabel || (field as any).label || (field as any).name || ''),
+      });
     }
-    return String(a?.instanceId ?? '').localeCompare(String(b?.instanceId ?? ''));
-  });
-
-  formFieldLayout.value = sourceFields.map((field: any) => {
-    const key = String(field.instanceId);
-    const existingItem = existing.get(key);
-    const fromTemplate = field.formRequired !== false && field.form_required !== false;
-    return {
-      instanceId: key,
-      questionLabel: existingItem?.questionLabel || String(field.formQuestionLabel || field.label || field.name || 'Question'),
-      required: typeof existingItem?.required === 'boolean' ? existingItem.required : fromTemplate,
-    };
-  });
-
-  const sectionFromField = sourceFields.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
-  if (sectionFromField) {
-    formSectionTitle.value = String(sectionFromField.formSectionTitle);
+    else {
+      items.push({
+        order: fo,
+        item: {
+          kind: 'field',
+          instanceId: String(field.instanceId),
+          questionLabel: String((field as any).formQuestionLabel || (field as any).label || (field as any).name || ''),
+          required: (field as any).formRequired !== false && (field as any).form_required !== false,
+        },
+      });
+    }
   }
+
+  items.sort((a, b) => a.order - b.order);
+  layoutItems.value = items.map(i => i.item);
 }
 
-function getQuestionLabel(field: any): string {
-  const item = formFieldLayout.value.find(layout => layout.instanceId === String(field.instanceId));
-  // Allow the input to be truly empty (questionLabel === '') while editing.
-  // Fallback to template label only when questionLabel is null/undefined.
-  if (!item) {
-    return String(field.label || field.name || 'Question');
-  }
-  if (item.questionLabel === undefined || item.questionLabel === null) {
-    return String(field.label || field.name || 'Question');
-  }
-  return String(item.questionLabel);
+// Keep alias so fetchTemplate() / watcher still work after rename.
+function syncFormFieldLayout() {
+  syncLayoutItems();
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────────────
 function setQuestionLabel(instanceId: string, value: string) {
-  const item = formFieldLayout.value.find(layout => layout.instanceId === instanceId);
-  if (!item) {
-    return;
+  for (const item of layoutItems.value) {
+    if (item.kind === 'field' && item.instanceId === instanceId) {
+      item.questionLabel = value;
+      return;
+    }
+    if (item.kind === 'group') {
+      const inner = item.fields.find(f => f.instanceId === instanceId);
+      if (inner) {
+        inner.questionLabel = value;
+        return;
+      }
+    }
   }
-  item.questionLabel = value;
 }
 
-function getLayoutEntry(instanceId: string) {
-  return formFieldLayout.value.find(layout => layout.instanceId === instanceId);
+function getLayoutEntry(instanceId: string): { required: boolean } | undefined {
+  for (const item of layoutItems.value) {
+    if (item.kind === 'field' && item.instanceId === instanceId)
+      return { required: item.required };
+    if (item.kind === 'group' && item.fields.some(f => f.instanceId === instanceId))
+      return { required: item.required };
+  }
+  return undefined;
 }
 
 function setLayoutRequired(instanceId: string, value: boolean) {
-  const item = formFieldLayout.value.find(layout => layout.instanceId === instanceId);
-  if (item) {
-    item.required = value;
+  for (const item of layoutItems.value) {
+    if (item.kind === 'field' && item.instanceId === instanceId) {
+      item.required = value;
+      return;
+    }
   }
+}
+
+function setGroupRequired(groupId: string, value: boolean) {
+  const g = availableGroups.value.find(g => g.id === groupId);
+  if (g)
+    g.required = value;
 }
 
 function getPreviewFormRequired(field: any): boolean {
   if (isEditingFormLayout.value) {
-    const item = getLayoutEntry(String(field.instanceId));
-    return item ? item.required !== false : true;
+    const entry = getLayoutEntry(String(field?.instanceId ?? ''));
+    return entry ? entry.required !== false : true;
   }
   return field.formRequired !== false && field.form_required !== false;
 }
 
 function revertQuestionLabelIfEmpty(instanceId: string) {
-  if (!isEditingFormLayout.value) {
+  const current = (() => {
+    for (const item of layoutItems.value) {
+      if (item.kind === 'field' && item.instanceId === instanceId)
+        return item.questionLabel;
+      if (item.kind === 'group') {
+        const inner = item.fields.find(f => f.instanceId === instanceId);
+        if (inner)
+          return inner.questionLabel;
+      }
+    }
+    return '';
+  })();
+  if (String(current ?? '').trim().length > 0)
     return;
-  }
   const snap = formLayoutEditSnapshot.value;
-  if (!snap) {
-    return;
+  if (snap) {
+    for (const it of snap.items) {
+      if (it.kind === 'field' && it.instanceId === instanceId && it.questionLabel.trim()) {
+        setQuestionLabel(instanceId, it.questionLabel);
+        return;
+      }
+      if (it.kind === 'group') {
+        const inner = it.fields.find(f => f.instanceId === instanceId);
+        if (inner && inner.questionLabel.trim()) {
+          setQuestionLabel(instanceId, inner.questionLabel);
+          return;
+        }
+      }
+    }
   }
-
-  const current = String(formFieldLayout.value.find(item => item.instanceId === instanceId)?.questionLabel ?? '');
-  if (current.trim().length > 0) {
-    return;
-  }
-
-  const original = snap.layout.find(item => item.instanceId === instanceId);
-  if (original && original.questionLabel !== undefined) {
-    setQuestionLabel(instanceId, String(original.questionLabel));
-    return;
-  }
-
-  // Fallback to the template label if snapshot doesn't exist for some reason.
-  const templateField = placedFields.value.find((f: any) => String(f?.instanceId ?? '') === instanceId);
-  setQuestionLabel(instanceId, templateField ? String(templateField.label || templateField.name || 'Question') : '');
+  const tf = placedFields.value.find((f: any) => String(f?.instanceId ?? '') === instanceId);
+  setQuestionLabel(instanceId, tf ? String((tf as any).formQuestionLabel || (tf as any).label || (tf as any).name || '') : '');
 }
 
 function revertSectionTitleIfEmpty() {
-  if (!isEditingFormLayout.value) {
+  if (String(formSectionTitle.value ?? '').trim().length > 0)
     return;
-  }
   const snap = formLayoutEditSnapshot.value;
-  if (!snap) {
-    return;
-  }
-
-  const current = String(formSectionTitle.value ?? '');
-  if (current.trim().length > 0) {
-    return;
-  }
-
-  formSectionTitle.value = String(snap.sectionTitle ?? '');
+  if (snap)
+    formSectionTitle.value = String(snap.sectionTitle ?? '');
 }
 
 function focusLayoutInputByInstanceId(instanceId: string) {
-  if (!instanceId) {
+  if (!instanceId)
     return;
-  }
-
   activeEditingFieldId.value = instanceId;
-  const row = document.getElementById(`form-layout-row-${instanceId}`);
+  let row = document.getElementById(`form-layout-row-${instanceId}`);
   if (!row) {
-    return;
+    for (const item of layoutItems.value) {
+      if (item.kind === 'group' && item.fields.some(f => f.instanceId === instanceId)) {
+        row = document.getElementById(`form-layout-group-${item.id}`);
+        break;
+      }
+    }
   }
-
+  if (!row)
+    return;
   row.scrollIntoView({ behavior: 'smooth', block: 'center' });
   const input = row.querySelector('input');
   if (input) {
@@ -331,35 +390,75 @@ function focusLayoutInputByInstanceId(instanceId: string) {
   }
 }
 
-function reorderLayoutItems(fromIndex: number, toIndex: number) {
-  const orderedFields = orderedLayoutEditorFields.value;
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
-    return;
-  }
-  if (fromIndex >= orderedFields.length || toIndex > orderedFields.length) {
-    return;
-  }
-  const arr = [...orderedFields];
-  const [moved] = arr.splice(fromIndex, 1);
-  if (!moved) {
-    return;
-  }
-  const insertAt = Math.min(toIndex, arr.length);
-  arr.splice(insertAt, 0, moved);
-  const reorderedIds = arr.map(field => String(field.instanceId));
-  const layoutById = new Map(formFieldLayout.value.map(item => [item.instanceId, item]));
-  formFieldLayout.value = reorderedIds
-    .map(id => layoutById.get(id))
-    .filter((item): item is { instanceId: string; questionLabel: string; required: boolean } => Boolean(item));
+// ─── Group management ──────────────────────────────────────────────────────
+function addGroupAt(index: number) {
+  const id = `grp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  layoutItems.value.splice(index, 0, { kind: 'group', id, title: '', required: true, fields: [] });
 }
 
-function moveLayoutItem(index: number, direction: -1 | 1) {
-  const orderedFields = orderedLayoutEditorFields.value;
-  const nextIndex = index + direction;
-  if (nextIndex < 0 || nextIndex >= orderedFields.length) {
+function removeGroup(groupId: string) {
+  const idx = layoutItems.value.findIndex(it => it.kind === 'group' && (it as AdminLayoutGroup).id === groupId);
+  if (idx < 0)
     return;
-  }
-  reorderLayoutItems(index, nextIndex);
+  const group = layoutItems.value[idx] as AdminLayoutGroup;
+  const released: AdminLayoutField[] = group.fields.map(f => ({
+    kind: 'field' as const,
+    instanceId: f.instanceId,
+    questionLabel: f.questionLabel || String((orderedLayoutEditorFieldsById.value.get(f.instanceId) as any)?.label || (orderedLayoutEditorFieldsById.value.get(f.instanceId) as any)?.name || ''),
+    required: group.required,
+  }));
+  layoutItems.value.splice(idx, 1, ...released);
+}
+
+function assignFieldToGroup(instanceId: string, groupId: string) {
+  const idx = layoutItems.value.findIndex(it => it.kind === 'field' && (it as AdminLayoutField).instanceId === instanceId);
+  if (idx < 0)
+    return;
+  const fieldItem = layoutItems.value[idx] as AdminLayoutField;
+  layoutItems.value.splice(idx, 1);
+  const group = layoutItems.value.find(it => it.kind === 'group' && (it as AdminLayoutGroup).id === groupId) as AdminLayoutGroup | undefined;
+  if (group)
+    group.fields.push({ instanceId: fieldItem.instanceId, questionLabel: fieldItem.questionLabel });
+}
+
+function removeFieldFromGroup(groupId: string, instanceId: string) {
+  const group = layoutItems.value.find(it => it.kind === 'group' && (it as AdminLayoutGroup).id === groupId) as AdminLayoutGroup | undefined;
+  if (!group)
+    return;
+  const fi = group.fields.findIndex(f => f.instanceId === instanceId);
+  if (fi < 0)
+    return;
+  const removed = group.fields.splice(fi, 1)[0];
+  if (!removed)
+    return;
+  const groupIdx = layoutItems.value.findIndex(it => it.kind === 'group' && (it as AdminLayoutGroup).id === groupId);
+  const fieldObj = orderedLayoutEditorFieldsById.value.get(instanceId);
+  layoutItems.value.splice(groupIdx + 1, 0, {
+    kind: 'field',
+    instanceId: removed.instanceId,
+    questionLabel: removed.questionLabel || String((fieldObj as any)?.formQuestionLabel || (fieldObj as any)?.label || (fieldObj as any)?.name || ''),
+    required: group.required,
+  });
+}
+
+function moveFieldInGroup(groupId: string, fieldIndex: number, direction: -1 | 1) {
+  const group = layoutItems.value.find(it => it.kind === 'group' && (it as AdminLayoutGroup).id === groupId) as AdminLayoutGroup | undefined;
+  if (!group)
+    return;
+  const to = fieldIndex + direction;
+  if (to < 0 || to >= group.fields.length)
+    return;
+  [group.fields[fieldIndex], group.fields[to]] = [group.fields[to]!, group.fields[fieldIndex]!];
+}
+
+// ─── Reorder & drag-drop (top-level items only) ────────────────────────────
+function moveLayoutItem(itemIndex: number, direction: -1 | 1) {
+  const to = itemIndex + direction;
+  if (to < 0 || to >= layoutItems.value.length)
+    return;
+  const arr = [...layoutItems.value];
+  [arr[itemIndex], arr[to]] = [arr[to]!, arr[itemIndex]!];
+  layoutItems.value = arr;
 }
 
 const layoutDragFromIndex = ref<number | null>(null);
@@ -381,87 +480,48 @@ function onLayoutDragStart(event: DragEvent, index: number) {
   layoutDragOverIndex.value = null;
   layoutDropIndex.value = null;
   event.dataTransfer?.setData('text/plain', String(index));
-  if (event.dataTransfer) {
+  if (event.dataTransfer)
     event.dataTransfer.effectAllowed = 'move';
-  }
 }
 
 function onLayoutDragOver(event: DragEvent, index: number) {
-  if (!isEditingFormLayout.value || layoutDragFromIndex.value === null) {
+  if (!isEditingFormLayout.value || layoutDragFromIndex.value === null)
     return;
-  }
   event.preventDefault();
   layoutDragOverIndex.value = index;
-
   const target = event.currentTarget as HTMLElement | null;
-  if (!target) {
-    return;
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    layoutDropIndex.value = (event.clientY - rect.top) < rect.height / 2 ? index : index + 1;
   }
-
-  const rect = target.getBoundingClientRect();
-  const offsetY = event.clientY - rect.top;
-  const insertBefore = offsetY < rect.height / 2;
-
-  const nextDropIndex = insertBefore ? index : index + 1;
-  layoutDropIndex.value = nextDropIndex;
-
-  if (event.dataTransfer) {
+  if (event.dataTransfer)
     event.dataTransfer.dropEffect = 'move';
-  }
 }
 
-function onLayoutDropZoneDragOver(event: DragEvent, toIndex: number) {
-  if (!isEditingFormLayout.value || layoutDragFromIndex.value === null) {
+function doLayoutReorder(fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0)
     return;
-  }
-  event.preventDefault();
-  layoutDropIndex.value = toIndex;
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move';
-  }
-}
-
-function onLayoutDropZone(event: DragEvent, toIndex: number) {
-  if (!isEditingFormLayout.value) {
+  const arr = [...layoutItems.value];
+  const [moved] = arr.splice(fromIndex, 1);
+  if (!moved)
     return;
-  }
-  event.preventDefault();
-  const raw = event.dataTransfer?.getData('text/plain') ?? '';
-  const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
-  const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
-  if (
-    fromIndex === null
-    || fromIndex === undefined
-    || Number.isNaN(fromIndex)
-  ) {
-    resetLayoutDragState();
-    return;
-  }
-  reorderLayoutItems(fromIndex, toIndex);
-  resetLayoutDragState();
+  arr.splice(Math.min(toIndex, arr.length), 0, moved);
+  layoutItems.value = arr;
 }
 
 function onLayoutDrop(event: DragEvent) {
-  if (!isEditingFormLayout.value) {
+  if (!isEditingFormLayout.value)
     return;
-  }
   event.preventDefault();
   const raw = event.dataTransfer?.getData('text/plain') ?? '';
   const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
   const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
   const toIndex = layoutDropIndex.value;
-
-  if (
-    fromIndex === null
-    || fromIndex === undefined
-    || Number.isNaN(fromIndex)
-    || toIndex === null
-    || toIndex === undefined
-  ) {
+  if (fromIndex === null || fromIndex === undefined || Number.isNaN(fromIndex) || toIndex === null || toIndex === undefined) {
     resetLayoutDragState();
     return;
   }
-  reorderLayoutItems(fromIndex, toIndex);
+  doLayoutReorder(fromIndex, toIndex);
   resetLayoutDragState();
 }
 
@@ -469,69 +529,135 @@ function onLayoutDragEnd() {
   resetLayoutDragState();
 }
 
-function getFieldCardClass(field: any): string {
-  const isActive = activeEditingFieldId.value === String(field.instanceId);
-  return isActive
-    ? 'rounded-md border border-yellow-300 p-2 bg-yellow-50'
-    : 'rounded-md border border-gray-100 p-2 bg-gray-50';
+function onGapDragOver(event: DragEvent, gapIndex: number) {
+  if (!isEditingFormLayout.value || layoutDragFromIndex.value === null)
+    return;
+  event.preventDefault();
+  layoutDropIndex.value = gapIndex;
+  if (event.dataTransfer)
+    event.dataTransfer.dropEffect = 'move';
 }
 
-async function saveFormLayout(): Promise<boolean> {
-  if (!templateId.value) {
-    return false;
+function onGapDrop(event: DragEvent, gapIndex: number) {
+  if (!isEditingFormLayout.value)
+    return;
+  event.preventDefault();
+  const raw = event.dataTransfer?.getData('text/plain') ?? '';
+  const parsed = raw !== '' ? Number.parseInt(raw, 10) : Number.NaN;
+  const fromIndex = Number.isFinite(parsed) ? parsed : layoutDragFromIndex.value;
+  if (fromIndex === null || fromIndex === undefined || Number.isNaN(fromIndex)) {
+    resetLayoutDragState();
+    return;
   }
+  // When dragging from before the gap the array shifts by 1 after removal
+  const toIndex = fromIndex < gapIndex ? gapIndex - 1 : gapIndex;
+  doLayoutReorder(fromIndex, toIndex);
+  resetLayoutDragState();
+}
 
+// ─── Card class helpers ────────────────────────────────────────────────────
+function getFieldCardClass(instanceId: string): string {
+  return activeEditingFieldId.value === instanceId
+    ? 'rounded-md border border-yellow-300 p-2 bg-yellow-50'
+    : 'rounded-md border border-gray-200 p-2 bg-white';
+}
+
+function getGroupCardClass(groupId: string): string {
+  const group = availableGroups.value.find(g => g.id === groupId);
+  const isActive = group ? group.fields.some(f => f.instanceId === activeEditingFieldId.value) : false;
+  return isActive
+    ? 'rounded-lg border-2 border-yellow-300 p-3 bg-yellow-50'
+    : 'rounded-lg border-2 border-indigo-200 p-3 bg-indigo-50/40';
+}
+
+// ─── Save / start / cancel ─────────────────────────────────────────────────
+async function saveFormLayout(): Promise<boolean> {
+  if (!templateId.value)
+    return false;
   isSavingFormLayout.value = true;
   try {
-    // If user cleared inputs but didn't provide any value, restore the original values
-    // from when editing started (avoids accidental fallback and keeps UX consistent).
-    if (formLayoutEditSnapshot.value) {
-      revertSectionTitleIfEmpty();
-      for (const item of formFieldLayout.value) {
-        revertQuestionLabelIfEmpty(item.instanceId);
+    revertSectionTitleIfEmpty();
+    let orderCounter = 0;
+
+    type PayloadField = {
+      instanceId: string;
+      questionLabel: string;
+      order: number;
+      required: boolean;
+      groupId?: string;
+      groupTitle?: string;
+    };
+    const fields: PayloadField[] = [];
+
+    for (const item of layoutItems.value) {
+      if (item.kind === 'field') {
+        orderCounter += 10;
+        const fallback = orderedLayoutEditorFieldsById.value.get(item.instanceId);
+        fields.push({
+          instanceId: item.instanceId,
+          questionLabel: String(item.questionLabel || '').trim() || String((fallback as any)?.formQuestionLabel || (fallback as any)?.label || (fallback as any)?.name || ''),
+          order: orderCounter,
+          required: item.required !== false,
+        });
+      }
+      else {
+        const groupTitle = String(item.title || '').trim();
+        item.fields.forEach((f) => {
+          orderCounter += 10;
+          const fallback = orderedLayoutEditorFieldsById.value.get(f.instanceId);
+          fields.push({
+            instanceId: f.instanceId,
+            questionLabel: String(f.questionLabel || '').trim() || String((fallback as any)?.formQuestionLabel || (fallback as any)?.label || (fallback as any)?.name || ''),
+            order: orderCounter,
+            required: item.required !== false,
+            groupId: item.id,
+            groupTitle,
+          });
+        });
+        orderCounter += 10;
       }
     }
 
-    const payload = {
-      sectionTitle: String(formSectionTitle.value || 'Request Information').trim(),
-      fields: formFieldLayout.value.map((item, index) => ({
-        instanceId: item.instanceId,
-        questionLabel: String(item.questionLabel || '').trim(),
-        order: index + 1,
-        required: item.required !== false,
-      })),
-    };
+    // Build entries (new API format)
+    const entries: Array<Record<string, unknown>> = [];
+    let currentGroupEntry: Record<string, unknown> | null = null;
+    const seenGroupIds = new Set<string>();
 
-    const result = await $fetch<{ success: boolean; data?: { placedFieldsData?: any[] }; error?: string }>(`/api/pdf-templates/${templateId.value}/form-layout`, {
-      method: 'PATCH',
-      body: payload,
-    });
-
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to save form layout');
+    for (const f of fields) {
+      if (f.groupId) {
+        if (!seenGroupIds.has(f.groupId)) {
+          seenGroupIds.add(f.groupId);
+          currentGroupEntry = { kind: 'group', id: f.groupId, title: f.groupTitle ?? '', required: f.required, order: f.order, fields: [] };
+          entries.push(currentGroupEntry);
+        }
+        (currentGroupEntry!.fields as Array<Record<string, unknown>>).push({ instanceId: f.instanceId, questionLabel: f.questionLabel });
+      }
+      else {
+        entries.push({ kind: 'field', instanceId: f.instanceId, questionLabel: f.questionLabel, order: f.order, required: f.required });
+      }
     }
+
+    const result = await $fetch<{ success: boolean; data?: { placedFieldsData?: any[] }; error?: string }>(
+      `/api/pdf-templates/${templateId.value}/form-layout`,
+      { method: 'PATCH', body: { sectionTitle: String(formSectionTitle.value || 'Request Information').trim(), entries } },
+    );
+
+    if (!result.success)
+      throw new Error(result.error || 'Failed to save form layout');
 
     if (Array.isArray(result.data?.placedFieldsData)) {
       placedFields.value = result.data!.placedFieldsData!;
-      syncFormFieldLayout();
+      syncLayoutItems();
     }
     else {
       await fetchTemplate();
     }
 
-    toast.add({
-      title: 'บันทึกสำเร็จ',
-      description: 'บันทึกการจัดรูปแบบฟอร์มแล้ว',
-      color: 'success',
-    });
+    toast.add({ title: 'บันทึกสำเร็จ', description: 'บันทึกการจัดรูปแบบฟอร์มแล้ว', color: 'success' });
     return true;
   }
   catch (err) {
-    toast.add({
-      title: 'เกิดข้อผิดพลาด',
-      description: err instanceof Error ? err.message : 'ไม่สามารถบันทึก Form Layout ได้',
-      color: 'error',
-    });
+    toast.add({ title: 'เกิดข้อผิดพลาด', description: err instanceof Error ? err.message : 'ไม่สามารถบันทึก Form Layout ได้', color: 'error' });
     return false;
   }
   finally {
@@ -542,7 +668,9 @@ async function saveFormLayout(): Promise<boolean> {
 function startEditFormLayout() {
   formLayoutEditSnapshot.value = {
     sectionTitle: String(formSectionTitle.value || ''),
-    layout: formFieldLayout.value.map(item => ({ ...item })),
+    items: layoutItems.value.map(it =>
+      it.kind === 'field' ? { ...it } : { ...it, fields: it.fields.map(f => ({ ...f })) },
+    ),
   };
   isEditingFormLayout.value = true;
 }
@@ -555,9 +683,8 @@ async function confirmAndSaveFormLayout() {
     confirmButton: { label: 'บันทึก', color: 'primary' },
   });
   const confirmed = await instance.result;
-  if (!confirmed) {
+  if (!confirmed)
     return;
-  }
   const ok = await saveFormLayout();
   if (ok) {
     isEditingFormLayout.value = false;
@@ -574,13 +701,14 @@ async function confirmAndCancelFormLayoutEdit() {
     confirmButton: { label: 'ยกเลิกการแก้ไข', color: 'error' },
   });
   const confirmed = await instance.result;
-  if (!confirmed) {
+  if (!confirmed)
     return;
-  }
   const snap = formLayoutEditSnapshot.value;
   if (snap) {
     formSectionTitle.value = snap.sectionTitle;
-    formFieldLayout.value = snap.layout.map(item => ({ ...item }));
+    layoutItems.value = snap.items.map(it =>
+      it.kind === 'field' ? { ...it } : { ...it, fields: it.fields.map(f => ({ ...f })) },
+    );
   }
   isEditingFormLayout.value = false;
   activeEditingFieldId.value = null;
@@ -997,24 +1125,49 @@ watch(layoutEditorFillableFields, () => {
                 </h4>
                 <div class="space-y-3">
                   <template
-                    v-for="(field, index) in orderedLayoutEditorFields"
-                    :key="field.instanceId"
+                    v-for="(item, itemIndex) in layoutItems"
+                    :key="item.kind === 'field' ? `field-${item.instanceId}` : `group-${item.id}`"
                   >
-                    <!-- Drop zone before this row -->
+                    <!-- Gap between items: drop zone during drag, + button on hover -->
                     <div
-                      v-if="isEditingFormLayout && layoutDropIndex === index"
-                      class="layout-drop-divider"
-                      @dragover="onLayoutDropZoneDragOver($event, index)"
-                      @drop="onLayoutDropZone($event, index)"
-                    />
+                      v-if="isEditingFormLayout"
+                      class="group/gap relative flex items-center z-20"
+                      :class="layoutDragFromIndex !== null ? 'h-8 -my-4 cursor-copy' : 'h-4 -my-2 pointer-events-none'"
+                      @dragover="onGapDragOver($event, itemIndex)"
+                      @drop="onGapDrop($event, itemIndex)"
+                    >
+                      <div
+                        class="flex-1 transition-all duration-150 rounded"
+                        :class="layoutDropIndex === itemIndex && layoutDragFromIndex !== null
+                          ? 'h-1 bg-indigo-500 shadow'
+                          : 'h-px bg-gray-200 group-hover/gap:bg-indigo-400'"
+                      />
+                      <button
+                        v-if="layoutDragFromIndex === null"
+                        type="button"
+                        class="pointer-events-auto opacity-0 group-hover/gap:opacity-100 transition-opacity shrink-0 w-6 h-6 rounded-full bg-white border-2 border-indigo-400 text-indigo-500 flex items-center justify-center text-sm font-bold hover:bg-indigo-50 leading-none"
+                        title="เพิ่มกลุ่มตรงนี้"
+                        @click.stop="addGroupAt(itemIndex)"
+                      >
+                        +
+                      </button>
+                      <div
+                        class="flex-1 transition-all duration-150 rounded"
+                        :class="layoutDropIndex === itemIndex && layoutDragFromIndex !== null
+                          ? 'h-1 bg-indigo-500 shadow'
+                          : 'h-px bg-gray-200 group-hover/gap:bg-indigo-400'"
+                      />
+                    </div>
 
+                    <!-- ── Individual field card ── -->
                     <div
-                      :id="`form-layout-row-${field.instanceId}`"
+                      v-if="item.kind === 'field'"
+                      :id="`form-layout-row-${item.instanceId}`"
                       :class="[
-                        getFieldCardClass(field),
-                        isEditingFormLayout && layoutDragFromIndex === index ? 'layout-row-dragging' : '',
+                        getFieldCardClass(item.instanceId),
+                        isEditingFormLayout && layoutDragFromIndex === itemIndex ? 'layout-row-dragging' : '',
                       ]"
-                      @dragover="onLayoutDragOver($event, index)"
+                      @dragover="onLayoutDragOver($event, itemIndex)"
                       @drop="onLayoutDrop"
                     >
                       <div class="flex items-center gap-2 mb-2">
@@ -1025,68 +1178,265 @@ watch(layoutEditorFillableFields, () => {
                           title="ลากเพื่อสลับลำดับ"
                           aria-label="ลากเพื่อสลับลำดับคำถาม"
                           draggable="true"
-                          @dragstart="onLayoutDragStart($event, index)"
+                          @dragstart="onLayoutDragStart($event, itemIndex)"
                           @dragend="onLayoutDragEnd"
                         >
                           <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
                         </button>
                         <UInput
-                          :model-value="getQuestionLabel(field)"
+                          :model-value="item.questionLabel"
                           :disabled="!isEditingFormLayout"
                           class="flex-1 min-w-0"
-                          @focus="activeEditingFieldId = String(field.instanceId)"
-                          @blur="() => { activeEditingFieldId = null; revertQuestionLabelIfEmpty(String(field.instanceId)); }"
-                          @update:model-value="(value) => setQuestionLabel(String(field.instanceId), String(value ?? ''))"
+                          @focus="activeEditingFieldId = item.instanceId"
+                          @blur="() => { activeEditingFieldId = null; revertQuestionLabelIfEmpty(item.instanceId); }"
+                          @update:model-value="(value) => setQuestionLabel(item.instanceId, String(value ?? ''))"
                         />
                         <UButton
                           size="xs"
                           icon="i-heroicons-chevron-up"
                           variant="ghost"
-                          :disabled="!isEditingFormLayout || index === 0"
-                          @click="moveLayoutItem(index, -1)"
+                          :disabled="!isEditingFormLayout || itemIndex === 0"
+                          @click="moveLayoutItem(itemIndex, -1)"
                         />
                         <UButton
                           size="xs"
                           icon="i-heroicons-chevron-down"
                           variant="ghost"
-                          :disabled="!isEditingFormLayout || index === orderedLayoutEditorFields.length - 1"
-                          @click="moveLayoutItem(index, 1)"
+                          :disabled="!isEditingFormLayout || itemIndex === layoutItems.length - 1"
+                          @click="moveLayoutItem(itemIndex, 1)"
                         />
                       </div>
                       <div
                         v-if="isEditingFormLayout"
-                        class="flex items-center gap-2 mb-2"
+                        class="flex items-center gap-3 mb-2 flex-wrap"
                       >
                         <UCheckbox
-                          :model-value="getLayoutEntry(String(field.instanceId))?.required !== false"
+                          :model-value="item.required"
                           label="ต้องกรอก"
-                          @update:model-value="(v) => setLayoutRequired(String(field.instanceId), Boolean(v))"
+                          @update:model-value="(v) => setLayoutRequired(item.instanceId, Boolean(v))"
                         />
+                        <div v-if="availableGroups.length > 0" class="flex items-center gap-1">
+                          <span class="text-xs text-gray-500">ย้ายไปกลุ่ม:</span>
+                          <select
+                            class="text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white"
+                            @change="(e) => { const v = (e.target as HTMLSelectElement).value; if (v) assignFieldToGroup(item.instanceId, v); (e.target as HTMLSelectElement).value = ''; }"
+                          >
+                            <option value="">
+                              -- เลือกกลุ่ม --
+                            </option>
+                            <option v-for="g in availableGroups" :key="g.id" :value="g.id">
+                              {{ g.title || '(ไม่มีชื่อ)' }}
+                            </option>
+                          </select>
+                        </div>
                       </div>
                       <form-field-input
-                        v-if="isFieldVisible(field)"
-                        :model-value="previewFieldValues[getFieldValueKey(field)]"
-                        :field="{ ...field, label: getQuestionLabel(field), formRequired: getPreviewFormRequired(field) }"
-                        :disabled="isPreviewCheckboxDisabled(field)"
-                        @update:model-value="(value) => updatePreviewValue(field, String(value ?? ''))"
+                        v-if="isFieldVisible(orderedLayoutEditorFieldsById.get(item.instanceId))"
+                        :model-value="previewFieldValues[getFieldValueKey(orderedLayoutEditorFieldsById.get(item.instanceId))]"
+                        :field="{ ...orderedLayoutEditorFieldsById.get(item.instanceId), label: item.questionLabel, formRequired: getPreviewFormRequired(orderedLayoutEditorFieldsById.get(item.instanceId)) }"
+                        :disabled="isPreviewCheckboxDisabled(orderedLayoutEditorFieldsById.get(item.instanceId))"
+                        @update:model-value="(value) => updatePreviewValue(orderedLayoutEditorFieldsById.get(item.instanceId), String(value ?? ''))"
                       />
                       <p
-                        v-else
+                        v-else-if="orderedLayoutEditorFieldsById.get(item.instanceId)"
                         class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
                       >
                         ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
                       </p>
                     </div>
+
+                    <!-- ── Group card ── -->
+                    <div
+                      v-else-if="item.kind === 'group'"
+                      :id="`form-layout-group-${item.id}`"
+                      :class="[
+                        getGroupCardClass(item.id),
+                        isEditingFormLayout && layoutDragFromIndex === itemIndex ? 'layout-row-dragging' : '',
+                      ]"
+                      @dragover="onLayoutDragOver($event, itemIndex)"
+                      @drop="onLayoutDrop"
+                    >
+                      <!-- Group header: title input + reorder + delete -->
+                      <div class="flex items-center gap-2 mb-2">
+                        <button
+                          v-if="isEditingFormLayout"
+                          type="button"
+                          class="layout-drag-handle shrink-0 flex items-center justify-center w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-manipulation"
+                          title="ลากเพื่อสลับลำดับ"
+                          aria-label="ลากเพื่อสลับลำดับกลุ่ม"
+                          draggable="true"
+                          @dragstart="onLayoutDragStart($event, itemIndex)"
+                          @dragend="onLayoutDragEnd"
+                        >
+                          <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+                        </button>
+                        <UInput
+                          v-model="item.title"
+                          :disabled="!isEditingFormLayout"
+                          class="flex-1 min-w-0"
+                          placeholder="ตั้งหัวข้อกลุ่ม..."
+                          @focus="activeEditingFieldId = item.fields[0] ? item.fields[0].instanceId : null"
+                        />
+                        <UButton
+                          size="xs"
+                          icon="i-heroicons-chevron-up"
+                          variant="ghost"
+                          :disabled="!isEditingFormLayout || itemIndex === 0"
+                          @click="moveLayoutItem(itemIndex, -1)"
+                        />
+                        <UButton
+                          size="xs"
+                          icon="i-heroicons-chevron-down"
+                          variant="ghost"
+                          :disabled="!isEditingFormLayout || itemIndex === layoutItems.length - 1"
+                          @click="moveLayoutItem(itemIndex, 1)"
+                        />
+                        <UButton
+                          v-if="isEditingFormLayout"
+                          size="xs"
+                          icon="i-heroicons-trash"
+                          variant="ghost"
+                          color="error"
+                          title="ลบกลุ่ม (คืนฟิลด์กลับ)"
+                          @click="removeGroup(item.id)"
+                        />
+                      </div>
+
+                      <!-- Required toggle -->
+                      <div
+                        v-if="isEditingFormLayout"
+                        class="flex items-center gap-2 mb-2"
+                      >
+                        <UCheckbox
+                          :model-value="item.required"
+                          label="ต้องกรอก"
+                          @update:model-value="(v) => setGroupRequired(item.id, Boolean(v))"
+                        />
+                      </div>
+
+                      <!-- Group title in preview mode -->
+                      <div v-if="!isEditingFormLayout && item.title" class="text-sm font-medium text-gray-700 flex items-center gap-0.5 mb-2">
+                        <span>{{ item.title }}</span>
+                        <abbr v-if="item.required" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
+                      </div>
+
+                      <!-- Fields inside group -->
+                      <div class="space-y-2 pl-2 border-l-2 border-indigo-200">
+                        <div
+                          v-for="(groupField, fi) in item.fields"
+                          :key="groupField.instanceId"
+                          class="rounded border border-gray-200 p-2 bg-white"
+                        >
+                          <div class="flex items-center gap-2 mb-1">
+                            <UInput
+                              :model-value="groupField.questionLabel"
+                              :disabled="!isEditingFormLayout"
+                              class="flex-1 min-w-0"
+                              @focus="activeEditingFieldId = groupField.instanceId"
+                              @blur="() => { activeEditingFieldId = null; revertQuestionLabelIfEmpty(groupField.instanceId); }"
+                              @update:model-value="(value) => setQuestionLabel(groupField.instanceId, String(value ?? ''))"
+                            />
+                            <UButton
+                              v-if="isEditingFormLayout"
+                              size="xs"
+                              icon="i-heroicons-chevron-up"
+                              variant="ghost"
+                              :disabled="fi === 0"
+                              @click="moveFieldInGroup(item.id, fi, -1)"
+                            />
+                            <UButton
+                              v-if="isEditingFormLayout"
+                              size="xs"
+                              icon="i-heroicons-chevron-down"
+                              variant="ghost"
+                              :disabled="fi === item.fields.length - 1"
+                              @click="moveFieldInGroup(item.id, fi, 1)"
+                            />
+                            <UButton
+                              v-if="isEditingFormLayout"
+                              size="xs"
+                              icon="i-heroicons-arrow-uturn-left"
+                              variant="ghost"
+                              color="neutral"
+                              title="นำออกจากกลุ่ม"
+                              @click="removeFieldFromGroup(item.id, groupField.instanceId)"
+                            />
+                          </div>
+                          <form-field-input
+                            v-if="isFieldVisible(orderedLayoutEditorFieldsById.get(groupField.instanceId))"
+                            :model-value="previewFieldValues[getFieldValueKey(orderedLayoutEditorFieldsById.get(groupField.instanceId))]"
+                            :field="{ ...orderedLayoutEditorFieldsById.get(groupField.instanceId), label: groupField.questionLabel, formRequired: getPreviewFormRequired(orderedLayoutEditorFieldsById.get(groupField.instanceId)) }"
+                            :disabled="isPreviewCheckboxDisabled(orderedLayoutEditorFieldsById.get(groupField.instanceId))"
+                            @update:model-value="(value) => updatePreviewValue(orderedLayoutEditorFieldsById.get(groupField.instanceId), String(value ?? ''))"
+                          />
+                          <p
+                            v-else-if="orderedLayoutEditorFieldsById.get(groupField.instanceId)"
+                            class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
+                          >
+                            ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
+                          </p>
+                        </div>
+
+                        <!-- Add field to group -->
+                        <div v-if="isEditingFormLayout" class="mt-1">
+                          <select
+                            class="text-xs border border-gray-200 rounded px-2 py-1 bg-white w-full"
+                            @change="(e) => { const v = (e.target as HTMLSelectElement).value; if (v) assignFieldToGroup(v, item.id); (e.target as HTMLSelectElement).value = ''; }"
+                          >
+                            <option value="">
+                              + เพิ่มฟิลด์ในกลุ่มนี้
+                            </option>
+                            <option
+                              v-for="standaloneItem in layoutItems.filter(it => it.kind === 'field')"
+                              :key="(standaloneItem as any).instanceId"
+                              :value="(standaloneItem as any).instanceId"
+                            >
+                              {{ (standaloneItem as any).questionLabel || orderedLayoutEditorFieldsById.get((standaloneItem as any).instanceId)?.label || (standaloneItem as any).instanceId }}
+                            </option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
                   </template>
 
-                  <!-- Drop zone after last row -->
-                  <div
-                    v-if="isEditingFormLayout && layoutDropIndex === orderedLayoutEditorFields.length"
-                    class="layout-drop-divider"
-                    @dragover="onLayoutDropZoneDragOver($event, orderedLayoutEditorFields.length)"
-                    @drop="onLayoutDropZone($event, orderedLayoutEditorFields.length)"
-                  />
-                  <p v-if="orderedLayoutEditorFields.length === 0" class="text-sm text-gray-400 text-center py-3">
+                  <!-- End-of-list drop zone (for dragging to last position) + hover + button -->
+                  <div class="relative">
+                    <!-- Drop zone strip: only active during drag -->
+                    <div
+                      v-if="isEditingFormLayout && layoutDragFromIndex !== null"
+                      class="absolute inset-x-0 -top-4 h-8 z-20"
+                      @dragover="onGapDragOver($event, layoutItems.length)"
+                      @drop="onGapDrop($event, layoutItems.length)"
+                    />
+                    <!-- Visual line and + button -->
+                    <div
+                      v-if="isEditingFormLayout"
+                      class="group/gap relative flex items-center h-4 -mt-2 z-10 pointer-events-none"
+                    >
+                      <div
+                        class="flex-1 h-px transition-colors duration-150"
+                        :class="layoutDropIndex === layoutItems.length && layoutDragFromIndex !== null
+                          ? 'bg-indigo-500'
+                          : 'bg-gray-200 group-hover/gap:bg-indigo-400'"
+                      />
+                      <button
+                        v-if="layoutDragFromIndex === null"
+                        type="button"
+                        class="pointer-events-auto opacity-0 group-hover/gap:opacity-100 transition-opacity shrink-0 w-6 h-6 rounded-full bg-white border-2 border-indigo-400 text-indigo-500 flex items-center justify-center text-sm font-bold hover:bg-indigo-50 leading-none"
+                        title="เพิ่มกลุ่มตรงนี้"
+                        @click.stop="addGroupAt(layoutItems.length)"
+                      >
+                        +
+                      </button>
+                      <div
+                        class="flex-1 h-px transition-colors duration-150"
+                        :class="layoutDropIndex === layoutItems.length && layoutDragFromIndex !== null
+                          ? 'bg-indigo-500'
+                          : 'bg-gray-200 group-hover/gap:bg-indigo-400'"
+                      />
+                    </div>
+                  </div>
+                  <p v-if="layoutItems.length === 0" class="text-sm text-gray-400 text-center py-3">
                     ไม่มีฟิลด์ที่นิสิตต้องกรอก
                   </p>
                 </div>
