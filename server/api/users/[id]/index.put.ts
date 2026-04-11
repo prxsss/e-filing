@@ -12,6 +12,7 @@ const updateUserSchema = z.object({
   titleTh: z.string().max(20).optional(),
   firstNameTh: z.string().min(1, 'First name (Thai) is required'),
   lastNameTh: z.string().min(1, 'Last name (Thai) is required'),
+  email: z.email('Invalid email address'),
 });
 
 export default defineEventHandler(async (event) => {
@@ -35,6 +36,7 @@ export default defineEventHandler(async (event) => {
       titleTh: body.titleTh?.trim() || null,
       firstNameTh: body.firstNameTh.trim(),
       lastNameTh: body.lastNameTh.trim(),
+      email: body.email.trim(),
       updatedAt: new Date().toISOString(),
     })
     .where(eq(users.id, id))
@@ -48,6 +50,7 @@ export default defineEventHandler(async (event) => {
       titleTh: users.titleTh,
       firstNameTh: users.firstNameTh,
       lastNameTh: users.lastNameTh,
+      email: users.email,
     });
 
   return {

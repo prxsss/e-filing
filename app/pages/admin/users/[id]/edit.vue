@@ -258,6 +258,7 @@ const updateUserSchema = z.object({
   titleTh: z.string().max(20),
   firstNameTh: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.firstNameTh') })),
   lastNameTh: z.string().min(1, t('common.validation.required', { field: t('adminUsers.shared.form.lastNameTh') })),
+  email: z.email(t('common.validation.invalidEmail')),
 });
 
 type UpdateUserSchema = z.output<typeof updateUserSchema>;
@@ -271,6 +272,7 @@ const form = ref<Partial<UpdateUserSchema>>({
   titleTh: '',
   firstNameTh: '',
   lastNameTh: '',
+  email: '',
 });
 
 // const isDirty = computed(() => {
@@ -294,6 +296,7 @@ watch([userData, roles], ([newData]) => {
       firstNameTh: newData.firstNameTh || '',
       lastNameTh: newData.lastNameTh || '',
       titleTh: newData.titleTh || '',
+      email: newData.email || '',
     };
 
     roleAssignments.value = mapAssignmentsToRoleAssignments(newData.assignments || []);
@@ -314,6 +317,7 @@ watch([form, roleAssignments], ([newForm, newRoles]) => {
     firstNameTh: userData.value?.firstNameTh,
     lastNameTh: userData.value?.lastNameTh,
     titleTh: userData.value?.titleTh,
+    email: userData.value?.email,
   });
 
   const rolesDirty = JSON.stringify(newRoles) !== JSON.stringify(initialRoles);
@@ -357,6 +361,7 @@ async function handleUpdateUser(event: FormSubmitEvent<UpdateUserSchema>) {
         titleTh: event.data.titleTh,
         firstNameTh: event.data.firstNameTh,
         lastNameTh: event.data.lastNameTh,
+        email: event.data.email,
       },
     });
 
@@ -660,9 +665,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
                   class="col-span-1 md:col-span-3"
                 >
                   <UInput
-                    v-model="userData.email"
-                    disabled
-                    variant="subtle"
+                    v-model="form.email"
                     type="email"
                     class="w-full"
                   />
