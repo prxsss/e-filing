@@ -160,6 +160,21 @@ const navbarTitle = computed(() => {
 const selectedLanguageIcon = computed(() =>
   languageItems.value.find(l => l.code === locale.value)?.icon,
 );
+
+function joinNameParts(...parts: Array<string | null | undefined>) {
+  return parts
+    .map(part => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(' ');
+}
+
+const userDisplayName = computed(() => {
+  const user = authStore.session.user!; // We can assert this because of the auth.global middleware
+
+  return locale.value === 'en'
+    ? joinNameParts(user.titleEn, user.fullNameEn)
+    : joinNameParts(user.titleTh, user.fullNameTh);
+});
 </script>
 
 <template>
@@ -232,8 +247,7 @@ const selectedLanguageIcon = computed(() =>
               <div v-else-if="authStore.session.loggedIn" class="flex items-center gap-3">
                 <div class="text-right hidden md:block">
                   <p class="font-semibold text-sm">
-                    {{ locale === 'en' ? `${authStore.session.user?.titleEn} ${authStore.session.user?.fullNameEn}`
-                      : `${authStore.session.user?.titleTh} ${authStore.session.user?.fullNameTh}` }}
+                    {{ userDisplayName }}
                   </p>
                   <p class="text-xs capitalize">
                     {{ authStore.session.user?.currentRole }}
