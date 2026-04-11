@@ -19,8 +19,8 @@ const loading = ref(false);
 const isAdminRole = computed(() => props.role.name.toLowerCase() === 'admin');
 
 const editRoleSchema = z.object({
-  name: z.string().min(1, t('adminAccessControl.roleNameRequiredEn')),
-  nameTh: z.string().min(1, t('adminAccessControl.roleNameRequiredTh')),
+  name: z.string().min(1, t('common.validation.required', { field: t('adminAccessControl.roleForm.nameEn') })),
+  nameTh: z.string().min(1, t('common.validation.required', { field: t('adminAccessControl.roleForm.nameTh') })),
   descriptionEn: z.string().optional(),
   descriptionTh: z.string().optional(),
 });
@@ -46,17 +46,40 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
         descriptionTh: event.data.descriptionTh || null,
       },
     });
-    toast.add({ title: t('adminAccessControl.editRole'), description: t('adminAccessControl.roleUpdatedSuccess'), color: 'success' });
+    toast.add({
+      title: t('adminAccessControl.messages.success.updated'),
+      color: 'success',
+    });
     emit('close', true);
   }
   catch (error: any) {
-    if (error?.statusCode === 409 && error?.data?.code === 'ADMIN_ROLE_NAME_LOCKED') {
-      toast.add({ title: t('adminAccessControl.editRole'), description: t('adminAccessControl.adminRoleNameLocked'), color: 'error' });
+    const errorCode = error?.data?.code ?? error?.data?.data?.code;
+    const backendMessage = error?.data?.statusMessage ?? error?.data?.message ?? error?.message;
+
+    if (error?.statusCode === 409 && errorCode === 'ADMIN_ROLE_NAME_LOCKED') {
+      toast.add({
+        title: t('adminAccessControl.messages.error.updateFailed'),
+        description: t('adminAccessControl.messages.locked.adminName'),
+        color: 'error',
+      });
       return;
     }
 
-    const message = error?.data?.statusMessage || t('adminAccessControl.roleUpdateFailed');
-    toast.add({ title: t('error'), description: message, color: 'error' });
+    if (error?.statusCode === 409 && (errorCode === 'ROLE_NAME_ALREADY_EXISTS' || backendMessage === 'A role with this name already exists')) {
+      toast.add({
+        title: t('adminAccessControl.messages.error.updateFailed'),
+        description: t('adminAccessControl.messages.error.duplicateRoleName'),
+        color: 'error',
+      });
+      return;
+    }
+
+    const message = backendMessage || t('adminAccessControl.messages.error.updateFailed');
+    toast.add({
+      title: t('adminAccessControl.messages.error.updateFailed'),
+      description: message,
+      color: 'error',
+    });
   }
   finally {
     loading.value = false;
@@ -65,29 +88,29 @@ async function handleSubmit(event: { data: EditRoleSchema }) {
 </script>
 
 <template>
-  <UModal :title="t('adminAccessControl.editRole')" :close="{ onClick: () => emit('close', false) }">
+  <UModal :title="t('common.actions.edit')" :close="{ onClick: () => emit('close', false) }">
     <template #body>
       <UForm :schema="editRoleSchema" :state="form" class="space-y-4" @submit="handleSubmit">
-        <UFormField :label="t('adminAccessControl.roleName')" name="name" required>
-          <UInput v-model="form.name" :placeholder="t('adminAccessControl.roleNamePlaceholder')" class="w-full" :disabled="isAdminRole" />
+        <UFormField :label="t('adminAccessControl.roleForm.nameEn')" name="name" required>
+          <UInput v-model="form.name" :placeholder="t('adminAccessControl.roleForm.namePlaceholder')" class="w-full" :disabled="isAdminRole" />
           <p v-if="isAdminRole" class="text-xs text-error mt-1">
-            {{ t('adminAccessControl.adminRoleNameLocked') }}
+            {{ t('adminAccessControl.messages.locked.adminName') }}
           </p>
         </UFormField>
 
-        <UFormField :label="t('adminAccessControl.roleNameTh')" name="nameTh" required>
-          <UInput v-model="form.nameTh" :placeholder="t('adminAccessControl.roleNameThPlaceholder')" class="w-full" :disabled="isAdminRole" />
+        <UFormField :label="t('adminAccessControl.roleForm.nameTh')" name="nameTh" required>
+          <UInput v-model="form.nameTh" :placeholder="t('adminAccessControl.roleForm.nameThPlaceholder')" class="w-full" :disabled="isAdminRole" />
           <p v-if="isAdminRole" class="text-xs text-error mt-1">
-            {{ t('adminAccessControl.adminRoleNameLocked') }}
+            {{ t('adminAccessControl.messages.locked.adminName') }}
           </p>
         </UFormField>
 
-        <UFormField :label="t('adminAccessControl.descriptionEn')" name="descriptionEn">
-          <UTextarea v-model="form.descriptionEn" :placeholder="t('adminAccessControl.descriptionEnPlaceholder')" class="w-full" :rows="3" />
+        <UFormField :label="t('adminAccessControl.roleForm.descEn')" name="descriptionEn">
+          <UTextarea v-model="form.descriptionEn" :placeholder="t('adminAccessControl.roleForm.descEnPlaceholder')" class="w-full" :rows="3" />
         </UFormField>
 
-        <UFormField :label="t('adminAccessControl.descriptionTh')" name="descriptionTh">
-          <UTextarea v-model="form.descriptionTh" :placeholder="t('adminAccessControl.descriptionThPlaceholder')" class="w-full" :rows="3" />
+        <UFormField :label="t('adminAccessControl.roleForm.descTh')" name="descriptionTh">
+          <UTextarea v-model="form.descriptionTh" :placeholder="t('adminAccessControl.roleForm.descThPlaceholder')" class="w-full" :rows="3" />
         </UFormField>
 
         <div class="flex justify-end gap-3 pt-2">

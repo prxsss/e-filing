@@ -37,6 +37,7 @@
       },
       "error": {
         "createFailed": "Failed to create role.",
+        "duplicateRoleName": "A role with this name already exists.",
         "updateFailed": "Failed to update role.",
         "deleteFailed": "Failed to delete role.",
         "permissionFailed": "Failed to save permission changes.",

@@ -161,6 +161,33 @@ watch(form, () => {
   );
 }, { deep: true });
 
+function resolveCreateRoleErrorMessage(error: unknown) {
+  const fetchError = error as {
+    data?: {
+      code?: string;
+      statusMessage?: string;
+      message?: string;
+      data?: {
+        code?: string;
+      };
+    };
+    message?: string;
+  };
+
+  const errorCode = fetchError.data?.code ?? fetchError.data?.data?.code;
+  const backendMessage = fetchError.data?.statusMessage ?? fetchError.data?.message ?? fetchError.message;
+
+  if (errorCode === 'ROLE_NAME_ALREADY_EXISTS' || backendMessage === 'A role with this name already exists') {
+    return t('adminAccessControl.messages.error.duplicateRoleName');
+  }
+
+  if (errorCode === 'INVALID_DASHBOARD_PERMISSION_COUNT') {
+    return t('adminAccessControl.messages.error.dashboardPermissionRequired');
+  }
+
+  return backendMessage || t('adminAccessControl.messages.error.createFailed');
+}
+
 // ── Submit ──
 async function handleCreateRole(event: FormSubmitEvent<CreateRoleSchema>) {
   if (selectedDashboardPermissionCount.value !== 1) {
@@ -191,8 +218,11 @@ async function handleCreateRole(event: FormSubmitEvent<CreateRoleSchema>) {
     navigateTo(localPath('/admin/access-control'));
   }
   catch (error: any) {
-    const message = error?.data?.statusMessage || t('adminAccessControl.messages.error.createFailed');
-    toast.add({ title: t('error'), description: message, color: 'error' });
+    toast.add({
+      title: t('adminAccessControl.messages.error.createFailed'),
+      description: resolveCreateRoleErrorMessage(error),
+      color: 'error',
+    });
   }
   finally {
     loading.value = false;

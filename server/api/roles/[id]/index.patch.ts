@@ -42,9 +42,32 @@ export default defineEventHandler(async (event) => {
     if (error.statusCode)
       throw error;
 
-    // Unique constraint violation
-    if (error.code === '23505') {
-      throw createError({ statusCode: 409, statusMessage: 'A role with this name already exists' });
+    const errorCode = error?.code ?? error?.cause?.code;
+    const errorConstraint = error?.constraint ?? error?.cause?.constraint;
+    const combinedMessage = `${error?.message || ''} ${error?.cause?.message || ''}`.toLowerCase();
+
+    const isUniqueViolation = errorCode === '23505'
+      || combinedMessage.includes('duplicate key value violates unique constraint');
+
+    const duplicateFieldByConstraint: Record<string, 'name' | 'nameTh'> = {
+      roles_name_unique_ci: 'name',
+      roles_name_th_unique_ci: 'nameTh',
+    };
+
+    const duplicateField = errorConstraint ? duplicateFieldByConstraint[String(errorConstraint)] : undefined;
+    const isRoleNameDuplicate = Boolean(duplicateField)
+      || combinedMessage.includes('roles_name_unique_ci')
+      || combinedMessage.includes('roles_name_th_unique_ci');
+
+    if (isUniqueViolation && isRoleNameDuplicate) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'A role with this name already exists',
+        data: {
+          code: 'ROLE_NAME_ALREADY_EXISTS',
+          fields: duplicateField ? [duplicateField] : [],
+        },
+      });
     }
 
     throw createError({ statusCode: 500, statusMessage: 'Failed to update role' });
