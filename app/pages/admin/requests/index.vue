@@ -4,6 +4,7 @@ import type { TableColumn, TableRow } from '@nuxt/ui';
 import { useDebounceFn } from '@vueuse/core';
 
 import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
+import { getStudentYear } from '~/utils/student';
 
 definePageMeta({
   title: 'requests',
@@ -29,9 +30,13 @@ type RequestItem = {
   submittedAt: string | null;
   filledDocumentUrl?: string | null;
   studentId: string | null;
+  studentYear: string | number;
   studentNameEn: string | null;
   studentNameTh: string | null;
   studentName: string;
+  departmentNameTh: string | null;
+  departmentNameEn: string | null;
+  departmentName: string;
 };
 
 type SelectableRow = {
@@ -107,6 +112,16 @@ function formatCalendarDate(value: { year: number; month: number; day: number } 
   }).format(date);
 }
 
+function getStudentYearDisplay(studentId: string | null): string {
+  const normalizedId = String(studentId ?? '').trim();
+  if (!/^\d{2}/.test(normalizedId)) {
+    return '-';
+  }
+
+  const year = getStudentYear(normalizedId);
+  return Number.isFinite(year) && year > 0 ? String(year) : '-';
+}
+
 // === Table Columns ===
 const UBadge = resolveComponent('UBadge');
 const UButton = resolveComponent('UButton');
@@ -134,21 +149,37 @@ const columns: TableColumn<RequestItem>[] = [
     enableSorting: false,
     enableHiding: false,
   },
-  { accessorKey: 'studentId', header: t('studentId'), size: 120 },
+  { accessorKey: 'studentId', header: t('studentId'), size: 110 },
   {
     accessorKey: 'studentName',
     header: t('studentName'),
-    size: 180,
+    size: 150,
     cell: (ctx: { row: TableRow<RequestItem> }) => ctx.row.original.studentName,
   },
-  { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
-  { accessorKey: 'status', header: t('status'), size: 150 },
-  { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
-  { accessorKey: 'submittedAt', header: t('lastUpdated'), size: 165 },
+  {
+    accessorKey: 'departmentName',
+    header: t('department'),
+    size: 140,
+  },
+  { accessorKey: 'studentYear', header: t('studentYear'), size: 20 },
+  {
+    accessorKey: 'templateName',
+    header: t('requestTitle'),
+    size: 200,
+    meta: {
+      class: {
+        th: 'w-50 max-w-50 text-left',
+        td: 'w-50 max-w-50 text-left',
+      },
+    },
+  },
+  { accessorKey: 'status', header: t('status'), size: 120 },
+  { accessorKey: 'createdAt', header: t('submittedDate'), size: 130 },
+  { accessorKey: 'submittedAt', header: t('lastUpdated'), size: 130 },
   {
     id: 'actions',
     header: '',
-    size: 100,
+    size: 80,
     meta: { class: { td: 'text-right' } },
   },
 ];
@@ -297,12 +328,20 @@ const requests = computed<RequestItem[]>(() => {
     const studentName = locale.value === 'th'
       ? (item.studentNameTh ?? '')
       : (item.studentNameEn ?? '');
+    const departmentName = locale.value === 'th'
+      ? (item.departmentNameTh ?? item.departmentNameEn ?? '')
+      : (item.departmentNameEn ?? item.departmentNameTh ?? '');
+    const studentId = item.studentId ?? '';
     return {
       ...item,
-      studentId: item.studentId ?? '',
+      studentId,
+      studentYear: getStudentYearDisplay(studentId),
       studentNameEn: item.studentNameEn ?? '',
       studentNameTh: item.studentNameTh ?? '',
       studentName,
+      departmentNameTh: item.departmentNameTh ?? null,
+      departmentNameEn: item.departmentNameEn ?? null,
+      departmentName: departmentName || '-',
     };
   });
 });
@@ -505,14 +544,28 @@ const statsMap = computed(() => {
       <UTable
         ref="table"
         v-model:row-selection="rowSelection"
+        class="w-full"
         :data="requests"
         :columns="columns"
         :get-row-id="(row: RequestItem) => String(row.id)"
         :loading="fetchStatus === 'pending'"
-        :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
+        :ui="{ base: 'table-fixed min-w-full', th: 'text-left', td: 'text-left', tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
         @select="onRowSelect"
       >
+        <template #templateName-cell="{ row }">
+          <div
+            class="max-w-50 truncate"
+            :title="row.original.templateName ?? '-'"
+          >
+            {{ row.original.templateName || '-' }}
+          </div>
+        </template>
+        <template #departmentName-cell="{ row }">
+          <div class="max-w-35 truncate" :title="row.original.departmentName || '-'">
+            {{ row.original.departmentName || '-' }}
+          </div>
+        </template>
         <template #createdAt-cell="{ row }">
           {{ formatDate(row.original.createdAt) }}
         </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getStudentYear } from '~/utils/student';
+
 definePageMeta({
   title: 'requestDetails',
   middleware: ['permission'],
@@ -15,6 +17,11 @@ type RequestData = {
   submittedAt: string | null;
   userId: string | null;
   note: string | null;
+  requesterNameTh: string | null;
+  requesterNameEn: string | null;
+  requesterStudentId: string | null;
+  requesterDepartmentNameTh: string | null;
+  requesterDepartmentNameEn: string | null;
 };
 
 type TemplateData = {
@@ -60,6 +67,7 @@ type WorkflowStep = {
 // --- State ---
 const route = useRoute();
 const localePath = useLocalePath();
+const { locale } = useI18n();
 const requestId = route.params.id;
 
 const isLoading = ref(true);
@@ -75,6 +83,7 @@ const attachments = ref<Attachment[]>([]);
 // --- Download state ---
 const downloadingAttachmentId = ref<number | null>(null);
 const isDownloadingAll = ref(false);
+const isDownloadingRequestBundle = ref(false);
 
 // --- Helpers ---
 function formatDate(dateStr: string | null): string {
@@ -147,6 +156,38 @@ const displayPdfUrl = computed(() =>
   requestData.value?.filledDocumentUrl ?? templateData.value?.documentUrl ?? null,
 );
 const isFilledPdf = computed(() => !!requestData.value?.filledDocumentUrl);
+
+const requesterDisplayName = computed(() => {
+  if (!requestData.value)
+    return '—';
+
+  const isThai = locale.value === 'th';
+  const name = isThai
+    ? requestData.value.requesterNameTh
+    : requestData.value.requesterNameEn;
+  return String(name ?? '').trim() || '—';
+});
+
+const requesterDepartmentDisplayName = computed(() => {
+  if (!requestData.value)
+    return '—';
+
+  const isThai = locale.value === 'th';
+  const department = isThai
+    ? requestData.value.requesterDepartmentNameTh
+    : requestData.value.requesterDepartmentNameEn;
+  return String(department ?? '').trim() || '—';
+});
+
+const requesterStudentYearDisplay = computed(() => {
+  const studentId = String(requestData.value?.requesterStudentId ?? '').trim();
+  if (!/^\d{2}/.test(studentId)) {
+    return '—';
+  }
+
+  const year = getStudentYear(studentId);
+  return Number.isFinite(year) && year > 0 ? String(year) : '—';
+});
 
 function openInNewTab(url: string) {
   if (typeof window !== 'undefined')
@@ -376,6 +417,215 @@ async function downloadAllAsZip() {
   }
 }
 
+async function downloadRequestWithAttachments() {
+  if (!requestData.value)
+    return;
+
+  const requestPdfUrl = displayPdfUrl.value;
+  const validAttachments = attachments.value.filter(a => a.fileUrl);
+
+  if (!requestPdfUrl && validAttachments.length === 0)
+    return;
+
+  isDownloadingRequestBundle.value = true;
+  try {
+    const fileEntries = [] as Array<{ name: string; data: Uint8Array }>;
+
+    if (requestPdfUrl) {
+      const res = await fetch(requestPdfUrl);
+      if (!res.ok)
+        throw new Error('Failed to fetch request PDF');
+      fileEntries.push({
+        name: `request-${requestData.value.id}.pdf`,
+        data: new Uint8Array(await res.arrayBuffer()),
+      });
+    }
+
+    const attachmentEntries = await Promise.all(
+      validAttachments.map(async (att) => {
+        const res = await fetch(att.fileUrl!);
+        if (!res.ok)
+          throw new Error(`Failed to fetch ${att.fileName}`);
+        return {
+          name: att.fileName || `attachment-${att.id}`,
+          data: new Uint8Array(await res.arrayBuffer()),
+        };
+      }),
+    );
+    fileEntries.push(...attachmentEntries);
+
+    function u16(n: number): Uint8Array {
+      const b = new Uint8Array(2);
+      new DataView(b.buffer).setUint16(0, n, true);
+      return b;
+    }
+
+    function u32(n: number): Uint8Array {
+      const b = new Uint8Array(4);
+      new DataView(b.buffer).setUint32(0, n >>> 0, true);
+      return b;
+    }
+
+    function dosNow(): { time: number; date: number } {
+      const d = new Date();
+      return {
+        time: ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) >>> 0,
+        date: (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) >>> 0,
+      };
+    }
+
+    function crc32(data: Uint8Array): number {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let k = 0; k < 8; k++)
+          c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[i] = c;
+      }
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < data.length; i++)
+        crc = (table[(crc ^ data[i]!) & 0xFF]!) ^ (crc >>> 8);
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
+      const cs = new (window as any).CompressionStream('deflate-raw');
+      const writer = cs.writable.getWriter();
+      writer.write(data);
+      writer.close();
+      const chunks: Uint8Array[] = [];
+      const reader = cs.readable.getReader();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        chunks.push(value);
+      }
+      const total = chunks.reduce((s: number, c: Uint8Array) => s + c.length, 0);
+      const out = new Uint8Array(total);
+      let pos = 0;
+      for (const c of chunks) {
+        out.set(c, pos);
+        pos += c.length;
+      }
+      return out;
+    }
+
+    const encoder = new TextEncoder();
+    const localParts: Uint8Array[] = [];
+    const centralDir: Uint8Array[] = [];
+    let localOffset = 0;
+
+    for (const entry of fileEntries) {
+      const compressed = await deflateRaw(entry.data);
+      const crc = crc32(entry.data);
+      const nameBytes = encoder.encode(entry.name);
+      const { time, date } = dosNow();
+
+      const localHeader = new Uint8Array([
+        0x50,
+        0x4B,
+        0x03,
+        0x04,
+        20,
+        0,
+        0,
+        0x08,
+        8,
+        0,
+        ...u16(time),
+        ...u16(date),
+        ...u32(crc),
+        ...u32(compressed.length),
+        ...u32(entry.data.length),
+        ...u16(nameBytes.length),
+        0,
+        0,
+        ...nameBytes,
+      ]);
+
+      const cdEntry = new Uint8Array([
+        0x50,
+        0x4B,
+        0x01,
+        0x02,
+        20,
+        0,
+        20,
+        0,
+        0,
+        0x08,
+        8,
+        0,
+        ...u16(time),
+        ...u16(date),
+        ...u32(crc),
+        ...u32(compressed.length),
+        ...u32(entry.data.length),
+        ...u16(nameBytes.length),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        ...u32(localOffset),
+        ...nameBytes,
+      ]);
+
+      localParts.push(localHeader, compressed);
+      centralDir.push(cdEntry);
+      localOffset += localHeader.length + compressed.length;
+    }
+
+    const cdSize = centralDir.reduce((s, c) => s + c.length, 0);
+    const eocd = new Uint8Array([
+      0x50,
+      0x4B,
+      0x05,
+      0x06,
+      0,
+      0,
+      0,
+      0,
+      ...u16(fileEntries.length),
+      ...u16(fileEntries.length),
+      ...u32(cdSize),
+      ...u32(localOffset),
+      0,
+      0,
+    ]);
+
+    const allParts = [...localParts, ...centralDir, eocd];
+    const totalSize = allParts.reduce((s, c) => s + c.length, 0);
+    const zip = new Uint8Array(totalSize);
+    let pos = 0;
+    for (const p of allParts) {
+      zip.set(p, pos);
+      pos += p.length;
+    }
+
+    const blob = new Blob([zip], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `request-${requestData.value.id}-bundle.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  catch (err) {
+    console.error('Failed to build request bundle ZIP:', err);
+  }
+  finally {
+    isDownloadingRequestBundle.value = false;
+  }
+}
+
 // --- Fetch ---
 async function loadAll() {
   isLoading.value = true;
@@ -462,6 +712,15 @@ onMounted(loadAll);
             </p>
           </div>
           <div class="flex gap-2">
+            <UButton
+              variant="soft"
+              color="primary"
+              icon="i-heroicons-arrow-down-tray"
+              :loading="isDownloadingRequestBundle"
+              @click="downloadRequestWithAttachments"
+            >
+              ดาวน์โหลดคำร้อง + ไฟล์แนบ
+            </UButton>
             <UButton
               variant="ghost"
               color="neutral"
@@ -556,6 +815,38 @@ onMounted(loadAll);
                 </dt>
                 <dd class="font-medium text-xs text-gray-900 break-all max-w-[60%] text-right">
                   {{ requestData.userId || '—' }}
+                </dd>
+              </div>
+              <div class="flex justify-between items-center">
+                <dt class="text-gray-500 font-medium">
+                  ชื่อผู้ยื่น
+                </dt>
+                <dd class="font-medium text-gray-900 max-w-[60%] text-right truncate" :title="requesterDisplayName">
+                  {{ requesterDisplayName }}
+                </dd>
+              </div>
+              <div class="flex justify-between items-center">
+                <dt class="text-gray-500 font-medium">
+                  รหัสนิสิต
+                </dt>
+                <dd class="font-medium text-gray-900">
+                  {{ requestData.requesterStudentId || '—' }}
+                </dd>
+              </div>
+              <div class="flex justify-between items-center">
+                <dt class="text-gray-500 font-medium">
+                  ชั้นปี
+                </dt>
+                <dd class="font-medium text-gray-900">
+                  {{ requesterStudentYearDisplay }}
+                </dd>
+              </div>
+              <div class="flex justify-between items-center">
+                <dt class="text-gray-500 font-medium">
+                  สาขาวิชา
+                </dt>
+                <dd class="font-medium text-gray-900 max-w-[60%] text-right truncate" :title="requesterDepartmentDisplayName">
+                  {{ requesterDepartmentDisplayName }}
                 </dd>
               </div>
               <div class="flex justify-between items-center">

@@ -14,6 +14,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'fieldCreated', 'fieldUpdated', 'fieldDeleted', 'fieldUpdated', 'fieldDeleted']);
 
 const toast = useToast();
+const { t } = useI18n();
 const isSubmitting = ref(false);
 const isDeleting = ref(false);
 const showDeleteConfirm = ref(false);
@@ -118,6 +119,11 @@ const formData = ref({
 });
 
 const fieldTypes = ['Text', 'Number', 'Checkbox', 'Signature', 'Date', 'Time', 'Dropdown'];
+
+function getFieldTypeLabel(type) {
+  const key = String(type || '').toLowerCase();
+  return t(`adminTemplates.create.fieldModal.fieldTypes.${key}`);
+}
 
 function getIconForType(type) {
   const t = String(type || '').toLowerCase();
@@ -352,7 +358,7 @@ async function loadDropdownSources() {
     console.error('Error loading dropdown sources:', error);
     dropdownSources.value = [];
     toast.add({
-      title: 'ไม่สามารถโหลดข้อมูล Dropdown ได้',
+      title: t('adminTemplates.create.fieldModal.toasts.dropdownSourcesLoadError'),
       color: 'warning',
     });
   }
@@ -381,7 +387,7 @@ async function loadRoles() {
     console.error('Error loading roles:', error);
     roleOptions.value = [];
     toast.add({
-      title: 'ไม่สามารถโหลดข้อมูลบทบาทได้',
+      title: t('adminTemplates.create.fieldModal.toasts.rolesLoadError'),
       color: 'warning',
     });
   }
@@ -445,7 +451,7 @@ function buildFieldPayload() {
 async function handleSubmit() {
   if (!formData.value.name) {
     toast.add({
-      title: 'กรุณากรอกข้อมูลให้ครบ',
+      title: t('adminTemplates.create.fieldModal.toasts.fillRequired'),
       color: 'error',
     });
     return;
@@ -461,8 +467,8 @@ async function handleSubmit() {
     if (!config) {
       toast.add({
         title: isUsersDropdownSource.value
-          ? 'กรุณาเลือกตารางและบทบาทสำหรับ Dropdown'
-          : 'กรุณาเลือกตารางและคอลัมน์สำหรับ Dropdown',
+          ? t('adminTemplates.create.fieldModal.toasts.selectDropdownTableAndRole')
+          : t('adminTemplates.create.fieldModal.toasts.selectDropdownTableAndColumn'),
         color: 'error',
       });
       return;
@@ -486,7 +492,7 @@ async function handleSubmit() {
 
       if (response.success) {
         toast.add({
-          title: 'อัพเดท Field สำเร็จ',
+          title: t('adminTemplates.create.fieldModal.toasts.updateSuccess'),
           color: 'success',
         });
         emit('fieldUpdated', {
@@ -497,7 +503,7 @@ async function handleSubmit() {
       }
       else {
         toast.add({
-          title: 'เกิดข้อผิดพลาด',
+          title: t('adminTemplates.create.fieldModal.toasts.errorTitle'),
           description: response.error,
           color: 'error',
         });
@@ -512,7 +518,7 @@ async function handleSubmit() {
 
       if (response.success) {
         toast.add({
-          title: 'สร้าง Field สำเร็จ',
+          title: t('adminTemplates.create.fieldModal.toasts.createSuccess'),
           color: 'success',
         });
         emit('fieldCreated', {
@@ -523,7 +529,7 @@ async function handleSubmit() {
       }
       else {
         toast.add({
-          title: 'เกิดข้อผิดพลาด',
+          title: t('adminTemplates.create.fieldModal.toasts.errorTitle'),
           description: response.error,
           color: 'error',
         });
@@ -533,7 +539,9 @@ async function handleSubmit() {
   catch (error) {
     console.error('Error submitting field:', error);
     toast.add({
-      title: props.mode === 'edit' ? 'ไม่สามารถอัพเดท Field ได้' : 'ไม่สามารถสร้าง Field ได้',
+      title: props.mode === 'edit'
+        ? t('adminTemplates.create.fieldModal.toasts.updateFailed')
+        : t('adminTemplates.create.fieldModal.toasts.createFailed'),
       description: error.message,
       color: 'error',
     });
@@ -555,7 +563,7 @@ async function handleDelete() {
 
     if (response.success) {
       toast.add({
-        title: 'ลบ Field สำเร็จ',
+        title: t('adminTemplates.create.fieldModal.toasts.deleteSuccess'),
         color: 'success',
       });
       emit('fieldDeleted', props.editField.id);
@@ -563,7 +571,7 @@ async function handleDelete() {
     }
     else {
       toast.add({
-        title: 'เกิดข้อผิดพลาด',
+        title: t('adminTemplates.create.fieldModal.toasts.errorTitle'),
         description: response.error,
         color: 'error',
       });
@@ -572,7 +580,7 @@ async function handleDelete() {
   catch (error) {
     console.error('Error deleting field:', error);
     toast.add({
-      title: 'ไม่สามารถลบ Field ได้',
+      title: t('adminTemplates.create.fieldModal.toasts.deleteFailed'),
       description: error.message,
       color: 'error',
     });
@@ -591,7 +599,7 @@ async function handleDelete() {
         <div class="bg-white dark:bg-gray-900 px-4 pb-3 pt-4 sm:px-4 sm:pb-3 sm:pt-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-xl font-bold leading-6 text-gray-900 dark:text-white">
-              {{ mode === 'edit' ? 'แก้ไข Field' : 'เพิ่ม Field ใหม่' }}
+              {{ mode === 'edit' ? t('adminTemplates.create.fieldModal.titleEdit') : t('adminTemplates.create.fieldModal.titleCreate') }}
             </h3>
             <button
               type="button"
@@ -606,11 +614,11 @@ async function handleDelete() {
             <!-- Field Name -->
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                ชื่อ Field <span class="text-red-500">*</span>
+                {{ t('adminTemplates.create.fieldModal.labels.fieldName') }} <span class="text-red-500">*</span>
               </label>
               <UInput
                 v-model="formData.name"
-                placeholder="เช่น Student Name"
+                :placeholder="t('adminTemplates.create.fieldModal.placeholders.fieldName')"
                 size="md"
               />
             </div>
@@ -619,7 +627,7 @@ async function handleDelete() {
             <div class="grid grid-cols-1 gap-1.5">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ประเภท
+                  {{ t('adminTemplates.create.fieldModal.labels.type') }}
                 </label>
                 <div class="flex items-center gap-3">
                   <select
@@ -627,7 +635,7 @@ async function handleDelete() {
                     class="w-full sm:w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
                   >
                     <option v-for="type in fieldTypes" :key="type" :value="type">
-                      {{ type }}
+                      {{ getFieldTypeLabel(type) }}
                     </option>
                   </select>
 
@@ -636,7 +644,7 @@ async function handleDelete() {
                       <UIcon :name="formData.icon" class="w-5 h-5 text-gray-700 dark:text-gray-200" />
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-300">
-                      {{ formData.type }}
+                      {{ getFieldTypeLabel(formData.type) }}
                     </div>
                   </div>
                 </div>
@@ -647,7 +655,7 @@ async function handleDelete() {
             <div v-if="supportsFontControls" class="grid grid-cols-2 gap-1.5">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ฟอนต์
+                  {{ t('adminTemplates.create.fieldModal.labels.font') }}
                 </label>
                 <select
                   v-model="formData.font"
@@ -661,7 +669,7 @@ async function handleDelete() {
 
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ขนาดฟอนต์
+                  {{ t('adminTemplates.create.fieldModal.labels.fontSize') }}
                 </label>
                 <UInput
                   v-model.number="formData.fontSize"
@@ -677,7 +685,7 @@ async function handleDelete() {
             <div class="grid grid-cols-3 gap-1.5">
               <div v-if="supportsAmountSetting">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  จำนวนชุด (amount)
+                  {{ t('adminTemplates.create.fieldModal.labels.amount') }}
                 </label>
                 <UInput
                   v-model.number="formData.amount"
@@ -689,7 +697,7 @@ async function handleDelete() {
               </div>
               <div :class="supportsAmountSetting ? '' : 'col-span-2'">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ความกว้าง (px)
+                  {{ t('adminTemplates.create.fieldModal.labels.widthPx') }}
                 </label>
                 <UInput
                   v-model.number="formData.width"
@@ -701,7 +709,7 @@ async function handleDelete() {
               </div>
               <div :class="supportsAmountSetting ? '' : 'col-span-1'">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ความสูง (px)
+                  {{ t('adminTemplates.create.fieldModal.labels.heightPx') }}
                 </label>
                 <UInput
                   v-model.number="formData.height"
@@ -715,48 +723,48 @@ async function handleDelete() {
 
             <div v-if="supportsSessionFieldBinding">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                การกรอกข้อมูลอัตโนมัติ
+                {{ t('adminTemplates.create.fieldModal.labels.autoFillBinding') }}
               </label>
               <select
                 v-model="formData.sessionField"
                 class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
               >
                 <option value="none">
-                  ให้ผู้ยื่นกรอกเอง
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.none') }}
                 </option>
                 <option v-if="selectedFieldType !== 'checkbox'" value="studentName">
-                  ชื่อ-นามสกุลนักศึกษา (กรอกอัตโนมัติ)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.studentName') }}
                 </option>
                 <option v-if="selectedFieldType !== 'checkbox'" value="studentId">
-                  รหัสนิสิต (กรอกอัตโนมัติ)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.studentId') }}
                 </option>
                 <option v-if="selectedFieldType !== 'checkbox'" value="studentYearCurrent">
-                  ชั้นปีนิสิต (กรอกอัตโนมัติ)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.studentYearCurrent') }}
                 </option>
                 <option v-if="selectedFieldType !== 'checkbox'" value="facultyNameTh">
-                  คณะ (กรอกอัตโนมัติ)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.facultyNameTh') }}
                 </option>
                 <option v-if="selectedFieldType !== 'checkbox'" value="departmentNameTh">
-                  สาขา (กรอกอัตโนมัติ)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.departmentNameTh') }}
                 </option>
                 <option v-if="selectedFieldType !== 'checkbox'" value="departmentCode">
-                  รหัสสาขา (กรอกอัตโนมัติ)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.departmentCode') }}
                 </option>
                 <option v-if="selectedFieldType === 'checkbox'" value="titleThAutoChecked">
-                  คำนำหน้าชื่อ (ติ๊กอัตโนมัติจากข้อมูลนิสิต)
+                  {{ t('adminTemplates.create.fieldModal.sessionBinding.titleThAutoChecked') }}
                 </option>
               </select>
             </div>
 
             <div v-else-if="supportsDropdownConfig" class="space-y-1.5">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                แหล่งข้อมูลสำหรับการเลือก
+                {{ t('adminTemplates.create.fieldModal.labels.dropdownDataSource') }}
               </label>
               <div
                 v-if="isLoadingDropdownSources"
                 class="rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs text-gray-500 dark:text-gray-400"
               >
-                กำลังโหลด...
+                {{ t('adminTemplates.create.fieldModal.status.loading') }}
               </div>
               <select
                 v-else
@@ -765,7 +773,7 @@ async function handleDelete() {
                 class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
               >
                 <option value="" disabled hidden>
-                  เลือกตาราง
+                  {{ t('adminTemplates.create.fieldModal.labels.selectTable') }}
                 </option>
                 <option v-for="source in dropdownSources" :key="source.table" :value="source.table">
                   {{ source.label }}
@@ -779,7 +787,7 @@ async function handleDelete() {
                 class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
               >
                 <option value="" disabled hidden>
-                  เลือกคอลัมน์ที่จะแสดง
+                  {{ t('adminTemplates.create.fieldModal.labels.selectDisplayColumn') }}
                 </option>
                 <option v-for="column in availableDropdownColumns" :key="column.key" :value="column.key">
                   {{ column.label }}
@@ -793,7 +801,7 @@ async function handleDelete() {
                 class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 px-3 py-2 text-sm"
               >
                 <option value="" disabled hidden>
-                  {{ isLoadingRoles ? 'กำลังโหลดบทบาท...' : 'เลือกบทบาท' }}
+                  {{ isLoadingRoles ? t('adminTemplates.create.fieldModal.status.loadingRoles') : t('adminTemplates.create.fieldModal.labels.selectRole') }}
                 </option>
                 <option v-for="role in roleOptions" :key="role.id" :value="String(role.id)">
                   {{ role.label }}
@@ -809,11 +817,11 @@ async function handleDelete() {
                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   :disabled="Number(formData.amount) <= 1"
                 >
-                เปิดโหมดขีดฆ่าช่องที่ไม่ติ๊กในกลุ่ม
+                {{ t('adminTemplates.create.fieldModal.labels.strikeThroughUncheckedInGroup') }}
               </label>
               <div v-if="formData.strikeThroughGroupMode" class="max-w-44">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  ความหนาเส้นขีดฆ่า
+                  {{ t('adminTemplates.create.fieldModal.labels.strikeLineThickness') }}
                 </label>
                 <UInput
                   v-model.number="formData.strikeLineThickness"
@@ -833,10 +841,10 @@ async function handleDelete() {
                   type="checkbox"
                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 >
-                ใส่ข้อมูลอัตโนมัติ
+                {{ t('adminTemplates.create.fieldModal.labels.autoGenerate') }}
               </label>
               <p class="text-xs text-gray-500 dark:text-gray-400">
-                เมื่อเปิดใช้งาน ระบบจะเติมค่า {{ selectedFieldType === 'date' ? 'วันที่' : 'เวลา' }} อัตโนมัติ
+                {{ t('adminTemplates.create.fieldModal.hints.autoGenerateWillFill', { value: selectedFieldType === 'date' ? t('adminTemplates.create.fieldModal.common.date') : t('adminTemplates.create.fieldModal.common.time') }) }}
               </p>
             </div>
 
@@ -845,7 +853,7 @@ async function handleDelete() {
               <div class="grid grid-cols-2 gap-1.5">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                    รูปแบบตัวอักษร
+                    {{ t('adminTemplates.create.fieldModal.labels.textStyle') }}
                   </label>
                   <div class="flex items-center gap-1.5">
                     <button
@@ -877,7 +885,7 @@ async function handleDelete() {
 
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                    จัดตำแหน่งข้อความ
+                    {{ t('adminTemplates.create.fieldModal.labels.textAlign') }}
                   </label>
                   <div class="flex items-center gap-1.5">
                     <button
@@ -911,7 +919,7 @@ async function handleDelete() {
               <div class="grid grid-cols-2 gap-1.5">
                 <div v-if="supportsLetterSpacing">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                    ระยะห่างตัวอักษร
+                    {{ t('adminTemplates.create.fieldModal.labels.letterSpacing') }}
                   </label>
                   <UInput
                     v-model.number="formData.letterSpacing"
@@ -924,7 +932,7 @@ async function handleDelete() {
                 </div>
                 <div :class="supportsLetterSpacing ? '' : 'col-span-2'">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                    ความห่างบรรทัด
+                    {{ t('adminTemplates.create.fieldModal.labels.lineHeight') }}
                   </label>
                   <UInput
                     v-model.number="formData.lineHeight"
@@ -939,7 +947,7 @@ async function handleDelete() {
 
               <div v-if="supportsMaxLength">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                  จำนวนตัวอักษรสูงสุด
+                  {{ t('adminTemplates.create.fieldModal.labels.maxCharacters') }}
                 </label>
                 <UInput
                   v-model.number="formData.maxLength"
@@ -958,19 +966,19 @@ async function handleDelete() {
         <div class="bg-gray-50 dark:bg-gray-800 px-3 py-2.5 sm:flex sm:flex-row-reverse sm:px-4 gap-2">
           <UButton
             :loading="isSubmitting"
-            :label="mode === 'edit' ? 'บันทึก' : 'สร้าง Field'"
+            :label="mode === 'edit' ? t('adminTemplates.create.fieldModal.actions.save') : t('adminTemplates.create.fieldModal.actions.createField')"
             @click="handleSubmit"
           />
           <UButton
             color="gray"
             variant="outline"
-            label="ยกเลิก"
+            :label="t('adminTemplates.create.fieldModal.actions.cancel')"
             @click="closeModal"
           />
           <UButton
             v-if="mode === 'edit'"
             color="red"
-            label="ลบ"
+            :label="t('adminTemplates.create.fieldModal.actions.delete')"
             :loading="isDeleting"
             @click="showDeleteConfirm = true"
           />
@@ -989,11 +997,11 @@ async function handleDelete() {
               </div>
               <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
                 <h3 class="text-lg font-semibold leading-6 text-gray-900 dark:text-white">
-                  ยืนยันการลบ
+                  {{ t('adminTemplates.create.fieldModal.deleteConfirm.title') }}
                 </h3>
                 <div class="mt-2">
                   <p class="text-sm text-gray-500 dark:text-gray-400">
-                    คุณต้องการลบ Field "{{ editField?.name }}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
+                    {{ t('adminTemplates.create.fieldModal.deleteConfirm.description', { name: editField?.name }) }}
                   </p>
                 </div>
               </div>
@@ -1003,13 +1011,13 @@ async function handleDelete() {
             <UButton
               color="red"
               :loading="isDeleting"
-              label="ลบ"
+              :label="t('adminTemplates.create.fieldModal.actions.delete')"
               @click="handleDelete"
             />
             <UButton
               color="gray"
               variant="outline"
-              label="ยกเลิก"
+              :label="t('adminTemplates.create.fieldModal.actions.cancel')"
               @click="showDeleteConfirm = false"
             />
           </div>

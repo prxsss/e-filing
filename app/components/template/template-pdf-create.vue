@@ -35,6 +35,14 @@ const emit = defineEmits<{
   fieldClicked: [field: Field];
 }>();
 
+const { t } = useI18n();
+
+function tr(key: string, params?: Record<string, unknown>) {
+  const messageKey = `adminTemplates.create.pdfCreate.${key}`;
+  const translate = t as unknown as (message: string, values?: Record<string, unknown>) => string;
+  return translate(messageKey, params);
+}
+
 type PositionOverride = {
   normalizedX?: number;
   normalizedY?: number;
@@ -218,10 +226,10 @@ function getVisibilitySourceLabel(sourceFieldInstanceId: string): string {
   );
 
   if (!sourceField) {
-    return `Checkbox (${sourceFieldInstanceId.slice(0, 8)})`;
+    return tr('visibility.checkboxFallback', { id: sourceFieldInstanceId.slice(0, 8) });
   }
 
-  const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox').trim();
+  const baseLabel = String(sourceField.label || sourceField.name || tr('visibility.checkboxLabel')).trim();
   const instanceSuffix = ` #${getFieldDisplayInstanceNumber(sourceField, props.placedFields)}`;
   return `${baseLabel}${instanceSuffix}`;
 }
@@ -232,15 +240,15 @@ function getVisibilityGroupSourceLabel(sourceGroupId: string): string {
   );
 
   if (!sourceField) {
-    return `Checkbox Group (${sourceGroupId.slice(0, 8)})`;
+    return tr('visibility.checkboxGroupFallback', { id: sourceGroupId.slice(0, 8) });
   }
 
-  const baseLabel = String(sourceField.label || sourceField.name || 'Checkbox Group').trim();
-  return `${baseLabel} (ทั้งกลุ่ม)`;
+  const baseLabel = String(sourceField.label || sourceField.name || tr('visibility.checkboxGroupLabel')).trim();
+  return tr('visibility.groupAllLabel', { label: baseLabel });
 }
 
 function getVisibilityOperatorText(operator: string): string {
-  return operator === 'isUnchecked' ? 'ไม่ติ๊ก' : 'ติ๊ก';
+  return operator === 'isUnchecked' ? tr('visibility.isUnchecked') : tr('visibility.isChecked');
 }
 
 function getVisibilityConditionText(field: Field): string {
@@ -253,7 +261,7 @@ function getVisibilityConditionText(field: Field): string {
     ? getVisibilityGroupSourceLabel(rule.sourceGroupId)
     : getVisibilitySourceLabel(String(rule.sourceFieldInstanceId || ''));
   const operatorText = getVisibilityOperatorText(rule.operator);
-  return `แสดงช่องใส่ข้อมูลเมื่อ ${sourceLabel} ${operatorText}`;
+  return tr('visibility.conditionText', { sourceLabel, operatorText });
 }
 
 function getVisibilityBadgeTitle(field: Field): string {
@@ -1004,20 +1012,20 @@ async function saveTemplate() {
   try {
     // Validate prerequisites
     if (!props.pdfFile) {
-      throw new Error('Please upload a PDF file first');
+      throw new Error(tr('errors.uploadPdfFirst'));
     }
 
     if (props.placedFields.length === 0) {
-      throw new Error('Please add at least one field');
+      throw new Error(tr('errors.addAtLeastOneField'));
     }
 
     const templateName = props.newTemplateName?.trim();
     if (!templateName) {
-      throw new Error('Please enter a template name');
+      throw new Error(tr('errors.enterTemplateName'));
     }
 
     if (!pdfNaturalDimensions.value.width || !pdfNaturalDimensions.value.height) {
-      throw new Error('PDF dimensions not loaded');
+      throw new Error(tr('errors.pdfDimensionsNotLoaded'));
     }
 
     // Step 1: Upload PDF file
@@ -1030,7 +1038,7 @@ async function saveTemplate() {
     }) as any;
 
     if (!uploadResponse.success || !uploadResponse.url) {
-      throw new Error('Failed to upload PDF file');
+      throw new Error(tr('errors.uploadPdfFailed'));
     }
 
     const documentUrl = uploadResponse.url;
@@ -1065,14 +1073,14 @@ async function saveTemplate() {
     }) as any;
 
     if (!saveResponse.success || !saveResponse.data) {
-      throw new Error('Failed to save template to database');
+      throw new Error(tr('errors.saveTemplateFailed'));
     }
 
     // Step 5: Emit success event
     emit('templateSaved', {
       success: true,
       data: saveResponse.data,
-      message: `Template "${templateName}" saved successfully`,
+      message: tr('messages.templateSaved', { name: templateName }),
     });
   }
   catch (error: unknown) {
@@ -1083,7 +1091,7 @@ async function saveTemplate() {
     emit('templateSaved', {
       success: false,
       error: true,
-      message: errorMessage || 'Failed to save template',
+      message: errorMessage || tr('errors.saveTemplateFallback'),
     });
   }
 }
@@ -1361,7 +1369,7 @@ defineExpose<{
             <div v-if="!pdfLoaded" class="text-center py-5">
               <i class="fas fa-file-pdf fa-3x text-muted mb-3" />
               <p class="text-muted mb-0">
-                Loading PDF...
+                {{ tr('loadingPdf') }}
               </p>
             </div>
 
@@ -1434,7 +1442,7 @@ defineExpose<{
                   <img
                     :src="field.imageUrl"
                     class="signature-img"
-                    alt="Signature preview"
+                    :alt="tr('signaturePreviewAlt')"
                   >
                 </template>
                 <template v-else-if="isCheckboxField(field)">
@@ -1489,7 +1497,7 @@ defineExpose<{
 
         <!-- Page Selector -->
         <div v-if="pdfLoaded && totalPages > 1" class="preview-page-bar absolute bottom-4 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md px-4 py-2 flex items-center gap-2 border border-gray-200">
-          <label class="text-xs font-semibold text-gray-600">Page</label>
+          <label class="text-xs font-semibold text-gray-600">{{ tr('pageLabel') }}</label>
           <select
             v-model="currentPage"
             class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"

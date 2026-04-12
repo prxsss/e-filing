@@ -1,5 +1,5 @@
 import db from '~~/lib/db';
-import { request, requestTemplate, users } from '~~/lib/db/schema';
+import { departments, request, requestTemplate, users } from '~~/lib/db/schema';
 import { and, count, desc, eq, gte, ilike, lte, or, sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
@@ -95,9 +95,11 @@ export default defineEventHandler(async (event) => {
         createdBy: request.createdBy,
         requesterName: sql<string>`CONCAT_WS(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`,
         requesterNameTh: sql<string>`CONCAT(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
-        studentId: users.id,
+        studentId: users.studentId,
         studentNameEn: sql<string>`CONCAT_WS(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`,
         studentNameTh: sql<string>`CONCAT(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
+        departmentNameTh: departments.nameTh,
+        departmentNameEn: departments.nameEn,
         submittedAt: request.submittedAt,
         filledDocumentUrl: request.filledDocumentUrl,
         createdAt: request.createdAt,
@@ -105,6 +107,7 @@ export default defineEventHandler(async (event) => {
       .from(request)
       .leftJoin(requestTemplate, eq(request.templateId, requestTemplate.id))
       .leftJoin(users, eq(request.userId, users.id))
+      .leftJoin(departments, eq(request.departmentId, departments.id))
       .where(whereClause)
       .orderBy(desc(request.createdAt))
       .limit(limit)

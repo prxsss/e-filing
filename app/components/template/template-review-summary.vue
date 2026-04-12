@@ -18,6 +18,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
+function tr(key: string, params?: Record<string, unknown>) {
+  return t(`adminTemplates.create.reviewSummary.${key}`, params);
+}
+
 const descriptionInput = ref<any>(null);
 const isDescriptionError = ref(false);
 
@@ -75,10 +79,10 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
       <div class="text-center mb-8">
         <UIcon name="i-heroicons-clipboard-document-check" class="w-12 h-12 mx-auto mb-3 text-primary-500" />
         <h2 class="text-xl font-bold text-gray-900">
-          {{ t('templateSummary') }}
+          {{ tr('templateSummary') }}
         </h2>
         <p class="text-sm text-gray-500 mt-1">
-          ตรวจสอบข้อมูลทั้งหมดก่อนบันทึกเทมเพลต
+          {{ tr('subtitle') }}
         </p>
       </div>
 
@@ -86,33 +90,33 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <UIcon name="i-heroicons-document-text" class="text-primary-500" />
-          ข้อมูลเทมเพลต
+          {{ tr('templateInfo') }}
         </h3>
         <div class="grid grid-cols-2 gap-4 mb-6">
           <div>
-            <label class="text-xs font-semibold text-gray-500 uppercase">{{ t('templateName') }}</label>
+            <label class="text-xs font-semibold text-gray-500 uppercase">{{ tr('templateName') }}</label>
             <p class="text-sm font-medium text-gray-900 mt-1">
               {{ templateName }}
             </p>
           </div>
           <div>
-            <label class="text-xs font-semibold text-gray-500 uppercase">{{ t('fileName') }}</label>
+            <label class="text-xs font-semibold text-gray-500 uppercase">{{ tr('fileName') }}</label>
             <p class="text-sm font-medium text-gray-900 mt-1">
               {{ uploadedFile?.name || '-' }}
             </p>
           </div>
           <div>
-            <label class="text-xs font-semibold text-gray-500 uppercase">{{ t('fileType') }}</label>
+            <label class="text-xs font-semibold text-gray-500 uppercase">{{ tr('fileType') }}</label>
             <p class="text-sm mt-1">
               <UBadge :color="fileType === 'pdf' ? 'error' : 'info'" variant="subtle" size="xs">
-                {{ fileType === 'pdf' ? 'PDF' : 'Image' }}
+                {{ fileType === 'pdf' ? tr('pdf') : tr('image') }}
               </UBadge>
             </p>
           </div>
           <div>
-            <label class="text-xs font-semibold text-gray-500 uppercase">{{ t('fieldCount') }}</label>
+            <label class="text-xs font-semibold text-gray-500 uppercase">{{ tr('fieldCount') }}</label>
             <p class="text-sm font-medium text-gray-900 mt-1">
-              {{ placedFields.length }} {{ t('fields') }}
+              {{ placedFields.length }} {{ tr('fields') }}
             </p>
           </div>
         </div>
@@ -121,15 +125,15 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
         <div class="border-t border-gray-100 pt-5 mt-2">
           <div class="bg-primary-50/50 p-4 rounded-lg border border-primary-100 transition-colors" :class="{ 'border-red-200 bg-red-50/50': isDescriptionError }">
             <UFormGroup
-              label="รายละเอียดเทมเพลต"
-              description="คำอธิบายนี้จะช่วยให้ผู้ใช้เข้าใจจุดประสงค์ของเทมเพลตนี้ได้ง่ายขึ้น"
+              :label="tr('descriptionLabel')"
+              :description="tr('descriptionHelp')"
               required
-              :error="isDescriptionError ? 'กรุณาระบุรายละเอียดเทมเพลตก่อนยืนยัน' : false"
+              :error="isDescriptionError ? tr('descriptionRequiredError') : false"
             >
               <UTextarea
                 ref="descriptionInput"
                 v-model="localDescription"
-                placeholder="ระบุรายละเอียด..."
+                :placeholder="tr('descriptionPlaceholder')"
                 :rows="3"
                 class="mt-1 w-full"
                 autofocus
@@ -143,7 +147,7 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
       <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <UIcon name="i-heroicons-queue-list" class="text-primary-500" />
-          {{ t('signingFlowOverview') }}
+          {{ tr('signingFlowOverview') }}
         </h3>
 
         <!-- Flow Timeline -->
@@ -169,14 +173,14 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
                 <div class="flex items-center gap-2">
                   <span class="font-medium text-sm text-gray-900">{{ step.roleName }}</span>
                   <UBadge :color="step.isRequired ? 'primary' : 'neutral'" variant="subtle" size="xs">
-                    {{ step.isRequired ? t('required') : t('optional') }}
+                    {{ step.isRequired ? tr('required') : tr('optional') }}
                   </UBadge>
                 </div>
                 <p v-if="step.description" class="text-xs text-gray-500 mt-0.5">
                   {{ step.description }}
                 </p>
                 <p class="text-xs text-gray-400 mt-1">
-                  {{ getFieldCountForStep(step, placedFields) }} {{ t('assignedFields') }}
+                  {{ getFieldCountForStep(step, placedFields) }} {{ tr('assignedFields') }}
                 </p>
               </div>
             </div>
@@ -188,7 +192,7 @@ function getFieldCountForStep(step: SigningStep, fields: FieldInstance[]): numbe
       <div v-if="fileType === 'pdf' && pdfFile" class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <UIcon name="i-heroicons-eye" class="text-primary-500" />
-          ตัวอย่างเอกสาร
+          {{ tr('documentPreview') }}
         </h3>
         <div class="overflow-hidden rounded-lg border border-gray-200 overflow-y-auto max-h-150">
           <template-pdf-create

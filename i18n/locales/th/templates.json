@@ -1,0 +1,513 @@
+{
+  "adminTemplates": {
+    "create": {
+      "wizard": {
+        "placeFields": "วางฟิลด์",
+        "signingFlow": "ลำดับการกรอกข้อมูล",
+        "reviewAndSave": "ตรวจสอบและบันทึก"
+      },
+      "actions": {
+        "previous": "ย้อนกลับ",
+        "next": "ถัดไป",
+        "saveTemplate": "บันทึกเทมเพลต",
+        "clear": "ล้าง",
+        "apply": "ใช้"
+      },
+      "header": {
+        "templateNameLabel": "ชื่อเทมเพลต",
+        "templateNamePlaceholder": "กรอกชื่อเทมเพลต..."
+      },
+      "sidebar": {
+        "tools": "เครื่องมือ",
+        "upload": {
+          "sourceDocument": "เอกสารต้นฉบับ",
+          "uploaded": "อัปโหลดแล้ว",
+          "clickToUpload": "คลิกเพื่ออัปโหลด",
+          "supportedFileTypes": "PDF",
+          "changeFile": "เปลี่ยนไฟล์"
+        },
+        "fields": {
+          "fillableData": "ข้อมูลที่เติมได้",
+          "countLabel": "{count} ฟิลด์",
+          "addNewField": "เพิ่มฟิลด์ใหม่",
+          "searchPlaceholder": "ค้นหา...",
+          "emptyTitle": "ไม่พบฟิลด์",
+          "emptyDescription": "กรุณาเพิ่มฟิลด์ในฐานข้อมูล",
+          "edit": "แก้ไข"
+        }
+      },
+      "canvas": {
+        "pageInfo": {
+          "noFile": "ยังไม่มีไฟล์",
+          "page": "หน้า {page}",
+          "image": "รูปภาพ"
+        },
+        "previewToggle": {
+          "enable": "เปิด Preview Output",
+          "disable": "ปิด Preview Output"
+        },
+        "zoom": {
+          "title": "ซูม",
+          "ariaLabel": "ซูม",
+          "level": "ระดับซูม",
+          "customPercent": "กำหนดเอง (%)"
+        },
+        "previewOutput": {
+          "title": "Preview Output",
+          "selectFieldPlaceholder": "เลือกฟิลด์บน PDF ก่อน จึงจะพิมพ์ตัวอย่างในแถบนี้ได้",
+          "conditional": "มีเงื่อนไข",
+          "typeSamplePlaceholder": "พิมพ์ข้อความตัวอย่างเพื่อดูผลลัพธ์จริงบน PDF",
+          "checkboxHint": "ติ๊กเพื่อแสดงเครื่องหมายถูกใน Preview PDF",
+          "noInputHint": "ฟิลด์ประเภทนี้แสดงผลบน PDF โดยตรง - ไม่มีช่องพิมพ์ตัวอย่างในแถบนี้",
+          "syncing": "กำลังซิงก์ตัวอย่าง...",
+          "previewOnly": "ใช้สำหรับตัวอย่างเท่านั้น - ยังไม่บันทึก"
+        },
+        "documentAreaPlaceholder": "พื้นที่แสดงเอกสาร"
+      },
+      "validation": {
+        "nameRequired": "กรุณาป้อนชื่อเทมเพลต",
+        "nameMin3": "ชื่อเทมเพลตต้องมีอย่างน้อย 3 ตัวอักษร",
+        "nameMax100": "ชื่อเทมเพลตต้องไม่เกิน 100 ตัวอักษร"
+      },
+      "toasts": {
+        "stepValidation": {
+          "templateNameMin3": "กรุณาป้อนชื่อเทมเพลต (อย่างน้อย 3 ตัวอักษร)",
+          "uploadFile": "กรุณาอัปโหลดไฟล์",
+          "addAtLeastOneField": "กรุณาเพิ่มฟิลด์อย่างน้อย 1 ฟิลด์",
+          "signingStepRequired": "ต้องมีอย่างน้อย 1 ลำดับการเซ็น",
+          "allFieldsMustBeAssigned": "ฟิลด์ทุกตัวต้องถูกกำหนดลำดับ"
+        },
+        "templateFields": {
+          "notFoundTitle": "ไม่พบข้อมูลฟิลด์",
+          "notFoundDescription": "กรุณาเพิ่มข้อมูลในตาราง request_template_fields",
+          "loadErrorTitle": "ไม่สามารถโหลดข้อมูลฟิลด์ได้",
+          "tryAgain": "กรุณาลองใหม่อีกครั้ง"
+        },
+        "field": {
+          "createSuccessTitle": "เพิ่มฟิลด์สำเร็จ",
+          "createSuccessDescription": "ฟิลด์ \"{name}\" ถูกเพิ่มแล้ว",
+          "updateSuccessTitle": "อัปเดตฟิลด์สำเร็จ",
+          "updateSuccessDescription": "ฟิลด์ \"{name}\" ถูกอัปเดตแล้ว",
+          "saveDefaultNotFound": "ไม่พบฟิลด์ที่ต้องการบันทึก",
+          "incompleteData": "ข้อมูลฟิลด์ไม่ครบถ้วน",
+          "saveDefaultsSuccessTitle": "บันทึกค่าเริ่มต้นสำเร็จ",
+          "saveDefaultsSuccessDescription": "ฟิลด์ \"{name}\" ถูกอัปเดตแล้ว",
+          "saveDefaultsErrorTitle": "ไม่สามารถบันทึกค่าเริ่มต้นได้",
+          "genericError": "เกิดข้อผิดพลาด",
+          "deleteSuccessTitle": "ลบฟิลด์สำเร็จ"
+        },
+        "file": {
+          "tooLargeTitle": "ไฟล์มีขนาดใหญ่เกินไป",
+          "tooLargeDescription": "ขนาดสูงสุด 50MB",
+          "corruptedTitle": "ไฟล์เสียหาย",
+          "invalidTypeTitle": "ไฟล์ไม่ถูกต้อง",
+          "invalidTypeDescription": "รองรับเฉพาะ PDF, JPG, PNG, GIF, WebP, BMP",
+          "invalidPdfTitle": "ไฟล์ PDF ไม่ถูกต้อง",
+          "invalidPdfDescription": "ไฟล์อาจเสียหายหรือไม่ใช่ PDF จริง",
+          "uploadBeforePlacingField": "กรุณาอัปโหลดไฟล์เอกสารก่อนเริ่มวางฟิลด์"
+        },
+        "save": {
+          "uploadRequiredTitle": "กรุณาอัปโหลดไฟล์",
+          "uploadRequiredDescription": "อัปโหลดไฟล์ PDF ก่อนบันทึกเทมเพลต",
+          "missingFieldTitle": "ข้อผิดพลาด",
+          "missingFieldDescription": "กรุณาเพิ่มฟิลด์อย่างน้อย 1 ฟิลด์",
+          "reviewInvalidTitle": "ข้อผิดพลาด",
+          "reviewInvalidDescription": "กรุณาระบุรายละเอียดเทมเพลตก่อนบันทึก",
+          "successTitle": "บันทึกสำเร็จ",
+          "successDescription": "เทมเพลต \"{name}\" ถูกบันทึกแล้ว",
+          "savedDescription": "เทมเพลตถูกบันทึกแล้ว",
+          "errorTitle": "เกิดข้อผิดพลาด",
+          "errorDescription": "ไม่สามารถบันทึกเทมเพลตได้"
+        }
+      },
+      "fieldToolbar": {
+        "tooltips": {
+          "fontSize": "ขนาดตัวอักษร",
+          "fontFamily": "รูปแบบฟอนต์",
+          "bold": "ตัวหนา",
+          "italic": "ตัวเอียง",
+          "underline": "ขีดเส้นใต้",
+          "alignLeft": "ชิดซ้าย",
+          "alignCenter": "กึ่งกลาง",
+          "alignRight": "ชิดขวา",
+          "advancedTextSettings": "การตั้งค่าขั้นสูง: ระยะห่างตัวอักษร ความสูงบรรทัด จำนวนตัวอักษรสูงสุด",
+          "dateFormat": "รูปแบบวันที่",
+          "timeSeparator": "ตัวคั่นเวลา (เว้นว่าง = ไม่คั่น)",
+          "timeSeparatorSpacing": "ระยะห่างตัวคั่นเวลา",
+          "showHour": "แสดงชั่วโมง",
+          "showMinute": "แสดงนาที",
+          "autoGenerate": "ใส่ข้อมูลอัตโนมัติ",
+          "strikeThickness": "ความหนาเส้นขีดฆ่า (ใช้เมื่อเปิดโหมดขีดฆ่า)",
+          "fieldSize": "ขนาดช่อง: ความกว้าง × ความสูง (พิกเซล)",
+          "selectData": "เลือกข้อมูล",
+          "conditionalVisibility": "แสดงช่องนี้ตามเงื่อนไขจาก Checkbox",
+          "saveAsDefault": "บันทึกค่าช่องนี้เป็นค่าเริ่มต้นของ Field",
+          "deleteField": "ลบช่องข้อมูลนี้"
+        },
+        "aria": {
+          "selectFontSize": "เลือกขนาดตัวอักษร",
+          "textSpacingAndLimits": "การตั้งค่าระยะห่างและขีดจำกัดข้อความ",
+          "decreaseLetterSpacing": "ลดระยะห่างตัวอักษร",
+          "increaseLetterSpacing": "เพิ่มระยะห่างตัวอักษร",
+          "decreaseLineHeight": "ลดระยะห่างบรรทัด",
+          "increaseLineHeight": "เพิ่มระยะห่างบรรทัด",
+          "decreaseMaxCharacters": "ลดจำนวนตัวอักษรสูงสุด",
+          "increaseMaxCharacters": "เพิ่มจำนวนตัวอักษรสูงสุด",
+          "configureDateFormat": "ตั้งค่ารูปแบบวันที่",
+          "decreaseDayNameGap": "ลด gap ชื่อวัน",
+          "increaseDayNameGap": "เพิ่ม gap ชื่อวัน",
+          "decreaseSeparatorGap": "ลด gap ตัวคั่น",
+          "increaseSeparatorGap": "เพิ่ม gap ตัวคั่น",
+          "adjustFieldSize": "ปรับความกว้างและความสูงของช่อง",
+          "decreaseWidth": "ลดความกว้าง",
+          "increaseWidth": "เพิ่มความกว้าง",
+          "decreaseHeight": "ลดความสูง",
+          "increaseHeight": "เพิ่มความสูง",
+          "selectData": "เลือกข้อมูล"
+        },
+        "fonts": {
+          "sarabun": "Sarabun (สารบรรณ)"
+        },
+        "labels": {
+          "letterSpacing": "ระยะห่างระหว่างตัวอักษร",
+          "lineHeight": "ระยะห่างระหว่างบรรทัด",
+          "maxCharacters": "จำนวนตัวอักษรสูงสุด",
+          "preview": "ตัวอย่าง",
+          "dateParts": "แสดงส่วนของวันที่",
+          "dayOfWeek": "ชื่อวัน",
+          "showDayOfWeek": "แสดงชื่อวัน",
+          "monthStyle": "รูปแบบเดือน",
+          "yearFormat": "รูปแบบปี",
+          "separatorAndSpacing": "ตัวคั่น & ระยะห่าง",
+          "strikeThroughUncheckedInGroup": "โหมดขีดฆ่าช่องที่ไม่ติ๊กในกลุ่ม",
+          "widthPx": "ความกว้าง (px)",
+          "heightPx": "ความสูง (px)",
+          "dataTable": "ตารางข้อมูล",
+          "selectDataTable": "เลือกตารางข้อมูล",
+          "displayColumn": "คอลัมน์แสดงผล",
+          "selectColumn": "เลือกคอลัมน์",
+          "role": "บทบาท",
+          "selectRole": "เลือกบทบาท",
+          "ready": "พร้อมใช้งาน",
+          "selectColumnOrRole": "กรุณาเลือกคอลัมน์หรือบทบาท"
+        },
+        "hints": {
+          "maxCharactersUnlimited": "ใส่ 0 หรือเว้นว่าง = ไม่จำกัด",
+          "dayOfWeekStyle": "เต็ม = วันเสาร์, ย่อ = ส.",
+          "monthStyle": "เลข = 09, ย่อ = ก.ย., เต็ม = กันยายน"
+        },
+        "common": {
+          "full": "เต็ม",
+          "short": "ย่อ",
+          "gap": "gap"
+        },
+        "dateParts": {
+          "day": "วัน",
+          "month": "เดือน",
+          "year": "ปี"
+        },
+        "monthStyles": {
+          "numeric": "เลข"
+        },
+        "yearFormats": {
+          "ad": "ค.ศ.",
+          "be": "พ.ศ."
+        },
+        "status": {
+          "loading": "กำลังโหลด...",
+          "loadingRoles": "กำลังโหลดบทบาท..."
+        },
+        "conditional": {
+          "checkbox": "Checkbox",
+          "checkboxGroup": "Checkbox Group",
+          "groupAllLabel": "{label} (ทั้งกลุ่ม)",
+          "visibilityFromCheckbox": "เงื่อนไขการแสดงผลจาก Checkbox",
+          "singleCheckbox": "Checkbox เดี่ยว",
+          "selectCheckbox": "เลือก Checkbox",
+          "selectCheckboxGroup": "เลือก Checkbox Group",
+          "isChecked": "ติ๊กแล้ว",
+          "isUnchecked": "ไม่ติ๊ก"
+        }
+      },
+      "fieldModal": {
+        "titleEdit": "แก้ไข Field",
+        "titleCreate": "เพิ่ม Field ใหม่",
+        "labels": {
+          "fieldName": "ชื่อ Field",
+          "type": "ประเภท",
+          "font": "ฟอนต์",
+          "fontSize": "ขนาดฟอนต์",
+          "amount": "จำนวนชุด (amount)",
+          "widthPx": "ความกว้าง (px)",
+          "heightPx": "ความสูง (px)",
+          "autoFillBinding": "การกรอกข้อมูลอัตโนมัติ",
+          "dropdownDataSource": "แหล่งข้อมูลสำหรับการเลือก",
+          "selectTable": "เลือกตาราง",
+          "selectDisplayColumn": "เลือกคอลัมน์ที่จะแสดง",
+          "selectRole": "เลือกบทบาท",
+          "strikeThroughUncheckedInGroup": "เปิดโหมดขีดฆ่าช่องที่ไม่ติ๊กในกลุ่ม",
+          "strikeLineThickness": "ความหนาเส้นขีดฆ่า",
+          "autoGenerate": "ใส่ข้อมูลอัตโนมัติ",
+          "textStyle": "รูปแบบตัวอักษร",
+          "textAlign": "จัดตำแหน่งข้อความ",
+          "letterSpacing": "ระยะห่างตัวอักษร",
+          "lineHeight": "ความห่างบรรทัด",
+          "maxCharacters": "จำนวนตัวอักษรสูงสุด"
+        },
+        "placeholders": {
+          "fieldName": "เช่น Student Name"
+        },
+        "status": {
+          "loading": "กำลังโหลด...",
+          "loadingRoles": "กำลังโหลดบทบาท..."
+        },
+        "sessionBinding": {
+          "none": "ให้ผู้ยื่นกรอกเอง",
+          "studentName": "ชื่อ-นามสกุลนักศึกษา (กรอกอัตโนมัติ)",
+          "studentId": "รหัสนิสิต (กรอกอัตโนมัติ)",
+          "studentYearCurrent": "ชั้นปีนิสิต (กรอกอัตโนมัติ)",
+          "facultyNameTh": "คณะ (กรอกอัตโนมัติ)",
+          "departmentNameTh": "สาขา (กรอกอัตโนมัติ)",
+          "departmentCode": "รหัสสาขา (กรอกอัตโนมัติ)",
+          "titleThAutoChecked": "คำนำหน้าชื่อ (ติ๊กอัตโนมัติจากข้อมูลนิสิต)"
+        },
+        "hints": {
+          "autoGenerateWillFill": "เมื่อเปิดใช้งาน ระบบจะเติมค่า {value} อัตโนมัติ"
+        },
+        "common": {
+          "date": "วันที่",
+          "time": "เวลา"
+        },
+        "actions": {
+          "save": "บันทึก",
+          "createField": "สร้าง Field",
+          "cancel": "ยกเลิก",
+          "delete": "ลบ"
+        },
+        "deleteConfirm": {
+          "title": "ยืนยันการลบ",
+          "description": "คุณต้องการลบ Field \"{name}\" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้"
+        },
+        "fieldTypes": {
+          "text": "Text",
+          "number": "Number",
+          "checkbox": "Checkbox",
+          "signature": "Signature",
+          "date": "Date",
+          "time": "Time",
+          "dropdown": "Dropdown"
+        },
+        "toasts": {
+          "dropdownSourcesLoadError": "ไม่สามารถโหลดข้อมูล Dropdown ได้",
+          "rolesLoadError": "ไม่สามารถโหลดข้อมูลบทบาทได้",
+          "fillRequired": "กรุณากรอกข้อมูลให้ครบ",
+          "selectDropdownTableAndRole": "กรุณาเลือกตารางและบทบาทสำหรับ Dropdown",
+          "selectDropdownTableAndColumn": "กรุณาเลือกตารางและคอลัมน์สำหรับ Dropdown",
+          "updateSuccess": "อัปเดต Field สำเร็จ",
+          "createSuccess": "สร้าง Field สำเร็จ",
+          "deleteSuccess": "ลบ Field สำเร็จ",
+          "errorTitle": "เกิดข้อผิดพลาด",
+          "updateFailed": "ไม่สามารถอัปเดต Field ได้",
+          "createFailed": "ไม่สามารถสร้าง Field ได้",
+          "deleteFailed": "ไม่สามารถลบ Field ได้"
+        }
+      },
+      "signingFlowEditor": {
+        "signingFlow": "ลำดับการกรอกข้อมูล",
+        "stage": "ลำดับ",
+        "parallel": "ขนาน",
+        "fields": "ฟิลด์",
+        "addParallelSigner": "เพิ่มผู้กรอกแบบขนาน",
+        "selectRole": "เลือกบทบาท",
+        "cancel": "ยกเลิก",
+        "add": "เพิ่ม",
+        "addNewStage": "เพิ่มลำดับใหม่",
+        "addSigningStep": "เพิ่มขั้นตอนการกรอก",
+        "clickFieldOnDocumentToAssign": "คลิกฟิลด์บนเอกสารเพื่อกำหนดผู้กรอก",
+        "stepDetails": "รายละเอียดขั้นตอน",
+        "assignedFields": "ฟิลด์ที่กำหนดแล้ว",
+        "auto": "อัตโนมัติ",
+        "clickFieldToAssign": "คลิกฟิลด์เพื่อกำหนด",
+        "unassignedFields": "ฟิลด์ที่ยังไม่กำหนด",
+        "addFirstStep": "เพิ่มขั้นตอนแรกเพื่อเริ่มต้น"
+      },
+      "reviewSummary": {
+        "templateSummary": "สรุปเทมเพลต",
+        "subtitle": "ตรวจสอบข้อมูลทั้งหมดก่อนบันทึกเทมเพลต",
+        "templateInfo": "ข้อมูลเทมเพลต",
+        "templateName": "ชื่อเทมเพลต",
+        "fileName": "ชื่อไฟล์",
+        "fileType": "ประเภทไฟล์",
+        "fieldCount": "จำนวนฟิลด์",
+        "fields": "ฟิลด์",
+        "pdf": "PDF",
+        "image": "รูปภาพ",
+        "descriptionLabel": "รายละเอียดเทมเพลต",
+        "descriptionHelp": "คำอธิบายนี้จะช่วยให้ผู้ใช้เข้าใจจุดประสงค์ของเทมเพลตนี้ได้ง่ายขึ้น",
+        "descriptionRequiredError": "กรุณาระบุรายละเอียดเทมเพลตก่อนยืนยัน",
+        "descriptionPlaceholder": "ระบุรายละเอียด...",
+        "signingFlowOverview": "ภาพรวมลำดับการกรอกข้อมูล",
+        "required": "จำเป็น",
+        "optional": "ไม่บังคับ",
+        "assignedFields": "ฟิลด์ที่กำหนด",
+        "documentPreview": "ตัวอย่างเอกสาร"
+      },
+      "pdfCreate": {
+        "loadingPdf": "กำลังโหลด PDF...",
+        "signaturePreviewAlt": "ตัวอย่างลายเซ็น",
+        "pageLabel": "หน้า",
+        "messages": {
+          "templateSaved": "บันทึกเทมเพลต \"{name}\" สำเร็จ"
+        },
+        "errors": {
+          "uploadPdfFirst": "กรุณาอัปโหลดไฟล์ PDF ก่อน",
+          "addAtLeastOneField": "กรุณาเพิ่มอย่างน้อย 1 ฟิลด์",
+          "enterTemplateName": "กรุณาระบุชื่อเทมเพลต",
+          "pdfDimensionsNotLoaded": "ยังไม่สามารถอ่านขนาด PDF ได้",
+          "uploadPdfFailed": "ไม่สามารถอัปโหลดไฟล์ PDF ได้",
+          "saveTemplateFailed": "ไม่สามารถบันทึกเทมเพลตลงฐานข้อมูลได้",
+          "saveTemplateFallback": "ไม่สามารถบันทึกเทมเพลตได้"
+        },
+        "visibility": {
+          "checkboxLabel": "Checkbox",
+          "checkboxGroupLabel": "Checkbox Group",
+          "checkboxFallback": "Checkbox ({id})",
+          "checkboxGroupFallback": "Checkbox Group ({id})",
+          "groupAllLabel": "{label} (ทั้งกลุ่ม)",
+          "isChecked": "ติ๊ก",
+          "isUnchecked": "ไม่ติ๊ก",
+          "conditionText": "แสดงช่องใส่ข้อมูลเมื่อ {sourceLabel} {operatorText}"
+        }
+      },
+      "errors": {
+        "uploadPdfFailed": "ไม่สามารถอัปโหลดไฟล์ PDF ได้",
+        "saveTemplateFailed": "ไม่สามารถบันทึกเทมเพลตลงฐานข้อมูลได้"
+      }
+    },
+    "edit": {
+      "wizard": {
+        "placeFields": "วางฟิลด์",
+        "signingFlow": "ลำดับการกรอกข้อมูล",
+        "reviewAndSave": "ตรวจสอบและบันทึก"
+      },
+      "actions": {
+        "previous": "ย้อนกลับ",
+        "next": "ถัดไป",
+        "saveTemplate": "บันทึกเทมเพลต",
+        "clear": "ล้าง",
+        "apply": "ใช้"
+      },
+      "header": {
+        "templateNameLabel": "ชื่อเทมเพลต",
+        "templateNamePlaceholder": "กรอกชื่อเทมเพลต..."
+      },
+      "sidebar": {
+        "tools": "เครื่องมือ",
+        "document": "เอกสาร",
+        "loaded": "โหลดแล้ว",
+        "replaceFile": "เปลี่ยนไฟล์",
+        "clickToUpload": "คลิกเพื่ออัปโหลด",
+        "supportedFileTypes": "PDF หรือรูปภาพ (สูงสุด 50 MB)",
+        "fields": "ฟิลด์",
+        "addNewField": "เพิ่มฟิลด์ใหม่",
+        "searchPlaceholder": "ค้นหา...",
+        "noFieldsFound": "ไม่พบฟิลด์",
+        "clickPlusToAddFields": "กด + เพื่อเพิ่มฟิลด์",
+        "editField": "แก้ไขฟิลด์"
+      },
+      "canvas": {
+        "pageInfo": {
+          "loading": "กำลังโหลด...",
+          "noFile": "ยังไม่มีไฟล์",
+          "page": "หน้า {page}"
+        },
+        "previewToggle": {
+          "hide": "ซ่อน Preview Output",
+          "show": "แสดง Preview Output"
+        },
+        "zoom": {
+          "title": "ซูม",
+          "ariaLabel": "ซูม",
+          "level": "ระดับซูม",
+          "customPercent": "กำหนดเอง (%)",
+          "placeholderPercent": "100"
+        },
+        "previewOutput": {
+          "title": "Preview Output",
+          "selectFieldPlaceholder": "เลือกฟิลด์บน PDF ก่อนเพื่อพิมพ์ตัวอย่าง",
+          "conditional": "มีเงื่อนไข",
+          "typeSamplePlaceholder": "พิมพ์ข้อความตัวอย่างเพื่อดูผลลัพธ์จริงบน PDF",
+          "checkboxHint": "สลับเพื่อแสดงเครื่องหมายถูกใน Preview PDF",
+          "noInputHint": "ฟิลด์ประเภทนี้จะแสดงบน PDF โดยตรง - ไม่มีช่องพิมพ์ตัวอย่าง",
+          "syncing": "กำลังซิงก์ตัวอย่าง...",
+          "previewOnly": "ใช้สำหรับตัวอย่างเท่านั้น - ยังไม่บันทึก"
+        },
+        "loadingTemplate": "กำลังโหลดเทมเพลต...",
+        "noDocumentLoaded": "ยังไม่ได้โหลดเอกสาร"
+      },
+      "validation": {
+        "nameRequired": "กรุณาระบุชื่อเทมเพลต",
+        "nameMin3": "ชื่อต้องมีอย่างน้อย 3 ตัวอักษร",
+        "nameMax100": "ชื่อต้องไม่เกิน 100 ตัวอักษร"
+      },
+      "toasts": {
+        "common": {
+          "errorTitle": "ข้อผิดพลาด"
+        },
+        "stepValidation": {
+          "templateNameMin3": "ชื่อเทมเพลตต้องมีอย่างน้อย 3 ตัวอักษร",
+          "uploadFile": "กรุณาอัปโหลดไฟล์",
+          "addAtLeastOneField": "กรุณาเพิ่มอย่างน้อย 1 ฟิลด์",
+          "signingStepRequired": "ต้องมีอย่างน้อย 1 ขั้นตอนการกรอก",
+          "allFieldsMustBeAssigned": "ฟิลด์ทั้งหมดต้องถูกกำหนดให้กับขั้นตอนการกรอก"
+        },
+        "load": {
+          "templateFailed": "โหลดเทมเพลตไม่สำเร็จ: {message}"
+        },
+        "fields": {
+          "notFoundTitle": "ไม่พบฟิลด์",
+          "notFoundDescription": "กรุณาเพิ่มฟิลด์ในฐานข้อมูล",
+          "loadErrorTitle": "ไม่สามารถโหลดฟิลด์ได้"
+        },
+        "file": {
+          "tooLargeTitle": "ไฟล์ใหญ่เกินไป",
+          "tooLargeDescription": "สูงสุด 50 MB",
+          "corruptedTitle": "ไฟล์เสียหาย",
+          "unsupportedTypeTitle": "ชนิดไฟล์ไม่รองรับ",
+          "unsupportedTypeDescription": "รองรับเฉพาะ PDF หรือไฟล์รูปภาพ",
+          "invalidPdfTitle": "ไฟล์ PDF ไม่ถูกต้อง",
+          "invalidPdfDescription": "ไฟล์อาจเสียหายหรือไม่ใช่ PDF จริง",
+          "uploadFirstTitle": "กรุณาอัปโหลดไฟล์ก่อน"
+        },
+        "field": {
+          "addedTitle": "เพิ่มฟิลด์แล้ว",
+          "addedDescription": "เพิ่ม \"{name}\" แล้ว",
+          "updatedTitle": "อัปเดตฟิลด์แล้ว",
+          "updatedDescription": "อัปเดต \"{name}\" แล้ว",
+          "notFoundTitle": "ไม่พบฟิลด์",
+          "incompleteDataTitle": "ข้อมูลฟิลด์ไม่ครบถ้วน",
+          "defaultsSavedTitle": "บันทึกค่าเริ่มต้นแล้ว",
+          "defaultsSavedDescription": "อัปเดต \"{name}\" แล้ว",
+          "saveFailedTitle": "บันทึกไม่สำเร็จ",
+          "saveDefaultsFailedDescription": "ไม่สามารถบันทึกค่าเริ่มต้นได้",
+          "deletedTitle": "ลบฟิลด์แล้ว"
+        },
+        "save": {
+          "uploadFirstDescription": "กรุณาอัปโหลดไฟล์ก่อน",
+          "addAtLeastOneFieldDescription": "กรุณาเพิ่มอย่างน้อย 1 ฟิลด์",
+          "descriptionRequired": "กรุณาระบุรายละเอียดเทมเพลตก่อนบันทึก",
+          "savedTitle": "บันทึกแล้ว",
+          "savedDescription": "อัปเดตเทมเพลต \"{name}\" สำเร็จ",
+          "savedGenericDescription": "บันทึกเทมเพลตสำเร็จ",
+          "saveFailedTitle": "บันทึกไม่สำเร็จ",
+          "saveFailedDescription": "ไม่สามารถบันทึกเทมเพลตได้"
+        }
+      },
+      "errors": {
+        "fetchTemplateFailed": "ไม่สามารถดึงข้อมูลเทมเพลตได้",
+        "uploadPdfFailed": "ไม่สามารถอัปโหลดไฟล์ PDF ได้",
+        "saveTemplateFailed": "ไม่สามารถบันทึกเทมเพลตลงฐานข้อมูลได้"
+      }
+    }
+  }
+}

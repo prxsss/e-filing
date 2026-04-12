@@ -18,6 +18,10 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n();
 
+function tr(key: string, params?: Record<string, unknown>) {
+  return t(`adminTemplates.create.signingFlowEditor.${key}`, params);
+}
+
 // Local state
 const selectedStepId = ref<string | null>(null);
 const isAddingStep = ref(false);
@@ -365,7 +369,7 @@ watch(() => props.signingSteps.length, (newLen) => {
       <div class="p-4 border-b">
         <h3 class="font-bold flex items-center gap-2">
           <UIcon name="i-heroicons-queue-list" class="text-primary-500" />
-          {{ t('signingFlow') }}
+          {{ tr('signingFlow') }}
         </h3>
       </div>
 
@@ -380,7 +384,7 @@ watch(() => props.signingSteps.length, (newLen) => {
           <div class="bg-gray-50 border-b border-gray-200 px-3 py-1.5 flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5 min-w-0">
               <span class="text-xs font-semibold text-gray-500 uppercase shrink-0">
-                {{ t('stage') }} {{ stageIndex + 1 }}
+                {{ tr('stage') }} {{ stageIndex + 1 }}
               </span>
               <UBadge
                 v-if="stage.steps.length > 1"
@@ -390,7 +394,7 @@ watch(() => props.signingSteps.length, (newLen) => {
                 icon="i-heroicons-arrows-right-left"
                 class="shrink-0"
               >
-                {{ t('parallel') }}
+                {{ tr('parallel') }}
               </UBadge>
             </div>
             <div class="flex items-center gap-0.5 shrink-0">
@@ -448,7 +452,7 @@ watch(() => props.signingSteps.length, (newLen) => {
               </div>
               <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <UBadge color="neutral" variant="subtle" size="xs">
-                  {{ step.assignedFieldInstanceIds.length }} {{ t('fields') }}
+                  {{ step.assignedFieldInstanceIds.length }} {{ tr('fields') }}
                 </UBadge>
               </div>
             </div>
@@ -460,12 +464,12 @@ watch(() => props.signingSteps.length, (newLen) => {
             >
               <p class="text-xs font-semibold text-info-600 flex items-center gap-1">
                 <UIcon name="i-heroicons-arrows-right-left" class="w-3.5 h-3.5" />
-                {{ t('addParallelSigner') }}
+                {{ tr('addParallelSigner') }}
               </p>
               <USelect
                 v-model="newStepRoleId"
                 :items="roleItems"
-                :placeholder="t('selectRole')"
+                :placeholder="tr('selectRole')"
                 value-key="value"
                 label-key="label"
                 size="sm"
@@ -478,13 +482,13 @@ watch(() => props.signingSteps.length, (newLen) => {
                   size="xs"
                   color="neutral"
                   variant="ghost"
-                  :label="t('cancel')"
+                  :label="tr('cancel')"
                   @click="isAddingStep = false; newStepRoleId = undefined; addingToStageOrder = null"
                 />
                 <UButton
                   size="xs"
                   color="info"
-                  :label="t('add')"
+                  :label="tr('add')"
                   :disabled="!newStepRoleId"
                   @click="addStep"
                 />
@@ -495,7 +499,7 @@ watch(() => props.signingSteps.length, (newLen) => {
             <UButton
               v-if="!(isAddingStep && addingToStageOrder === stage.order)"
               icon="i-heroicons-arrows-right-left"
-              :label="t('addParallelSigner')"
+              :label="tr('addParallelSigner')"
               color="info"
               variant="ghost"
               size="xs"
@@ -509,12 +513,12 @@ watch(() => props.signingSteps.length, (newLen) => {
         <div v-if="isAddingStep && addingToStageOrder === null" class="rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 p-3 space-y-2">
           <p class="text-xs font-semibold text-primary-600 flex items-center gap-1">
             <UIcon name="i-heroicons-queue-list" class="w-3.5 h-3.5" />
-            {{ t('addNewStage') }}
+            {{ tr('addNewStage') }}
           </p>
           <USelect
             v-model="newStepRoleId"
             :items="roleItems"
-            :placeholder="t('selectRole')"
+            :placeholder="tr('selectRole')"
             value-key="value"
             label-key="label"
             size="sm"
@@ -528,13 +532,13 @@ watch(() => props.signingSteps.length, (newLen) => {
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                :label="t('cancel')"
+                :label="tr('cancel')"
                 @click="isAddingStep = false; newStepRoleId = undefined; addingToStageOrder = null"
               />
               <UButton
                 size="xs"
                 color="primary"
-                :label="t('addSigningStep')"
+                :label="tr('addSigningStep')"
                 :disabled="!newStepRoleId"
                 @click="addStep"
               />
@@ -546,7 +550,7 @@ watch(() => props.signingSteps.length, (newLen) => {
         <UButton
           v-if="!isAddingStep"
           icon="i-heroicons-plus"
-          :label="t('addNewStage')"
+          :label="tr('addNewStage')"
           color="primary"
           variant="soft"
           block
@@ -559,7 +563,7 @@ watch(() => props.signingSteps.length, (newLen) => {
     <section class="flex-1 flex flex-col overflow-hidden bg-gray-100">
       <div class="p-3 border-b bg-white flex items-center gap-2 text-xs text-gray-500">
         <UIcon name="i-heroicons-cursor-arrow-rays" class="text-primary-500" />
-        {{ t('clickFieldOnDocumentToAssign') }}
+        {{ tr('clickFieldOnDocumentToAssign') }}
       </div>
 
       <!-- Scrollable Canvas (read-only mode) -->
@@ -581,7 +585,7 @@ watch(() => props.signingSteps.length, (newLen) => {
       <div class="p-4 border-b">
         <h3 class="font-bold flex items-center gap-2">
           <UIcon name="i-heroicons-adjustments-horizontal" class="text-primary-500" />
-          {{ t('stepDetails') }}
+          {{ tr('stepDetails') }}
         </h3>
       </div>
 
@@ -602,7 +606,7 @@ watch(() => props.signingSteps.length, (newLen) => {
           </p>
           <div class="flex items-center gap-1 flex-wrap">
             <UBadge color="neutral" variant="outline" size="xs">
-              {{ t('stage') }} {{ stageOrders.indexOf(selectedStep.order) + 1 }}
+              {{ tr('stage') }} {{ stageOrders.indexOf(selectedStep.order) + 1 }}
             </UBadge>
             <UBadge
               v-if="(stages.find(s => s.order === selectedStep?.order)?.steps.length ?? 0) > 1"
@@ -611,7 +615,7 @@ watch(() => props.signingSteps.length, (newLen) => {
               size="xs"
               icon="i-heroicons-arrows-right-left"
             >
-              {{ t('parallel') }}
+              {{ tr('parallel') }}
             </UBadge>
           </div>
         </div>
@@ -619,7 +623,7 @@ watch(() => props.signingSteps.length, (newLen) => {
         <!-- Assigned Fields -->
         <div>
           <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block">
-            {{ t('assignedFields') }} ({{ assignedFieldsForSelectedStep.length }})
+            {{ tr('assignedFields') }} ({{ assignedFieldsForSelectedStep.length }})
           </label>
           <div class="space-y-1.5">
             <div
@@ -647,7 +651,7 @@ watch(() => props.signingSteps.length, (newLen) => {
                   size="xs"
                   class="shrink-0"
                 >
-                  {{ t('auto') }}
+                  {{ tr('auto') }}
                 </UBadge>
               </div>
               <UButton
@@ -659,7 +663,7 @@ watch(() => props.signingSteps.length, (newLen) => {
               />
             </div>
             <p v-if="assignedFieldsForSelectedStep.length === 0" class="text-xs text-gray-400 text-center py-2">
-              {{ t('clickFieldToAssign') }}
+              {{ tr('clickFieldToAssign') }}
             </p>
           </div>
         </div>
@@ -667,7 +671,7 @@ watch(() => props.signingSteps.length, (newLen) => {
         <!-- Unassigned Fields -->
         <div>
           <label class="text-xs font-semibold text-gray-500 uppercase mb-2 block">
-            {{ t('unassignedFields') }} ({{ unassignedCount }})
+            {{ tr('unassignedFields') }} ({{ unassignedCount }})
           </label>
           <div class="space-y-1.5">
             <div
@@ -692,7 +696,7 @@ watch(() => props.signingSteps.length, (newLen) => {
                   size="xs"
                   class="shrink-0"
                 >
-                  {{ t('auto') }}
+                  {{ tr('auto') }}
                 </UBadge>
               </div>
               <UIcon name="i-heroicons-plus-circle" class="w-4 h-4 text-gray-400 shrink-0" />
@@ -704,7 +708,7 @@ watch(() => props.signingSteps.length, (newLen) => {
       <!-- No Step Selected -->
       <div v-else class="flex-1 flex items-center justify-center p-4">
         <p class="text-sm text-gray-400 text-center">
-          {{ signingSteps.length > 0 ? t('clickFieldToAssign') : t('addFirstStep') }}
+          {{ signingSteps.length > 0 ? tr('clickFieldToAssign') : tr('addFirstStep') }}
         </p>
       </div>
     </aside>

@@ -30,6 +30,10 @@ const route = useRoute();
 const toast = useToast();
 const { t } = useI18n();
 
+function tr(key: string, params?: Record<string, unknown>) {
+  return params ? t(`adminTemplates.edit.${key}`, params) : t(`adminTemplates.edit.${key}`);
+}
+
 // ─── Template ID ──────────────────────────────────────────────────────────────
 
 const templateId = computed<string | undefined>(() => {
@@ -158,9 +162,9 @@ let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let previewRequestToken = 0;
 
 const wizardSteps = computed(() => [
-  { step: 1 as WizardStep, label: t('placeFields'), icon: 'i-heroicons-document-text' },
-  { step: 2 as WizardStep, label: t('signingFlow'), icon: 'i-heroicons-queue-list' },
-  { step: 3 as WizardStep, label: t('reviewAndSave'), icon: 'i-heroicons-clipboard-document-check' },
+  { step: 1 as WizardStep, label: tr('wizard.placeFields'), icon: 'i-heroicons-document-text' },
+  { step: 2 as WizardStep, label: tr('wizard.signingFlow'), icon: 'i-heroicons-queue-list' },
+  { step: 3 as WizardStep, label: tr('wizard.reviewAndSave'), icon: 'i-heroicons-clipboard-document-check' },
 ]);
 
 const canProceedToStep2 = computed<boolean>(() => {
@@ -597,22 +601,22 @@ const activePreviewOverlayFieldValues = computed<Record<string, string>>(() => {
 function goToStep(step: WizardStep): void {
   if (step === 2 && !canProceedToStep2.value) {
     if (!templateName.value.trim() || templateName.value.trim().length < 3) {
-      toast.add({ title: t('placeFields'), description: 'Template name must be at least 3 characters', color: 'error' });
+      toast.add({ title: tr('wizard.placeFields'), description: tr('toasts.stepValidation.templateNameMin3'), color: 'error' });
     }
     else if (!uploadedFile.value) {
-      toast.add({ title: 'Please upload a file', color: 'error' });
+      toast.add({ title: tr('toasts.stepValidation.uploadFile'), color: 'error' });
     }
     else if (placedFields.value.length === 0) {
-      toast.add({ title: 'Please add at least one field', color: 'error' });
+      toast.add({ title: tr('toasts.stepValidation.addAtLeastOneField'), color: 'error' });
     }
     return;
   }
   if (step === 3 && !canProceedToStep3.value) {
     if (signingSteps.value.length === 0) {
-      toast.add({ title: t('signingStepRequired'), color: 'error' });
+      toast.add({ title: tr('toasts.stepValidation.signingStepRequired'), color: 'error' });
     }
     else {
-      toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+      toast.add({ title: tr('toasts.stepValidation.allFieldsMustBeAssigned'), color: 'error' });
     }
     return;
   }
@@ -654,7 +658,7 @@ async function fetchTemplate(): Promise<void> {
   try {
     const result = await $fetch<ApiResponse<any>>(`/api/pdf-templates/${templateId.value}`);
     if (!result.success || !result.data)
-      throw new Error('Failed to fetch template');
+      throw new Error(tr('errors.fetchTemplateFailed'));
 
     templateData.value = result.data;
     templateName.value = result.data.name || '';
@@ -696,7 +700,7 @@ async function fetchTemplate(): Promise<void> {
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    toast.add({ title: 'Error', description: `Failed to load template: ${message}`, color: 'error' });
+    toast.add({ title: tr('toasts.common.errorTitle'), description: tr('toasts.load.templateFailed', { message }), color: 'error' });
   }
   finally {
     isLoading.value = false;
@@ -711,12 +715,12 @@ async function fetchTemplateFields(): Promise<void> {
       availableFields.value = response.data.map(field => normalizeFieldAutoGenerateShape(field));
     }
     else {
-      toast.add({ title: 'No Fields Found', description: response.error || 'Add fields in the database.', color: 'warning' });
+      toast.add({ title: tr('toasts.fields.notFoundTitle'), description: response.error || tr('toasts.fields.notFoundDescription'), color: 'warning' });
     }
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    toast.add({ title: 'Failed to Load Fields', description: message, color: 'error' });
+    toast.add({ title: tr('toasts.fields.loadErrorTitle'), description: message, color: 'error' });
   }
   finally {
     isLoadingFields.value = false;
@@ -829,12 +833,12 @@ async function handleFileInput(event: Event): Promise<void> {
 async function processFile(file: File): Promise<void> {
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
-    toast.add({ title: 'File too large', description: 'Max 50 MB', color: 'error' });
+    toast.add({ title: tr('toasts.file.tooLargeTitle'), description: tr('toasts.file.tooLargeDescription'), color: 'error' });
     return;
   }
 
   if (file.size === 0) {
-    toast.add({ title: 'Corrupted file', color: 'error' });
+    toast.add({ title: tr('toasts.file.corruptedTitle'), color: 'error' });
     return;
   }
 
@@ -845,14 +849,14 @@ async function processFile(file: File): Promise<void> {
   const validExtensions = [...validImageExtensions, 'pdf'];
 
   if (!validExtensions.includes(fileExtension)) {
-    toast.add({ title: 'Unsupported file type', description: 'PDF or image files only', color: 'error' });
+    toast.add({ title: tr('toasts.file.unsupportedTypeTitle'), description: tr('toasts.file.unsupportedTypeDescription'), color: 'error' });
     return;
   }
 
   if (fileTypeFromMime === 'application/pdf' || fileExtension === 'pdf') {
     const isValidPdf = await verifyPdfMagicBytes(file);
     if (!isValidPdf) {
-      toast.add({ title: 'Invalid PDF', description: 'The file may be corrupted or not a real PDF', color: 'error' });
+      toast.add({ title: tr('toasts.file.invalidPdfTitle'), description: tr('toasts.file.invalidPdfDescription'), color: 'error' });
       return;
     }
   }
@@ -887,7 +891,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
   if (!fieldToAdd)
     return;
   if (!uploadedFile.value) {
-    toast.add({ title: 'Upload a file first', color: 'error' });
+    toast.add({ title: tr('toasts.file.uploadFirstTitle'), color: 'error' });
     return;
   }
 
@@ -1131,7 +1135,7 @@ function openEditField(field: Field): void {
 
 function handleFieldCreated(newField: Field): void {
   availableFields.value.push(normalizeFieldAutoGenerateShape(newField));
-  toast.add({ title: 'Field Added', description: `"${newField.name}" added`, color: 'success' });
+  toast.add({ title: tr('toasts.field.addedTitle'), description: tr('toasts.field.addedDescription', { name: newField.name }), color: 'success' });
 }
 
 function updateAvailableFieldCache(updatedField: Field): void {
@@ -1146,7 +1150,7 @@ function updateAvailableFieldCache(updatedField: Field): void {
 
 function handleFieldUpdated(updatedField: Field): void {
   updateAvailableFieldCache(updatedField);
-  toast.add({ title: 'Field Updated', description: `"${updatedField.name}" updated`, color: 'success' });
+  toast.add({ title: tr('toasts.field.updatedTitle'), description: tr('toasts.field.updatedDescription', { name: updatedField.name }), color: 'success' });
 }
 
 async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | string; defaults: any }): Promise<void> {
@@ -1154,7 +1158,7 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
   const selectedFieldData = selectedField.value;
 
   if (!fieldDefinition) {
-    toast.add({ title: 'Field not found', description: 'Unable to save defaults', color: 'error' });
+    toast.add({ title: tr('toasts.field.notFoundTitle'), description: tr('toasts.field.saveDefaultsFailedDescription'), color: 'error' });
     return;
   }
 
@@ -1208,7 +1212,7 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
   };
 
   if (!requestBody.name || !requestBody.label) {
-    toast.add({ title: 'Field data is incomplete', description: 'Cannot save defaults', color: 'error' });
+    toast.add({ title: tr('toasts.field.incompleteDataTitle'), description: tr('toasts.field.saveDefaultsFailedDescription'), color: 'error' });
     return;
   }
 
@@ -1221,16 +1225,16 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
 
     if (response.success && response.data) {
       updateAvailableFieldCache(response.data);
-      toast.add({ title: 'Defaults saved', description: `"${response.data.name}" was updated`, color: 'success' });
+      toast.add({ title: tr('toasts.field.defaultsSavedTitle'), description: tr('toasts.field.defaultsSavedDescription', { name: response.data.name }), color: 'success' });
     }
     else {
-      toast.add({ title: 'Save failed', description: response.error || 'Unable to save defaults', color: 'error' });
+      toast.add({ title: tr('toasts.field.saveFailedTitle'), description: response.error || tr('toasts.field.saveDefaultsFailedDescription'), color: 'error' });
     }
   }
   catch (error) {
     console.error('Error saving field defaults from toolbar:', error);
     const message = error instanceof Error ? error.message : String(error);
-    toast.add({ title: 'Save failed', description: message, color: 'error' });
+    toast.add({ title: tr('toasts.field.saveFailedTitle'), description: message, color: 'error' });
   }
   finally {
     isSavingFieldDefaults.value = false;
@@ -1241,7 +1245,7 @@ function handleFieldDeleted(fieldId: number | string): void {
   const idx = availableFields.value.findIndex(f => f.id === fieldId);
   if (idx !== -1)
     availableFields.value.splice(idx, 1);
-  toast.add({ title: 'Field Deleted', color: 'success' });
+  toast.add({ title: tr('toasts.field.deletedTitle'), color: 'success' });
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
@@ -1249,15 +1253,15 @@ function handleFieldDeleted(fieldId: number | string): void {
 function validateTemplateName(): boolean {
   const name = templateName.value.trim();
   if (!name) {
-    templateNameError.value = 'Please enter a template name';
+    templateNameError.value = tr('validation.nameRequired');
     return false;
   }
   if (name.length < 3) {
-    templateNameError.value = 'Name must be at least 3 characters';
+    templateNameError.value = tr('validation.nameMin3');
     return false;
   }
   if (name.length > 100) {
-    templateNameError.value = 'Name must not exceed 100 characters';
+    templateNameError.value = tr('validation.nameMax100');
     return false;
   }
   templateNameError.value = '';
@@ -1272,25 +1276,25 @@ function handleSaveTemplate(): void {
   if (!validateTemplateName())
     return;
   if (!uploadedFile.value) {
-    toast.add({ title: 'Error', description: 'Please upload a file first', color: 'error' });
+    toast.add({ title: tr('toasts.common.errorTitle'), description: tr('toasts.save.uploadFirstDescription'), color: 'error' });
     return;
   }
   if (placedFields.value.length === 0) {
-    toast.add({ title: 'Error', description: 'Please add at least one field', color: 'error' });
+    toast.add({ title: tr('toasts.common.errorTitle'), description: tr('toasts.save.addAtLeastOneFieldDescription'), color: 'error' });
     return;
   }
   if (signingSteps.value.length === 0) {
-    toast.add({ title: t('signingStepRequired'), color: 'error' });
+    toast.add({ title: tr('toasts.stepValidation.signingStepRequired'), color: 'error' });
     return;
   }
   if (!placedFields.value.filter(f => !isAutoGeneratedField(f)).every(f => f.signerStepId)) {
-    toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+    toast.add({ title: tr('toasts.stepValidation.allFieldsMustBeAssigned'), color: 'error' });
     return;
   }
   if (isSaveDisabled.value) {
     toast.add({
-      title: 'Error',
-      description: 'Please provide a template description before saving',
+      title: tr('toasts.common.errorTitle'),
+      description: tr('toasts.save.descriptionRequired'),
       color: 'error',
     });
     return;
@@ -1314,7 +1318,7 @@ async function performSave(): Promise<void> {
       }) as any;
 
       if (!uploadResponse.success || !uploadResponse.url) {
-        throw new Error('Failed to upload PDF file');
+        throw new Error(tr('errors.uploadPdfFailed'));
       }
       documentUrl = uploadResponse.url;
     }
@@ -1364,16 +1368,16 @@ async function performSave(): Promise<void> {
     }) as any;
 
     if (!saveResponse.success || !saveResponse.data) {
-      throw new Error('Failed to save template to database');
+      throw new Error(tr('errors.saveTemplateFailed'));
     }
 
-    toast.add({ title: 'Saved', description: `Template "${templateName.value}" updated successfully`, color: 'success' });
+    toast.add({ title: tr('toasts.save.savedTitle'), description: tr('toasts.save.savedDescription', { name: templateName.value }), color: 'success' });
     hasChanges.value = false;
     setTimeout(() => router.push('/admin/templates'), 500);
   }
   catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    toast.add({ title: 'Save Failed', description: errorMessage || 'Unable to save template', color: 'error' });
+    toast.add({ title: tr('toasts.save.saveFailedTitle'), description: errorMessage || tr('toasts.save.saveFailedDescription'), color: 'error' });
   }
   finally {
     isSaving.value = false;
@@ -1385,16 +1389,16 @@ function handleTemplateSaved(templateData: any): void {
 
   if (!templateData || templateData.error) {
     toast.add({
-      title: 'Error',
-      description: templateData?.message || 'Unable to save template',
+      title: tr('toasts.common.errorTitle'),
+      description: templateData?.message || tr('toasts.save.saveFailedDescription'),
       color: 'error',
     });
     return;
   }
 
   toast.add({
-    title: 'Saved',
-    description: 'Template saved successfully',
+    title: tr('toasts.save.savedTitle'),
+    description: tr('toasts.save.savedGenericDescription'),
     color: 'success',
   });
 
@@ -1656,13 +1660,13 @@ watch(
 
         <!-- Template Name Input (visible across all steps) -->
         <div class="flex flex-col">
-          <label class="text-[10px] uppercase font-bold tracking-wider text-gray-500">Template Name</label>
+          <label class="text-[10px] uppercase font-bold tracking-wider text-gray-500">{{ tr('header.templateNameLabel') }}</label>
           <input
             v-model="templateName"
             type="text"
             :class="templateNameError ? 'border border-red-500 bg-red-50' : 'border bg-transparent'"
             class="p-2 font-semibold focus:ring-1 focus:ring-blue-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors"
-            placeholder="Enter template name..."
+            :placeholder="tr('header.templateNamePlaceholder')"
             :disabled="isLoading || currentWizardStep > 1"
             @input="validateTemplateName"
           >
@@ -1701,7 +1705,7 @@ watch(
           icon="i-heroicons-arrow-left"
           color="neutral"
           variant="ghost"
-          :label="t('previous')"
+          :label="tr('actions.previous')"
           @click="goPrevious"
         />
         <UButton
@@ -1709,7 +1713,7 @@ watch(
           icon="i-heroicons-arrow-right"
           trailing
           color="primary"
-          :label="t('next')"
+          :label="tr('actions.next')"
           size="xl"
           class="px-6 font-bold"
           @click="goNext"
@@ -1720,7 +1724,7 @@ watch(
           :disabled="isLoading"
           icon="i-heroicons-check"
           color="primary"
-          :label="t('saveTemplate')"
+          :label="tr('actions.saveTemplate')"
           size="xl"
           class="px-6 font-bold"
           @click="handleSaveTemplate"
@@ -1735,7 +1739,7 @@ watch(
         <div class="p-4 border-b">
           <h3 class="font-bold flex items-center gap-2">
             <UIcon name="i-heroicons-swatch" class="text-primary-500" />
-            Tools
+            {{ tr('sidebar.tools') }}
           </h3>
         </div>
 
@@ -1743,9 +1747,9 @@ watch(
           <!-- ── File Section ── -->
           <div>
             <div class="flex justify-between items-center mb-2">
-              <label class="text-xs font-semibold uppercase text-gray-500">Document</label>
+              <label class="text-xs font-semibold uppercase text-gray-500">{{ tr('sidebar.document') }}</label>
               <UBadge v-if="uploadedFile" color="success" variant="subtle" size="xs">
-                Loaded
+                {{ tr('sidebar.loaded') }}
               </UBadge>
             </div>
 
@@ -1759,7 +1763,7 @@ watch(
                   {{ uploadedFile.name }}
                 </p>
                 <button class="text-xs text-primary-600 hover:underline" @click="triggerFileInput">
-                  Replace file
+                  {{ tr('sidebar.replaceFile') }}
                 </button>
               </div>
             </div>
@@ -1776,10 +1780,10 @@ watch(
             >
               <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 mx-auto mb-2 text-gray-400 group-hover:text-primary-500 transition-colors" />
               <p class="text-sm font-medium text-gray-600">
-                Click to upload
+                {{ tr('sidebar.clickToUpload') }}
               </p>
               <p class="text-xs text-gray-400 mt-1">
-                PDF or image (max 50 MB)
+                {{ tr('sidebar.supportedFileTypes') }}
               </p>
             </div>
 
@@ -1795,7 +1799,7 @@ watch(
           <!-- ── Available Fields ── -->
           <div>
             <div class="flex justify-between items-center mb-3">
-              <label class="text-xs font-semibold uppercase text-gray-500">Fields</label>
+              <label class="text-xs font-semibold uppercase text-gray-500">{{ tr('sidebar.fields') }}</label>
               <div class="flex items-center gap-2">
                 <UBadge v-if="!isLoadingFields && availableFields.length > 0" color="primary" variant="subtle" size="xs">
                   {{ availableFields.length }}
@@ -1805,7 +1809,7 @@ watch(
                   size="xs"
                   color="primary"
                   variant="soft"
-                  title="Add new field"
+                  :title="tr('sidebar.addNewField')"
                   @click="isCreateFieldModalOpen = true"
                 />
               </div>
@@ -1815,7 +1819,7 @@ watch(
             <UInput
               v-model="searchQuery"
               icon="i-heroicons-magnifying-glass"
-              placeholder="Search..."
+              :placeholder="tr('sidebar.searchPlaceholder')"
               size="sm"
               class="mb-3 w-full"
               :disabled="isLoadingFields"
@@ -1830,10 +1834,10 @@ watch(
             <div v-else-if="availableFields.length === 0" class="text-center py-8">
               <UIcon name="i-heroicons-inbox" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p class="text-sm text-gray-500">
-                No fields found
+                {{ tr('sidebar.noFieldsFound') }}
               </p>
               <p class="text-xs text-gray-400 mt-1">
-                Click + to add fields
+                {{ tr('sidebar.clickPlusToAddFields') }}
               </p>
             </div>
 
@@ -1866,7 +1870,7 @@ watch(
                   color="primary"
                   variant="ghost"
                   square
-                  title="Edit field"
+                  :title="tr('sidebar.editField')"
                   @click.stop="openEditField(field)"
                 />
               </div>
@@ -1882,9 +1886,9 @@ watch(
           <!-- Left: page info -->
           <div class="flex items-center shrink-0 w-20 self-stretch">
             <span class="text-xs text-gray-400 font-medium">
-              <template v-if="isLoading">Loading...</template>
-              <template v-else-if="!uploadedFile">No file</template>
-              <template v-else>Page {{ currentPdfPage }}</template>
+              <template v-if="isLoading">{{ tr('canvas.pageInfo.loading') }}</template>
+              <template v-else-if="!uploadedFile">{{ tr('canvas.pageInfo.noFile') }}</template>
+              <template v-else>{{ tr('canvas.pageInfo.page', { page: currentPdfPage }) }}</template>
             </span>
           </div>
 
@@ -1910,26 +1914,26 @@ watch(
               size="xs"
               color="neutral"
               variant="ghost"
-              :title="isPreviewOutputEnabled ? 'Hide Preview Output' : 'Show Preview Output'"
+              :title="isPreviewOutputEnabled ? tr('canvas.previewToggle.hide') : tr('canvas.previewToggle.show')"
               @click="togglePreviewOutput"
             />
             <UPopover :content="{ align: 'end', side: 'bottom', sideOffset: 4 }" :ui="{ content: 'w-auto min-w-0 p-0 overflow-visible' }">
               <template #default="{ open }">
-                <UTooltip text="Zoom" :popper="{ placement: 'left' }">
+                <UTooltip :text="tr('canvas.zoom.title')" :popper="{ placement: 'left' }">
                   <UButton
                     icon="i-heroicons-magnifying-glass"
                     size="xs"
                     color="neutral"
                     variant="ghost"
                     :class="open ? 'ring-1 ring-inset ring-primary-400 bg-primary-50/80' : ''"
-                    aria-label="Zoom"
+                    :aria-label="tr('canvas.zoom.ariaLabel')"
                   />
                 </UTooltip>
               </template>
               <template #content>
                 <div class="w-44 p-2.5 rounded-xl bg-white shadow-lg border border-gray-200/80">
                   <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 px-0.5">
-                    Zoom level
+                    {{ tr('canvas.zoom.level') }}
                   </p>
                   <div class="flex flex-col gap-0.5">
                     <button
@@ -1944,18 +1948,18 @@ watch(
                     </button>
                   </div>
                   <div class="border-t border-gray-200 mt-2 pt-2">
-                    <label class="text-[11px] text-gray-500 block mb-1 px-0.5">Custom (%)</label>
+                    <label class="text-[11px] text-gray-500 block mb-1 px-0.5">{{ tr('canvas.zoom.customPercent') }}</label>
                     <div class="flex gap-1.5 items-center">
                       <input
                         v-model="zoomCustomPercentInput"
                         type="text"
                         inputmode="numeric"
                         class="flex-1 min-w-0 h-8 rounded-lg border border-gray-200 px-2 text-sm text-center focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                        placeholder="100"
+                        :placeholder="tr('canvas.zoom.placeholderPercent')"
                         @keydown.enter.prevent="applyZoomCustomPercentFromInput"
                       >
                       <UButton size="xs" color="neutral" variant="soft" @click="applyZoomCustomPercentFromInput">
-                        Apply
+                        {{ tr('actions.apply') }}
                       </UButton>
                     </div>
                   </div>
@@ -1966,14 +1970,14 @@ watch(
         </div>
 
         <div v-if="isPreviewOutputEnabled && uploadedFile && fileType === 'pdf'" class="min-h-12 bg-white border-b border-gray-200 px-4 py-2 flex items-center shrink-0 gap-3">
-          <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">Preview Output</span>
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">{{ tr('canvas.previewOutput.title') }}</span>
 
           <template v-if="!selectedField">
             <input
               type="text"
               disabled
               class="flex-1 min-w-0 h-8 rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-400 cursor-not-allowed"
-              placeholder="Select a field on the PDF to type sample preview text here"
+              :placeholder="tr('canvas.previewOutput.selectFieldPlaceholder')"
             >
           </template>
 
@@ -1986,7 +1990,7 @@ watch(
               size="xs"
               class="shrink-0"
             >
-              Conditional
+              {{ tr('canvas.previewOutput.conditional') }}
             </UBadge>
 
             <template v-if="canTypePreviewValue">
@@ -1995,7 +1999,7 @@ watch(
                 :maxlength="selectedFieldMaxLength || undefined"
                 type="text"
                 class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Type sample text to preview actual PDF output"
+                :placeholder="tr('canvas.previewOutput.typeSamplePlaceholder')"
                 @input="handlePreviewInput"
               >
               <UButton
@@ -2005,7 +2009,7 @@ watch(
                 :disabled="!selectedFieldPreviewValue"
                 @click="selectedFieldPreviewValue = ''"
               >
-                Clear
+                {{ tr('actions.clear') }}
               </UButton>
               <span v-if="selectedFieldMaxLength" class="text-[11px] text-gray-400 shrink-0">{{ selectedFieldPreviewCharacterCount }}/{{ selectedFieldMaxLength }}</span>
             </template>
@@ -2018,7 +2022,7 @@ watch(
                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   @change="handlePreviewCheckboxChange"
                 >
-                <span class="truncate">Toggle to show check mark in Preview PDF</span>
+                <span class="truncate">{{ tr('canvas.previewOutput.checkboxHint') }}</span>
               </label>
               <UButton
                 size="xs"
@@ -2027,16 +2031,16 @@ watch(
                 :disabled="!selectedFieldPreviewChecked"
                 @click="selectedFieldPreviewChecked = false"
               >
-                Clear
+                {{ tr('actions.clear') }}
               </UButton>
             </template>
 
             <template v-else>
-              <span class="flex-1 min-w-0 text-xs text-gray-500">This field type is shown directly on the PDF — no sample text box here.</span>
+              <span class="flex-1 min-w-0 text-xs text-gray-500">{{ tr('canvas.previewOutput.noInputHint') }}</span>
             </template>
           </template>
 
-          <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? 'Syncing preview...' : 'Preview only · not saved' }}</span>
+          <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? tr('canvas.previewOutput.syncing') : tr('canvas.previewOutput.previewOnly') }}</span>
         </div>
 
         <!-- Scrollable Canvas -->
@@ -2046,7 +2050,7 @@ watch(
             <div class="text-center text-gray-400">
               <UIcon name="i-heroicons-arrow-path" class="w-10 h-10 mx-auto mb-3 animate-spin" />
               <p class="text-sm">
-                Loading template...
+                {{ tr('canvas.loadingTemplate') }}
               </p>
             </div>
           </div>
@@ -2083,7 +2087,7 @@ watch(
             <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
               <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
               <p class="text-sm">
-                No document loaded
+                {{ tr('canvas.noDocumentLoaded') }}
               </p>
             </div>
           </div>

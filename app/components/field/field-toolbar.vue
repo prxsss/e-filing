@@ -20,6 +20,7 @@ const emit = defineEmits<{
   fieldRemoved: [instanceId: string];
   saveDefaults: [data: { fieldId: number | string; defaults: any }];
 }>();
+const { t } = useI18n();
 
 const localField = ref<any>({});
 const isLoadingDropdownSources = ref(false);
@@ -65,10 +66,10 @@ function normalizeVisibilityRule(rawRule: any) {
 
 function getConditionalSourceLabel(field?: Field): string {
   if (!field) {
-    return 'Checkbox';
+    return t('adminTemplates.create.fieldToolbar.conditional.checkbox');
   }
 
-  const baseLabel = String(field.label || field.name || 'Checkbox').trim();
+  const baseLabel = String(field.label || field.name || t('adminTemplates.create.fieldToolbar.conditional.checkbox')).trim();
   const instanceSuffix = ` #${getFieldDisplayInstanceNumber(field, props.placedFields)}`;
   return `${baseLabel}${instanceSuffix}`;
 }
@@ -113,8 +114,8 @@ const conditionalGroupSourceOptions = computed(() => {
     if (!groupId || uniqueGroups.has(groupId)) {
       continue;
     }
-    const baseLabel = String(field.label || field.name || 'Checkbox Group').trim();
-    uniqueGroups.set(groupId, `${baseLabel} (ทั้งกลุ่ม)`);
+    const baseLabel = String(field.label || field.name || t('adminTemplates.create.fieldToolbar.conditional.checkboxGroup')).trim();
+    uniqueGroups.set(groupId, t('adminTemplates.create.fieldToolbar.conditional.groupAllLabel', { label: baseLabel }));
   }
 
   return Array.from(uniqueGroups.entries()).map(([value, label]) => ({ value, label }));
@@ -838,7 +839,7 @@ function onFieldHeightPopoverInput() {
       <template v-if="selectedFieldType !== 'icon' && selectedFieldType !== 'signature' && selectedFieldType !== 'checkbox'">
         <div class="h-5 w-px bg-gray-200" />
         <div class="flex items-center gap-1.5">
-          <UTooltip text="ขนาดตัวอักษร" :popper="{ placement: 'top' }">
+          <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.fontSize')" :popper="{ placement: 'top' }">
             <div class="toolbar-input-group">
               <span class="toolbar-prefix text-gray-400">
                 <UIcon name="i-lucide-type" class="w-3.5 h-3.5" />
@@ -867,7 +868,7 @@ function onFieldHeightPopoverInput() {
                 <button
                   type="button"
                   class="font-size-dropdown-trigger"
-                  aria-label="เลือกขนาดตัวอักษร"
+                  :aria-label="t('adminTemplates.create.fieldToolbar.aria.selectFontSize')"
                 >
                   <UIcon name="i-lucide-chevron-down" class="w-3.5 h-3.5" />
                 </button>
@@ -875,14 +876,14 @@ function onFieldHeightPopoverInput() {
             </div>
           </UTooltip>
 
-          <UTooltip text="รูปแบบฟอนต์" :popper="{ placement: 'top' }">
+          <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.fontFamily')" :popper="{ placement: 'top' }">
             <select
               v-model="localField.fontFamily"
               class="toolbar-select"
               @change="onPropertyChange"
             >
               <option value="Sarabun">
-                Sarabun (สารบรรณ)
+                {{ t('adminTemplates.create.fieldToolbar.fonts.sarabun') }}
               </option>
             </select>
           </UTooltip>
@@ -891,7 +892,7 @@ function onFieldHeightPopoverInput() {
 
           <!-- Bold / Italic / Underline -->
           <div class="flex items-center gap-0.5">
-            <UTooltip text="ตัวหนา (Bold)" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.bold')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: localField.fontWeight === 'bold' }"
@@ -900,7 +901,7 @@ function onFieldHeightPopoverInput() {
                 <strong>B</strong>
               </button>
             </UTooltip>
-            <UTooltip text="ตัวเอียง (Italic)" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.italic')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: localField.fontStyle === 'italic' }"
@@ -909,7 +910,7 @@ function onFieldHeightPopoverInput() {
                 <em>I</em>
               </button>
             </UTooltip>
-            <UTooltip text="ขีดเส้นใต้ (Underline)" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.underline')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: localField.textDecoration === 'underline' }"
@@ -924,7 +925,7 @@ function onFieldHeightPopoverInput() {
 
           <!-- Text alignment -->
           <div class="flex items-center gap-0.5">
-            <UTooltip text="ชิดซ้าย" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.alignLeft')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: !localField.textAlign || localField.textAlign === 'left' }"
@@ -933,7 +934,7 @@ function onFieldHeightPopoverInput() {
                 <UIcon name="i-heroicons-bars-3-bottom-left" class="w-3.5 h-3.5" />
               </button>
             </UTooltip>
-            <UTooltip text="กึ่งกลาง" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.alignCenter')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: localField.textAlign === 'center' }"
@@ -942,7 +943,7 @@ function onFieldHeightPopoverInput() {
                 <UIcon name="i-heroicons-bars-3" class="w-3.5 h-3.5" />
               </button>
             </UTooltip>
-            <UTooltip text="ชิดขวา" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.alignRight')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: localField.textAlign === 'right' }"
@@ -962,7 +963,7 @@ function onFieldHeightPopoverInput() {
           >
             <template #default="{ open }">
               <UTooltip
-                text="การตั้งค่าขั้นสูง — ระยะห่างตัวอักษร ความสูงบรรทัด จำนวนตัวอักษรสูงสุด"
+                :text="t('adminTemplates.create.fieldToolbar.tooltips.advancedTextSettings')"
                 :popper="{ placement: 'top' }"
               >
                 <button
@@ -971,7 +972,7 @@ function onFieldHeightPopoverInput() {
                   :class="{ active: open }"
                   aria-haspopup="dialog"
                   :aria-expanded="open"
-                  aria-label="การตั้งค่าระยะห่างและขีดจำกัดข้อความ"
+                  :aria-label="t('adminTemplates.create.fieldToolbar.aria.textSpacingAndLimits')"
                 >
                   <span class="spacing-trigger-icon" aria-hidden="true">
                     <span class="spacing-trigger-t">T</span>
@@ -985,12 +986,12 @@ function onFieldHeightPopoverInput() {
               <div class="spacing-popover-panel">
                 <template v-if="!isDateField && !isTimeField">
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">ระยะห่างระหว่างตัวอักษร</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.letterSpacing') }}</label>
                     <div class="spacing-popover-stepper">
                       <button
                         type="button"
                         class="spacing-stepper-btn"
-                        aria-label="ลดระยะห่างตัวอักษร"
+                        :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseLetterSpacing')"
                         :disabled="Number(localField.letterSpacing) <= -5"
                         @click="bumpLetterSpacing(-1)"
                       >
@@ -1010,7 +1011,7 @@ function onFieldHeightPopoverInput() {
                       <button
                         type="button"
                         class="spacing-stepper-btn"
-                        aria-label="เพิ่มระยะห่างตัวอักษร"
+                        :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseLetterSpacing')"
                         :disabled="Number(localField.letterSpacing) >= 20"
                         @click="bumpLetterSpacing(1)"
                       >
@@ -1021,12 +1022,12 @@ function onFieldHeightPopoverInput() {
                 </template>
 
                 <div class="spacing-popover-section">
-                  <label class="spacing-popover-label">ระยะห่างระหว่างบรรทัด</label>
+                  <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.lineHeight') }}</label>
                   <div class="spacing-popover-stepper">
                     <button
                       type="button"
                       class="spacing-stepper-btn"
-                      aria-label="ลดระยะห่างบรรทัด"
+                      :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseLineHeight')"
                       :disabled="Number(localField.lineHeight) <= 0.5"
                       @click="bumpLineHeight(-1)"
                     >
@@ -1046,7 +1047,7 @@ function onFieldHeightPopoverInput() {
                     <button
                       type="button"
                       class="spacing-stepper-btn"
-                      aria-label="เพิ่มระยะห่างบรรทัด"
+                      :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseLineHeight')"
                       :disabled="Number(localField.lineHeight) >= 5"
                       @click="bumpLineHeight(1)"
                     >
@@ -1058,15 +1059,15 @@ function onFieldHeightPopoverInput() {
                 <template v-if="supportsMaxLength">
                   <div class="spacing-popover-divider" />
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">จำนวนตัวอักษรสูงสุด</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.maxCharacters') }}</label>
                     <p class="spacing-popover-hint">
-                      ใส่ 0 หรือเว้นว่าง = ไม่จำกัด
+                      {{ t('adminTemplates.create.fieldToolbar.hints.maxCharactersUnlimited') }}
                     </p>
                     <div class="spacing-popover-stepper">
                       <button
                         type="button"
                         class="spacing-stepper-btn"
-                        aria-label="ลดจำนวนตัวอักษรสูงสุด"
+                        :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseMaxCharacters')"
                         :disabled="localField.maxLength === null || localField.maxLength === undefined || Number(localField.maxLength) <= 0"
                         @click="bumpMaxLength(-1)"
                       >
@@ -1086,7 +1087,7 @@ function onFieldHeightPopoverInput() {
                       <button
                         type="button"
                         class="spacing-stepper-btn"
-                        aria-label="เพิ่มจำนวนตัวอักษรสูงสุด"
+                        :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseMaxCharacters')"
                         :disabled="Number(localField.maxLength) >= 5000"
                         @click="bumpMaxLength(1)"
                       >
@@ -1107,14 +1108,14 @@ function onFieldHeightPopoverInput() {
               :ui="{ content: 'w-fit min-w-0 max-w-[min(100vw,22rem)] p-0 overflow-visible' }"
             >
               <template #default="{ open }">
-                <UTooltip text="รูปแบบวันที่" :popper="{ placement: 'top' }">
+                <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.dateFormat')" :popper="{ placement: 'top' }">
                   <button
                     type="button"
                     class="toolbar-fmt-btn"
                     :class="{ active: open }"
                     aria-haspopup="dialog"
                     :aria-expanded="open"
-                    aria-label="ตั้งค่ารูปแบบวันที่"
+                    :aria-label="t('adminTemplates.create.fieldToolbar.aria.configureDateFormat')"
                   >
                     <UIcon name="i-heroicons-calendar-days" class="w-3.5 h-3.5" />
                   </button>
@@ -1125,7 +1126,7 @@ function onFieldHeightPopoverInput() {
                 <div class="spacing-popover-panel date-format-panel">
                   <!-- Preview -->
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">ตัวอย่าง</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.preview') }}</label>
                     <p class="date-format-preview">
                       {{ dateFormatPreview }}
                     </p>
@@ -1135,7 +1136,7 @@ function onFieldHeightPopoverInput() {
 
                   <!-- Show parts: วัน เดือน ปี -->
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">แสดงส่วนของวันที่</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.dateParts') }}</label>
                     <div class="date-fmt-toggle-row">
                       <button
                         type="button"
@@ -1143,7 +1144,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: localField.dateShowDay !== false }"
                         @click="toggleDatePart('dateShowDay')"
                       >
-                        วัน
+                        {{ t('adminTemplates.create.fieldToolbar.dateParts.day') }}
                       </button>
                       <button
                         type="button"
@@ -1151,7 +1152,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: localField.dateShowMonth !== false }"
                         @click="toggleDatePart('dateShowMonth')"
                       >
-                        เดือน
+                        {{ t('adminTemplates.create.fieldToolbar.dateParts.month') }}
                       </button>
                       <button
                         type="button"
@@ -1159,7 +1160,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: localField.dateShowYear !== false }"
                         @click="toggleDatePart('dateShowYear')"
                       >
-                        ปี
+                        {{ t('adminTemplates.create.fieldToolbar.dateParts.year') }}
                       </button>
                     </div>
                   </div>
@@ -1168,14 +1169,14 @@ function onFieldHeightPopoverInput() {
 
                   <!-- Day of week -->
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">ชื่อวัน</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.dayOfWeek') }}</label>
                     <label class="date-fmt-checkbox-row">
                       <input
                         v-model="localField.dateShowDayOfWeek"
                         type="checkbox"
                         @change="onPropertyChange"
                       >
-                      แสดงชื่อวัน
+                      {{ t('adminTemplates.create.fieldToolbar.labels.showDayOfWeek') }}
                     </label>
                     <template v-if="localField.dateShowDayOfWeek">
                       <div class="date-fmt-toggle-row" style="margin-top: 0.35rem;">
@@ -1185,7 +1186,7 @@ function onFieldHeightPopoverInput() {
                           :class="{ active: !localField.dateDayOfWeekStyle || localField.dateDayOfWeekStyle === 'long' }"
                           @click="localField.dateDayOfWeekStyle = 'long'; onPropertyChange()"
                         >
-                          เต็ม
+                          {{ t('adminTemplates.create.fieldToolbar.common.full') }}
                         </button>
                         <button
                           type="button"
@@ -1193,14 +1194,14 @@ function onFieldHeightPopoverInput() {
                           :class="{ active: localField.dateDayOfWeekStyle === 'short' }"
                           @click="localField.dateDayOfWeekStyle = 'short'; onPropertyChange()"
                         >
-                          ย่อ
+                          {{ t('adminTemplates.create.fieldToolbar.common.short') }}
                         </button>
-                        <span class="date-fmt-row-label">gap</span>
+                        <span class="date-fmt-row-label">{{ t('adminTemplates.create.fieldToolbar.common.gap') }}</span>
                         <div class="spacing-popover-stepper">
                           <button
                             type="button"
                             class="spacing-stepper-btn"
-                            aria-label="ลด gap ชื่อวัน"
+                            :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseDayNameGap')"
                             :disabled="Number(localField.dateDayOfWeekGap) <= 0"
                             @click="localField.dateDayOfWeekGap = Math.max(0, Number(localField.dateDayOfWeekGap) - 1); onPropertyChange()"
                           >
@@ -1220,7 +1221,7 @@ function onFieldHeightPopoverInput() {
                           <button
                             type="button"
                             class="spacing-stepper-btn"
-                            aria-label="เพิ่ม gap ชื่อวัน"
+                            :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseDayNameGap')"
                             :disabled="Number(localField.dateDayOfWeekGap) >= 10"
                             @click="localField.dateDayOfWeekGap = Math.min(10, Number(localField.dateDayOfWeekGap) + 1); onPropertyChange()"
                           >
@@ -1229,7 +1230,7 @@ function onFieldHeightPopoverInput() {
                         </div>
                       </div>
                       <p class="spacing-popover-hint">
-                        เต็ม = วันเสาร์ · ย่อ = ส.
+                        {{ t('adminTemplates.create.fieldToolbar.hints.dayOfWeekStyle') }}
                       </p>
                     </template>
                   </div>
@@ -1238,7 +1239,7 @@ function onFieldHeightPopoverInput() {
 
                   <!-- Month style -->
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">รูปแบบเดือน</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.monthStyle') }}</label>
                     <div class="date-fmt-toggle-row">
                       <button
                         type="button"
@@ -1246,7 +1247,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: !localField.dateMonthStyle || localField.dateMonthStyle === 'numeric' }"
                         @click="localField.dateMonthStyle = 'numeric'; onPropertyChange()"
                       >
-                        เลข
+                        {{ t('adminTemplates.create.fieldToolbar.monthStyles.numeric') }}
                       </button>
                       <button
                         type="button"
@@ -1254,7 +1255,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: localField.dateMonthStyle === 'short' }"
                         @click="localField.dateMonthStyle = 'short'; onPropertyChange()"
                       >
-                        ย่อ
+                        {{ t('adminTemplates.create.fieldToolbar.common.short') }}
                       </button>
                       <button
                         type="button"
@@ -1262,11 +1263,11 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: localField.dateMonthStyle === 'long' }"
                         @click="localField.dateMonthStyle = 'long'; onPropertyChange()"
                       >
-                        เต็ม
+                        {{ t('adminTemplates.create.fieldToolbar.common.full') }}
                       </button>
                     </div>
                     <p class="spacing-popover-hint">
-                      เลข = 09 · ย่อ = ก.ย. · เต็ม = กันยายน
+                      {{ t('adminTemplates.create.fieldToolbar.hints.monthStyle') }}
                     </p>
                   </div>
 
@@ -1274,7 +1275,7 @@ function onFieldHeightPopoverInput() {
 
                   <!-- Year calendar: ค.ศ. / พ.ศ. -->
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">รูปแบบปี</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.yearFormat') }}</label>
                     <div class="date-fmt-toggle-row">
                       <button
                         type="button"
@@ -1282,7 +1283,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: !localField.dateCalendar || localField.dateCalendar === 'ad' }"
                         @click="localField.dateCalendar = 'ad'; onPropertyChange()"
                       >
-                        ค.ศ.
+                        {{ t('adminTemplates.create.fieldToolbar.yearFormats.ad') }}
                       </button>
                       <button
                         type="button"
@@ -1290,7 +1291,7 @@ function onFieldHeightPopoverInput() {
                         :class="{ active: localField.dateCalendar === 'be' }"
                         @click="localField.dateCalendar = 'be'; onPropertyChange()"
                       >
-                        พ.ศ.
+                        {{ t('adminTemplates.create.fieldToolbar.yearFormats.be') }}
                       </button>
                     </div>
                   </div>
@@ -1299,7 +1300,7 @@ function onFieldHeightPopoverInput() {
 
                   <!-- Separator + spacing -->
                   <div class="spacing-popover-section">
-                    <label class="spacing-popover-label">ตัวคั่น &amp; ระยะห่าง</label>
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.separatorAndSpacing') }}</label>
                     <div class="date-fmt-row">
                       <div class="toolbar-input-group">
                         <span class="toolbar-prefix">/</span>
@@ -1312,12 +1313,12 @@ function onFieldHeightPopoverInput() {
                           @input="onPropertyChange"
                         >
                       </div>
-                      <span class="date-fmt-row-label">gap</span>
+                      <span class="date-fmt-row-label">{{ t('adminTemplates.create.fieldToolbar.common.gap') }}</span>
                       <div class="spacing-popover-stepper">
                         <button
                           type="button"
                           class="spacing-stepper-btn"
-                          aria-label="ลด gap ตัวคั่น"
+                          :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseSeparatorGap')"
                           :disabled="Number(localField.dateSeparatorSpacing) <= 0"
                           @click="localField.dateSeparatorSpacing = Math.max(0, Number(localField.dateSeparatorSpacing) - 1); onPropertyChange()"
                         >
@@ -1336,7 +1337,7 @@ function onFieldHeightPopoverInput() {
                         <button
                           type="button"
                           class="spacing-stepper-btn"
-                          aria-label="เพิ่ม gap ตัวคั่น"
+                          :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseSeparatorGap')"
                           :disabled="Number(localField.dateSeparatorSpacing) >= 10"
                           @click="localField.dateSeparatorSpacing = Math.min(10, Number(localField.dateSeparatorSpacing) + 1); onPropertyChange()"
                         >
@@ -1353,7 +1354,7 @@ function onFieldHeightPopoverInput() {
           <template v-if="isTimeField">
             <div class="h-5 w-px bg-gray-200" />
 
-            <UTooltip text="ตัวคั่นเวลา (เว้นว่าง = ไม่คั่น)" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.timeSeparator')" :popper="{ placement: 'top' }">
               <div class="toolbar-input-group">
                 <span class="toolbar-prefix">:</span>
                 <input
@@ -1367,9 +1368,9 @@ function onFieldHeightPopoverInput() {
               </div>
             </UTooltip>
 
-            <UTooltip text="ระยะห่างตัวคั่นเวลา" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.timeSeparatorSpacing')" :popper="{ placement: 'top' }">
               <div class="toolbar-input-group">
-                <span class="toolbar-prefix">gap</span>
+                <span class="toolbar-prefix">{{ t('adminTemplates.create.fieldToolbar.common.gap') }}</span>
                 <input
                   v-model.number="localField.timeSeparatorSpacing"
                   type="number"
@@ -1383,7 +1384,7 @@ function onFieldHeightPopoverInput() {
             </UTooltip>
 
             <div class="flex items-center gap-0.5">
-              <UTooltip text="แสดงชั่วโมง" :popper="{ placement: 'top' }">
+              <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.showHour')" :popper="{ placement: 'top' }">
                 <button
                   class="toolbar-fmt-btn"
                   :class="{ active: localField.timeShowHour !== false }"
@@ -1392,7 +1393,7 @@ function onFieldHeightPopoverInput() {
                   H
                 </button>
               </UTooltip>
-              <UTooltip text="แสดงนาที" :popper="{ placement: 'top' }">
+              <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.showMinute')" :popper="{ placement: 'top' }">
                 <button
                   class="toolbar-fmt-btn"
                   :class="{ active: localField.timeShowMinute !== false }"
@@ -1406,7 +1407,7 @@ function onFieldHeightPopoverInput() {
 
           <template v-if="supportsAutoGenerateToggle">
             <div class="h-5 w-px bg-gray-200" />
-            <UTooltip text="ใส่ข้อมูลอัตโนมัติ" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.autoGenerate')" :popper="{ placement: 'top' }">
               <button
                 class="toolbar-fmt-btn"
                 :class="{ active: localField.isAutoGenerated }"
@@ -1427,12 +1428,12 @@ function onFieldHeightPopoverInput() {
             type="checkbox"
             @change="onPropertyChange"
           >
-          โหมดขีดฆ่าช่องที่ไม่ติ๊กในกลุ่ม
+          {{ t('adminTemplates.create.fieldToolbar.labels.strikeThroughUncheckedInGroup') }}
         </label>
       </template>
 
       <template v-if="isCheckboxType && localField.strikeThroughGroupMode">
-        <UTooltip text="ความหนาเส้นขีดฆ่า (ใช้เมื่อเปิดโหมดขีดฆ่า)" :popper="{ placement: 'top' }">
+        <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.strikeThickness')" :popper="{ placement: 'top' }">
           <div class="toolbar-input-group">
             <span class="toolbar-prefix text-gray-400">
               <UIcon name="i-heroicons-minus-small" class="w-3.5 h-3.5" />
@@ -1458,14 +1459,14 @@ function onFieldHeightPopoverInput() {
         :ui="{ content: 'w-fit min-w-0 max-w-[min(100vw,18rem)] p-0 overflow-visible' }"
       >
         <template #default="{ open }">
-          <UTooltip text="ขนาดช่อง — ความกว้าง × ความสูง (พิกเซล)" :popper="{ placement: 'top' }">
+          <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.fieldSize')" :popper="{ placement: 'top' }">
             <button
               type="button"
               class="toolbar-fmt-btn"
               :class="{ active: open }"
               aria-haspopup="dialog"
               :aria-expanded="open"
-              aria-label="ปรับความกว้างและความสูงของช่อง"
+              :aria-label="t('adminTemplates.create.fieldToolbar.aria.adjustFieldSize')"
             >
               <UIcon name="i-heroicons-arrows-pointing-out" class="w-3.5 h-3.5" />
             </button>
@@ -1474,12 +1475,12 @@ function onFieldHeightPopoverInput() {
         <template #content>
           <div class="spacing-popover-panel">
             <div class="spacing-popover-section">
-              <label class="spacing-popover-label">ความกว้าง (px)</label>
+              <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.widthPx') }}</label>
               <div class="spacing-popover-stepper">
                 <button
                   type="button"
                   class="spacing-stepper-btn"
-                  aria-label="ลดความกว้าง"
+                  :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseWidth')"
                   :disabled="editableWidth <= FIELD_DIM_MIN"
                   @click="bumpFieldWidth(-1)"
                 >
@@ -1498,7 +1499,7 @@ function onFieldHeightPopoverInput() {
                 <button
                   type="button"
                   class="spacing-stepper-btn"
-                  aria-label="เพิ่มความกว้าง"
+                  :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseWidth')"
                   :disabled="editableWidth >= FIELD_DIM_MAX"
                   @click="bumpFieldWidth(1)"
                 >
@@ -1507,12 +1508,12 @@ function onFieldHeightPopoverInput() {
               </div>
             </div>
             <div class="spacing-popover-section">
-              <label class="spacing-popover-label">ความสูง (px)</label>
+              <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.heightPx') }}</label>
               <div class="spacing-popover-stepper">
                 <button
                   type="button"
                   class="spacing-stepper-btn"
-                  aria-label="ลดความสูง"
+                  :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseHeight')"
                   :disabled="editableHeight <= FIELD_DIM_MIN"
                   @click="bumpFieldHeight(-1)"
                 >
@@ -1531,7 +1532,7 @@ function onFieldHeightPopoverInput() {
                 <button
                   type="button"
                   class="spacing-stepper-btn"
-                  aria-label="เพิ่มความสูง"
+                  :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseHeight')"
                   :disabled="editableHeight >= FIELD_DIM_MAX"
                   @click="bumpFieldHeight(1)"
                 >
@@ -1551,14 +1552,14 @@ function onFieldHeightPopoverInput() {
           :ui="{ content: 'w-fit min-w-0 max-w-[min(100vw,22rem)] p-0 overflow-visible' }"
         >
           <template #default="{ open }">
-            <UTooltip text="เลือกข้อมูล" :popper="{ placement: 'top' }">
+            <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.selectData')" :popper="{ placement: 'top' }">
               <button
                 type="button"
                 class="toolbar-fmt-btn"
                 :class="{ active: open }"
                 aria-haspopup="dialog"
                 :aria-expanded="open"
-                aria-label="เลือกข้อมูล"
+                :aria-label="t('adminTemplates.create.fieldToolbar.aria.selectData')"
               >
                 <UIcon name="i-heroicons-list-bullet" class="w-3.5 h-3.5" />
               </button>
@@ -1568,7 +1569,7 @@ function onFieldHeightPopoverInput() {
           <template #content>
             <div class="spacing-popover-panel dropdown-config-panel">
               <div class="spacing-popover-section">
-                <label class="spacing-popover-label">ตารางข้อมูล</label>
+                <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.dataTable') }}</label>
                 <select
                   v-model="localField.dropdownSourceTable"
                   class="toolbar-select dropdown-config-select"
@@ -1576,7 +1577,7 @@ function onFieldHeightPopoverInput() {
                   @change="onPropertyChange"
                 >
                   <option value="" disabled>
-                    {{ isLoadingDropdownSources ? 'กำลังโหลด...' : 'เลือกตารางข้อมูล' }}
+                    {{ isLoadingDropdownSources ? t('adminTemplates.create.fieldToolbar.status.loading') : t('adminTemplates.create.fieldToolbar.labels.selectDataTable') }}
                   </option>
                   <option
                     v-for="source in dropdownSources"
@@ -1591,14 +1592,14 @@ function onFieldHeightPopoverInput() {
               <template v-if="hasDropdownSourceSelection && !isUsersDropdownSource">
                 <div class="spacing-popover-divider" />
                 <div class="spacing-popover-section">
-                  <label class="spacing-popover-label">คอลัมน์แสดงผล</label>
+                  <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.displayColumn') }}</label>
                   <select
                     v-model="localField.dropdownLabelColumn"
                     class="toolbar-select dropdown-config-select"
                     @change="onPropertyChange"
                   >
                     <option value="" disabled>
-                      เลือกคอลัมน์
+                      {{ t('adminTemplates.create.fieldToolbar.labels.selectColumn') }}
                     </option>
                     <option
                       v-for="column in availableDropdownColumns"
@@ -1614,7 +1615,7 @@ function onFieldHeightPopoverInput() {
               <template v-if="isUsersDropdownSource">
                 <div class="spacing-popover-divider" />
                 <div class="spacing-popover-section">
-                  <label class="spacing-popover-label">บทบาท</label>
+                  <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.role') }}</label>
                   <select
                     v-model="localField.dropdownRoleId"
                     class="toolbar-select dropdown-config-select"
@@ -1622,7 +1623,7 @@ function onFieldHeightPopoverInput() {
                     @change="onPropertyChange"
                   >
                     <option value="" disabled>
-                      {{ isLoadingRoles ? 'กำลังโหลดบทบาท...' : 'เลือกบทบาท' }}
+                      {{ isLoadingRoles ? t('adminTemplates.create.fieldToolbar.status.loadingRoles') : t('adminTemplates.create.fieldToolbar.labels.selectRole') }}
                     </option>
                     <option
                       v-for="role in roleOptions"
@@ -1639,13 +1640,13 @@ function onFieldHeightPopoverInput() {
                 <div class="spacing-popover-divider" />
                 <div class="spacing-popover-section">
                   <p v-if="isUsersDropdownSource && selectedDropdownRoleLabel" class="spacing-popover-hint dropdown-valid-status">
-                    พร้อมใช้งาน: {{ selectedDropdownRoleLabel }}
+                    {{ t('adminTemplates.create.fieldToolbar.labels.ready') }}: {{ selectedDropdownRoleLabel }}
                   </p>
                   <p v-else-if="!isUsersDropdownSource && selectedDropdownColumnLabel" class="spacing-popover-hint dropdown-valid-status">
-                    พร้อมใช้งาน: {{ selectedDropdownColumnLabel }}
+                    {{ t('adminTemplates.create.fieldToolbar.labels.ready') }}: {{ selectedDropdownColumnLabel }}
                   </p>
                   <p v-else class="spacing-popover-hint dropdown-warn-status">
-                    กรุณาเลือกคอลัมน์หรือบทบาท
+                    {{ t('adminTemplates.create.fieldToolbar.labels.selectColumnOrRole') }}
                   </p>
                 </div>
               </template>
@@ -1659,7 +1660,7 @@ function onFieldHeightPopoverInput() {
       <div class="h-5 w-px bg-gray-200" />
 
       <!-- Conditional visibility toggle (details shown in second row) -->
-      <UTooltip text="แสดงช่องนี้ตามเงื่อนไขจาก Checkbox" :popper="{ placement: 'top' }">
+      <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.conditionalVisibility')" :popper="{ placement: 'top' }">
         <button
           class="toolbar-fmt-btn"
           :class="{ active: localField.conditionalEnabled }"
@@ -1672,7 +1673,7 @@ function onFieldHeightPopoverInput() {
       <div class="h-5 w-px bg-gray-200" />
 
       <!-- Save as default -->
-      <UTooltip text="บันทึกค่าช่องนี้เป็นค่าเริ่มต้นของ Field" :popper="{ placement: 'top' }">
+      <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.saveAsDefault')" :popper="{ placement: 'top' }">
         <button
           class="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="!selectedField?.id || isSavingDefaults"
@@ -1685,7 +1686,7 @@ function onFieldHeightPopoverInput() {
       <div class="h-5 w-px bg-gray-200" />
 
       <!-- Delete -->
-      <UTooltip text="ลบช่องข้อมูลนี้" :popper="{ placement: 'top' }">
+      <UTooltip :text="t('adminTemplates.create.fieldToolbar.tooltips.deleteField')" :popper="{ placement: 'top' }">
         <button
           class="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
           @click="removeField"
@@ -1699,7 +1700,7 @@ function onFieldHeightPopoverInput() {
       <div class="conditional-toolbar-inline">
         <span class="conditional-toolbar-label">
           <UIcon name="i-heroicons-funnel" class="w-3.5 h-3.5" />
-          เงื่อนไขการแสดงผลจาก Checkbox
+          {{ t('adminTemplates.create.fieldToolbar.conditional.visibilityFromCheckbox') }}
         </span>
 
         <select
@@ -1708,10 +1709,10 @@ function onFieldHeightPopoverInput() {
           @change="onPropertyChange"
         >
           <option value="single">
-            Checkbox เดี่ยว
+            {{ t('adminTemplates.create.fieldToolbar.conditional.singleCheckbox') }}
           </option>
           <option value="group">
-            Checkbox Group
+            {{ t('adminTemplates.create.fieldToolbar.conditional.checkboxGroup') }}
           </option>
         </select>
 
@@ -1722,7 +1723,7 @@ function onFieldHeightPopoverInput() {
           @change="onPropertyChange"
         >
           <option value="" disabled>
-            เลือก Checkbox
+            {{ t('adminTemplates.create.fieldToolbar.conditional.selectCheckbox') }}
           </option>
           <option
             v-for="option in conditionalSourceOptions"
@@ -1740,7 +1741,7 @@ function onFieldHeightPopoverInput() {
           @change="onPropertyChange"
         >
           <option value="" disabled>
-            เลือก Checkbox Group
+            {{ t('adminTemplates.create.fieldToolbar.conditional.selectCheckboxGroup') }}
           </option>
           <option
             v-for="option in conditionalGroupSourceOptions"
@@ -1757,10 +1758,10 @@ function onFieldHeightPopoverInput() {
           @change="onPropertyChange"
         >
           <option value="isChecked">
-            ติ๊กแล้ว
+            {{ t('adminTemplates.create.fieldToolbar.conditional.isChecked') }}
           </option>
           <option value="isUnchecked">
-            ไม่ติ๊ก
+            {{ t('adminTemplates.create.fieldToolbar.conditional.isUnchecked') }}
           </option>
         </select>
       </div>

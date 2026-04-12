@@ -5,6 +5,7 @@ import dashboard from './dashboard.json';
 import departments from './departments.json';
 import errors from './errors.json';
 import faculties from './faculties.json';
+import templates from './templates.json';
 import th from './th.json';
 import users from './users.json';
 
@@ -14,6 +15,7 @@ export default {
   ...accessControl,
   ...auth,
   ...faculties,
+  ...templates,
   ...departments,
   ...errors,
   ...users,

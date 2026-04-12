@@ -119,9 +119,9 @@ const signingSteps = ref<SigningStep[]>([]);
 
 // Wizard step definitions
 const wizardSteps = computed(() => [
-  { step: 1 as WizardStep, label: t('placeFields'), icon: 'i-heroicons-document-text' },
-  { step: 2 as WizardStep, label: t('signingFlow'), icon: 'i-heroicons-queue-list' },
-  { step: 3 as WizardStep, label: t('reviewAndSave'), icon: 'i-heroicons-clipboard-document-check' },
+  { step: 1 as WizardStep, label: t('adminTemplates.create.wizard.placeFields'), icon: 'i-heroicons-document-text' },
+  { step: 2 as WizardStep, label: t('adminTemplates.create.wizard.signingFlow'), icon: 'i-heroicons-queue-list' },
+  { step: 3 as WizardStep, label: t('adminTemplates.create.wizard.reviewAndSave'), icon: 'i-heroicons-clipboard-document-check' },
 ]);
 
 // Validation for proceeding from step 1 to step 2
@@ -144,22 +144,22 @@ const canProceedToStep3 = computed<boolean>(() => {
 function goToStep(step: WizardStep): void {
   if (step === 2 && !canProceedToStep2.value) {
     if (!newTemplateName.value.trim() || newTemplateName.value.trim().length < 3) {
-      toast.add({ title: 'กรุณาป้อนชื่อเทมเพลต (อย่างน้อย 3 ตัวอักษร)', color: 'error' });
+      toast.add({ title: t('adminTemplates.create.toasts.stepValidation.templateNameMin3'), color: 'error' });
     }
     else if (!uploadedFile.value) {
-      toast.add({ title: 'กรุณาอัปโหลดไฟล์', color: 'error' });
+      toast.add({ title: t('adminTemplates.create.toasts.stepValidation.uploadFile'), color: 'error' });
     }
     else if (placedFields.value.length === 0) {
-      toast.add({ title: 'กรุณาเพิ่ม field อย่างน้อย 1 field', color: 'error' });
+      toast.add({ title: t('adminTemplates.create.toasts.stepValidation.addAtLeastOneField'), color: 'error' });
     }
     return;
   }
   if (step === 3 && !canProceedToStep3.value) {
     if (signingSteps.value.length === 0) {
-      toast.add({ title: t('signingStepRequired'), color: 'error' });
+      toast.add({ title: t('adminTemplates.create.toasts.stepValidation.signingStepRequired'), color: 'error' });
     }
     else {
-      toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+      toast.add({ title: t('adminTemplates.create.toasts.stepValidation.allFieldsMustBeAssigned'), color: 'error' });
     }
     return;
   }
@@ -675,8 +675,8 @@ async function fetchTemplateFields(): Promise<void> {
     else {
       console.warn('API returned no data or error:', response);
       toast.add({
-        title: 'ไม่พบข้อมูล Fields',
-        description: response.error || 'กรุณาเพิ่มข้อมูลในตาราง request_template_fields',
+        title: t('adminTemplates.create.toasts.templateFields.notFoundTitle'),
+        description: response.error || t('adminTemplates.create.toasts.templateFields.notFoundDescription'),
         color: 'warning',
       });
     }
@@ -685,8 +685,8 @@ async function fetchTemplateFields(): Promise<void> {
     console.error('Error fetching template fields:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     toast.add({
-      title: 'ไม่สามารถโหลดข้อมูล Fields ได้',
-      description: errorMessage || 'กรุณาลองใหม่อีกครั้ง',
+      title: t('adminTemplates.create.toasts.templateFields.loadErrorTitle'),
+      description: errorMessage || t('adminTemplates.create.toasts.templateFields.tryAgain'),
       color: 'error',
     });
   }
@@ -696,11 +696,10 @@ async function fetchTemplateFields(): Promise<void> {
 }
 
 function handleFieldCreated(newField: Field): void {
-  // เพิ่ม field ใหม่เข้า list
   availableFields.value.push(normalizeFieldAutoGenerateShape(newField));
   toast.add({
-    title: 'เพิ่ม Field สำเร็จ',
-    description: `Field "${newField.name}" ถูกเพิ่มแล้ว`,
+    title: t('adminTemplates.create.toasts.field.createSuccessTitle'),
+    description: t('adminTemplates.create.toasts.field.createSuccessDescription', { name: newField.name }),
     color: 'success',
   });
 }
@@ -722,11 +721,10 @@ function updateAvailableFieldCache(updatedField: Field): void {
 }
 
 function handleFieldUpdated(updatedField: Field): void {
-  // อัพเดท field ใน list
   updateAvailableFieldCache(updatedField);
   toast.add({
-    title: 'อัพเดท Field สำเร็จ',
-    description: `Field "${updatedField.name}" ถูกอัพเดทแล้ว`,
+    title: t('adminTemplates.create.toasts.field.updateSuccessTitle'),
+    description: t('adminTemplates.create.toasts.field.updateSuccessDescription', { name: updatedField.name }),
     color: 'success',
   });
 }
@@ -737,7 +735,7 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
 
   if (!fieldDefinition) {
     toast.add({
-      title: 'ไม่พบ Field ที่ต้องการบันทึก',
+      title: t('adminTemplates.create.toasts.field.saveDefaultNotFound'),
       color: 'error',
     });
     return;
@@ -801,7 +799,7 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
 
   if (!requestBody.name || !requestBody.label) {
     toast.add({
-      title: 'ข้อมูล Field ไม่ครบถ้วน',
+      title: t('adminTemplates.create.toasts.field.incompleteData'),
       color: 'error',
     });
     return;
@@ -817,15 +815,15 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
     if (response.success && response.data) {
       updateAvailableFieldCache(response.data);
       toast.add({
-        title: 'บันทึกค่าเริ่มต้นสำเร็จ',
-        description: `Field "${response.data.name}" ถูกอัปเดตแล้ว`,
+        title: t('adminTemplates.create.toasts.field.saveDefaultsSuccessTitle'),
+        description: t('adminTemplates.create.toasts.field.saveDefaultsSuccessDescription', { name: response.data.name }),
         color: 'success',
       });
     }
     else {
       toast.add({
-        title: 'ไม่สามารถบันทึกค่าเริ่มต้นได้',
-        description: response.error || 'เกิดข้อผิดพลาด',
+        title: t('adminTemplates.create.toasts.field.saveDefaultsErrorTitle'),
+        description: response.error || t('adminTemplates.create.toasts.field.genericError'),
         color: 'error',
       });
     }
@@ -834,7 +832,7 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
     console.error('Error saving field defaults from toolbar:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     toast.add({
-      title: 'ไม่สามารถบันทึกค่าเริ่มต้นได้',
+      title: t('adminTemplates.create.toasts.field.saveDefaultsErrorTitle'),
       description: errorMessage,
       color: 'error',
     });
@@ -845,13 +843,12 @@ async function handleSaveFieldDefaultsFromToolbar(payload: { fieldId: number | s
 }
 
 function handleFieldDeleted(fieldId: number | string): void {
-  // ลบ field จาก list
   const index = availableFields.value.findIndex(f => f.id === fieldId);
   if (index !== -1) {
     availableFields.value.splice(index, 1);
   }
   toast.add({
-    title: 'ลบ Field สำเร็จ',
+    title: t('adminTemplates.create.toasts.field.deleteSuccessTitle'),
     color: 'success',
   });
 }
@@ -891,12 +888,16 @@ async function verifyPdfMagicBytes(file: File): Promise<boolean> {
 async function processFile(file: File): Promise<void> {
   const maxSize = 50 * 1024 * 1024;
   if (file.size > maxSize) {
-    toast.add({ title: 'ไฟล์มีขนาดใหญ่เกินไป', description: 'ขนาดสูงสุด 50MB', color: 'error' });
+    toast.add({
+      title: t('adminTemplates.create.toasts.file.tooLargeTitle'),
+      description: t('adminTemplates.create.toasts.file.tooLargeDescription'),
+      color: 'error',
+    });
     return;
   }
 
   if (file.size === 0) {
-    toast.add({ title: 'ไฟล์เสียหาย', color: 'error' });
+    toast.add({ title: t('adminTemplates.create.toasts.file.corruptedTitle'), color: 'error' });
     return;
   }
 
@@ -907,7 +908,11 @@ async function processFile(file: File): Promise<void> {
   const validExtensions = [...validImageExtensions, 'pdf'];
 
   if (!validExtensions.includes(fileExtension)) {
-    toast.add({ title: 'ไฟล์ไม่ถูกต้อง', description: 'รองรับเฉพาะ PDF, JPG, PNG, GIF, WebP, BMP', color: 'error' });
+    toast.add({
+      title: t('adminTemplates.create.toasts.file.invalidTypeTitle'),
+      description: t('adminTemplates.create.toasts.file.invalidTypeDescription'),
+      color: 'error',
+    });
     return;
   }
 
@@ -915,7 +920,11 @@ async function processFile(file: File): Promise<void> {
   if (fileTypeFromMime === 'application/pdf' || fileExtension === 'pdf') {
     const isValidPdf = await verifyPdfMagicBytes(file);
     if (!isValidPdf) {
-      toast.add({ title: 'ไฟล์ PDF ไม่ถูกต้อง', description: 'ไฟล์อาจเสียหายหรือไม่ใช่ PDF จริง', color: 'error' });
+      toast.add({
+        title: t('adminTemplates.create.toasts.file.invalidPdfTitle'),
+        description: t('adminTemplates.create.toasts.file.invalidPdfDescription'),
+        color: 'error',
+      });
       return;
     }
   }
@@ -1020,7 +1029,7 @@ function addFieldToPreview(fieldToAdd: Field): void {
     return;
 
   if (!uploadedFile.value) {
-    toast.add({ title: 'กรุณาอัปโหลดไฟล์เอกสารก่อนเริ่มวาง Field', color: 'error' });
+    toast.add({ title: t('adminTemplates.create.toasts.file.uploadBeforePlacingField'), color: 'error' });
     return;
   }
 
@@ -1495,17 +1504,17 @@ function validateTemplateName(): boolean {
   const name = newTemplateName.value.trim();
 
   if (!name) {
-    templateNameError.value = 'กรุณาป้อนชื่อเทมเพลต';
+    templateNameError.value = t('adminTemplates.create.validation.nameRequired');
     return false;
   }
 
   if (name.length < 3) {
-    templateNameError.value = 'ชื่อเทมเพลตต้องมีอย่างน้อย 3 ตัวอักษร';
+    templateNameError.value = t('adminTemplates.create.validation.nameMin3');
     return false;
   }
 
   if (name.length > 100) {
-    templateNameError.value = 'ชื่อเทมเพลตต้องไม่เกิน 100 ตัวอักษร';
+    templateNameError.value = t('adminTemplates.create.validation.nameMax100');
     return false;
   }
 
@@ -1519,8 +1528,8 @@ function handleSaveTemplate(): void {
 
   if (!uploadedFile.value) {
     toast.add({
-      title: 'กรุณาอัปโหลดไฟล์',
-      description: 'อัปโหลดไฟล์ PDF ก่อนบันทึกเทมเพลต',
+      title: t('adminTemplates.create.toasts.save.uploadRequiredTitle'),
+      description: t('adminTemplates.create.toasts.save.uploadRequiredDescription'),
       color: 'error',
     });
     return;
@@ -1528,20 +1537,20 @@ function handleSaveTemplate(): void {
 
   if (placedFields.value.length === 0) {
     toast.add({
-      title: 'ข้อผิดพลาด',
-      description: 'กรุณาเพิ่ม field อย่างน้อย 1 field',
+      title: t('adminTemplates.create.toasts.save.missingFieldTitle'),
+      description: t('adminTemplates.create.toasts.save.missingFieldDescription'),
       color: 'error',
     });
     return;
   }
 
   if (signingSteps.value.length === 0) {
-    toast.add({ title: t('signingStepRequired'), color: 'error' });
+    toast.add({ title: t('adminTemplates.create.toasts.stepValidation.signingStepRequired'), color: 'error' });
     return;
   }
 
   if (!placedFields.value.filter(f => !isAutoGeneratedField(f)).every(f => f.signerStepId)) {
-    toast.add({ title: t('allFieldsMustBeAssigned'), color: 'error' });
+    toast.add({ title: t('adminTemplates.create.toasts.stepValidation.allFieldsMustBeAssigned'), color: 'error' });
     return;
   }
 
@@ -1549,8 +1558,8 @@ function handleSaveTemplate(): void {
   if (currentWizardStep.value === 3 && reviewSummaryRef.value) {
     if (!reviewSummaryRef.value.validateAndFocus()) {
       toast.add({
-        title: 'ข้อผิดพลาด',
-        description: 'กรุณาระบุรายละเอียดเทมเพลตก่อนบันทึก',
+        title: t('adminTemplates.create.toasts.save.reviewInvalidTitle'),
+        description: t('adminTemplates.create.toasts.save.reviewInvalidDescription'),
         color: 'error',
       });
       return;
@@ -1575,7 +1584,7 @@ async function performSave(): Promise<void> {
     }) as any;
 
     if (!uploadResponse.success || !uploadResponse.url) {
-      throw new Error('Failed to upload PDF file');
+      throw new Error(t('adminTemplates.create.errors.uploadPdfFailed'));
     }
 
     const documentUrl = uploadResponse.url;
@@ -1628,12 +1637,12 @@ async function performSave(): Promise<void> {
     }) as any;
 
     if (!saveResponse.success || !saveResponse.data) {
-      throw new Error('Failed to save template to database');
+      throw new Error(t('adminTemplates.create.errors.saveTemplateFailed'));
     }
 
     toast.add({
-      title: 'บันทึกสำเร็จ',
-      description: `Template "${newTemplateName.value.trim()}" ถูกบันทึกแล้ว`,
+      title: t('adminTemplates.create.toasts.save.successTitle'),
+      description: t('adminTemplates.create.toasts.save.successDescription', { name: newTemplateName.value.trim() }),
       color: 'success',
     });
 
@@ -1647,8 +1656,8 @@ async function performSave(): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Save template error:', error);
     toast.add({
-      title: 'เกิดข้อผิดพลาด',
-      description: errorMessage || 'ไม่สามารถบันทึก Template ได้',
+      title: t('adminTemplates.create.toasts.save.errorTitle'),
+      description: errorMessage || t('adminTemplates.create.toasts.save.errorDescription'),
       color: 'error',
     });
   }
@@ -1662,16 +1671,16 @@ function handleTemplateSaved(templateData: any): void {
 
   if (!templateData || templateData.error) {
     toast.add({
-      title: 'เกิดข้อผิดพลาด',
-      description: templateData?.message || 'ไม่สามารถบันทึก Template ได้',
+      title: t('adminTemplates.create.toasts.save.errorTitle'),
+      description: templateData?.message || t('adminTemplates.create.toasts.save.errorDescription'),
       color: 'error',
     });
     return;
   }
 
   toast.add({
-    title: 'บันทึกสำเร็จ',
-    description: 'เทมเพลตถูกบันทึกแล้ว',
+    title: t('adminTemplates.create.toasts.save.successTitle'),
+    description: t('adminTemplates.create.toasts.save.savedDescription'),
     color: 'success',
   });
 
@@ -1738,13 +1747,13 @@ watch(
 
         <!-- Template Name Input (visible across all steps) -->
         <div class="flex flex-col">
-          <label class="text-[10px] uppercase font-bold tracking-wider">Template Name</label>
+          <label class="text-[10px] uppercase font-bold tracking-wider">{{ t('adminTemplates.create.header.templateNameLabel') }}</label>
           <input
             v-model="newTemplateName"
             type="text"
             :class="templateNameError ? 'border border-red-500 bg-red-50' : 'border bg-transparent'"
             class="p-2 font-semibold focus:ring-1 focus:ring-red-500 text-sm placeholder-gray-300 w-64 hover:bg-gray-50 rounded px-2 transition-colors"
-            placeholder="Enter template name..."
+            :placeholder="t('adminTemplates.create.header.templateNamePlaceholder')"
             :disabled="currentWizardStep > 1"
             @input="validateTemplateName"
           >
@@ -1785,7 +1794,7 @@ watch(
           icon="i-heroicons-arrow-left"
           color="neutral"
           variant="ghost"
-          :label="t('previous')"
+          :label="t('adminTemplates.create.actions.previous')"
           @click="goPrevious"
         />
         <UButton
@@ -1793,7 +1802,7 @@ watch(
           icon="i-heroicons-arrow-right"
           trailing
           color="primary"
-          :label="t('next')"
+          :label="t('adminTemplates.create.actions.next')"
           size="xl"
           class="px-6 font-bold"
           @click="goNext"
@@ -1803,7 +1812,7 @@ watch(
           :loading="isSaving"
           icon="i-heroicons-check"
           color="primary"
-          :label="t('saveTemplate')"
+          :label="t('adminTemplates.create.actions.saveTemplate')"
           size="xl"
           class="px-6 font-bold"
           @click="handleSaveTemplate"
@@ -1819,7 +1828,7 @@ watch(
         <div class="p-4 border-b">
           <h3 class="font-bold flex items-center gap-2">
             <UIcon name="i-heroicons-swatch" class="text-primary-500" />
-            เครื่องมือ (Tools)
+            {{ t('adminTemplates.create.sidebar.tools') }}
           </h3>
         </div>
 
@@ -1827,9 +1836,9 @@ watch(
           <!-- Upload Section -->
           <div>
             <div class="flex justify-between items-center mb-2">
-              <label class="text-xs font-semibold uppercase">เอกสารตั้นต้นฉบับ</label>
+              <label class="text-xs font-semibold uppercase">{{ t('adminTemplates.create.sidebar.upload.sourceDocument') }}</label>
               <UBadge v-if="uploadedFile" color="success" variant="subtle" size="xs">
-                Uploaded
+                {{ t('adminTemplates.create.sidebar.upload.uploaded') }}
               </UBadge>
             </div>
 
@@ -1846,10 +1855,10 @@ watch(
                 <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6" />
               </div>
               <p class="text-sm font-medium">
-                คลิกเพื่ออัปโหลด
+                {{ t('adminTemplates.create.sidebar.upload.clickToUpload') }}
               </p>
               <p class="text-xs mt-1">
-                PDF
+                {{ t('adminTemplates.create.sidebar.upload.supportedFileTypes') }}
               </p>
             </div>
 
@@ -1863,7 +1872,7 @@ watch(
                   {{ uploadedFile.name }}
                 </p>
                 <button class="text-xs text-primary-600 hover:underline" @click="triggerFileInput">
-                  เปลี่ยนไฟล์
+                  {{ t('adminTemplates.create.sidebar.upload.changeFile') }}
                 </button>
               </div>
             </div>
@@ -1879,17 +1888,17 @@ watch(
           <!-- Fields Section -->
           <div>
             <div class="flex justify-between items-center mb-3">
-              <label class="text-xs font-semibold text-gray-500 uppercase">ข้อมูลที่เติมได้</label>
+              <label class="text-xs font-semibold text-gray-500 uppercase">{{ t('adminTemplates.create.sidebar.fields.fillableData') }}</label>
               <div class="flex items-center gap-2">
                 <UBadge v-if="!isLoadingFields && availableFields.length > 0" color="primary" variant="subtle" size="xs">
-                  {{ availableFields.length }} fields
+                  {{ t('adminTemplates.create.sidebar.fields.countLabel', { count: availableFields.length }) }}
                 </UBadge>
                 <UButton
                   icon="i-heroicons-plus"
                   size="xs"
                   color="primary"
                   variant="soft"
-                  title="เพิ่ม Field ใหม่"
+                  :title="t('adminTemplates.create.sidebar.fields.addNewField')"
                   @click="isCreateFieldModalOpen = true"
                 />
               </div>
@@ -1899,7 +1908,7 @@ watch(
             <UInput
               v-model="searchQuery"
               icon="i-heroicons-magnifying-glass"
-              placeholder="ค้นหา..."
+              :placeholder="t('adminTemplates.create.sidebar.fields.searchPlaceholder')"
               size="sm"
               class="mb-3 w-full"
               :disabled="isLoadingFields"
@@ -1914,10 +1923,10 @@ watch(
             <div v-else-if="!isLoadingFields && availableFields.length === 0" class="text-center py-8">
               <UIcon name="i-heroicons-inbox" class="w-12 h-12 mx-auto mb-2 text-gray-300" />
               <p class="text-sm text-gray-500">
-                ไม่พบ Fields
+                {{ t('adminTemplates.create.sidebar.fields.emptyTitle') }}
               </p>
               <p class="text-xs text-gray-400 mt-1">
-                กรุณาเพิ่ม Fields ในฐานข้อมูล
+                {{ t('adminTemplates.create.sidebar.fields.emptyDescription') }}
               </p>
             </div>
 
@@ -1950,7 +1959,7 @@ watch(
                   color="primary"
                   variant="ghost"
                   square
-                  title="แก้ไข"
+                  :title="t('adminTemplates.create.sidebar.fields.edit')"
                   @click.stop="openEditField(field)"
                 />
               </div>
@@ -1966,9 +1975,9 @@ watch(
           <!-- Left: page info -->
           <div class="flex items-center shrink-0 w-20 self-stretch">
             <span class="text-xs text-gray-400 font-medium">
-              <template v-if="!uploadedFile">ยังไม่มีไฟล์</template>
-              <template v-else-if="fileType === 'pdf'">หน้า {{ currentPdfPage }}</template>
-              <template v-else>รูปภาพ</template>
+              <template v-if="!uploadedFile">{{ t('adminTemplates.create.canvas.pageInfo.noFile') }}</template>
+              <template v-else-if="fileType === 'pdf'">{{ t('adminTemplates.create.canvas.pageInfo.page', { page: currentPdfPage }) }}</template>
+              <template v-else>{{ t('adminTemplates.create.canvas.pageInfo.image') }}</template>
             </span>
           </div>
 
@@ -1994,26 +2003,26 @@ watch(
               size="xs"
               color="neutral"
               variant="ghost"
-              :title="isPreviewOutputEnabled ? 'ปิด Preview Output' : 'เปิด Preview Output'"
+              :title="isPreviewOutputEnabled ? t('adminTemplates.create.canvas.previewToggle.disable') : t('adminTemplates.create.canvas.previewToggle.enable')"
               @click="togglePreviewOutput"
             />
             <UPopover :content="{ align: 'end', side: 'bottom', sideOffset: 4 }" :ui="{ content: 'w-auto min-w-0 p-0 overflow-visible' }">
               <template #default="{ open }">
-                <UTooltip text="ซูม" :popper="{ placement: 'left' }">
+                <UTooltip :text="t('adminTemplates.create.canvas.zoom.title')" :popper="{ placement: 'left' }">
                   <UButton
                     icon="i-heroicons-magnifying-glass"
                     size="xs"
                     color="neutral"
                     variant="ghost"
                     :class="open ? 'ring-1 ring-inset ring-primary-400 bg-primary-50/80' : ''"
-                    aria-label="ซูม"
+                    :aria-label="t('adminTemplates.create.canvas.zoom.ariaLabel')"
                   />
                 </UTooltip>
               </template>
               <template #content>
                 <div class="w-44 p-2.5 rounded-xl bg-white shadow-lg border border-gray-200/80">
                   <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 px-0.5">
-                    ระดับซูม
+                    {{ t('adminTemplates.create.canvas.zoom.level') }}
                   </p>
                   <div class="flex flex-col gap-0.5">
                     <button
@@ -2028,7 +2037,7 @@ watch(
                     </button>
                   </div>
                   <div class="border-t border-gray-200 mt-2 pt-2">
-                    <label class="text-[11px] text-gray-500 block mb-1 px-0.5">กำหนดเอง (%)</label>
+                    <label class="text-[11px] text-gray-500 block mb-1 px-0.5">{{ t('adminTemplates.create.canvas.zoom.customPercent') }}</label>
                     <div class="flex gap-1.5 items-center">
                       <input
                         v-model="zoomCustomPercentInput"
@@ -2039,7 +2048,7 @@ watch(
                         @keydown.enter.prevent="applyZoomCustomPercentFromInput"
                       >
                       <UButton size="xs" color="neutral" variant="soft" @click="applyZoomCustomPercentFromInput">
-                        ใช้
+                        {{ t('adminTemplates.create.actions.apply') }}
                       </UButton>
                     </div>
                   </div>
@@ -2050,14 +2059,14 @@ watch(
         </div>
 
         <div v-if="isPreviewOutputEnabled && uploadedFile && fileType === 'pdf'" class="min-h-12 bg-white border-b border-gray-200 px-4 py-2 flex items-center shrink-0 gap-3">
-          <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">Preview Output</span>
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">{{ t('adminTemplates.create.canvas.previewOutput.title') }}</span>
 
           <template v-if="!selectedField">
             <input
               type="text"
               disabled
               class="flex-1 min-w-0 h-8 rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-400 cursor-not-allowed"
-              placeholder="เลือกฟิลด์บน PDF ก่อน จึงจะพิมพ์ตัวอย่างในแถบนี้ได้"
+              :placeholder="t('adminTemplates.create.canvas.previewOutput.selectFieldPlaceholder')"
             >
           </template>
 
@@ -2070,7 +2079,7 @@ watch(
               size="xs"
               class="shrink-0"
             >
-              Conditional
+              {{ t('adminTemplates.create.canvas.previewOutput.conditional') }}
             </UBadge>
 
             <template v-if="canTypePreviewValue">
@@ -2079,7 +2088,7 @@ watch(
                 :maxlength="selectedFieldMaxLength || undefined"
                 type="text"
                 class="flex-1 min-w-0 h-8 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="พิมพ์ข้อความตัวอย่างเพื่อดูผลลัพธ์จริงบน PDF"
+                :placeholder="t('adminTemplates.create.canvas.previewOutput.typeSamplePlaceholder')"
                 @input="handlePreviewInput"
               >
               <UButton
@@ -2089,7 +2098,7 @@ watch(
                 :disabled="!selectedFieldPreviewValue"
                 @click="selectedFieldPreviewValue = ''"
               >
-                Clear
+                {{ t('adminTemplates.create.actions.clear') }}
               </UButton>
               <span v-if="selectedFieldMaxLength" class="text-[11px] text-gray-400 shrink-0">{{ selectedFieldPreviewCharacterCount }}/{{ selectedFieldMaxLength }}</span>
             </template>
@@ -2102,7 +2111,7 @@ watch(
                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   @change="handlePreviewCheckboxChange"
                 >
-                <span class="truncate">ติ๊กเพื่อแสดงเครื่องหมายถูกใน Preview PDF</span>
+                <span class="truncate">{{ t('adminTemplates.create.canvas.previewOutput.checkboxHint') }}</span>
               </label>
               <UButton
                 size="xs"
@@ -2111,16 +2120,16 @@ watch(
                 :disabled="!selectedFieldPreviewChecked"
                 @click="selectedFieldPreviewChecked = false"
               >
-                Clear
+                {{ t('adminTemplates.create.actions.clear') }}
               </UButton>
             </template>
 
             <template v-else>
-              <span class="flex-1 min-w-0 text-xs text-gray-500">ฟิลด์ประเภทนี้แสดงผลบน PDF โดยตรง — ไม่มีช่องพิมพ์ตัวอย่างในแถบนี้</span>
+              <span class="flex-1 min-w-0 text-xs text-gray-500">{{ t('adminTemplates.create.canvas.previewOutput.noInputHint') }}</span>
             </template>
           </template>
 
-          <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? 'Syncing preview...' : 'Preview only · not saved' }}</span>
+          <span class="text-[11px] text-gray-400 shrink-0">{{ isRefreshingPreview ? t('adminTemplates.create.canvas.previewOutput.syncing') : t('adminTemplates.create.canvas.previewOutput.previewOnly') }}</span>
         </div>
 
         <!-- Scrollable Canvas Container -->
@@ -2150,7 +2159,7 @@ watch(
             <div class="flex flex-col items-center justify-center h-full py-20 text-gray-300">
               <UIcon name="i-heroicons-document" class="w-16 h-16 mb-2" />
               <p class="text-sm">
-                พื้นที่แสดงเอกสาร
+                {{ t('adminTemplates.create.canvas.documentAreaPlaceholder') }}
               </p>
             </div>
           </div>

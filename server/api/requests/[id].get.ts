@@ -1,7 +1,7 @@
 import db from '~~/lib/db';
-import { request, requestTemplateValues, signatureFlow, userRoles } from '~~/lib/db/schema';
+import { departments, request, requestTemplateValues, signatureFlow, userRoles, users } from '~~/lib/db/schema';
 // import { request, requestTemplateValues } from '~~/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { hasPermission } from '../../utils/permission';
 
@@ -21,8 +21,24 @@ export default defineEventHandler(async (event) => {
 
     // Get request details
     const requestData = await db
-      .select()
+      .select({
+        id: request.id,
+        templateId: request.templateId,
+        status: request.status,
+        filledDocumentUrl: request.filledDocumentUrl,
+        createdAt: request.createdAt,
+        submittedAt: request.submittedAt,
+        userId: request.userId,
+        note: request.note,
+        requesterNameTh: sql<string>`CONCAT(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})`,
+        requesterNameEn: sql<string>`CONCAT_WS(' ', ${users.titleEn}, ${users.firstNameEn}, ${users.lastNameEn})`,
+        requesterStudentId: users.studentId,
+        requesterDepartmentNameTh: departments.nameTh,
+        requesterDepartmentNameEn: departments.nameEn,
+      })
       .from(request)
+      .leftJoin(users, eq(request.userId, users.id))
+      .leftJoin(departments, eq(request.departmentId, departments.id))
       .where(eq(request.id, requestId))
       .limit(1);
 

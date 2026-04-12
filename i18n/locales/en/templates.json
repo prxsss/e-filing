@@ -1,0 +1,513 @@
+{
+  "adminTemplates": {
+    "create": {
+      "wizard": {
+        "placeFields": "Place Fields",
+        "signingFlow": "Signing Flow",
+        "reviewAndSave": "Review & Save"
+      },
+      "actions": {
+        "previous": "Previous",
+        "next": "Next",
+        "saveTemplate": "Save Template",
+        "clear": "Clear",
+        "apply": "Apply"
+      },
+      "header": {
+        "templateNameLabel": "Template Name",
+        "templateNamePlaceholder": "Enter template name..."
+      },
+      "sidebar": {
+        "tools": "Tools",
+        "upload": {
+          "sourceDocument": "Source Document",
+          "uploaded": "Uploaded",
+          "clickToUpload": "Click to upload",
+          "supportedFileTypes": "PDF",
+          "changeFile": "Change file"
+        },
+        "fields": {
+          "fillableData": "Fillable Data",
+          "countLabel": "{count} fields",
+          "addNewField": "Add new field",
+          "searchPlaceholder": "Search...",
+          "emptyTitle": "No fields found",
+          "emptyDescription": "Please add fields in the database",
+          "edit": "Edit"
+        }
+      },
+      "canvas": {
+        "pageInfo": {
+          "noFile": "No file",
+          "page": "Page {page}",
+          "image": "Image"
+        },
+        "previewToggle": {
+          "enable": "Enable Preview Output",
+          "disable": "Disable Preview Output"
+        },
+        "zoom": {
+          "title": "Zoom",
+          "ariaLabel": "Zoom",
+          "level": "Zoom Level",
+          "customPercent": "Custom (%)"
+        },
+        "previewOutput": {
+          "title": "Preview Output",
+          "selectFieldPlaceholder": "Select a field on PDF first, then type sample input here",
+          "conditional": "Conditional",
+          "typeSamplePlaceholder": "Type sample text to preview actual PDF output",
+          "checkboxHint": "Check to display a checkmark in Preview PDF",
+          "noInputHint": "This field type renders directly on PDF - no text input in this bar",
+          "syncing": "Syncing preview...",
+          "previewOnly": "Preview only - not saved"
+        },
+        "documentAreaPlaceholder": "Document preview area"
+      },
+      "validation": {
+        "nameRequired": "Please enter template name",
+        "nameMin3": "Template name must be at least 3 characters",
+        "nameMax100": "Template name must not exceed 100 characters"
+      },
+      "toasts": {
+        "stepValidation": {
+          "templateNameMin3": "Please enter template name (at least 3 characters)",
+          "uploadFile": "Please upload a file",
+          "addAtLeastOneField": "Please add at least one field",
+          "signingStepRequired": "At least 1 signing step is required",
+          "allFieldsMustBeAssigned": "All fields must be assigned to a signing step"
+        },
+        "templateFields": {
+          "notFoundTitle": "No fields found",
+          "notFoundDescription": "Please add data in request_template_fields table",
+          "loadErrorTitle": "Unable to load fields",
+          "tryAgain": "Please try again"
+        },
+        "field": {
+          "createSuccessTitle": "Field created",
+          "createSuccessDescription": "Field \"{name}\" has been created",
+          "updateSuccessTitle": "Field updated",
+          "updateSuccessDescription": "Field \"{name}\" has been updated",
+          "saveDefaultNotFound": "Field to save was not found",
+          "incompleteData": "Field data is incomplete",
+          "saveDefaultsSuccessTitle": "Default values saved",
+          "saveDefaultsSuccessDescription": "Field \"{name}\" has been updated",
+          "saveDefaultsErrorTitle": "Unable to save default values",
+          "genericError": "An error occurred",
+          "deleteSuccessTitle": "Field deleted"
+        },
+        "file": {
+          "tooLargeTitle": "File is too large",
+          "tooLargeDescription": "Maximum size is 50MB",
+          "corruptedTitle": "File is corrupted",
+          "invalidTypeTitle": "Invalid file type",
+          "invalidTypeDescription": "Supported types: PDF, JPG, PNG, GIF, WebP, BMP",
+          "invalidPdfTitle": "Invalid PDF file",
+          "invalidPdfDescription": "The file may be corrupted or not a real PDF",
+          "uploadBeforePlacingField": "Please upload a document before placing fields"
+        },
+        "save": {
+          "uploadRequiredTitle": "Please upload a file",
+          "uploadRequiredDescription": "Upload a PDF file before saving template",
+          "missingFieldTitle": "Error",
+          "missingFieldDescription": "Please add at least one field",
+          "reviewInvalidTitle": "Error",
+          "reviewInvalidDescription": "Please complete template details before saving",
+          "successTitle": "Saved successfully",
+          "successDescription": "Template \"{name}\" has been saved",
+          "savedDescription": "Template has been saved",
+          "errorTitle": "Error",
+          "errorDescription": "Unable to save template"
+        }
+      },
+      "fieldToolbar": {
+        "tooltips": {
+          "fontSize": "Font size",
+          "fontFamily": "Font family",
+          "bold": "Bold",
+          "italic": "Italic",
+          "underline": "Underline",
+          "alignLeft": "Align left",
+          "alignCenter": "Align center",
+          "alignRight": "Align right",
+          "advancedTextSettings": "Advanced settings: letter spacing, line height, max characters",
+          "dateFormat": "Date format",
+          "timeSeparator": "Time separator (blank = none)",
+          "timeSeparatorSpacing": "Time separator spacing",
+          "showHour": "Show hour",
+          "showMinute": "Show minute",
+          "autoGenerate": "Auto-generate value",
+          "strikeThickness": "Strikethrough thickness (used when strike mode is enabled)",
+          "fieldSize": "Field size: width × height (px)",
+          "selectData": "Select data",
+          "conditionalVisibility": "Show this field based on checkbox condition",
+          "saveAsDefault": "Save this field config as default",
+          "deleteField": "Delete this field"
+        },
+        "aria": {
+          "selectFontSize": "Select font size",
+          "textSpacingAndLimits": "Text spacing and limits settings",
+          "decreaseLetterSpacing": "Decrease letter spacing",
+          "increaseLetterSpacing": "Increase letter spacing",
+          "decreaseLineHeight": "Decrease line height",
+          "increaseLineHeight": "Increase line height",
+          "decreaseMaxCharacters": "Decrease max characters",
+          "increaseMaxCharacters": "Increase max characters",
+          "configureDateFormat": "Configure date format",
+          "decreaseDayNameGap": "Decrease day name gap",
+          "increaseDayNameGap": "Increase day name gap",
+          "decreaseSeparatorGap": "Decrease separator gap",
+          "increaseSeparatorGap": "Increase separator gap",
+          "adjustFieldSize": "Adjust field width and height",
+          "decreaseWidth": "Decrease width",
+          "increaseWidth": "Increase width",
+          "decreaseHeight": "Decrease height",
+          "increaseHeight": "Increase height",
+          "selectData": "Select data"
+        },
+        "fonts": {
+          "sarabun": "Sarabun"
+        },
+        "labels": {
+          "letterSpacing": "Letter Spacing",
+          "lineHeight": "Line Height",
+          "maxCharacters": "Max Characters",
+          "preview": "Preview",
+          "dateParts": "Date Parts",
+          "dayOfWeek": "Day of Week",
+          "showDayOfWeek": "Show day name",
+          "monthStyle": "Month Style",
+          "yearFormat": "Year Format",
+          "separatorAndSpacing": "Separator & Spacing",
+          "strikeThroughUncheckedInGroup": "Strikethrough unchecked boxes in group",
+          "widthPx": "Width (px)",
+          "heightPx": "Height (px)",
+          "dataTable": "Data Table",
+          "selectDataTable": "Select data table",
+          "displayColumn": "Display Column",
+          "selectColumn": "Select column",
+          "role": "Role",
+          "selectRole": "Select role",
+          "ready": "Ready",
+          "selectColumnOrRole": "Please select a column or role"
+        },
+        "hints": {
+          "maxCharactersUnlimited": "Enter 0 or leave blank = unlimited",
+          "dayOfWeekStyle": "Full = Saturday, Short = Sat",
+          "monthStyle": "Numeric = 09, Short = Sep, Full = September"
+        },
+        "common": {
+          "full": "Full",
+          "short": "Short",
+          "gap": "Gap"
+        },
+        "dateParts": {
+          "day": "Day",
+          "month": "Month",
+          "year": "Year"
+        },
+        "monthStyles": {
+          "numeric": "Numeric"
+        },
+        "yearFormats": {
+          "ad": "A.D.",
+          "be": "B.E."
+        },
+        "status": {
+          "loading": "Loading...",
+          "loadingRoles": "Loading roles..."
+        },
+        "conditional": {
+          "checkbox": "Checkbox",
+          "checkboxGroup": "Checkbox Group",
+          "groupAllLabel": "{label} (entire group)",
+          "visibilityFromCheckbox": "Conditional visibility from checkbox",
+          "singleCheckbox": "Single Checkbox",
+          "selectCheckbox": "Select checkbox",
+          "selectCheckboxGroup": "Select checkbox group",
+          "isChecked": "Checked",
+          "isUnchecked": "Unchecked"
+        }
+      },
+      "fieldModal": {
+        "titleEdit": "Edit Field",
+        "titleCreate": "Add New Field",
+        "labels": {
+          "fieldName": "Field Name",
+          "type": "Type",
+          "font": "Font",
+          "fontSize": "Font Size",
+          "amount": "Amount",
+          "widthPx": "Width (px)",
+          "heightPx": "Height (px)",
+          "autoFillBinding": "Auto-fill Binding",
+          "dropdownDataSource": "Dropdown Data Source",
+          "selectTable": "Select table",
+          "selectDisplayColumn": "Select display column",
+          "selectRole": "Select role",
+          "strikeThroughUncheckedInGroup": "Enable strikethrough for unchecked boxes in group",
+          "strikeLineThickness": "Strikethrough Thickness",
+          "autoGenerate": "Auto-generate value",
+          "textStyle": "Text Style",
+          "textAlign": "Text Alignment",
+          "letterSpacing": "Letter Spacing",
+          "lineHeight": "Line Height",
+          "maxCharacters": "Max Characters"
+        },
+        "placeholders": {
+          "fieldName": "e.g. Student Name"
+        },
+        "status": {
+          "loading": "Loading...",
+          "loadingRoles": "Loading roles..."
+        },
+        "sessionBinding": {
+          "none": "Allow requester to fill manually",
+          "studentName": "Student full name (auto-fill)",
+          "studentId": "Student ID (auto-fill)",
+          "studentYearCurrent": "Student year (auto-fill)",
+          "facultyNameTh": "Faculty (auto-fill)",
+          "departmentNameTh": "Department (auto-fill)",
+          "departmentCode": "Department code (auto-fill)",
+          "titleThAutoChecked": "Title (auto-check from student data)"
+        },
+        "hints": {
+          "autoGenerateWillFill": "When enabled, the system fills {value} automatically"
+        },
+        "common": {
+          "date": "date",
+          "time": "time"
+        },
+        "actions": {
+          "save": "Save",
+          "createField": "Create Field",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "deleteConfirm": {
+          "title": "Confirm Deletion",
+          "description": "Do you want to delete field \"{name}\"? This action cannot be undone."
+        },
+        "fieldTypes": {
+          "text": "Text",
+          "number": "Number",
+          "checkbox": "Checkbox",
+          "signature": "Signature",
+          "date": "Date",
+          "time": "Time",
+          "dropdown": "Dropdown"
+        },
+        "toasts": {
+          "dropdownSourcesLoadError": "Unable to load dropdown data",
+          "rolesLoadError": "Unable to load roles",
+          "fillRequired": "Please complete required fields",
+          "selectDropdownTableAndRole": "Please select table and role for dropdown",
+          "selectDropdownTableAndColumn": "Please select table and column for dropdown",
+          "updateSuccess": "Field updated successfully",
+          "createSuccess": "Field created successfully",
+          "deleteSuccess": "Field deleted successfully",
+          "errorTitle": "Error",
+          "updateFailed": "Unable to update field",
+          "createFailed": "Unable to create field",
+          "deleteFailed": "Unable to delete field"
+        }
+      },
+      "signingFlowEditor": {
+        "signingFlow": "Signing Flow",
+        "stage": "Stage",
+        "parallel": "Parallel",
+        "fields": "fields",
+        "addParallelSigner": "Add Parallel Signer",
+        "selectRole": "Select role",
+        "cancel": "Cancel",
+        "add": "Add",
+        "addNewStage": "Add New Stage",
+        "addSigningStep": "Add Signing Step",
+        "clickFieldOnDocumentToAssign": "Click a field on the document to assign it",
+        "stepDetails": "Step Details",
+        "assignedFields": "Assigned Fields",
+        "auto": "Auto",
+        "clickFieldToAssign": "Click a field to assign",
+        "unassignedFields": "Unassigned Fields",
+        "addFirstStep": "Add the first step to begin"
+      },
+      "reviewSummary": {
+        "templateSummary": "Template Summary",
+        "subtitle": "Review all details before saving this template",
+        "templateInfo": "Template Information",
+        "templateName": "Template Name",
+        "fileName": "File Name",
+        "fileType": "File Type",
+        "fieldCount": "Field Count",
+        "fields": "fields",
+        "pdf": "PDF",
+        "image": "Image",
+        "descriptionLabel": "Template Description",
+        "descriptionHelp": "This description helps users understand the purpose of this template.",
+        "descriptionRequiredError": "Please provide template description before confirming",
+        "descriptionPlaceholder": "Enter description...",
+        "signingFlowOverview": "Signing Flow Overview",
+        "required": "Required",
+        "optional": "Optional",
+        "assignedFields": "assigned fields",
+        "documentPreview": "Document Preview"
+      },
+      "pdfCreate": {
+        "loadingPdf": "Loading PDF...",
+        "signaturePreviewAlt": "Signature preview",
+        "pageLabel": "Page",
+        "messages": {
+          "templateSaved": "Template \"{name}\" saved successfully"
+        },
+        "errors": {
+          "uploadPdfFirst": "Please upload a PDF file first",
+          "addAtLeastOneField": "Please add at least one field",
+          "enterTemplateName": "Please enter a template name",
+          "pdfDimensionsNotLoaded": "PDF dimensions not loaded",
+          "uploadPdfFailed": "Failed to upload PDF file",
+          "saveTemplateFailed": "Failed to save template to database",
+          "saveTemplateFallback": "Failed to save template"
+        },
+        "visibility": {
+          "checkboxLabel": "Checkbox",
+          "checkboxGroupLabel": "Checkbox Group",
+          "checkboxFallback": "Checkbox ({id})",
+          "checkboxGroupFallback": "Checkbox Group ({id})",
+          "groupAllLabel": "{label} (entire group)",
+          "isChecked": "checked",
+          "isUnchecked": "unchecked",
+          "conditionText": "Show field when {sourceLabel} is {operatorText}"
+        }
+      },
+      "errors": {
+        "uploadPdfFailed": "Failed to upload PDF file",
+        "saveTemplateFailed": "Failed to save template to database"
+      }
+    },
+    "edit": {
+      "wizard": {
+        "placeFields": "Place Fields",
+        "signingFlow": "Signing Flow",
+        "reviewAndSave": "Review & Save"
+      },
+      "actions": {
+        "previous": "Previous",
+        "next": "Next",
+        "saveTemplate": "Save Template",
+        "clear": "Clear",
+        "apply": "Apply"
+      },
+      "header": {
+        "templateNameLabel": "Template Name",
+        "templateNamePlaceholder": "Enter template name..."
+      },
+      "sidebar": {
+        "tools": "Tools",
+        "document": "Document",
+        "loaded": "Loaded",
+        "replaceFile": "Replace file",
+        "clickToUpload": "Click to upload",
+        "supportedFileTypes": "PDF or image (max 50 MB)",
+        "fields": "Fields",
+        "addNewField": "Add new field",
+        "searchPlaceholder": "Search...",
+        "noFieldsFound": "No fields found",
+        "clickPlusToAddFields": "Click + to add fields",
+        "editField": "Edit field"
+      },
+      "canvas": {
+        "pageInfo": {
+          "loading": "Loading...",
+          "noFile": "No file",
+          "page": "Page {page}"
+        },
+        "previewToggle": {
+          "hide": "Hide Preview Output",
+          "show": "Show Preview Output"
+        },
+        "zoom": {
+          "title": "Zoom",
+          "ariaLabel": "Zoom",
+          "level": "Zoom level",
+          "customPercent": "Custom (%)",
+          "placeholderPercent": "100"
+        },
+        "previewOutput": {
+          "title": "Preview Output",
+          "selectFieldPlaceholder": "Select a field on the PDF to type sample preview text here",
+          "conditional": "Conditional",
+          "typeSamplePlaceholder": "Type sample text to preview actual PDF output",
+          "checkboxHint": "Toggle to show check mark in Preview PDF",
+          "noInputHint": "This field type is shown directly on the PDF - no sample text box here.",
+          "syncing": "Syncing preview...",
+          "previewOnly": "Preview only - not saved"
+        },
+        "loadingTemplate": "Loading template...",
+        "noDocumentLoaded": "No document loaded"
+      },
+      "validation": {
+        "nameRequired": "Please enter a template name",
+        "nameMin3": "Name must be at least 3 characters",
+        "nameMax100": "Name must not exceed 100 characters"
+      },
+      "toasts": {
+        "common": {
+          "errorTitle": "Error"
+        },
+        "stepValidation": {
+          "templateNameMin3": "Template name must be at least 3 characters",
+          "uploadFile": "Please upload a file",
+          "addAtLeastOneField": "Please add at least one field",
+          "signingStepRequired": "At least 1 signing step is required",
+          "allFieldsMustBeAssigned": "All fields must be assigned to a signing step"
+        },
+        "load": {
+          "templateFailed": "Failed to load template: {message}"
+        },
+        "fields": {
+          "notFoundTitle": "No Fields Found",
+          "notFoundDescription": "Add fields in the database.",
+          "loadErrorTitle": "Failed to Load Fields"
+        },
+        "file": {
+          "tooLargeTitle": "File too large",
+          "tooLargeDescription": "Max 50 MB",
+          "corruptedTitle": "Corrupted file",
+          "unsupportedTypeTitle": "Unsupported file type",
+          "unsupportedTypeDescription": "PDF or image files only",
+          "invalidPdfTitle": "Invalid PDF",
+          "invalidPdfDescription": "The file may be corrupted or not a real PDF",
+          "uploadFirstTitle": "Upload a file first"
+        },
+        "field": {
+          "addedTitle": "Field Added",
+          "addedDescription": "\"{name}\" added",
+          "updatedTitle": "Field Updated",
+          "updatedDescription": "\"{name}\" updated",
+          "notFoundTitle": "Field not found",
+          "incompleteDataTitle": "Field data is incomplete",
+          "defaultsSavedTitle": "Defaults saved",
+          "defaultsSavedDescription": "\"{name}\" was updated",
+          "saveFailedTitle": "Save failed",
+          "saveDefaultsFailedDescription": "Unable to save defaults",
+          "deletedTitle": "Field Deleted"
+        },
+        "save": {
+          "uploadFirstDescription": "Please upload a file first",
+          "addAtLeastOneFieldDescription": "Please add at least one field",
+          "descriptionRequired": "Please provide a template description before saving",
+          "savedTitle": "Saved",
+          "savedDescription": "Template \"{name}\" updated successfully",
+          "savedGenericDescription": "Template saved successfully",
+          "saveFailedTitle": "Save Failed",
+          "saveFailedDescription": "Unable to save template"
+        }
+      },
+      "errors": {
+        "fetchTemplateFailed": "Failed to fetch template",
+        "uploadPdfFailed": "Failed to upload PDF file",
+        "saveTemplateFailed": "Failed to save template to database"
+      }
+    }
+  }
+}
