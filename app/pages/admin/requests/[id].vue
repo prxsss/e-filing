@@ -702,16 +702,21 @@ onMounted(loadAll);
             { label: templateData?.name || `#${requestId}` },
           ]"
         />
-        <div class="mt-4 flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900">
-              {{ templateData?.name || 'รายละเอียดคำร้อง' }}
-            </h1>
-            <p class="mt-1 text-sm text-gray-500">
-              มุมมองผู้ดูแลระบบ — แสดงข้อมูลทั้งหมด
-            </p>
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="flex items-start gap-3">
+            <UButton
+              variant="ghost"
+              color="neutral"
+              icon="i-heroicons-arrow-left"
+              :to="localePath('/admin/requests')"
+            />
+            <div>
+              <h1 class="text-2xl font-bold text-gray-900">
+                {{ templateData?.name || 'รายละเอียดคำร้อง' }}
+              </h1>
+            </div>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2 sm:shrink-0">
             <UButton
               variant="soft"
               color="primary"
@@ -719,15 +724,7 @@ onMounted(loadAll);
               :loading="isDownloadingRequestBundle"
               @click="downloadRequestWithAttachments"
             >
-              ดาวน์โหลดคำร้อง + ไฟล์แนบ
-            </UButton>
-            <UButton
-              variant="ghost"
-              color="neutral"
-              icon="i-heroicons-arrow-left"
-              :to="localePath('/admin/requests')"
-            >
-              กลับ
+              ดาวน์โหลดคำร้องพร้อมไฟล์แนบ
             </UButton>
           </div>
         </div>
@@ -811,10 +808,10 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  ผู้ยื่น (User ID)
+                  รหัสนิสิต
                 </dt>
-                <dd class="font-medium text-xs text-gray-900 break-all max-w-[60%] text-right">
-                  {{ requestData.userId || '—' }}
+                <dd class="font-medium text-gray-900">
+                  {{ requestData.requesterStudentId || '—' }}
                 </dd>
               </div>
               <div class="flex justify-between items-center">
@@ -825,14 +822,7 @@ onMounted(loadAll);
                   {{ requesterDisplayName }}
                 </dd>
               </div>
-              <div class="flex justify-between items-center">
-                <dt class="text-gray-500 font-medium">
-                  รหัสนิสิต
-                </dt>
-                <dd class="font-medium text-gray-900">
-                  {{ requestData.requesterStudentId || '—' }}
-                </dd>
-              </div>
+
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
                   ชั้นปี
