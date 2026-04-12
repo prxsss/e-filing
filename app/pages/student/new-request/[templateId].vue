@@ -2165,7 +2165,7 @@ watch(
                 class="space-y-3"
               >
                 <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {{ locale === 'th' ? `ขั้นตอนลำดับที่ ${stage.order}` : `Stage ${stage.order}` }}
+                  {{ locale === 'th' ? `ขั้นตอนลำดับที่ ${stage.order - 1}` : `Stage ${stage.order - 1}` }}
                 </div>
 
                 <div
@@ -2173,8 +2173,7 @@ watch(
                   :key="step.id"
                 >
                   <label class="block text-sm font-medium text-gray-700 mb-1">
-                    {{ locale === 'th' ? `ผู้รับลำดับที่ ${step.order}` : `Recipient for step ${step.order}` }}
-                    <span class="ml-1 text-xs text-gray-500">({{ step.roleName }})</span>
+                    {{ step.roleName }}
                     <span class="ml-1 text-red-500">*</span>
                   </label>
                   <USelectMenu
