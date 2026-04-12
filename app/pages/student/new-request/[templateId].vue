@@ -59,6 +59,10 @@ type PendingAttachment = {
   size: number;
 };
 
+type PdfCreateExpose = {
+  focusFieldByInstanceId?: (instanceId: string) => Promise<void> | void;
+};
+
 // --- State ---
 const route = useRoute();
 const templateId = Number(route.params.templateId);
@@ -82,6 +86,16 @@ const scale = ref(1);
 const isRefreshingPreview = ref(false);
 const submitterSignatureDataUrl = ref<string | null>(null);
 const showSubmitterSignaturePopup = ref(false);
+const templatePdfRef = ref<PdfCreateExpose | null>(null);
+const syncInteractionLayerRef = ref<HTMLElement | null>(null);
+const activeInteractionFieldInstanceId = ref<string | null>(null);
+const activeInteractionSource = ref<'form' | 'pdf' | null>(null);
+const enableSyncAutoScroll = false;
+const connectorPath = ref('');
+const connectorLayerWidth = ref(0);
+const connectorLayerHeight = ref(0);
+let interactionClearTimer: ReturnType<typeof setTimeout> | null = null;
+let connectorFrame: number | null = null;
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
 const isUploadingAttachment = ref(false);
@@ -613,6 +627,144 @@ function getFieldValueKey(field: any): string {
 
 function getPreviewFieldKey(field: any): string {
   return getFieldValueKey(field);
+}
+
+function getFieldInstanceId(field: any): string {
+  return String(field?.instanceId ?? '').trim();
+}
+
+function isInteractionFieldActive(field: any): boolean {
+  const fieldInstanceId = getFieldInstanceId(field);
+  return fieldInstanceId.length > 0 && fieldInstanceId === activeInteractionFieldInstanceId.value;
+}
+
+function findSurfaceElement(surface: 'form' | 'pdf', instanceId: string): HTMLElement | null {
+  const root = syncInteractionLayerRef.value;
+  if (!root) {
+    return null;
+  }
+
+  const nodes = root.querySelectorAll<HTMLElement>(`[data-field-surface="${surface}"][data-field-instance-id]`);
+  return Array.from(nodes).find(node => String(node.dataset.fieldInstanceId ?? '').trim() === instanceId) || null;
+}
+
+function queueConnectorUpdate() {
+  if (connectorFrame !== null) {
+    cancelAnimationFrame(connectorFrame);
+  }
+
+  connectorFrame = window.requestAnimationFrame(() => {
+    connectorFrame = null;
+
+    const root = syncInteractionLayerRef.value;
+    const activeId = activeInteractionFieldInstanceId.value;
+    if (!root || !activeId) {
+      connectorPath.value = '';
+      connectorLayerWidth.value = 0;
+      connectorLayerHeight.value = 0;
+      return;
+    }
+
+    const pdfElement = findSurfaceElement('pdf', activeId);
+    const formElement = findSurfaceElement('form', activeId);
+    if (!pdfElement || !formElement) {
+      connectorPath.value = '';
+      connectorLayerWidth.value = root.clientWidth;
+      connectorLayerHeight.value = root.clientHeight;
+      return;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    const pdfRect = pdfElement.getBoundingClientRect();
+    const formRect = formElement.getBoundingClientRect();
+
+    connectorLayerWidth.value = root.clientWidth;
+    connectorLayerHeight.value = root.clientHeight;
+
+    const startX = pdfRect.right - rootRect.left;
+    const startY = (pdfRect.top + (pdfRect.height / 2)) - rootRect.top;
+    const endX = formRect.left - rootRect.left;
+    const endY = (formRect.top + (formRect.height / 2)) - rootRect.top;
+
+    if (!(endX > startX + 24)) {
+      connectorPath.value = '';
+      return;
+    }
+
+    const horizontalDistance = endX - startX;
+    const curve = Math.min(120, Math.max(48, horizontalDistance * 0.35));
+    const control1X = startX + curve;
+    const control2X = endX - curve;
+
+    connectorPath.value = `M ${startX} ${startY} C ${control1X} ${startY} ${control2X} ${endY} ${endX} ${endY}`;
+  });
+}
+
+function clearInteractionTimer() {
+  if (interactionClearTimer) {
+    clearTimeout(interactionClearTimer);
+    interactionClearTimer = null;
+  }
+}
+
+function scheduleInteractionClear(source: 'form' | 'pdf') {
+  clearInteractionTimer();
+  interactionClearTimer = setTimeout(() => {
+    if (activeInteractionSource.value !== source) {
+      return;
+    }
+    activeInteractionFieldInstanceId.value = null;
+    activeInteractionSource.value = null;
+    queueConnectorUpdate();
+  }, 130);
+}
+
+function scrollFormFieldIntoView(instanceId: string) {
+  const target = findSurfaceElement('form', instanceId);
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function activateInteractionField(field: any, source: 'form' | 'pdf') {
+  const instanceId = getFieldInstanceId(field);
+  if (!instanceId.length) {
+    return;
+  }
+
+  clearInteractionTimer();
+  activeInteractionFieldInstanceId.value = instanceId;
+  activeInteractionSource.value = source;
+
+  if (enableSyncAutoScroll) {
+    if (source === 'form') {
+      await templatePdfRef.value?.focusFieldByInstanceId?.(instanceId);
+    }
+    else {
+      scrollFormFieldIntoView(instanceId);
+    }
+  }
+
+  await nextTick();
+  queueConnectorUpdate();
+}
+
+function handleFormFieldEnter(field: any) {
+  void activateInteractionField(field, 'form');
+}
+
+function handleFormFieldLeave() {
+  scheduleInteractionClear('form');
+}
+
+function handlePdfFieldHover(field: any | null) {
+  if (!field) {
+    scheduleInteractionClear('pdf');
+    return;
+  }
+  void activateInteractionField(field, 'pdf');
+}
+
+function handlePdfFieldClick(field: any) {
+  void activateInteractionField(field, 'pdf');
 }
 
 function getDropdownConfig(field: any): { sourceTable: string; labelColumn?: string; roleId?: number } | null {
@@ -1587,10 +1739,33 @@ function getFileIcon(fileName: string | null) {
 
 onMounted(() => {
   fetchTemplateData();
+
+  const syncLayer = syncInteractionLayerRef.value;
+  if (syncLayer) {
+    syncLayer.addEventListener('scroll', queueConnectorUpdate, true);
+  }
+
+  window.addEventListener('resize', queueConnectorUpdate);
+  window.addEventListener('scroll', queueConnectorUpdate, true);
 });
 
 onUnmounted(() => {
   clearPreviewRefreshTimer();
+  clearInteractionTimer();
+
+  const syncLayer = syncInteractionLayerRef.value;
+  if (syncLayer) {
+    syncLayer.removeEventListener('scroll', queueConnectorUpdate, true);
+  }
+
+  window.removeEventListener('resize', queueConnectorUpdate);
+  window.removeEventListener('scroll', queueConnectorUpdate, true);
+
+  if (connectorFrame !== null) {
+    cancelAnimationFrame(connectorFrame);
+    connectorFrame = null;
+  }
+
   for (const pending of pendingAttachments.value) {
     URL.revokeObjectURL(pending.localUrl);
   }
@@ -1623,6 +1798,13 @@ watch([pdfFile, placedFields, fieldValues], () => {
   void syncOverlayDisplayFieldValues();
   schedulePreviewRefresh();
 }, { deep: true, immediate: true });
+
+watch(
+  () => [activeInteractionFieldInstanceId.value, scale.value, previewOverlayFields.value.length],
+  () => {
+    queueConnectorUpdate();
+  },
+);
 </script>
 
 <template>
@@ -1675,7 +1857,25 @@ watch([pdfFile, placedFields, fieldValues], () => {
       </UCard>
 
       <!-- Form Content -->
-      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div
+        v-else
+        ref="syncInteractionLayerRef"
+        class="relative grid grid-cols-1 lg:grid-cols-3 gap-6 items-start"
+      >
+        <svg
+          v-if="connectorPath"
+          class="pointer-events-none absolute inset-0 z-20 hidden lg:block"
+          :width="connectorLayerWidth"
+          :height="connectorLayerHeight"
+          :viewBox="`0 0 ${Math.max(connectorLayerWidth, 1)} ${Math.max(connectorLayerHeight, 1)}`"
+          aria-hidden="true"
+        >
+          <path
+            class="connector-line"
+            :d="connectorPath"
+          />
+        </svg>
+
         <!-- Left: PDF Preview (sticky on large screens while scrolling the form) -->
         <div
           class="lg:col-span-2 lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-1"
@@ -1710,14 +1910,18 @@ watch([pdfFile, placedFields, fieldValues], () => {
           <!-- PDF Viewer -->
           <div v-if="previewDisplayFile" style="min-height: 600px;">
             <template-pdf-create
+              ref="templatePdfRef"
               :pdf-file="previewDisplayFile"
               :placed-fields="previewOverlayFields"
               :strike-group-context-fields="getVisiblePlacedFields()"
               :selected-field="undefined"
+              :highlighted-field-instance-id="activeInteractionFieldInstanceId || ''"
               :ui-scale="scale"
               :read-only="true"
               :fill-mode="true"
               :field-values="overlayDisplayFieldValues"
+              @field-hovered="handlePdfFieldHover"
+              @field-clicked="handlePdfFieldClick"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
               Syncing preview...
@@ -1777,8 +1981,17 @@ watch([pdfFile, placedFields, fieldValues], () => {
                       <div
                         v-if="item.kind === 'field'"
                         :id="getFieldContainerId(item.field)"
-                        class="field-group rounded-lg px-2 py-2.5 sm:px-3 sm:py-3 transition-colors"
-                        :class="hasFieldValidationError(item.field) ? 'border border-red-400 bg-white' : 'border border-transparent bg-white'"
+                        class="field-group sync-form-field rounded-lg px-2 py-2.5 sm:px-3 sm:py-3 transition-colors"
+                        :class="[
+                          hasFieldValidationError(item.field) ? 'border border-red-400 bg-white' : 'border border-transparent bg-white',
+                          isInteractionFieldActive(item.field) ? 'sync-form-field--active' : '',
+                        ]"
+                        :data-field-instance-id="getFieldInstanceId(item.field)"
+                        data-field-surface="form"
+                        @mouseenter="handleFormFieldEnter(item.field)"
+                        @mouseleave="handleFormFieldLeave"
+                        @focusin="handleFormFieldEnter(item.field)"
+                        @focusout="handleFormFieldLeave"
                       >
                         <form-field-input
                           :model-value="fieldValues[getFieldValueKey(item.field)]"
@@ -1810,8 +2023,15 @@ watch([pdfFile, placedFields, fieldValues], () => {
                           <div
                             v-for="optionField in item.fields"
                             :key="optionField.instanceId"
-                            class="contents"
+                            class="sync-form-field rounded-md px-2 py-1.5 transition-colors"
+                            :class="isInteractionFieldActive(optionField) ? 'sync-form-field--active' : ''"
+                            :data-field-instance-id="getFieldInstanceId(optionField)"
+                            data-field-surface="form"
                             @click.capture="() => { if (fieldValues[getFieldValueKey(optionField)] === 'true') handleFieldValueUpdate(optionField, 'false') }"
+                            @mouseenter="handleFormFieldEnter(optionField)"
+                            @mouseleave="handleFormFieldLeave"
+                            @focusin="handleFormFieldEnter(optionField)"
+                            @focusout="handleFormFieldLeave"
                           >
                             <form-field-input
                               class="mb-0! w-full sm:w-auto"
@@ -2110,3 +2330,36 @@ watch([pdfFile, placedFields, fieldValues], () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.sync-form-field {
+  border-radius: 0.5rem;
+}
+
+.sync-form-field--active {
+  border-color: rgba(14, 165, 233, 0.55) !important;
+  background: transparent !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.14);
+}
+
+.connector-line {
+  fill: none;
+  stroke: rgba(14, 165, 233, 0.55);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+  animation: connector-drift 1.5s linear infinite;
+}
+
+@keyframes connector-drift {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@media (max-width: 1023px) {
+  .connector-line {
+    display: none;
+  }
+}
+</style>

@@ -22,6 +22,8 @@ const props = defineProps({
   strikeGroupContextFields: { type: Array as () => Field[], default: null },
   /** When set (e.g. admin builder), enables multi-select highlights and group drag. */
   selectedInstanceIds: { type: Array as () => string[], default: () => [] },
+  /** Highlights one field instance in read-only/fill mode (used by side form sync). */
+  highlightedFieldInstanceId: { type: String, default: '' },
 });
 
 const emit = defineEmits<{
@@ -33,6 +35,7 @@ const emit = defineEmits<{
   fieldUpdated: [data: { instanceId: string; updates: any }];
   fieldRemoved: [instanceId: string];
   fieldClicked: [field: Field];
+  fieldHovered: [field: Field | null];
 }>();
 
 const { t } = useI18n();
@@ -583,6 +586,14 @@ async function renderCurrentPage(): Promise<void> {
 
 function selectField(field: Field, event?: MouseEvent): void {
   emit('fieldSelected', field, { shiftKey: Boolean(event?.shiftKey) });
+}
+
+function handleFieldMouseEnter(field: Field) {
+  emit('fieldHovered', field);
+}
+
+function handleFieldMouseLeave() {
+  emit('fieldHovered', null);
 }
 
 function getEventCoordinates(event: any): { clientX: number; clientY: number } {
@@ -1278,6 +1289,38 @@ function updateContainerWidth() {
   }
 }
 
+async function focusFieldByInstanceId(instanceId: string) {
+  const id = String(instanceId ?? '').trim();
+  if (!id) {
+    return;
+  }
+
+  const targetField = (props.placedFields as Field[]).find(field => String(field?.instanceId ?? '').trim() === id);
+  if (!targetField) {
+    return;
+  }
+
+  const targetPage = Number.parseInt(String(targetField?.pageNumber ?? ''), 10);
+  if (Number.isFinite(targetPage) && targetPage > 0 && targetPage !== currentPage.value) {
+    currentPage.value = targetPage;
+    await nextTick();
+    await renderCurrentPage();
+    await nextTick();
+  }
+
+  const scroller = viewerArea.value;
+  if (!scroller) {
+    return;
+  }
+
+  const fieldElement = scroller.querySelector<HTMLElement>(`.placed-field[data-field-instance-id="${CSS.escape(id)}"]`);
+  if (!fieldElement) {
+    return;
+  }
+
+  fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+}
+
 let resizeObserver: ResizeObserver | null = null;
 
 // Lifecycle
@@ -1319,6 +1362,7 @@ onUnmounted(() => {
 // Expose functions and refs for parent component
 defineExpose<{
   saveTemplate: () => Promise<void>;
+  focusFieldByInstanceId: (instanceId: string) => Promise<void>;
   normalizedToDisplay: (
     normalizedX: number,
     normalizedY: number,
@@ -1334,6 +1378,7 @@ defineExpose<{
   getPdfNaturalDimensions: () => { width: number; height: number };
 }>({
   saveTemplate,
+  focusFieldByInstanceId,
   normalizedToDisplay,
   displayToNormalized,
   getPdfNaturalDimensions: () => pdfNaturalDimensions.value,
@@ -1387,6 +1432,7 @@ defineExpose<{
               class="placed-field"
               :class="{
                 'field-selected': isFieldInstanceSelected(field) && !props.readOnly,
+                'field-sync-highlight': props.highlightedFieldInstanceId === field.instanceId,
                 'fill-mode': props.readOnly && props.fillMode,
                 'fill-mode--strike-omit': props.readOnly && props.fillMode && isStrikeThroughUncheckedShowingDash(field),
                 'read-only': props.readOnly && !props.fillMode && !props.signingSteps.length,
@@ -1415,9 +1461,13 @@ defineExpose<{
                 borderStyle: getFieldSignerColor(field) ? 'solid' : undefined,
                 backgroundColor: getFieldSignerColor(field) ? `${getFieldSignerColor(field)}15` : undefined,
               }"
+              :data-field-instance-id="field.instanceId"
+              data-field-surface="pdf"
               @mousedown.stop.prevent="!props.readOnly && startDrag($event, field)"
               @touchstart.stop.prevent="!props.readOnly && startDrag($event, field)"
               @click.stop="props.readOnly && props.signingSteps.length > 0 ? emit('fieldClicked', field) : !props.readOnly && selectField(field, $event)"
+              @mouseenter="handleFieldMouseEnter(field)"
+              @mouseleave="handleFieldMouseLeave"
             >
               <div
                 v-if="!props.readOnly && hasVisibilityRule(field)"
@@ -1585,6 +1635,13 @@ defineExpose<{
 
 .placed-field:hover {
   background: rgba(255, 255, 255, 0.4);
+}
+
+.placed-field.field-sync-highlight {
+  border-color: #0ea5e9 !important;
+  border-width: 2px !important;
+  background: rgba(14, 165, 233, 0.18) !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
 }
 
 .placed-field:active {
