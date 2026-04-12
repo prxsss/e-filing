@@ -1955,15 +1955,15 @@ watch(
               </h3>
             </template>
 
-            <div class="space-y-4">
+            <div class="space-y-3">
               <div
                 v-for="(section, sectionIndex) in visibleFormSections"
                 :key="`${section.title}-${sectionIndex}`"
-                class="space-y-4"
+                class="space-y-3"
               >
                 <div
                   v-if="sectionIndex > 0"
-                  class="border-t border-dashed border-gray-200 pt-4"
+                  class="border-t border-dashed border-gray-200 pt-3"
                 />
 
                 <div class="flex items-center gap-2">
@@ -1972,12 +1972,12 @@ watch(
                   </h4>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-2.5">
                   <template
                     v-for="(item, itemIndex) in section.items"
                     :key="item.kind === 'field' ? `field-${item.field.instanceId}` : `group-${item.groupId}-${itemIndex}`"
                   >
-                    <div :class="itemIndex > 0 ? 'border-t border-gray-100 pt-4' : ''">
+                    <div :class="itemIndex > 0 ? 'border-t border-gray-100 pt-3' : ''">
                       <div
                         v-if="item.kind === 'field'"
                         :id="getFieldContainerId(item.field)"
@@ -1994,6 +1994,7 @@ watch(
                         @focusout="handleFormFieldLeave"
                       >
                         <form-field-input
+                          class="mb-0!"
                           :model-value="fieldValues[getFieldValueKey(item.field)]"
                           :field="{ ...item.field, label: item.field.formQuestionLabel || item.field.label }"
                           :disabled="isSaving || isCheckboxTemporarilyDisabled(item.field)"
@@ -2334,6 +2335,18 @@ watch(
 <style scoped>
 .sync-form-field {
   border-radius: 0.5rem;
+}
+
+.sync-form-field :deep(.field-input) {
+  margin-bottom: 0;
+}
+
+.sync-form-field :deep(.field-label) {
+  margin-bottom: 0.375rem;
+}
+
+.sync-form-field :deep(.field-helper) {
+  margin-top: 0.25rem;
 }
 
 .sync-form-field--active {
