@@ -28,10 +28,10 @@ function getStatusColor(status: string) {
 function getStatusLabel(status: string): string {
   const key = status as RequestStatus;
   const labels: Record<RequestStatus, string> = {
-    in_progress: t('inProgress'),
-    approved: t('approved'),
-    rejected: t('rejected'),
-    completed: t('completed'),
+    in_progress: t('studentDashboard.status.inProgress'),
+    approved: t('studentDashboard.status.approved'),
+    rejected: t('studentDashboard.status.rejected'),
+    completed: t('studentDashboard.status.completed'),
   };
   return labels[key] ?? status;
 }
@@ -50,10 +50,10 @@ function formatDate(dateStr: string | null): string {
 const UIcon = resolveComponent('UIcon');
 
 const columns = [
-  { accessorKey: 'templateName', header: t('requestTitle') },
-  { accessorKey: 'status', header: t('status') },
-  { accessorKey: 'createdAt', header: t('submittedDate') },
-  { accessorKey: 'submittedAt', header: t('lastUpdated') },
+  { accessorKey: 'templateName', header: t('studentDashboard.table.requestTitle') },
+  { accessorKey: 'status', header: t('studentDashboard.table.status') },
+  { accessorKey: 'createdAt', header: t('studentDashboard.table.submittedDate') },
+  { accessorKey: 'submittedAt', header: t('studentDashboard.table.lastUpdated') },
   {
     id: 'navigate',
     header: '',
@@ -121,17 +121,17 @@ function navigateToNewRequest() {
         <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <h2 class="text-2xl font-bold mb-2">
-              ยื่นคำร้องใหม่ออนไลน์
+              {{ t('studentDashboard.banner.title') }}
             </h2>
             <p class="text-white/90 max-w-lg">
-              ระบบ E-Request สะดวก รวดเร็ว ติดตามสถานะได้ตลอด 24 ชม. ไม่ต้องเดินทางมาที่คณะ
+              {{ t('studentDashboard.banner.description') }}
             </p>
           </div>
           <UButton
             size="xl"
             color="success"
             variant="solid"
-            label="สร้างคำร้องใหม่"
+            :label="t('studentDashboard.banner.action')"
             icon="i-heroicons-plus-circle"
             class=" font-bold shadow-md"
           />
@@ -143,7 +143,7 @@ function navigateToNewRequest() {
         <div class="flex items-center gap-2 mb-4">
           <UIcon name="i-heroicons-star" class="text-yellow-500 w-5 h-5" />
           <h3 class="font-semibold text-gray-800">
-            คำร้องยอดนิยม
+            {{ t('studentDashboard.popular.title') }}
           </h3>
         </div>
 
@@ -172,10 +172,10 @@ function navigateToNewRequest() {
             <div class="flex items-center gap-2">
               <UIcon name="i-heroicons-clock" class="text-gray-400 w-5 h-5" />
               <h3 class="font-semibold text-gray-800">
-                รายการล่าสุด
+                {{ t('studentDashboard.recent.title') }}
               </h3>
             </div>
-            <UButton to="/student/my-requests" variant="link" color="primary" label="ดูทั้งหมด" :padded="false" />
+            <UButton to="/student/my-requests" variant="link" color="primary" :label="t('studentDashboard.recent.viewAll')" :padded="false" />
           </div>
         </template>
 
@@ -185,7 +185,7 @@ function navigateToNewRequest() {
           :columns="columns"
           :loading="fetchStatus === 'pending'"
           class="w-full"
-          :empty="t('noRecentRequests')"
+          :empty="t('studentDashboard.recent.empty')"
           :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
           @select="onRowSelect"
         >
@@ -215,10 +215,10 @@ function navigateToNewRequest() {
           </div>
           <div>
             <h4 class="font-semibold text-gray-800 text-sm">
-              คู่มือการใช้งาน
+              {{ t('studentDashboard.help.guideTitle') }}
             </h4>
             <p class="text-xs text-gray-500 mt-1">
-              ขั้นตอนการยื่นคำร้องและการติดตามสถานะ
+              {{ t('studentDashboard.help.guideDescription') }}
             </p>
           </div>
         </div>
@@ -228,10 +228,10 @@ function navigateToNewRequest() {
           </div>
           <div>
             <h4 class="font-semibold text-gray-800 text-sm">
-              ติดต่อเจ้าหน้าที่
+              {{ t('studentDashboard.help.contactTitle') }}
             </h4>
             <p class="text-xs text-gray-500 mt-1">
-              พบปัญหาการใช้งาน หรือสอบถามข้อมูลเพิ่มเติม
+              {{ t('studentDashboard.help.contactDescription') }}
             </p>
           </div>
         </div>

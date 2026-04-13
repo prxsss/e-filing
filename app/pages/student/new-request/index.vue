@@ -13,6 +13,7 @@ type Template = {
 };
 
 const router = useRouter();
+const { t } = useI18n();
 const searchQuery = ref('');
 
 const { data: templatesData, status, error, refresh } = await useFetch<{ success: boolean; data: Template[] }>('/api/pdf-templates');
@@ -45,7 +46,7 @@ function handleSelectRequest(templateId: number) {
       <div class="text-center">
         <UIcon name="i-lucide-loader" class="text-4xl text-gray-400 mb-4 animate-spin" />
         <p class="text-gray-500">
-          Loading templates...
+          {{ t('studentNewRequest.detail.loading') }}
         </p>
       </div>
     </div>
@@ -59,7 +60,7 @@ function handleSelectRequest(templateId: number) {
             {{ error.message }}
           </p>
           <UButton @click="refresh()">
-            Try again
+            {{ t('studentNewRequest.list.tryAgain') }}
           </UButton>
         </div>
       </UCard>
@@ -71,10 +72,10 @@ function handleSelectRequest(templateId: number) {
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 class="text-2xl font-bold text-gray-900">
-            New Request
+            {{ t('studentNewRequest.list.title') }}
           </h1>
           <p class="text-sm text-slate-500 mt-1">
-            Choose a request type to get started
+            {{ t('studentNewRequest.list.description') }}
           </p>
         </div>
       </div>
@@ -85,7 +86,7 @@ function handleSelectRequest(templateId: number) {
           <UInput
             v-model="searchQuery"
             icon="i-heroicons-magnifying-glass"
-            placeholder="Search requests by name"
+            :placeholder="t('studentNewRequest.list.searchPlaceholder')"
             class="w-full"
             size="md"
           />
@@ -123,12 +124,12 @@ function handleSelectRequest(templateId: number) {
                   {{ template.name }}
                 </h3>
                 <p class="text-sm line-clamp-2 h-10 leading-relaxed text-gray-600">
-                  {{ template.description || 'No description available.' }}
+                  {{ template.description || t('studentNewRequest.list.noDescription') }}
                 </p>
               </div>
 
               <div class="pt-4 border-t border-gray-100 flex justify-end items-center gap-1.5 text-xs text-gray-500">
-                <span>Select to continue</span>
+                <span>{{ t('studentNewRequest.list.selectToContinue') }}</span>
               </div>
             </UCard>
           </div>
@@ -143,16 +144,16 @@ function handleSelectRequest(templateId: number) {
             <UIcon name="i-heroicons-document-magnifying-glass" class="w-8 h-8" />
           </div>
           <h3 class="text-gray-900 font-medium text-lg">
-            No templates found
+            {{ t('studentNewRequest.list.emptyTitle') }}
           </h3>
           <p class="text-gray-500 text-sm mt-1">
-            {{ searchQuery ? 'Try adjusting your search query' : 'No active templates available' }}
+            {{ t('studentNewRequest.list.emptyDescription') }}
           </p>
           <UButton
             v-if="searchQuery"
             variant="link"
             color="neutral"
-            label="Clear search"
+            :label="t('studentNewRequest.list.clearSearch')"
             class="mt-2"
             @click="searchQuery = ''"
           />

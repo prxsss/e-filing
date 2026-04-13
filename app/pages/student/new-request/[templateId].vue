@@ -103,7 +103,7 @@ let previewRequestToken = 0;
 let overlayValueSyncToken = 0;
 
 // --- Recipient selection ---
-const { locale } = useI18n();
+const { t, locale } = useI18n();
 const localePath = useLocalePath();
 const { user } = useUserSession();
 const signingSteps = ref<SigningStep[]>([]);
@@ -1240,7 +1240,7 @@ async function fetchTemplateData() {
 
   try {
     if (!templateId || Number.isNaN(templateId)) {
-      error.value = 'No template selected';
+      error.value = t('studentNewRequest.detail.errors.noTemplateSelected');
       return;
     }
 
@@ -1294,12 +1294,12 @@ async function fetchTemplateData() {
       }
     }
     else {
-      error.value = 'Template not found';
+      error.value = t('studentNewRequest.detail.errors.templateNotFound');
     }
   }
   catch (err: any) {
     console.error('Error fetching template:', err);
-    error.value = err?.message || 'Failed to load template';
+    error.value = err?.message || t('studentNewRequest.detail.errors.loadTemplate');
   }
   finally {
     isLoading.value = false;
@@ -1384,8 +1384,8 @@ function getCheckboxGroupContainerId(fields: any[]): string {
 
 function getFieldValidationMessage(field: any): string {
   return isCheckboxField(field)
-    ? (locale.value === 'th' ? 'จำเป็นต้องเลือกคำตอบนี้' : 'This selection is required.')
-    : (locale.value === 'th' ? 'จำเป็นต้องตอบคำถามนี้' : 'This question is required.');
+    ? t('studentNewRequest.detail.errors.requiredSelection')
+    : t('studentNewRequest.detail.errors.requiredQuestion');
 }
 
 function getFieldContainerId(field: any): string {
@@ -1466,7 +1466,7 @@ async function submitRequest() {
     });
 
     if (!createResult.success || !createResult.data) {
-      error.value = (createResult.error as string) || 'Failed to create request';
+      error.value = (createResult.error as string) || t('studentNewRequest.detail.errors.createRequestFailed');
       return;
     }
 
@@ -1536,7 +1536,7 @@ async function submitRequest() {
     });
 
     if (!saveResult.success) {
-      error.value = (saveResult.error as string) || 'Failed to save field values';
+      error.value = (saveResult.error as string) || t('studentNewRequest.detail.errors.saveFieldValuesFailed');
       return;
     }
 
@@ -1546,7 +1546,7 @@ async function submitRequest() {
     });
 
     if (!pdfResult.success) {
-      error.value = 'Failed to generate PDF';
+      error.value = t('studentNewRequest.detail.errors.generatePdfFailed');
       return;
     }
 
@@ -1586,12 +1586,12 @@ async function submitRequest() {
       navigateTo(localePath('/student/my-requests'));
     }
     else {
-      error.value = (updateResult.error as string) || 'Failed to submit request';
+      error.value = (updateResult.error as string) || t('studentNewRequest.detail.errors.submitFailed');
     }
   }
   catch (err: any) {
     console.error('Error submitting request:', err);
-    error.value = err?.message || 'Failed to submit request';
+    error.value = err?.message || t('studentNewRequest.detail.errors.submitFailed');
   }
   finally {
     isSaving.value = false;
@@ -1614,7 +1614,7 @@ const visibleFillableFields = computed(() => {
 
 const requestFormSectionTitle = computed(() => {
   const fieldWithTitle = visibleFillableFields.value.find((field: any) => String(field?.formSectionTitle || '').trim().length > 0);
-  return String(fieldWithTitle?.formSectionTitle || 'Request Form');
+  return String(fieldWithTitle?.formSectionTitle || t('studentNewRequest.detail.requestFormFallback'));
 });
 
 function triggerFileUpload() {
@@ -1630,7 +1630,7 @@ async function handleFileUpload(event: Event) {
 
   const maxSize = 30 * 1024 * 1024; // 30MB
   if (file.size > maxSize) {
-    error.value = 'File size must be less than 30MB';
+    error.value = t('studentNewRequest.detail.attachments.errors.size');
     if (target)
       target.value = '';
     return;
@@ -1735,17 +1735,17 @@ watch([pdfFile, placedFields, fieldValues], () => {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <UBreadcrumb
           :links="[
-            { label: 'My Requests', to: '/student/my-requests' },
-            { label: 'New Request', to: `/student/new-requests/${templateId}` },
+            { label: t('studentNewRequest.detail.breadcrumbMyRequests'), to: '/student/my-requests' },
+            { label: t('studentNewRequest.detail.breadcrumb'), to: `/student/new-requests/${templateId}` },
           ]"
         />
         <div class="mt-4 flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">
-              {{ templateData?.name || 'Fill Request Form' }}
+              {{ templateData?.name || t('studentNewRequest.detail.titleFallback') }}
             </h1>
             <p class="mt-1 text-sm text-gray-500">
-              Complete the form below and submit your request
+              {{ t('studentNewRequest.detail.subtitle') }}
             </p>
           </div>
         </div>
@@ -1759,7 +1759,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
         <div class="text-center">
           <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
           <p class="text-gray-500">
-            Loading template...
+            {{ t('studentNewRequest.detail.loading') }}
           </p>
         </div>
       </div>
@@ -1772,7 +1772,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
             {{ error }}
           </p>
           <UButton @click="$router.push('/student/new-request')">
-            Back to Request
+            {{ t('studentNewRequest.detail.backToRequest') }}
           </UButton>
         </div>
       </UCard>
@@ -1789,7 +1789,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
         >
           <!-- Zoom Controls -->
           <div class="mb-4 flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2">
-            <span class="text-sm text-gray-600">Zoom:</span>
+            <span class="text-sm text-gray-600">{{ t('studentNewRequest.detail.zoom') }}:</span>
             <UButton
               icon="i-heroicons-minus"
               size="xs"
@@ -1810,7 +1810,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               variant="ghost"
               @click="scale = 1"
             >
-              Reset
+              {{ t('studentNewRequest.detail.reset') }}
             </UButton>
           </div>
 
@@ -1831,7 +1831,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               @field-clicked="handlePdfFieldClick"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
-              Syncing preview...
+              {{ t('studentNewRequest.detail.syncingPreview') }}
             </div>
           </div>
         </div>
@@ -1963,7 +1963,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                           v-if="hasCheckboxGroupValidationError(item.fields)"
                           class="mt-2 text-sm text-red-600"
                         >
-                          {{ locale === 'th' ? 'จำเป็นต้องเลือกคำตอบนี้' : 'This selection is required.' }}
+                          {{ t('studentNewRequest.detail.errors.requiredSelection') }}
                         </p>
                       </div>
                     </div>
@@ -1974,7 +1974,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               <div v-if="visibleFormSections.length === 0" class="text-center py-8 text-gray-500">
                 <i class="fas fa-inbox text-3xl mb-2" />
                 <p class="text-sm">
-                  No fillable fields in this template
+                  {{ t('studentNewRequest.detail.noFillableFields') }}
                 </p>
               </div>
             </div>
@@ -1985,7 +1985,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
             <template #header>
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  Attachments
+                  {{ t('studentNewRequest.detail.section.attachments') }}
                 </h3>
                 <UButton
                   size="xs"
@@ -1994,7 +1994,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                   :loading="isUploadingAttachment"
                   @click="triggerFileUpload"
                 >
-                  Add File
+                  {{ t('studentNewRequest.detail.attachments.addFile') }}
                 </UButton>
               </div>
             </template>
@@ -2023,7 +2023,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                       {{ pending.name }}
                     </p>
                     <p class="text-xs text-gray-500">
-                      {{ formatFileSize(pending.size) }} · Will be uploaded on submit
+                      {{ formatFileSize(pending.size) }} · {{ t('studentNewRequest.detail.attachments.willUploadOnSubmit') }}
                     </p>
                   </div>
                 </div>
@@ -2039,10 +2039,10 @@ watch([pdfFile, placedFields, fieldValues], () => {
               <div v-if="pendingAttachments.length === 0" class="text-center py-8 text-gray-500">
                 <i class="fas fa-paperclip text-3xl mb-2" />
                 <p class="text-sm">
-                  No attachments yet
+                  {{ t('studentNewRequest.detail.attachments.empty') }}
                 </p>
                 <p class="text-xs mt-1">
-                  Files will be uploaded when you submit
+                  {{ t('studentNewRequest.detail.attachments.willUploadOnSubmit') }}
                 </p>
               </div>
             </div>
@@ -2057,7 +2057,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
           >
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                {{ locale === 'th' ? 'เลือกผู้รับเอกสาร' : 'Select Recipients' }}
+                {{ t('studentNewRequest.detail.recipient.title') }}
               </h3>
             </template>
 
@@ -2066,11 +2066,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 v-if="showRecipientSelectionError"
                 class="text-sm text-red-600"
               >
-                {{
-                  locale === 'th'
-                    ? 'กรุณาเลือกผู้รับเอกสารให้ครบทุกขั้นตอนก่อนส่งคำร้อง'
-                    : 'Please select a recipient for each step before submitting.'
-                }}
+                {{ t('studentNewRequest.detail.recipient.requiredAllSteps') }}
               </p>
               <div
                 v-for="stage in recipientStages"
@@ -2078,7 +2074,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 class="space-y-3"
               >
                 <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  {{ locale === 'th' ? `ขั้นตอนลำดับที่ ${stage.order - 1}` : `Stage ${stage.order - 1}` }}
+                  {{ `${t('studentNewRequest.detail.recipient.stagePrefix')} ${stage.order - 1}` }}
                 </div>
 
                 <div
@@ -2094,10 +2090,10 @@ watch([pdfFile, placedFields, fieldValues], () => {
                     :items="getUserItems(step)"
                     value-key="value"
                     label-key="label"
-                    :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? (locale === 'th' ? 'กำลังโหลด...' : 'Loading...') : (locale === 'th' ? 'เลือกผู้รับ...' : 'Select recipient...')"
+                    :placeholder="loadingUsersByRoleId[getResolvedRoleId(step) ?? 0] ? t('studentNewRequest.detail.recipient.loading') : t('studentNewRequest.detail.recipient.placeholder')"
                     :disabled="isSaving || !!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
                     :loading="!!loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
-                    :search-input="{ placeholder: locale === 'th' ? 'ค้นหา...' : 'Search...' }"
+                    :search-input="{ placeholder: t('studentNewRequest.detail.recipient.search') }"
                     icon="i-heroicons-user"
                     class="w-full"
                   />
@@ -2108,7 +2104,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                     v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
                     class="mt-1 text-xs text-gray-400"
                   >
-                    {{ locale === 'th' ? 'ไม่พบผู้ใช้ที่มีบทบาทนี้' : 'No users found with this role' }}
+                    {{ t('studentNewRequest.detail.recipient.noUsersForRole') }}
                   </p>
                 </div>
               </div>
@@ -2121,10 +2117,8 @@ watch([pdfFile, placedFields, fieldValues], () => {
             color="info"
             variant="soft"
             icon="i-heroicons-pencil-square"
-            :title="locale === 'th' ? 'คำร้องนี้ต้องมีลายเซ็นของผู้ยื่น' : 'Submitter signature is required'"
-            :description="locale === 'th'
-              ? 'กรุณาเซ็นลายเซ็นและกดยืนยันก่อนส่งคำร้อง'
-              : 'Please draw and confirm your signature before submitting.'"
+            :title="t('studentNewRequest.detail.signature.requiredTitle')"
+            :description="t('studentNewRequest.detail.signature.requiredDescription')"
           />
 
           <UCard
@@ -2135,7 +2129,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
           >
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                {{ locale === 'th' ? 'ลายเซ็นผู้ยื่นคำร้อง' : 'Submitter Signature' }}
+                {{ t('studentNewRequest.detail.signature.sectionTitle') }}
               </h3>
             </template>
 
@@ -2143,7 +2137,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="space-y-1">
                   <p class="text-xs text-gray-500">
-                    {{ locale === 'th' ? 'กดปุ่มเพื่อเปิด popup เซ็นเอกสาร' : 'Open the popup to sign.' }}
+                    {{ t('studentNewRequest.detail.signature.openPopupHint') }}
                   </p>
                 </div>
 
@@ -2152,7 +2146,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                   icon="i-heroicons-pencil-square"
                   @click="openSubmitterSignaturePopup"
                 >
-                  {{ hasConfirmedSubmitterSignature ? (locale === 'th' ? 'แก้ไขลายเซ็น' : 'Edit signature') : (locale === 'th' ? 'เปิดกล่องเซ็นลายมือชื่อ' : 'Open signature popup') }}
+                  {{ hasConfirmedSubmitterSignature ? t('studentNewRequest.detail.signature.edit') : t('studentNewRequest.detail.signature.openPopup') }}
                 </UButton>
               </div>
 
@@ -2160,16 +2154,14 @@ watch([pdfFile, placedFields, fieldValues], () => {
                 v-if="showSubmitterSignatureError"
                 class="text-sm text-red-600"
               >
-                {{ locale === 'th'
-                  ? 'กรุณเซ็นลายเซ็นและกดยืนยันก่อนส่งคำร้อง'
-                  : 'Please draw and confirm your signature before submitting.' }}
+                {{ t('studentNewRequest.detail.signature.errorRequired') }}
               </p>
 
               <p
                 v-if="hasConfirmedSubmitterSignature"
                 class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
               >
-                {{ locale === 'th' ? 'ยืนยันลายเซ็นแล้ว พร้อมส่งคำร้อง' : 'Signature confirmed. Ready to submit.' }}
+                {{ t('studentNewRequest.detail.signature.confirmed') }}
               </p>
             </div>
           </UCard>
@@ -2184,7 +2176,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               @click="submitRequest"
             >
               <i class="fas fa-paper-plane mr-2" />
-              Submit Request
+              {{ t('studentNewRequest.detail.actions.submit') }}
             </UButton>
 
             <UButton
@@ -2194,7 +2186,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               @click="$router.push('/student/new-request')"
             >
               <i class="fas fa-arrow-left mr-2" />
-              Back to Request
+              {{ t('studentNewRequest.detail.backToRequest') }}
             </UButton>
           </div>
         </div>
@@ -2211,7 +2203,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <h3 class="text-sm font-semibold text-gray-900">
-                    {{ locale === 'th' ? 'เซ็นลายเซ็นผู้ยื่นคำร้อง' : 'Submitter signature' }}
+                    {{ t('studentNewRequest.detail.signature.popupTitle') }}
                   </h3>
                 </div>
 
@@ -2227,7 +2219,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
             <div class="space-y-3 p-1">
               <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
                 <div class="mb-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>{{ locale === 'th' ? 'เซ็นในช่องด้านล่าง' : 'Sign in the box below' }}</span>
+                  <span>{{ t('studentNewRequest.detail.signature.popupHint') }}</span>
                 </div>
 
                 <div :style="submitterSignatureFieldBoxStyle" class="mx-auto">

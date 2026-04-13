@@ -1,0 +1,104 @@
+{
+  "studentNewRequest": {
+    "list": {
+      "title": "Create New Request",
+      "description": "Choose a request template to submit",
+      "searchPlaceholder": "Search templates...",
+      "tryAgain": "Try again",
+      "noDescription": "No description available",
+      "selectToContinue": "Select to continue",
+      "clearSearch": "Clear search",
+      "emptyTitle": "No templates found",
+      "emptyDescription": "Try changing your search or check again later"
+    },
+    "detail": {
+      "breadcrumb": "Create New Request",
+      "breadcrumbMyRequests": "My Requests",
+      "loading": "Loading template...",
+      "noTemplate": "Template not found",
+      "titleFallback": "Fill Request Form",
+      "subtitle": "Complete the form below and submit your request",
+      "backToRequest": "Back to Request",
+      "zoom": "Zoom",
+      "reset": "Reset",
+      "syncingPreview": "Syncing preview...",
+      "requestFormFallback": "Request Form",
+      "noFillableFields": "No fillable fields in this template",
+      "back": "Back",
+      "step": {
+        "fillForm": "Fill Form",
+        "uploadFiles": "Upload Files",
+        "review": "Review"
+      },
+      "section": {
+        "recipients": "Recipients",
+        "recipientSelect": "Select Recipient",
+        "signature": "Signers",
+        "attachments": "Attachments"
+      },
+      "recipient": {
+        "placeholder": "Select recipient",
+        "none": "No recipients",
+        "required": "Please select a recipient",
+        "title": "Select Recipients",
+        "requiredAllSteps": "Please select a recipient for each step before submitting.",
+        "stagePrefix": "Stage",
+        "loading": "Loading...",
+        "search": "Search...",
+        "noUsersForRole": "No users found with this role"
+      },
+      "signature": {
+        "required": "Please select a signer",
+        "fallbackPosition": "Position not specified",
+        "requiredTitle": "Submitter signature is required",
+        "requiredDescription": "Please draw and confirm your signature before submitting.",
+        "sectionTitle": "Submitter Signature",
+        "openPopupHint": "Open the popup to sign.",
+        "edit": "Edit signature",
+        "openPopup": "Open signature popup",
+        "errorRequired": "Please draw and confirm your signature before submitting.",
+        "confirmed": "Signature confirmed. Ready to submit.",
+        "popupTitle": "Submitter signature",
+        "popupHint": "Sign in the box below"
+      },
+      "attachments": {
+        "dropHint": "Drop files here or click to browse",
+        "addFile": "Add File",
+        "empty": "No attachments yet",
+        "willUploadOnSubmit": "Files will be uploaded when you submit",
+        "uploading": "Uploading...",
+        "errors": {
+          "size": "File size must not exceed 30 MB",
+          "uploadFailed": "Failed to upload file"
+        },
+        "success": {
+          "uploaded": "File uploaded successfully"
+        }
+      },
+      "actions": {
+        "saveDraft": "Save Draft",
+        "submit": "Confirm Submission",
+        "submitting": "Submitting request..."
+      },
+      "confirm": {
+        "title": "Confirm Request Submission",
+        "description": "Please verify the information before submitting"
+      },
+      "errors": {
+        "noTemplateSelected": "No template selected",
+        "templateNotFound": "Template not found",
+        "createRequestFailed": "Failed to create request",
+        "saveFieldValuesFailed": "Failed to save field values",
+        "generatePdfFailed": "Failed to generate PDF",
+        "requiredSelection": "This selection is required.",
+        "requiredQuestion": "This question is required.",
+        "loadTemplate": "Failed to load template",
+        "submitFailed": "Failed to submit request"
+      },
+      "success": {
+        "saved": "Draft saved successfully",
+        "submitted": "Request submitted successfully"
+      }
+    }
+  }
+}

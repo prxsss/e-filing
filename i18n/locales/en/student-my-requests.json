@@ -1,0 +1,93 @@
+{
+  "studentMyRequests": {
+    "list": {
+      "title": "My Requests",
+      "description": "Track all request statuses and submission history",
+      "newRequest": "Create New Request",
+      "searchPlaceholder": "Search by ID or title...",
+      "searchButton": "Search",
+      "statusPlaceholder": "Status",
+      "emptyTitle": "No requests found",
+      "table": {
+        "requestTitle": "Request Title",
+        "status": "Status",
+        "submittedDate": "Submitted Date",
+        "lastUpdated": "Last Updated"
+      },
+      "status": {
+        "all": "All Statuses",
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "pending": "Pending",
+        "inProgress": "In Progress",
+        "rejected": "Rejected",
+        "completed": "Completed"
+      }
+    },
+    "detail": {
+      "breadcrumb": "My Requests",
+      "titleFallback": "Request Details",
+      "subtitle": "Track request status and details",
+      "back": "Back",
+      "loading": "Loading...",
+      "backToList": "Back to My Requests",
+      "zoom": "Zoom",
+      "reset": "Reset",
+      "syncingPreview": "Syncing preview...",
+      "noDocumentFile": "No document file found",
+      "requestStatusTitle": "Request Status",
+      "requestId": "Request ID",
+      "status": "Status",
+      "submittedAt": "Submitted At",
+      "updatedAt": "Updated At",
+      "note": "Note",
+      "timelineTitle": "Order of Signing",
+      "rolePrefix": "Role",
+      "rejectPrefix": "Rejected",
+      "localRejectedWarning": "Some steps were rejected, but the request is still in progress",
+      "timelineStatus": {
+        "signed": "Signed",
+        "inProgress": "In Progress",
+        "rejected": "Rejected",
+        "pending": "Pending"
+      },
+      "attachments": {
+        "title": "Attachments",
+        "addFile": "Add File",
+        "view": "View",
+        "empty": "No attachments yet",
+        "uploading": "Uploading..."
+      },
+      "actions": {
+        "save": "Save",
+        "submit": "Confirm Submission",
+        "backToList": "Back to My Requests"
+      },
+      "statusLabel": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "pendingSignature": "Awaiting Signature",
+        "pending": "Pending",
+        "inProgress": "In Progress",
+        "rejected": "Rejected",
+        "completed": "Completed"
+      },
+      "errors": {
+        "fileSizeLimit": "File size must not exceed 30 MB",
+        "uploadFailed": "Failed to upload file",
+        "saveFailed": "Failed to save data",
+        "submitFailed": "Failed to submit request",
+        "generatePdfFailed": "Failed to generate PDF",
+        "deleteFailed": "Failed to delete file"
+      },
+      "success": {
+        "saved": "Data saved successfully",
+        "fileUploaded": "File uploaded successfully",
+        "fileDeleted": "File deleted successfully"
+      },
+      "confirm": {
+        "deleteFile": "Are you sure you want to delete this file?"
+      }
+    }
+  }
+}

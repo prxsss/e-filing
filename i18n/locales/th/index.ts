@@ -7,6 +7,8 @@ import errors from './errors.json';
 import faculties from './faculties.json';
 import signerSignedHistory from './signer-signed-history.json';
 import signerToSign from './signer-to-sign.json';
+import studentMyRequests from './student-my-requests.json';
+import studentNewRequest from './student-new-request.json';
 import templates from './templates.json';
 import th from './th.json';
 import users from './users.json';
@@ -14,6 +16,8 @@ import users from './users.json';
 export default {
   ...common,
   ...dashboard,
+  ...studentMyRequests,
+  ...studentNewRequest,
   ...signerToSign,
   ...signerSignedHistory,
   ...accessControl,

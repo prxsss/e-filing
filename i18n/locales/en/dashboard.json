@@ -71,5 +71,38 @@
         "description": "All requests you have signed or rejected."
       }
     }
+  },
+  "studentDashboard": {
+    "banner": {
+      "title": "Submit New Request Online",
+      "description": "The E-Filing system is convenient and fast. Track your request status 24/7 without visiting the faculty.",
+      "action": "Create New Request"
+    },
+    "popular": {
+      "title": "Popular Requests"
+    },
+    "recent": {
+      "title": "Recent Requests",
+      "viewAll": "View All",
+      "empty": "No recent requests yet"
+    },
+    "table": {
+      "requestTitle": "Request Name",
+      "status": "Status",
+      "submittedDate": "Submitted Date",
+      "lastUpdated": "Last Updated"
+    },
+    "status": {
+      "inProgress": "In Progress",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "completed": "Completed"
+    },
+    "help": {
+      "guideTitle": "User Guide",
+      "guideDescription": "Steps to submit requests and track statuses",
+      "contactTitle": "Contact Staff",
+      "contactDescription": "Report issues or request more information"
+    }
   }
 }

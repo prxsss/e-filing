@@ -1,0 +1,93 @@
+{
+  "studentMyRequests": {
+    "list": {
+      "title": "คำร้องของฉัน",
+      "description": "ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด",
+      "newRequest": "สร้างคำร้องใหม่",
+      "searchPlaceholder": "ค้นหาตามรหัส หรือชื่อเรื่อง...",
+      "searchButton": "ค้นหา",
+      "statusPlaceholder": "สถานะ",
+      "emptyTitle": "ไม่พบข้อมูลคำร้อง",
+      "table": {
+        "requestTitle": "ชื่อคำร้อง",
+        "status": "สถานะ",
+        "submittedDate": "วันที่ยื่น",
+        "lastUpdated": "อัปเดตล่าสุด"
+      },
+      "status": {
+        "all": "สถานะทั้งหมด",
+        "draft": "ร่าง",
+        "submitted": "ส่งแล้ว",
+        "pending": "รอดำเนินการ",
+        "inProgress": "กำลังดำเนินการ",
+        "rejected": "ปฏิเสธ",
+        "completed": "เสร็จสิ้น"
+      }
+    },
+    "detail": {
+      "breadcrumb": "คำร้องของฉัน",
+      "titleFallback": "รายละเอียดคำร้อง",
+      "subtitle": "ติดตามสถานะและรายละเอียดคำร้อง",
+      "back": "กลับ",
+      "loading": "กำลังโหลด...",
+      "backToList": "กลับไปยังคำร้องของฉัน",
+      "zoom": "ซูม",
+      "reset": "รีเซ็ต",
+      "syncingPreview": "กำลังซิงค์ตัวอย่าง...",
+      "noDocumentFile": "ไม่พบไฟล์เอกสาร",
+      "requestStatusTitle": "สถานะคำร้อง",
+      "requestId": "รหัสคำร้อง",
+      "status": "สถานะ",
+      "submittedAt": "ยื่นเมื่อ",
+      "updatedAt": "อัปเดตเมื่อ",
+      "note": "หมายเหตุ",
+      "timelineTitle": "ลำดับการลงนาม",
+      "rolePrefix": "บทบาท",
+      "rejectPrefix": "ปฏิเสธ",
+      "localRejectedWarning": "มีบางขั้นตอนถูกปฏิเสธ แต่คำร้องยังดำเนินการต่อ",
+      "timelineStatus": {
+        "signed": "ลงนามแล้ว",
+        "inProgress": "กำลังดำเนินการ",
+        "rejected": "ปฏิเสธ",
+        "pending": "รอดำเนินการ"
+      },
+      "attachments": {
+        "title": "ไฟล์แนบ",
+        "addFile": "เพิ่มไฟล์",
+        "view": "ดู",
+        "empty": "ยังไม่มีไฟล์แนบ",
+        "uploading": "กำลังอัปโหลด..."
+      },
+      "actions": {
+        "save": "บันทึก",
+        "submit": "ยืนยันการยื่นคำร้อง",
+        "backToList": "กลับไปยังคำร้องของฉัน"
+      },
+      "statusLabel": {
+        "draft": "ร่าง",
+        "submitted": "รอดำเนินการ",
+        "pendingSignature": "รอลงนาม",
+        "pending": "รอดำเนินการ",
+        "inProgress": "กำลังดำเนินการ",
+        "rejected": "ปฏิเสธ",
+        "completed": "สำเร็จแล้ว"
+      },
+      "errors": {
+        "fileSizeLimit": "ขนาดไฟล์ต้องไม่เกิน 30 MB",
+        "uploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ",
+        "saveFailed": "บันทึกข้อมูลไม่สำเร็จ",
+        "submitFailed": "ส่งคำร้องไม่สำเร็จ",
+        "generatePdfFailed": "สร้างไฟล์ PDF ไม่สำเร็จ",
+        "deleteFailed": "ลบไฟล์ไม่สำเร็จ"
+      },
+      "success": {
+        "saved": "บันทึกข้อมูลสำเร็จ",
+        "fileUploaded": "อัปโหลดไฟล์สำเร็จแล้ว",
+        "fileDeleted": "ลบไฟล์สำเร็จแล้ว"
+      },
+      "confirm": {
+        "deleteFile": "ยืนยันการลบไฟล์นี้ใช่หรือไม่?"
+      }
+    }
+  }
+}

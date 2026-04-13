@@ -1,0 +1,104 @@
+{
+  "studentNewRequest": {
+    "list": {
+      "title": "สร้างคำร้องใหม่",
+      "description": "เลือกเทมเพลตคำร้องที่ต้องการยื่น",
+      "searchPlaceholder": "ค้นหาเทมเพลต...",
+      "tryAgain": "ลองอีกครั้ง",
+      "noDescription": "ไม่มีคำอธิบาย",
+      "selectToContinue": "เลือกเพื่อดำเนินการต่อ",
+      "clearSearch": "ล้างการค้นหา",
+      "emptyTitle": "ไม่พบเทมเพลต",
+      "emptyDescription": "ลองเปลี่ยนคำค้นหา หรือตรวจสอบภายหลัง"
+    },
+    "detail": {
+      "breadcrumb": "สร้างคำร้องใหม่",
+      "breadcrumbMyRequests": "คำร้องของฉัน",
+      "loading": "กำลังโหลดเทมเพลต...",
+      "noTemplate": "ไม่พบข้อมูลเทมเพลต",
+      "titleFallback": "กรอกแบบฟอร์มคำร้อง",
+      "subtitle": "กรอกข้อมูลให้ครบถ้วนก่อนส่งคำร้อง",
+      "backToRequest": "กลับไปหน้าคำร้อง",
+      "zoom": "ซูม",
+      "reset": "รีเซ็ต",
+      "syncingPreview": "กำลังซิงค์ตัวอย่าง...",
+      "requestFormFallback": "แบบฟอร์มคำร้อง",
+      "noFillableFields": "ไม่มีช่องกรอกข้อมูลในเทมเพลตนี้",
+      "back": "กลับ",
+      "step": {
+        "fillForm": "กรอกข้อมูล",
+        "uploadFiles": "แนบไฟล์",
+        "review": "ตรวจสอบ"
+      },
+      "section": {
+        "recipients": "ผู้รับคำร้อง",
+        "recipientSelect": "เลือกผู้รับ",
+        "signature": "ผู้ลงนาม",
+        "attachments": "ไฟล์แนบ"
+      },
+      "recipient": {
+        "placeholder": "เลือกผู้รับ",
+        "none": "ไม่มีผู้รับ",
+        "required": "กรุณาเลือกผู้รับ",
+        "title": "เลือกผู้รับเอกสาร",
+        "requiredAllSteps": "กรุณาเลือกผู้รับเอกสารให้ครบทุกขั้นตอนก่อนส่งคำร้อง",
+        "stagePrefix": "ขั้นตอนลำดับที่",
+        "loading": "กำลังโหลด...",
+        "search": "ค้นหา...",
+        "noUsersForRole": "ไม่พบผู้ใช้ที่มีบทบาทนี้"
+      },
+      "signature": {
+        "required": "กรุณาเลือกผู้ลงนาม",
+        "fallbackPosition": "ไม่ระบุตำแหน่ง",
+        "requiredTitle": "คำร้องนี้ต้องมีลายเซ็นของผู้ยื่น",
+        "requiredDescription": "กรุณาเซ็นลายเซ็นและกดยืนยันก่อนส่งคำร้อง",
+        "sectionTitle": "ลายเซ็นผู้ยื่นคำร้อง",
+        "openPopupHint": "กดปุ่มเพื่อเปิด popup เซ็นเอกสาร",
+        "edit": "แก้ไขลายเซ็น",
+        "openPopup": "เปิดกล่องเซ็นลายมือชื่อ",
+        "errorRequired": "กรุณาเซ็นลายเซ็นและกดยืนยันก่อนส่งคำร้อง",
+        "confirmed": "ยืนยันลายเซ็นแล้ว พร้อมส่งคำร้อง",
+        "popupTitle": "เซ็นลายเซ็นผู้ยื่นคำร้อง",
+        "popupHint": "เซ็นในช่องด้านล่าง"
+      },
+      "attachments": {
+        "dropHint": "ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์",
+        "addFile": "เพิ่มไฟล์",
+        "empty": "ยังไม่มีไฟล์แนบ",
+        "willUploadOnSubmit": "ไฟล์จะถูกอัปโหลดเมื่อคุณส่งคำร้อง",
+        "uploading": "กำลังอัปโหลด...",
+        "errors": {
+          "size": "ขนาดไฟล์ต้องไม่เกิน 30 MB",
+          "uploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ"
+        },
+        "success": {
+          "uploaded": "อัปโหลดไฟล์สำเร็จแล้ว"
+        }
+      },
+      "actions": {
+        "saveDraft": "บันทึกร่าง",
+        "submit": "ยืนยันการยื่นคำร้อง",
+        "submitting": "กำลังส่งคำร้อง..."
+      },
+      "confirm": {
+        "title": "ยืนยันการยื่นคำร้อง",
+        "description": "ตรวจสอบความถูกต้องของข้อมูลก่อนยืนยันการยื่น"
+      },
+      "errors": {
+        "noTemplateSelected": "ไม่ได้เลือกเทมเพลต",
+        "templateNotFound": "ไม่พบเทมเพลต",
+        "createRequestFailed": "สร้างคำร้องไม่สำเร็จ",
+        "saveFieldValuesFailed": "บันทึกข้อมูลช่องกรอกไม่สำเร็จ",
+        "generatePdfFailed": "สร้างไฟล์ PDF ไม่สำเร็จ",
+        "requiredSelection": "จำเป็นต้องเลือกคำตอบนี้",
+        "requiredQuestion": "จำเป็นต้องตอบคำถามนี้",
+        "loadTemplate": "โหลดเทมเพลตไม่สำเร็จ",
+        "submitFailed": "ส่งคำร้องไม่สำเร็จ"
+      },
+      "success": {
+        "saved": "บันทึกร่างสำเร็จ",
+        "submitted": "ส่งคำร้องสำเร็จ"
+      }
+    }
+  }
+}

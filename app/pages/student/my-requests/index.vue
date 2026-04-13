@@ -34,12 +34,12 @@ function getStatusColor(status: string) {
 function getStatusLabel(status: string): string {
   const key = status as RequestStatus;
   const labels: Record<RequestStatus, string> = {
-    draft: t('draft'),
-    submitted: t('submitted'),
-    pending: t('pending'),
-    in_progress: 'กำลังดำเนินการ',
-    rejected: t('rejected'),
-    completed: t('completed'),
+    draft: t('studentMyRequests.list.status.draft'),
+    submitted: t('studentMyRequests.list.status.submitted'),
+    pending: t('studentMyRequests.list.status.pending'),
+    in_progress: t('studentMyRequests.list.status.inProgress'),
+    rejected: t('studentMyRequests.list.status.rejected'),
+    completed: t('studentMyRequests.list.status.completed'),
   };
   return labels[key] ?? status;
 }
@@ -72,10 +72,10 @@ const columns: any[] = [
     size: 40,
     cell: (ctx: { row: TableRow<any> }) => (page.value - 1) * pageCount + ctx.row.index + 1,
   },
-  { accessorKey: 'templateName', header: t('requestTitle') },
-  { accessorKey: 'status', header: t('status') },
-  { accessorKey: 'createdAt', header: t('submittedDate') },
-  { accessorKey: 'submittedAt', header: t('lastUpdated') },
+  { accessorKey: 'templateName', header: t('studentMyRequests.list.table.requestTitle') },
+  { accessorKey: 'status', header: t('studentMyRequests.list.table.status') },
+  { accessorKey: 'createdAt', header: t('studentMyRequests.list.table.submittedDate') },
+  { accessorKey: 'submittedAt', header: t('studentMyRequests.list.table.lastUpdated') },
   {
     id: 'navigate',
     header: '',
@@ -94,12 +94,12 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
 
 // === Filter Options ===
 const statusOptions = [
-  { label: t('allStatuses') || 'All Statuses', value: undefined },
-  { label: t('draft'), value: 'draft' },
-  { label: t('submitted'), value: 'submitted' },
-  { label: 'กำลังดำเนินการ', value: 'in_progress' },
-  { label: t('rejected'), value: 'rejected' },
-  { label: t('completed'), value: 'completed' },
+  { label: t('studentMyRequests.list.status.all'), value: undefined },
+  { label: t('studentMyRequests.list.status.draft'), value: 'draft' },
+  { label: t('studentMyRequests.list.status.submitted'), value: 'submitted' },
+  { label: t('studentMyRequests.list.status.inProgress'), value: 'in_progress' },
+  { label: t('studentMyRequests.list.status.rejected'), value: 'rejected' },
+  { label: t('studentMyRequests.list.status.completed'), value: 'completed' },
 ];
 
 // Reset to page 1 when filters change
@@ -136,9 +136,9 @@ function handleNewRequest() {
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          {{ t('myRequests') || 'My Requests' }}
+          {{ t('studentMyRequests.list.title') }}
         </h1>
-        <p>ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด</p>
+        <p>{{ t('studentMyRequests.list.description') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <UButton
@@ -149,7 +149,7 @@ function handleNewRequest() {
           class="shadow-sm"
           @click="handleNewRequest"
         >
-          {{ t('newRequest') || 'สร้างคำร้องใหม่' }}
+          {{ t('studentMyRequests.list.newRequest') }}
         </UButton>
       </div>
     </div>
@@ -163,15 +163,15 @@ function handleNewRequest() {
             icon="i-heroicons-magnifying-glass"
             size="lg"
             variant="outline"
-            placeholder="ค้นหาตามรหัส หรือชื่อเรื่อง..."
+            :placeholder="t('studentMyRequests.list.searchPlaceholder')"
             @keyup.enter="page = 1"
           />
-          <UButton icon="i-lucide-search" label="Search" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="page = 1" />
+          <UButton icon="i-lucide-search" :label="t('studentMyRequests.list.searchButton')" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="page = 1" />
           <USelect
             v-model="selectedStatus"
             :items="statusOptions"
             option-attribute="label"
-            placeholder="สถานะ"
+            :placeholder="t('studentMyRequests.list.statusPlaceholder')"
             class="w-40"
           />
         </UFieldGroup>
@@ -210,7 +210,7 @@ function handleNewRequest() {
           <UIcon name="i-heroicons-inbox" class="w-8 h-8 " />
         </div>
         <h3 class="font-medium mb-1">
-          ไม่พบข้อมูลคำร้อง
+          {{ t('studentMyRequests.list.emptyTitle') }}
         </h3>
       </div>
       <!-- Pagination Footer -->

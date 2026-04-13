@@ -78,6 +78,7 @@ type WorkflowStep = {
 const route = useRoute();
 const requestId = route.params.id;
 const localePath = useLocalePath();
+const { t, locale } = useI18n();
 const { user } = useUserSession();
 const isLoading = ref(true);
 const isSaving = ref(false);
@@ -416,18 +417,18 @@ async function saveFieldValues() {
     });
 
     if (result.success) {
-      successMessage.value = 'Saved successfully!';
+      successMessage.value = t('studentMyRequests.detail.success.saved');
       setTimeout(() => {
         successMessage.value = '';
       }, 3000);
     }
     else {
-      error.value = (result.error as string) || 'Failed to save';
+      error.value = (result.error as string) || t('studentMyRequests.detail.errors.saveFailed');
     }
   }
   catch (err: any) {
     console.error('Error saving field values:', err);
-    error.value = err?.message || 'Failed to save field values';
+    error.value = err?.message || t('studentMyRequests.detail.errors.saveFailed');
   }
   finally {
     isSaving.value = false;
@@ -459,7 +460,7 @@ async function submitRequest() {
     });
 
     if (!pdfResult.success) {
-      error.value = 'Failed to generate PDF';
+      error.value = t('studentMyRequests.detail.errors.generatePdfFailed');
       return;
     }
 
@@ -476,12 +477,12 @@ async function submitRequest() {
       navigateTo(localePath('/student/my-requests'));
     }
     else {
-      error.value = (updateResult.error as string) || 'Failed to submit request';
+      error.value = (updateResult.error as string) || t('studentMyRequests.detail.errors.submitFailed');
     }
   }
   catch (err: any) {
     console.error('Error submitting request:', err);
-    error.value = err?.message || 'Failed to submit request';
+    error.value = err?.message || t('studentMyRequests.detail.errors.submitFailed');
   }
   finally {
     isSaving.value = false;
@@ -650,7 +651,7 @@ function schedulePreviewRefresh() {
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '—';
-  return new Date(dateStr).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 type BadgeColor = 'success' | 'error' | 'primary' | 'secondary' | 'info' | 'warning' | 'neutral';
@@ -664,13 +665,13 @@ const _statusColorMap: Record<string, BadgeColor> = {
   completed: 'success',
 };
 const _statusLabelMap: Record<string, string> = {
-  draft: 'ร่าง',
-  submitted: 'รอดำเนินการ',
-  pending_signature: 'รอลงนาม',
-  pending: 'รอดำเนินการ',
-  in_progress: 'กำลังดำเนินการ',
-  rejected: 'ปฏิเสธ',
-  completed: 'สำเร็จแล้ว',
+  draft: t('studentMyRequests.detail.statusLabel.draft'),
+  submitted: t('studentMyRequests.detail.statusLabel.submitted'),
+  pending_signature: t('studentMyRequests.detail.statusLabel.pendingSignature'),
+  pending: t('studentMyRequests.detail.statusLabel.pending'),
+  in_progress: t('studentMyRequests.detail.statusLabel.inProgress'),
+  rejected: t('studentMyRequests.detail.statusLabel.rejected'),
+  completed: t('studentMyRequests.detail.statusLabel.completed'),
 };
 const statusColor = computed<BadgeColor>(() => _statusColorMap[requestData.value?.status ?? ''] ?? 'neutral');
 const statusLabel = computed(() => _statusLabelMap[requestData.value?.status ?? ''] ?? (requestData.value?.status ?? '—'));
@@ -699,7 +700,7 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
       title: String(step.assignedUserName ?? '').trim() || step.roleName,
       status,
       icon: 'i-heroicons-user-circle',
-      subtitle: `บทบาท: ${step.roleName}`,
+      subtitle: `${t('studentMyRequests.detail.rolePrefix')}: ${step.roleName}`,
     };
   });
 });
@@ -750,7 +751,7 @@ async function handleFileUpload(event: Event) {
   // Validate file size (max 30MB)
   const maxSize = 30 * 1024 * 1024;
   if (file.size > maxSize) {
-    error.value = 'ขนาดไฟล์ต้องไม่เกิน 30 MB';
+    error.value = t('studentMyRequests.detail.errors.fileSizeLimit');
     return;
   }
 
@@ -769,18 +770,18 @@ async function handleFileUpload(event: Event) {
     if (result.success && result.data) {
       // Add new attachment to list
       attachments.value.push(result.data);
-      successMessage.value = 'File uploaded successfully!';
+      successMessage.value = t('studentMyRequests.detail.success.fileUploaded');
       setTimeout(() => {
         successMessage.value = '';
       }, 3000);
     }
     else {
-      error.value = 'Failed to upload file';
+      error.value = t('studentMyRequests.detail.errors.uploadFailed');
     }
   }
   catch (err: any) {
     console.error('Error uploading file:', err);
-    error.value = err?.message || 'Failed to upload file';
+    error.value = err?.message || t('studentMyRequests.detail.errors.uploadFailed');
   }
   finally {
     isUploadingAttachment.value = false;
@@ -794,7 +795,7 @@ async function handleFileUpload(event: Event) {
 // Delete attachment
 async function deleteAttachment(attachmentId: number) {
   // eslint-disable-next-line no-alert
-  if (!confirm('Are you sure you want to delete this file?')) {
+  if (!confirm(t('studentMyRequests.detail.confirm.deleteFile'))) {
     return;
   }
 
@@ -809,18 +810,18 @@ async function deleteAttachment(attachmentId: number) {
     if (result.success) {
       // Remove from list
       attachments.value = attachments.value.filter(a => a.id !== attachmentId);
-      successMessage.value = 'File deleted successfully!';
+      successMessage.value = t('studentMyRequests.detail.success.fileDeleted');
       setTimeout(() => {
         successMessage.value = '';
       }, 3000);
     }
     else {
-      error.value = 'Failed to delete file';
+      error.value = t('studentMyRequests.detail.errors.deleteFailed');
     }
   }
   catch (err: any) {
     console.error('Error deleting attachment:', err);
-    error.value = err?.message || 'Failed to delete file';
+    error.value = err?.message || t('studentMyRequests.detail.errors.deleteFailed');
   }
   finally {
     isDeletingAttachment.value = null;
@@ -909,17 +910,17 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <UBreadcrumb
           :links="[
-            { label: 'คำร้องของฉัน', to: localePath('/student/my-requests') },
+            { label: t('studentMyRequests.detail.breadcrumb'), to: localePath('/student/my-requests') },
             { label: templateData?.name || `#${requestId}` },
           ]"
         />
         <div class="mt-4 flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">
-              {{ templateData?.name || 'รายละเอียดคำร้อง' }}
+              {{ templateData?.name || t('studentMyRequests.detail.titleFallback') }}
             </h1>
             <p class="mt-1 text-sm text-gray-500">
-              ติดตามสถานะและรายละเอียดคำร้อง
+              {{ t('studentMyRequests.detail.subtitle') }}
             </p>
           </div>
           <div class="flex gap-2">
@@ -927,7 +928,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               variant="ghost" color="neutral" icon="i-heroicons-arrow-left"
               :to="localePath('/student/my-requests')"
             >
-              กลับ
+              {{ t('studentMyRequests.detail.back') }}
             </UButton>
           </div>
         </div>
@@ -941,7 +942,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
         <div class="text-center">
           <UIcon name="i-heroicons-arrow-path" class="text-4xl text-gray-400 mb-4 animate-spin" />
           <p class="text-gray-500">
-            กำลังโหลด...
+            {{ t('studentMyRequests.detail.loading') }}
           </p>
         </div>
       </div>
@@ -954,7 +955,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
             {{ error }}
           </p>
           <UButton :to="localePath('/student/my-requests')">
-            กลับไปยังคำร้องของฉัน
+            {{ t('studentMyRequests.detail.backToList') }}
           </UButton>
         </div>
       </UCard>
@@ -965,7 +966,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
         <div class="lg:col-span-2 space-y-4">
           <!-- Zoom Controls -->
           <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-2.5">
-            <span class="text-sm font-medium text-gray-500">Zoom:</span>
+            <span class="text-sm font-medium text-gray-500">{{ t('studentMyRequests.detail.zoom') }}:</span>
             <UButton
               icon="i-heroicons-minus" size="xs" variant="ghost" :disabled="scale <= 0.5"
               @click="scale = Math.max(0.5, scale - 0.25)"
@@ -976,7 +977,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               @click="scale = Math.min(3, scale + 0.25)"
             />
             <UButton size="xs" variant="ghost" @click="scale = 1">
-              Reset
+              {{ t('studentMyRequests.detail.reset') }}
             </UButton>
           </div>
 
@@ -992,7 +993,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               :read-only="true" :fill-mode="true" :field-values="fieldValues"
             />
             <div v-if="isRefreshingPreview" class="mt-2 text-xs text-gray-500 text-right">
-              Syncing preview...
+              {{ t('studentMyRequests.detail.syncingPreview') }}
             </div>
           </div>
 
@@ -1003,7 +1004,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
             <div class="text-center">
               <UIcon name="i-heroicons-document" class="w-12 h-12 mb-2 mx-auto opacity-40" />
               <p class="text-sm">
-                ไม่พบไฟล์เอกสาร
+                {{ t('studentMyRequests.detail.noDocumentFile') }}
               </p>
             </div>
           </div>
@@ -1019,13 +1020,13 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
           <UCard v-if="requestData">
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                สถานะคำร้อง
+                {{ t('studentMyRequests.detail.requestStatusTitle') }}
               </h3>
             </template>
             <dl class="space-y-3 text-sm">
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  รหัสคำร้อง
+                  {{ t('studentMyRequests.detail.requestId') }}
                 </dt>
                 <dd class="font-mono font-medium text-gray-900">
                   #{{ requestData.id }}
@@ -1033,7 +1034,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  สถานะ
+                  {{ t('studentMyRequests.detail.status') }}
                 </dt>
                 <dd>
                   <UBadge :color="statusColor" variant="subtle">
@@ -1043,7 +1044,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  ยื่นเมื่อ
+                  {{ t('studentMyRequests.detail.submittedAt') }}
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.createdAt) }}
@@ -1051,7 +1052,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               </div>
               <div v-if="requestData.submittedAt" class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  อัปเดตเมื่อ
+                  {{ t('studentMyRequests.detail.updatedAt') }}
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.submittedAt) }}
@@ -1059,7 +1060,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               </div>
               <div v-if="requestData.note" class="flex flex-col gap-1.5 mt-2">
                 <dt class="text-gray-500 font-medium">
-                  หมายเหตุ
+                  {{ t('studentMyRequests.detail.note') }}
                 </dt>
                 <dd class="text-sm bg-gray-50 rounded border border-gray-200 px-3 py-2 text-gray-800">
                   {{ requestData.note }}
@@ -1072,18 +1073,18 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
           <UCard v-if="signingStatus && workflowSteps.length > 0">
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Order of signing
+                {{ t('studentMyRequests.detail.timelineTitle') }}
               </h3>
             </template>
 
             <UAlert
               v-if="signingStatus.status === 'rejected' && signingStatus.note" icon="i-heroicons-x-circle"
-              color="error" variant="soft" :title="`ปฏิเสธ: ${signingStatus.note}`" class="mb-3"
+              color="error" variant="soft" :title="`${t('studentMyRequests.detail.rejectPrefix')}: ${signingStatus.note}`" class="mb-3"
             />
 
             <UAlert
               v-else-if="hasLocalRejectedSteps" icon="i-heroicons-information-circle" color="warning"
-              variant="soft" title="มีบางขั้นตอนถูกปฏิเสธ แต่คำร้องยังดำเนินการต่อ" class="mb-3"
+              variant="soft" :title="t('studentMyRequests.detail.localRejectedWarning')" class="mb-3"
             />
 
             <div class="space-y-0">
@@ -1122,22 +1123,22 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                       v-if="step.status === 'completed'" color="success" variant="subtle" size="xs"
                       class="mt-1.5"
                     >
-                      Signed
+                      {{ t('studentMyRequests.detail.timelineStatus.signed') }}
                     </UBadge>
                     <UBadge
                       v-else-if="step.status === 'in-progress'" color="info" variant="subtle" size="xs"
                       class="mt-1.5"
                     >
-                      In Progress
+                      {{ t('studentMyRequests.detail.timelineStatus.inProgress') }}
                     </UBadge>
                     <UBadge
                       v-else-if="step.status === 'rejected'" color="error" variant="subtle" size="xs"
                       class="mt-1.5"
                     >
-                      Rejected
+                      {{ t('studentMyRequests.detail.timelineStatus.rejected') }}
                     </UBadge>
                     <UBadge v-else color="neutral" variant="subtle" size="xs" class="mt-1.5">
-                      Pending
+                      {{ t('studentMyRequests.detail.timelineStatus.pending') }}
                     </UBadge>
                   </div>
                 </div>
@@ -1156,13 +1157,13 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
             <template #header>
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  ไฟล์แนบ
+                  {{ t('studentMyRequests.detail.attachments.title') }}
                 </h3>
                 <UButton
                   v-if="requestData?.status === 'draft'" size="xs" color="primary" variant="soft"
                   icon="i-heroicons-paper-clip" :loading="isUploadingAttachment" @click="triggerFileUpload"
                 >
-                  เพิ่มไฟล์
+                  {{ t('studentMyRequests.detail.attachments.addFile') }}
                 </UButton>
               </div>
             </template>
@@ -1180,7 +1181,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                     {{ attachment.fileName }}
                   </p>
                   <p class="text-xs text-gray-500">
-                    {{ new Date(attachment.createdAt).toLocaleDateString('th-TH') }}
+                    {{ new Date(attachment.createdAt).toLocaleDateString(locale === 'th' ? 'th-TH' : 'en-US') }}
                   </p>
                 </div>
                 <div class="flex items-center gap-1.5">
@@ -1188,7 +1189,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                     size="xs" variant="ghost" icon="i-heroicons-eye"
                     @click="attachment.fileUrl ? openPdfInNewTab(attachment.fileUrl) : undefined"
                   >
-                    ดู
+                    {{ t('studentMyRequests.detail.attachments.view') }}
                   </UButton>
                   <UButton
                     v-if="requestData?.status === 'draft'" size="xs" variant="ghost" color="error"
@@ -1204,7 +1205,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               >
                 <UIcon name="i-heroicons-paper-clip" class="w-8 h-8 mx-auto mb-1.5 opacity-40" />
                 <p class="text-sm">
-                  ยังไม่มีไฟล์แนบ
+                  {{ t('studentMyRequests.detail.attachments.empty') }}
                 </p>
               </div>
 
@@ -1213,7 +1214,7 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                 class="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg"
               >
                 <UIcon name="i-heroicons-arrow-path" class="animate-spin text-blue-500 w-4 h-4" />
-                <span class="text-sm text-blue-700">กำลังอัปโหลด...</span>
+                <span class="text-sm text-blue-700">{{ t('studentMyRequests.detail.attachments.uploading') }}</span>
               </div>
             </div>
           </UCard>
@@ -1225,20 +1226,20 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                 block color="primary" size="lg" icon="i-heroicons-document-check" :loading="isSaving"
                 :disabled="!canSaveOrSubmitDraft" @click="saveFieldValues"
               >
-                บันทึก
+                {{ t('studentMyRequests.detail.actions.save') }}
               </UButton>
               <UButton
                 block color="success" size="lg" icon="i-heroicons-paper-airplane" :loading="isSaving"
                 :disabled="!canSaveOrSubmitDraft" @click="submitRequest"
               >
-                ยืนยันการยื่นคำร้อง
+                {{ t('studentMyRequests.detail.actions.submit') }}
               </UButton>
             </template>
             <UButton
               block variant="outline" color="neutral" icon="i-heroicons-arrow-left"
               :to="localePath('/student/my-requests')"
             >
-              กลับไปยังคำร้องของฉัน
+              {{ t('studentMyRequests.detail.actions.backToList') }}
             </UButton>
           </div>
         </div>
