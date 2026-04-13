@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  title: 'dashboard',
+  title: 'signerDashboard.title',
   middleware: ['permission'],
   permission: 'dashboard.signer.view',
 });
@@ -8,6 +8,7 @@ definePageMeta({
 const localePath = useLocalePath();
 const router = useRouter();
 const authStore = useAuthStore();
+const { t } = useI18n();
 
 // === Types ===
 type NotificationType = 'sign_request' | 'signed' | 'completed' | 'rejected';
@@ -61,10 +62,10 @@ const UBadge = resolveComponent('UBadge');
 const UIcon = resolveComponent('UIcon');
 
 const notifTypeLabel: Record<NotificationType, string> = {
-  sign_request: 'รอลงนาม',
-  signed: 'ลงนามแล้ว',
-  rejected: 'ปฏิเสธ',
-  completed: 'เสร็จสมบูรณ์',
+  sign_request: t('signerDashboard.notifications.types.signRequest'),
+  signed: t('signerDashboard.notifications.types.signed'),
+  rejected: t('signerDashboard.notifications.types.rejected'),
+  completed: t('signerDashboard.notifications.types.completed'),
 };
 
 const notifTypeColor: Record<NotificationType, string> = {
@@ -91,11 +92,11 @@ const columns = [
   },
   {
     accessorKey: 'message',
-    header: 'ข้อความ',
+    header: t('signerDashboard.notifications.table.message'),
   },
   {
     accessorKey: 'type',
-    header: 'ประเภท',
+    header: t('signerDashboard.notifications.table.type'),
     cell: (ctx: any) => {
       const isRead = ctx.row.original.isRead;
       return h(UBadge, {
@@ -108,7 +109,7 @@ const columns = [
   },
   {
     accessorKey: 'createdAt',
-    header: 'เวลา',
+    header: t('signerDashboard.notifications.table.time'),
   },
   {
     id: 'navigate',
@@ -132,12 +133,12 @@ function formatRelativeTime(dateStr: string): string {
   const hours = Math.floor(mins / 60);
   const days = Math.floor(hours / 24);
   if (mins < 1)
-    return 'เมื่อกี้';
+    return t('justNow');
   if (mins < 60)
-    return `${mins} นาทีที่แล้ว`;
+    return t('minutesAgo', { count: mins });
   if (hours < 24)
-    return `${hours} ชั่วโมงที่แล้ว`;
-  return `${days} วันที่แล้ว`;
+    return t('hoursAgo', { count: hours });
+  return t('daysAgo', { count: days });
 }
 
 async function onRowSelect(_e: Event, row: any) {
@@ -182,10 +183,10 @@ async function markAllRead() {
         <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <h2 class="text-2xl font-bold mb-2">
-              ระบบจัดการเอกสาร
+              {{ $t('signerDashboard.banner.title') }}
             </h2>
             <p class="text-white/90 max-w-lg">
-              ตรวจสอบและลงนามเอกสารคำร้องของนิสิต ติดตามสถานะได้ตลอด 24 ชม.
+              {{ $t('signerDashboard.banner.description') }}
             </p>
           </div>
         </div>
@@ -198,7 +199,7 @@ async function markAllRead() {
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-bell" class="text-gray-400 w-5 h-5" />
               <h3 class="font-semibold text-gray-800">
-                การแจ้งเตือน
+                {{ $t('signerDashboard.notifications.title') }}
               </h3>
               <UBadge
                 v-if="unreadCount > 0"
@@ -212,7 +213,7 @@ async function markAllRead() {
               v-if="unreadCount > 0"
               variant="link"
               color="primary"
-              label="อ่านทั้งหมด"
+              :label="$t('signerDashboard.notifications.readAll')"
               :padded="false"
               @click="markAllRead"
             />
@@ -223,7 +224,7 @@ async function markAllRead() {
           :data="notifications"
           :columns="columns"
           class="w-full"
-          empty="ไม่มีการแจ้งเตือน"
+          :empty="$t('signerDashboard.notifications.empty')"
           :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
           @select="onRowSelect"
         >
@@ -262,10 +263,10 @@ async function markAllRead() {
           </div>
           <div>
             <h4 class="font-semibold text-gray-800 text-sm">
-              รายการรอลงนาม
+              {{ $t('signerDashboard.quickLinks.toSign.title') }}
             </h4>
             <p class="text-xs text-gray-500 mt-1">
-              ดูเอกสารทั้งหมดที่รอการลงนามของคุณ
+              {{ $t('signerDashboard.quickLinks.toSign.description') }}
             </p>
           </div>
         </div>
@@ -278,10 +279,10 @@ async function markAllRead() {
           </div>
           <div>
             <h4 class="font-semibold text-gray-800 text-sm">
-              ประวัติการลงนาม
+              {{ $t('signerDashboard.quickLinks.signedHistory.title') }}
             </h4>
             <p class="text-xs text-gray-500 mt-1">
-              เอกสารที่คุณเคยลงนามหรือปฏิเสธทั้งหมด
+              {{ $t('signerDashboard.quickLinks.signedHistory.description') }}
             </p>
           </div>
         </div>

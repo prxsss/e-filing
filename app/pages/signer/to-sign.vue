@@ -2,7 +2,7 @@
 import type { TableRow } from '@nuxt/ui';
 
 definePageMeta({
-  title: 'toSign',
+  title: 'signerToSign.title',
   middleware: ['permission'],
   permission: 'request.to_sign.view',
 });
@@ -29,9 +29,7 @@ type SigningTask = {
 // const authStore = useAuthStore();
 
 const router = useRouter();
-// const { locale } = useI18n();
-
-// const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const { data, status, refresh } = await useFetch<{ success: boolean; data: SigningTask[] }>(
   '/api/requests/for-signing',
@@ -52,10 +50,12 @@ const tableData = computed(() =>
     ...task,
     id: task.flowId,
     studentName: task.studentNameTh || task.studentNameEn || '-',
-    templateName: task.request?.templateName ?? 'เอกสาร',
+    templateName: task.request?.templateName ?? t('signerToSign.table.defaultDocument'),
     submittedAt: task.request?.submittedAt ?? null,
     status: task.request?.status ?? '',
-    stepInfo: `${task.roleDescriptionTh}`,
+    stepInfo: locale.value === 'th'
+      ? (task.roleDescriptionTh ?? task.roleDescriptionEn ?? '-')
+      : (task.roleDescriptionEn ?? task.roleDescriptionTh ?? '-'),
     studentId: task.request?.userId ?? '-',
   })),
 );
@@ -91,7 +91,7 @@ const total = computed(() => filteredTasks.value.length);
 function formatDate(dateStr: string | null) {
   if (!dateStr)
     return '-';
-  return new Date(dateStr).toLocaleDateString('th-TH', {
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -102,7 +102,7 @@ function formatDate(dateStr: string | null) {
 
 const UIcon = resolveComponent('UIcon');
 
-const columns: any[] = [
+const columns = computed<any[]>(() => [
   {
     id: 'rowNumber',
     header: '#',
@@ -112,11 +112,11 @@ const columns: any[] = [
       return ((page.value - 1) * pageCount) + index + 1;
     },
   },
-  { accessorKey: 'studentId', header: 'รหัสนิสิต' },
-  { accessorKey: 'studentName', header: 'ชื่อนิสิต' },
-  { accessorKey: 'templateName', header: 'เอกสาร', size: 420 },
-  { accessorKey: 'stepInfo', header: 'ขั้นตอน' },
-  { accessorKey: 'submittedAt', header: 'วันที่ยื่น' },
+  { accessorKey: 'studentId', header: t('signerToSign.table.studentId') },
+  { accessorKey: 'studentName', header: t('signerToSign.table.studentName') },
+  { accessorKey: 'templateName', header: t('signerToSign.table.document'), size: 420 },
+  { accessorKey: 'stepInfo', header: t('signerToSign.table.step') },
+  { accessorKey: 'submittedAt', header: t('signerToSign.table.submittedDate') },
   {
     id: 'navigate',
     header: '',
@@ -127,7 +127,7 @@ const columns: any[] = [
         class: 'w-5 h-5 text-gray-400',
       }),
   },
-];
+]);
 
 function onRowSelect(_e: Event, row: TableRow<any>) {
   router.push(`/signer/sign/${row.original.requestId}`);
@@ -140,10 +140,10 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">
-          รอลงนาม
+          {{ $t('signerToSign.header.title') }}
         </h1>
         <p class="text-sm text-slate-500 mt-1">
-          เอกสารที่รอการลงนามของคุณ
+          {{ $t('signerToSign.header.description') }}
         </p>
       </div>
       <UButton
@@ -154,7 +154,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         :loading="status === 'pending'"
         @click="() => refresh()"
       >
-        รีเฟรช
+        {{ $t('signerToSign.actions.refresh') }}
       </UButton>
     </div>
 
@@ -163,8 +163,8 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         <UInput
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
-          placeholder="ค้นหาตามชื่อเอกสาร นิสิต หรือขั้นตอน..."
-          class="w-full sm:w-80"
+          :placeholder="$t('signerToSign.searchPlaceholder')"
+          class="w-full sm:w-90"
         />
       </div>
 
@@ -201,10 +201,10 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           <UIcon name="i-lucide-inbox" class="w-8 h-8 text-slate-300" />
         </div>
         <h3 class="font-semibold text-slate-800 mb-2">
-          ไม่มีเอกสารรอลงนาม
+          {{ $t('signerToSign.emptyState.title') }}
         </h3>
         <p class="text-sm text-slate-500">
-          เมื่อมีเอกสารรอลงนาม จะแสดงที่นี่
+          {{ $t('signerToSign.emptyState.description') }}
         </p>
       </div>
 

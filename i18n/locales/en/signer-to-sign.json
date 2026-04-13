@@ -1,0 +1,154 @@
+{
+  "signerToSign": {
+    "title": "To Sign",
+    "header": {
+      "title": "Awaiting Signature",
+      "description": "Requests waiting for your signature"
+    },
+    "actions": {
+      "refresh": "Refresh"
+    },
+    "searchPlaceholder": "Search by request name, student, or step...",
+    "table": {
+      "defaultDocument": "Request",
+      "studentId": "Student ID",
+      "studentName": "Student Name",
+      "document": "Request",
+      "step": "Step",
+      "submittedDate": "Submitted Date"
+    },
+    "emptyState": {
+      "title": "No requests awaiting signature",
+      "description": "Requests waiting for your signature will appear here"
+    }
+  },
+  "signerSignDetail": {
+    "title": "Sign Request",
+    "breadcrumb": {
+      "list": "To Sign",
+      "requestNumber": "Request #{id}"
+    },
+    "header": {
+      "defaultTitle": "Sign Document",
+      "requestAndHint": "Request #{id} - Review on the left, proceed on the right"
+    },
+    "loading": "Loading document...",
+    "preview": {
+      "updating": "Updating preview...",
+      "openInNewTab": "Open in new tab",
+      "empty": "No PDF available for preview"
+    },
+    "signFlow": {
+      "title": "Signing Flow"
+    },
+    "fieldsToFill": {
+      "title": "Required Information"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "empty": "No attachments",
+      "unnamed": "Unnamed file",
+      "previewNotAvailable": "This file cannot be previewed",
+      "actions": {
+        "preview": "Preview",
+        "openNew": "Open in new tab",
+        "download": "Download file"
+      }
+    },
+    "signature": {
+      "alertTitle": "Signature is required for this step",
+      "alertDescription": "Step {step} ({roles}) - click the button below to open the signature pad",
+      "sectionTitle": "Signature",
+      "helper": "Use your saved signature or open the pad to draw/edit a signature",
+      "useSaved": "Use saved signature",
+      "drawOrEdit": "Draw/Edit signature",
+      "openPad": "Open signature pad",
+      "submitError": "Please select a saved signature or draw and confirm your signature before submitting",
+      "usingSaved": "Using saved signature. Submit to continue, or draw a new one to change it",
+      "confirmed": "Signature confirmed. Submit to continue",
+      "saveForNextTime": "Save this signature for next time",
+      "clearConfirmed": "Clear confirmed signature",
+      "popupTitle": "Sign - Step {step} ({roles})",
+      "popupHint": "Sign in the box below and confirm"
+    },
+    "actions": {
+      "backToList": "Back to To Sign list",
+      "reject": "Reject",
+      "rejectWithSignature": "Sign Rejection",
+      "signAndContinue": "Sign and Continue",
+      "confirmAndContinue": "Confirm and Continue"
+    },
+    "rejectDialog": {
+      "title": "Reject Signing",
+      "titleWithData": "Reject with Saved Data",
+      "description": "Step {step} ({roles}) - please provide a reason for rejection",
+      "reasonPlaceholder": "Provide a reason, e.g., incorrect information / incomplete document...",
+      "reasonErrorMessage": "Please provide a rejection reason",
+      "confirm": "Confirm rejection"
+    },
+    "toast": {
+      "signatureSavedTitle": "Signature saved",
+      "signatureSavedDescription": "You can reuse this signature for your next signing",
+      "signatureSaveFailedTitle": "Failed to save signature",
+      "incompleteDataTitle": "Incomplete data",
+      "noFieldValueForModeTitle": "No field value for this mode",
+      "noFieldValueForModeDescription": "Please fill in at least one field before rejecting with saved data",
+      "signatureRequiredTitle": "Signature is required",
+      "signatureRequiredDescription": "Please choose a saved signature or draw one before rejecting with saved data",
+      "rejectWithDataLocalTitle": "Rejected with signature and field data",
+      "rejectWithDataGlobalTitle": "Request rejected with saved data",
+      "rejectLocalTitle": "Your step has been rejected",
+      "rejectTitle": "Signing rejected",
+      "rejectLocalCompletedDescription": "Your step was rejected and the request is now completed",
+      "rejectLocalForwardedDescription": "Your step was rejected and forwarded to {role}",
+      "rejectLocalContinuesDescription": "Your step was rejected and the request continues",
+      "rejectDescription": "The request has been rejected"
+    },
+    "success": {
+      "completedWithoutSignature": "Completed successfully! The document is complete.",
+      "completedWithSignature": "Signed successfully! The document is complete.",
+      "forwardedWithoutSignature": "Processed successfully! Forwarded to {role}.",
+      "forwardedWithSignature": "Signed successfully! Forwarded to {role}.",
+      "nextStepFallback": "the next step"
+    },
+    "status": {
+      "waiting": "Waiting",
+      "pending": "Awaiting Signature",
+      "signed": "Signed",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "validation": {
+      "fieldRequired": "This field is required",
+      "checkboxRequired": "You must select this option",
+      "completeAllFieldsBeforeRejectWithData": "Please complete all fields before rejecting with signed data"
+    },
+    "rejected": {
+      "title": "Request Rejected",
+      "reasonPrefix": "Reason",
+      "description": "This request was rejected by a signer"
+    },
+    "completed": {
+      "title": "Document Completed",
+      "description": "All signing steps are completed",
+      "download": "Download document"
+    },
+    "notYourTurn": {
+      "title": "Not your turn yet",
+      "description": "Waiting for previous steps to complete"
+    },
+    "errors": {
+      "loadData": "Unable to load data",
+      "loadSigningStatus": "Failed to load signing status",
+      "loadDocument": "Failed to load document",
+      "saveFieldValuesFailed": "Unable to save field values",
+      "saveFieldValuesError": "Error while saving field values",
+      "loadSavedSignatureFailed": "Failed to load saved signature",
+      "saveSignatureFailed": "Failed to save signature",
+      "rejectFailed": "Unable to reject request",
+      "signFailed": "Signing failed",
+      "processFailed": "Processing failed",
+      "generic": "An error occurred"
+    }
+  }
+}

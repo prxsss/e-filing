@@ -1,0 +1,118 @@
+{
+  "signerSignedHistory": {
+    "title": "Signed History",
+    "header": {
+      "title": "Signing History",
+      "description": "Requests you have signed or rejected"
+    },
+    "actions": {
+      "refresh": "Refresh",
+      "viewPdf": "View PDF",
+      "status": {
+        "signed": "Signed",
+        "rejected": "Rejected"
+      }
+    },
+    "searchPlaceholder": "Search by ID or request name",
+    "filters": {
+      "allActions": "All",
+      "actionPlaceholder": "Action result"
+    },
+    "table": {
+      "defaultDocument": "Request",
+      "studentId": "Student ID",
+      "studentName": "Student Name",
+      "documentName": "Request Name",
+      "actionResult": "Action Result",
+      "requestStatus": "Request Status",
+      "actionDate": "Action Date"
+    },
+    "requestStatus": {
+      "completed": "Completed",
+      "inProgress": "In Progress",
+      "rejected": "Rejected",
+      "submitted": "Submitted",
+      "draft": "Draft"
+    },
+    "emptyState": {
+      "title": "No signing history yet",
+      "description": "Signed or rejected requests will appear here"
+    }
+  },
+  "signerSignedHistoryDetail": {
+    "header": {
+      "defaultTitle": "Sign Document",
+      "requestNumber": "Request #{id}"
+    },
+    "signFlow": {
+      "title": "Signing Flow"
+    },
+    "status": {
+      "waiting": "Waiting",
+      "pending": "Awaiting Signature",
+      "signed": "Signed",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "empty": "No attachments",
+      "unnamed": "Unnamed file",
+      "previewNotAvailable": "This file cannot be previewed",
+      "actions": {
+        "preview": "Preview",
+        "openNew": "Open in new tab",
+        "download": "Download file"
+      }
+    },
+    "document": {
+      "title": "Document",
+      "openInNewTab": "Open in new tab"
+    },
+    "signature": {
+      "title": "Sign - Step {step} ({role})",
+      "description": "Draw your signature in the box below and confirm.",
+      "submit": "Submit signature and continue",
+      "reject": "Reject signing"
+    },
+    "rejectDialog": {
+      "title": "Reject Signing",
+      "description": "Step {step} ({role}) - please provide a reason for rejection",
+      "reasonPlaceholder": "Provide a reason, for example: incorrect information / incomplete document...",
+      "reasonErrorMessage": "Please provide a rejection reason",
+      "confirm": "Confirm rejection"
+    },
+    "toast": {
+      "rejectedTitle": "Signing rejected",
+      "rejectedDescription": "The request has been rejected"
+    },
+    "success": {
+      "completed": "Signed successfully! The request is fully completed.",
+      "forwarded": "Signed successfully! Forwarded to {role}.",
+      "nextStepFallback": "the next step"
+    },
+    "rejected": {
+      "title": "Request Rejected",
+      "reasonPrefix": "Reason",
+      "description": "This request was rejected by a signer"
+    },
+    "completed": {
+      "title": "Request Completed",
+      "description": "All signing steps are completed.",
+      "download": "Download document"
+    },
+    "notYourTurn": {
+      "title": "Not your turn yet",
+      "description": "Waiting for previous steps to complete"
+    },
+    "errors": {
+      "loadSigningStatus": "Failed to load signing status",
+      "loadDocument": "Failed to load document",
+      "loadDocumentTitle": "Unable to load document",
+      "rejectFailed": "Unable to reject request",
+      "signFailed": "Signing failed",
+      "signatureRequired": "Please provide a signature first",
+      "generic": "An error occurred"
+    }
+  }
+}

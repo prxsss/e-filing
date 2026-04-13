@@ -1,0 +1,154 @@
+{
+  "signerToSign": {
+    "title": "รายการที่ต้องเซ็น",
+    "header": {
+      "title": "รอลงนาม",
+      "description": "เอกสารที่รอการลงนามของคุณ"
+    },
+    "actions": {
+      "refresh": "รีเฟรช"
+    },
+    "searchPlaceholder": "ค้นหาตามชื่อเอกสาร นิสิต หรือขั้นตอน...",
+    "table": {
+      "defaultDocument": "เอกสาร",
+      "studentId": "รหัสนิสิต",
+      "studentName": "ชื่อนิสิต",
+      "document": "เอกสาร",
+      "step": "ขั้นตอน",
+      "submittedDate": "วันที่ยื่น"
+    },
+    "emptyState": {
+      "title": "ไม่มีเอกสารรอลงนาม",
+      "description": "เมื่อมีเอกสารรอลงนาม จะแสดงที่นี่"
+    }
+  },
+  "signerSignDetail": {
+    "title": "เซ็นคำร้อง",
+    "breadcrumb": {
+      "list": "รายการที่ต้องลงนาม",
+      "requestNumber": "คำร้อง #{id}"
+    },
+    "header": {
+      "defaultTitle": "ลงนามเอกสาร",
+      "requestAndHint": "คำร้อง #{id} - ดูเอกสารด้านซ้าย ดำเนินการด้านขวา"
+    },
+    "loading": "กำลังโหลดเอกสาร...",
+    "preview": {
+      "updating": "กำลังอัปเดต preview...",
+      "openInNewTab": "เปิดในแท็บใหม่",
+      "empty": "ยังไม่มีไฟล์ PDF สำหรับแสดงตัวอย่าง"
+    },
+    "signFlow": {
+      "title": "ลำดับการลงนาม"
+    },
+    "fieldsToFill": {
+      "title": "ข้อมูลที่ต้องกรอก"
+    },
+    "attachments": {
+      "title": "เอกสารแนบ",
+      "empty": "ไม่มีเอกสารแนบ",
+      "unnamed": "ไม่ระบุชื่อ",
+      "previewNotAvailable": "ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้",
+      "actions": {
+        "preview": "ดูไฟล์",
+        "openNew": "เปิดใหม่",
+        "download": "ดาวน์โหลดไฟล์"
+      }
+    },
+    "signature": {
+      "alertTitle": "ต้องลงลายเซ็นในขั้นตอนนี้",
+      "alertDescription": "ขั้นตอนที่ {step} ({roles}) - กดปุ่มด้านล่างเพื่อเปิดกล่องเซ็นลายมือชื่อ",
+      "sectionTitle": "ลงลายเซ็น",
+      "helper": "เลือกใช้ลายเซ็นที่บันทึกไว้ หรือเปิดกล่องเพื่อวาด/แก้ไขลายเซ็น",
+      "useSaved": "ใช้ลายเซ็นที่บันทึกไว้",
+      "drawOrEdit": "วาด/แก้ไขลายเซ็นใหม่",
+      "openPad": "เปิดกล่องเซ็นลายมือชื่อ",
+      "submitError": "กรุณาเลือกลายเซ็นที่บันทึกไว้ หรือวาดลายเซ็นและกดยืนยันในกล่อง ก่อนกดส่ง",
+      "usingSaved": "กำลังใช้ลายเซ็นที่บันทึกไว้ กดส่งเพื่อดำเนินการต่อ หรือวาดใหม่หากต้องการแก้ไข",
+      "confirmed": "ยืนยันลายเซ็นแล้ว กดส่งเพื่อดำเนินการต่อ",
+      "saveForNextTime": "บันทึกลายเซ็นนี้ไว้ใช้ครั้งถัดไป",
+      "clearConfirmed": "ล้างลายเซ็นที่ยืนยันแล้ว",
+      "popupTitle": "เซ็นลายเซ็น - ขั้นตอนที่ {step} ({roles})",
+      "popupHint": "เซ็นในช่องด้านล่าง แล้วกดยืนยัน"
+    },
+    "actions": {
+      "backToList": "กลับไปรายการที่ต้องลงนาม",
+      "reject": "ปฏิเสธ",
+      "rejectWithSignature": "ลงนามปฏิเสธ",
+      "signAndContinue": "ลงนามและดำเนินการต่อ",
+      "confirmAndContinue": "ยืนยันและดำเนินการต่อ"
+    },
+    "rejectDialog": {
+      "title": "ปฏิเสธการลงนาม",
+      "titleWithData": "ปฏิเสธพร้อมบันทึกข้อมูล",
+      "description": "ขั้นตอนที่ {step} ({roles}) - กรุณาระบุเหตุผลในการปฏิเสธ",
+      "reasonPlaceholder": "ระบุเหตุผลในการปฏิเสธ เช่น ข้อมูลไม่ถูกต้อง / เอกสารไม่ครบ...",
+      "reasonErrorMessage": "กรุณาระบุเหตุผลในการปฏิเสธ",
+      "confirm": "ยืนยันการปฏิเสธ"
+    },
+    "toast": {
+      "signatureSavedTitle": "บันทึกลายเซ็นแล้ว",
+      "signatureSavedDescription": "คุณสามารถเรียกใช้ลายเซ็นนี้ในการลงนามครั้งถัดไปได้",
+      "signatureSaveFailedTitle": "บันทึกลายเซ็นไม่สำเร็จ",
+      "incompleteDataTitle": "ข้อมูลยังไม่ครบถ้วน",
+      "noFieldValueForModeTitle": "ยังไม่มีค่าฟิลด์สำหรับโหมดนี้",
+      "noFieldValueForModeDescription": "กรุณากรอกข้อมูลอย่างน้อย 1 ฟิลด์ก่อนปฏิเสธพร้อมบันทึกข้อมูล",
+      "signatureRequiredTitle": "ต้องมีลายเซ็นก่อน",
+      "signatureRequiredDescription": "กรุณาเลือกลายเซ็นที่บันทึกไว้ หรือวาดลายเซ็นก่อนปฏิเสธพร้อมบันทึกข้อมูล",
+      "rejectWithDataLocalTitle": "ปฏิเสธพร้อมบันทึกลายเซ็นและฟิลด์แล้ว",
+      "rejectWithDataGlobalTitle": "ปฏิเสธคำร้องพร้อมบันทึกข้อมูลแล้ว",
+      "rejectLocalTitle": "ปฏิเสธส่วนของคุณแล้ว",
+      "rejectTitle": "ปฏิเสธการลงนามแล้ว",
+      "rejectLocalCompletedDescription": "ปฏิเสธในขั้นตอนของคุณแล้ว และคำร้องดำเนินการเสร็จสมบูรณ์",
+      "rejectLocalForwardedDescription": "ปฏิเสธในขั้นตอนของคุณแล้ว ส่งต่อไปยัง {role}",
+      "rejectLocalContinuesDescription": "ปฏิเสธในขั้นตอนของคุณแล้ว คำร้องยังดำเนินการต่อ",
+      "rejectDescription": "คำร้องถูกปฏิเสธเรียบร้อย"
+    },
+    "success": {
+      "completedWithoutSignature": "ดำเนินการสำเร็จ! เอกสารเสร็จสมบูรณ์",
+      "completedWithSignature": "ลงนามสำเร็จ! เอกสารดำเนินการเสร็จสมบูรณ์",
+      "forwardedWithoutSignature": "ดำเนินการสำเร็จ! ส่งต่อไปยัง {role} แล้ว",
+      "forwardedWithSignature": "ลงนามสำเร็จ! ส่งต่อไปยัง {role} แล้ว",
+      "nextStepFallback": "ขั้นตอนถัดไป"
+    },
+    "status": {
+      "waiting": "รอดำเนินการ",
+      "pending": "รอลงนาม",
+      "signed": "ลงนามแล้ว",
+      "rejected": "ปฏิเสธ",
+      "cancelled": "ยกเลิก"
+    },
+    "validation": {
+      "fieldRequired": "จำเป็นต้องตอบคำถามนี้",
+      "checkboxRequired": "จำเป็นต้องเลือกคำตอบนี้",
+      "completeAllFieldsBeforeRejectWithData": "กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม"
+    },
+    "rejected": {
+      "title": "คำร้องถูกปฏิเสธ",
+      "reasonPrefix": "เหตุผล",
+      "description": "คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม"
+    },
+    "completed": {
+      "title": "เอกสารดำเนินการเสร็จสมบูรณ์",
+      "description": "ทุกขั้นตอนการลงนามเสร็จเรียบร้อยแล้ว",
+      "download": "ดาวน์โหลดเอกสาร"
+    },
+    "notYourTurn": {
+      "title": "ยังไม่ถึงคิวของคุณ",
+      "description": "กำลังรอขั้นตอนก่อนหน้าดำเนินการให้เสร็จ"
+    },
+    "errors": {
+      "loadData": "ไม่สามารถโหลดข้อมูลได้",
+      "loadSigningStatus": "ไม่สามารถโหลดสถานะการลงนามได้",
+      "loadDocument": "ไม่สามารถโหลดเอกสารได้",
+      "saveFieldValuesFailed": "ไม่สามารถบันทึกข้อมูลได้",
+      "saveFieldValuesError": "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+      "loadSavedSignatureFailed": "ไม่สามารถโหลดลายเซ็นที่บันทึกไว้ได้",
+      "saveSignatureFailed": "บันทึกลายเซ็นไม่สำเร็จ",
+      "rejectFailed": "ไม่สามารถปฏิเสธคำร้องได้",
+      "signFailed": "ลงนามไม่สำเร็จ",
+      "processFailed": "ดำเนินการไม่สำเร็จ",
+      "generic": "เกิดข้อผิดพลาด"
+    }
+  }
+}

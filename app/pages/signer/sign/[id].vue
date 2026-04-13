@@ -5,7 +5,7 @@ import { isFormFieldRequired } from '~~/shared/form-field-required';
 import { validateVisibleRequiredStudentFields } from '~~/shared/student-visible-required-validation';
 
 definePageMeta({
-  title: 'signDocument',
+  title: 'signerSignDetail.title',
   middleware: ['permission'],
   permission: 'request.sign',
 });
@@ -77,6 +77,7 @@ type RejectMode = 'status_only' | 'with_signature_and_field';
 
 const route = useRoute();
 const requestId = Number(route.params.id);
+const { t } = useI18n();
 
 const overlay = useOverlay();
 const toast = useToast();
@@ -313,8 +314,8 @@ function hasFieldValidationError(field: any): boolean {
 
 function getFieldValidationMessage(field: any): string {
   return isCheckboxField(field)
-    ? 'จำเป็นต้องเลือกคำตอบนี้'
-    : 'จำเป็นต้องตอบคำถามนี้';
+    ? t('signerSignDetail.validation.checkboxRequired')
+    : t('signerSignDetail.validation.fieldRequired');
 }
 
 function getFieldContainerId(field: any): string {
@@ -520,13 +521,13 @@ async function saveSignerFieldValues(): Promise<boolean> {
       { method: 'POST', body: { fieldValues: fieldValuesArray } },
     );
     if (!result.success) {
-      error.value = result.error ?? 'ไม่สามารถบันทึกข้อมูลได้';
+      error.value = result.error ?? t('signerSignDetail.errors.saveFieldValuesFailed');
       return false;
     }
     return true;
   }
   catch (err: any) {
-    error.value = err?.message ?? 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+    error.value = err?.message ?? t('signerSignDetail.errors.saveFieldValuesError');
     return false;
   }
 }
@@ -674,7 +675,7 @@ async function fetchSavedUserSignature() {
       '/api/users/signature',
     );
     if (!result.success) {
-      throw new Error(result.error ?? 'Failed to load saved signature');
+      throw new Error(result.error ?? t('signerSignDetail.errors.loadSavedSignatureFailed'));
     }
     savedUserSignature.value = result.data ?? null;
   }
@@ -712,7 +713,7 @@ async function saveCurrentSignatureForFuture() {
     );
 
     if (!result.success) {
-      throw new Error(result.error ?? 'Failed to save signature');
+      throw new Error(result.error ?? t('signerSignDetail.errors.saveSignatureFailed'));
     }
 
     savedUserSignature.value = result.data;
@@ -720,15 +721,15 @@ async function saveCurrentSignatureForFuture() {
     signatureDataUrl.value = result.data.dataUrl;
     selectedSavedSignatureId.value = result.data.id;
     toast.add({
-      title: 'บันทึกลายเซ็นแล้ว',
-      description: 'คุณสามารถเรียกใช้ลายเซ็นนี้ในการลงนามครั้งถัดไปได้',
+      title: t('signerSignDetail.toast.signatureSavedTitle'),
+      description: t('signerSignDetail.toast.signatureSavedDescription'),
       color: 'success',
     });
   }
   catch (err: any) {
     toast.add({
-      title: 'บันทึกลายเซ็นไม่สำเร็จ',
-      description: err?.message ?? 'เกิดข้อผิดพลาด',
+      title: t('signerSignDetail.toast.signatureSaveFailedTitle'),
+      description: err?.message ?? t('signerSignDetail.errors.generic'),
       color: 'error',
     });
   }
@@ -793,11 +794,11 @@ async function fetchStatus() {
       }
     }
     else {
-      error.value = result.error ?? 'Failed to load signing status';
+      error.value = result.error ?? t('signerSignDetail.errors.loadSigningStatus');
     }
   }
   catch (err: any) {
-    error.value = err?.message ?? 'Failed to load document';
+    error.value = err?.message ?? t('signerSignDetail.errors.loadDocument');
   }
   finally {
     isLoading.value = false;
@@ -856,21 +857,21 @@ function validateAllVisibleSignerFieldsForRejectWithData(): string | null {
         const groupFields = fields.filter(candidate => isCheckboxField(candidate) && getCheckboxGroupId(candidate) === groupId);
         const anyChecked = groupFields.some(candidate => normalizeCheckboxValue(resolveCurrentFieldValue(candidate)) === 'true');
         if (!anyChecked) {
-          return 'กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม';
+          return t('signerSignDetail.validation.completeAllFieldsBeforeRejectWithData');
         }
 
         continue;
       }
 
       if (normalizeCheckboxValue(resolveCurrentFieldValue(field)) !== 'true') {
-        return 'กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม';
+        return t('signerSignDetail.validation.completeAllFieldsBeforeRejectWithData');
       }
 
       continue;
     }
 
     if (!normalizeFieldValue(resolveCurrentFieldValue(field)).length) {
-      return 'กรุณากรอก/เลือกข้อมูลให้ครบทุกฟิลด์ก่อนปฏิเสธแบบลงนาม';
+      return t('signerSignDetail.validation.completeAllFieldsBeforeRejectWithData');
     }
   }
 
@@ -880,13 +881,18 @@ function validateAllVisibleSignerFieldsForRejectWithData(): string | null {
 async function rejectRequest(mode: RejectMode = 'status_only') {
   const pendingRoleNames = Array.from(new Set(currentPendingSteps.value.map(step => step.roleName))).join(', ');
   const instance = confirmDialogWithReason.open({
-    title: mode === 'with_signature_and_field' ? 'ปฏิเสธพร้อมบันทึกข้อมูล' : 'ปฏิเสธการลงนาม',
-    description: `ขั้นตอนที่ ${currentPendingStep.value?.stepOrder ?? '-'} (${pendingRoleNames || '-'}) — กรุณาระบุเหตุผลในการปฏิเสธ`,
+    title: mode === 'with_signature_and_field'
+      ? t('signerSignDetail.rejectDialog.titleWithData')
+      : t('signerSignDetail.rejectDialog.title'),
+    description: t('signerSignDetail.rejectDialog.description', {
+      step: currentPendingStep.value?.stepOrder ?? '-',
+      roles: pendingRoleNames || '-',
+    }),
     reasonRequired: true,
-    reasonPlaceholder: 'ระบุเหตุผลในการปฏิเสธ เช่น ข้อมูลไม่ถูกต้อง / เอกสารไม่ครบ...',
-    reasonErrorMessage: 'กรุณาระบุเหตุผลในการปฏิเสธ',
-    cancelButton: { label: 'ยกเลิก' },
-    confirmButton: { label: 'ยืนยันการปฏิเสธ', color: 'error' },
+    reasonPlaceholder: t('signerSignDetail.rejectDialog.reasonPlaceholder'),
+    reasonErrorMessage: t('signerSignDetail.rejectDialog.reasonErrorMessage'),
+    cancelButton: { label: t('common.actions.cancel') },
+    confirmButton: { label: t('signerSignDetail.rejectDialog.confirm'), color: 'error' },
   });
 
   const result = await instance.result;
@@ -904,7 +910,7 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
     const allFieldsValidationError = validateAllVisibleSignerFieldsForRejectWithData();
     if (allFieldsValidationError) {
       toast.add({
-        title: 'ข้อมูลยังไม่ครบถ้วน',
+        title: t('signerSignDetail.toast.incompleteDataTitle'),
         description: allFieldsValidationError,
         color: 'warning',
       });
@@ -914,8 +920,8 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
     selectedFieldPayload = getFirstEnteredFieldPayload();
     if (!selectedFieldPayload) {
       toast.add({
-        title: 'ยังไม่มีค่าฟิลด์สำหรับโหมดนี้',
-        description: 'กรุณากรอกข้อมูลอย่างน้อย 1 ฟิลด์ก่อนปฏิเสธพร้อมบันทึกข้อมูล',
+        title: t('signerSignDetail.toast.noFieldValueForModeTitle'),
+        description: t('signerSignDetail.toast.noFieldValueForModeDescription'),
         color: 'warning',
       });
       return;
@@ -923,8 +929,8 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
 
     if (!signatureDataUrl.value && !selectedSavedSignatureId.value) {
       toast.add({
-        title: 'ต้องมีลายเซ็นก่อน',
-        description: 'กรุณาเลือกลายเซ็นที่บันทึกไว้ หรือวาดลายเซ็นก่อนปฏิเสธพร้อมบันทึกข้อมูล',
+        title: t('signerSignDetail.toast.signatureRequiredTitle'),
+        description: t('signerSignDetail.toast.signatureRequiredDescription'),
         color: 'error',
       });
       return;
@@ -966,15 +972,19 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
 
       toast.add({
         title: rejectedWithData
-          ? (isLocalReject ? 'ปฏิเสธพร้อมบันทึกลายเซ็นและฟิลด์แล้ว' : 'ปฏิเสธคำร้องพร้อมบันทึกข้อมูลแล้ว')
-          : (isLocalReject ? 'ปฏิเสธส่วนของคุณแล้ว' : 'ปฏิเสธการลงนามแล้ว'),
+          ? (isLocalReject
+              ? t('signerSignDetail.toast.rejectWithDataLocalTitle')
+              : t('signerSignDetail.toast.rejectWithDataGlobalTitle'))
+          : (isLocalReject
+              ? t('signerSignDetail.toast.rejectLocalTitle')
+              : t('signerSignDetail.toast.rejectTitle')),
         description: isLocalReject
           ? (res.data?.status === 'completed'
-              ? 'ปฏิเสธในขั้นตอนของคุณแล้ว และคำร้องดำเนินการเสร็จสมบูรณ์'
+              ? t('signerSignDetail.toast.rejectLocalCompletedDescription')
               : (res.data?.nextRole
-                  ? `ปฏิเสธในขั้นตอนของคุณแล้ว ส่งต่อไปยัง ${res.data.nextRole}`
-                  : 'ปฏิเสธในขั้นตอนของคุณแล้ว คำร้องยังดำเนินการต่อ'))
-          : 'คำร้องถูกปฏิเสธเรียบร้อย',
+                  ? t('signerSignDetail.toast.rejectLocalForwardedDescription', { role: res.data.nextRole })
+                  : t('signerSignDetail.toast.rejectLocalContinuesDescription')))
+          : t('signerSignDetail.toast.rejectDescription'),
         color: isLocalReject ? 'warning' : 'error',
       });
       signatureDataUrl.value = null;
@@ -984,11 +994,11 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
       await fetchStatus();
     }
     else {
-      error.value = res.error ?? 'ไม่สามารถปฏิเสธคำร้องได้';
+      error.value = res.error ?? t('signerSignDetail.errors.rejectFailed');
     }
   }
   catch (err: any) {
-    error.value = err?.message ?? 'เกิดข้อผิดพลาด';
+    error.value = err?.message ?? t('signerSignDetail.errors.generic');
   }
   finally {
     isRejecting.value = false;
@@ -1006,19 +1016,19 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
 
   if (newStatus === 'completed') {
     successMessage.value = noSig
-      ? 'ดำเนินการสำเร็จ! เอกสารเสร็จสมบูรณ์'
-      : 'ลงนามสำเร็จ! เอกสารดำเนินการเสร็จสมบูรณ์';
+      ? t('signerSignDetail.success.completedWithoutSignature')
+      : t('signerSignDetail.success.completedWithSignature');
   }
   else if (newStatus === 'in_progress') {
     successMessage.value = noSig
-      ? `ดำเนินการสำเร็จ! ส่งต่อไปยัง ${data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`
-      : `ลงนามสำเร็จ! ส่งต่อไปยัง ${data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`;
+      ? t('signerSignDetail.success.forwardedWithoutSignature', { role: data?.nextRole ?? t('signerSignDetail.success.nextStepFallback') })
+      : t('signerSignDetail.success.forwardedWithSignature', { role: data?.nextRole ?? t('signerSignDetail.success.nextStepFallback') });
     await fetchStatus();
   }
   else {
     successMessage.value = noSig
-      ? `ดำเนินการสำเร็จ! ส่งต่อไปยัง ${data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`
-      : `ลงนามสำเร็จ! ส่งต่อไปยัง ${data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`;
+      ? t('signerSignDetail.success.forwardedWithoutSignature', { role: data?.nextRole ?? t('signerSignDetail.success.nextStepFallback') })
+      : t('signerSignDetail.success.forwardedWithSignature', { role: data?.nextRole ?? t('signerSignDetail.success.nextStepFallback') });
   }
 
   signatureDataUrl.value = null;
@@ -1094,11 +1104,13 @@ async function submitSignature() {
     }
     else {
       error.value = result.error
-        ?? (hasSignatureField.value && signatureDataUrl.value ? 'ลงนามไม่สำเร็จ' : 'ดำเนินการไม่สำเร็จ');
+        ?? (hasSignatureField.value && signatureDataUrl.value
+          ? t('signerSignDetail.errors.signFailed')
+          : t('signerSignDetail.errors.processFailed'));
     }
   }
   catch (err: any) {
-    error.value = err?.message ?? 'เกิดข้อผิดพลาด';
+    error.value = err?.message ?? t('signerSignDetail.errors.generic');
   }
   finally {
     isSigning.value = false;
@@ -1119,13 +1131,13 @@ const statusColor: Record<string, 'success' | 'error' | 'warning' | 'info' | 'ne
   cancelled: 'neutral',
 };
 
-const statusLabel: Record<string, string> = {
-  waiting: 'รอดำเนินการ',
-  pending: 'รอลงนาม',
-  signed: 'ลงนามแล้ว',
-  rejected: 'ปฏิเสธ',
-  cancelled: 'ยกเลิก',
-};
+const statusLabel = computed<Record<string, string>>(() => ({
+  waiting: t('signerSignDetail.status.waiting'),
+  pending: t('signerSignDetail.status.pending'),
+  signed: t('signerSignDetail.status.signed'),
+  rejected: t('signerSignDetail.status.rejected'),
+  cancelled: t('signerSignDetail.status.cancelled'),
+}));
 
 async function fetchAttachments() {
   try {
@@ -1160,8 +1172,8 @@ function getFileIcon(fileName: string | null): string {
 }
 
 const breadcrumbLinks = computed(() => [
-  { label: 'รายการที่ต้องลงนาม', to: '/signer/to-sign' },
-  { label: signingStatus.value?.templateName ?? `คำร้อง #${requestId}` },
+  { label: t('signerSignDetail.breadcrumb.list'), to: '/signer/to-sign' },
+  { label: signingStatus.value?.templateName ?? t('signerSignDetail.breadcrumb.requestNumber', { id: requestId }) },
 ]);
 
 const hasConfirmedSignature = computed(() => (signatureDataUrl.value ?? '').length > 0);
@@ -1218,10 +1230,10 @@ onUnmounted(() => {
         <div class="mt-4 flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">
-              {{ signingStatus?.templateName ?? 'ลงนามเอกสาร' }}
+              {{ signingStatus?.templateName ?? $t('signerSignDetail.header.defaultTitle') }}
             </h1>
             <p class="mt-1 text-sm text-gray-500">
-              คำร้อง #{{ requestId }} · ดูเอกสารด้านซ้าย ดำเนินการด้านขวา
+              {{ $t('signerSignDetail.header.requestAndHint', { id: requestId }) }}
             </p>
           </div>
         </div>
@@ -1234,7 +1246,7 @@ onUnmounted(() => {
         <div class="text-center">
           <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
           <p class="text-gray-500">
-            กำลังโหลดเอกสาร...
+            {{ $t('signerSignDetail.loading') }}
           </p>
         </div>
       </div>
@@ -1244,10 +1256,10 @@ onUnmounted(() => {
         <div class="text-center py-8">
           <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4" />
           <p class="text-red-600 mb-4">
-            {{ error ?? 'ไม่สามารถโหลดข้อมูลได้' }}
+            {{ error ?? $t('signerSignDetail.errors.loadData') }}
           </p>
           <UButton to="/signer/to-sign">
-            กลับไปรายการที่ต้องลงนาม
+            {{ $t('signerSignDetail.actions.backToList') }}
           </UButton>
         </div>
       </UCard>
@@ -1263,13 +1275,13 @@ onUnmounted(() => {
                 v-if="isRefreshingPreview && hasSignerProcessableFields"
                 class="mb-2 text-xs text-gray-500 text-right"
               >
-                กำลังอัปเดต preview...
+                {{ $t('signerSignDetail.preview.updating') }}
               </div>
               <TemplatePdfPreview
                 :pdf-url="displayPdfUrl"
                 :placed-fields="signatureFieldsForDisplay"
                 :open-in-new-tab-url="signingStatus.filledDocumentUrl ?? displayPdfUrl"
-                open-in-new-tab-label="เปิดในแท็บใหม่"
+                :open-in-new-tab-label="$t('signerSignDetail.preview.openInNewTab')"
               />
             </div>
             <div
@@ -1278,7 +1290,7 @@ onUnmounted(() => {
               style="min-height: 600px;"
             >
               <p class="text-sm text-gray-500 px-4 text-center">
-                ยังไม่มีไฟล์ PDF สำหรับแสดงตัวอย่าง
+                {{ $t('signerSignDetail.preview.empty') }}
               </p>
             </div>
           </div>
@@ -1302,7 +1314,7 @@ onUnmounted(() => {
             <UCard>
               <template #header>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  ลำดับการลงนาม
+                  {{ $t('signerSignDetail.signFlow.title') }}
                 </h3>
               </template>
               <div class="space-y-2">
@@ -1341,7 +1353,7 @@ onUnmounted(() => {
               <template #header>
                 <div class="flex items-center justify-between gap-2">
                   <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                    เอกสารแนบ
+                    {{ $t('signerSignDetail.attachments.title') }}
                   </h3>
                   <UBadge
                     v-if="attachments.length > 0"
@@ -1356,7 +1368,7 @@ onUnmounted(() => {
               <div v-if="attachments.length === 0" class="text-center py-8 text-gray-500">
                 <i class="fas fa-paperclip text-3xl mb-2" />
                 <p class="text-sm">
-                  ไม่มีเอกสารแนบ
+                  {{ $t('signerSignDetail.attachments.empty') }}
                 </p>
               </div>
               <div v-else class="space-y-3">
@@ -1370,7 +1382,7 @@ onUnmounted(() => {
                       :name="getFileIcon(att.fileName)"
                       class="w-5 h-5 text-blue-600 shrink-0"
                     />
-                    <span class="text-sm font-medium text-gray-900 truncate">{{ att.fileName ?? 'ไม่ระบุชื่อ' }}</span>
+                    <span class="text-sm font-medium text-gray-900 truncate">{{ att.fileName ?? $t('signerSignDetail.attachments.unnamed') }}</span>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
                     <UButton
@@ -1381,7 +1393,7 @@ onUnmounted(() => {
                       icon="i-heroicons-eye"
                       @click="openPreview(att)"
                     >
-                      ดูไฟล์
+                      {{ $t('signerSignDetail.attachments.actions.preview') }}
                     </UButton>
                     <UButton
                       v-if="att.fileUrl"
@@ -1392,7 +1404,7 @@ onUnmounted(() => {
                       :to="att.fileUrl"
                       target="_blank"
                     >
-                      เปิดใหม่
+                      {{ $t('signerSignDetail.attachments.actions.openNew') }}
                     </UButton>
                   </div>
                 </div>
@@ -1402,7 +1414,7 @@ onUnmounted(() => {
             <UCard v-if="hasCurrentPendingSteps && hasSignerInputFields">
               <template #header>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  ข้อมูลที่ต้องกรอก
+                  {{ $t('signerSignDetail.fieldsToFill.title') }}
                 </h3>
               </template>
 
@@ -1435,8 +1447,8 @@ onUnmounted(() => {
               color="info"
               variant="soft"
               icon="i-heroicons-pencil-square"
-              title="ต้องลงลายเซ็นในขั้นตอนนี้"
-              :description="`ขั้นตอนที่ ${currentPendingStep?.stepOrder ?? '-'} (${Array.from(new Set(currentPendingSteps.map(step => step.roleName))).join(', ') || '-'}) — กดปุ่มด้านล่างเพื่อเปิดกล่องเซ็นลายมือชื่อ`"
+              :title="$t('signerSignDetail.signature.alertTitle')"
+              :description="$t('signerSignDetail.signature.alertDescription', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => step.roleName))).join(', ') || '-' })"
             />
 
             <UCard
@@ -1447,14 +1459,14 @@ onUnmounted(() => {
             >
               <template #header>
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  ลงลายเซ็น
+                  {{ $t('signerSignDetail.signature.sectionTitle') }}
                 </h3>
               </template>
 
               <div class="flex flex-col gap-3">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <p class="text-xs text-gray-500">
-                    เลือกใช้ลายเซ็นที่บันทึกไว้ หรือเปิดกล่องเพื่อวาด/แก้ไขลายเซ็น
+                    {{ $t('signerSignDetail.signature.helper') }}
                   </p>
                   <div class="flex flex-wrap items-center gap-2">
                     <UButton
@@ -1465,7 +1477,7 @@ onUnmounted(() => {
                       :disabled="isSigning || isLoadingSavedSignature"
                       @click="useSavedSignatureForCurrentSign"
                     >
-                      ใช้ลายเซ็นที่บันทึกไว้
+                      {{ $t('signerSignDetail.signature.useSaved') }}
                     </UButton>
                     <UButton
                       color="primary"
@@ -1473,7 +1485,7 @@ onUnmounted(() => {
                       :disabled="isSigning"
                       @click="openSignaturePopup"
                     >
-                      {{ hasConfirmedSignature ? 'วาด/แก้ไขลายเซ็นใหม่' : 'เปิดกล่องเซ็นลายมือชื่อ' }}
+                      {{ hasConfirmedSignature ? $t('signerSignDetail.signature.drawOrEdit') : $t('signerSignDetail.signature.openPad') }}
                     </UButton>
                   </div>
                 </div>
@@ -1482,21 +1494,21 @@ onUnmounted(() => {
                   v-if="showSignatureSubmitError"
                   class="text-sm text-red-600"
                 >
-                  กรุณาเลือกลายเซ็นที่บันทึกไว้ หรือวาดลายเซ็นและกดยืนยันในกล่อง ก่อนกดส่ง
+                  {{ $t('signerSignDetail.signature.submitError') }}
                 </p>
 
                 <p
                   v-if="isUsingSavedSignature"
                   class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2"
                 >
-                  กำลังใช้ลายเซ็นที่บันทึกไว้ กดส่งเพื่อดำเนินการต่อ หรือวาดใหม่หากต้องการแก้ไข
+                  {{ $t('signerSignDetail.signature.usingSaved') }}
                 </p>
 
                 <p
                   v-else-if="hasConfirmedSignature"
                   class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
                 >
-                  ยืนยันลายเซ็นแล้ว กดส่งเพื่อดำเนินการต่อ
+                  {{ $t('signerSignDetail.signature.confirmed') }}
                 </p>
 
                 <div v-if="signatureSource === 'drawn' && hasConfirmedSignature" class="pt-1">
@@ -1509,7 +1521,7 @@ onUnmounted(() => {
                     :disabled="isSigning"
                     @click="saveCurrentSignatureForFuture"
                   >
-                    บันทึกลายเซ็นนี้ไว้ใช้ครั้งถัดไป
+                    {{ $t('signerSignDetail.signature.saveForNextTime') }}
                   </UButton>
                 </div>
 
@@ -1522,7 +1534,7 @@ onUnmounted(() => {
                     :disabled="isSigning"
                     @click="clearConfirmedSignature"
                   >
-                    ล้างลายเซ็นที่ยืนยันแล้ว
+                    {{ $t('signerSignDetail.signature.clearConfirmed') }}
                   </UButton>
                 </div>
                 <!-- Action buttons moved out of the signature card for layout parity with student new-request -->
@@ -1541,7 +1553,7 @@ onUnmounted(() => {
                   :disabled="isSigning"
                   @click="rejectRequest('status_only')"
                 >
-                  ปฏิเสธ
+                  {{ $t('signerSignDetail.actions.reject') }}
                 </UButton>
               </template>
               <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1555,7 +1567,7 @@ onUnmounted(() => {
                   :disabled="isSigning"
                   @click="rejectRequest('status_only')"
                 >
-                  ปฏิเสธ
+                  {{ $t('signerSignDetail.actions.reject') }}
                 </UButton>
                 <UButton
                   color="error"
@@ -1567,7 +1579,7 @@ onUnmounted(() => {
                   :disabled="isSigning"
                   @click="rejectRequest('with_signature_and_field')"
                 >
-                  ลงนามปฏิเสธ
+                  {{ $t('signerSignDetail.actions.rejectWithSignature') }}
                 </UButton>
               </div>
               <UButton
@@ -1579,7 +1591,7 @@ onUnmounted(() => {
                 :disabled="!canSubmit"
                 @click="submitSignature"
               >
-                {{ hasSignatureField ? 'ลงนามและดำเนินการต่อ' : 'ยืนยันและดำเนินการต่อ' }}
+                {{ hasSignatureField ? $t('signerSignDetail.actions.signAndContinue') : $t('signerSignDetail.actions.confirmAndContinue') }}
               </UButton>
             </div>
 
@@ -1587,13 +1599,13 @@ onUnmounted(() => {
               <div class="text-center py-8">
                 <UIcon name="i-heroicons-x-circle" class="w-16 h-16 text-red-500 mx-auto mb-4" />
                 <h3 class="text-xl font-bold text-gray-900 mb-2">
-                  คำร้องถูกปฏิเสธ
+                  {{ $t('signerSignDetail.rejected.title') }}
                 </h3>
                 <p v-if="signingStatus.note" class="text-gray-500 mb-4 max-w-md mx-auto text-sm">
-                  เหตุผล: {{ signingStatus.note }}
+                  {{ $t('signerSignDetail.rejected.reasonPrefix') }}: {{ signingStatus.note }}
                 </p>
                 <p v-else class="text-gray-500 mb-4 text-sm">
-                  คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม
+                  {{ $t('signerSignDetail.rejected.description') }}
                 </p>
               </div>
             </UCard>
@@ -1602,10 +1614,10 @@ onUnmounted(() => {
               <div class="text-center py-8">
                 <UIcon name="i-heroicons-check-circle" class="w-16 h-16 text-green-500 mx-auto mb-4" />
                 <h3 class="text-xl font-bold text-gray-900 mb-2">
-                  เอกสารดำเนินการเสร็จสมบูรณ์
+                  {{ $t('signerSignDetail.completed.title') }}
                 </h3>
                 <p class="text-gray-500 mb-4 text-sm">
-                  ทุกขั้นตอนการลงนามเสร็จเรียบร้อยแล้ว
+                  {{ $t('signerSignDetail.completed.description') }}
                 </p>
                 <UButton
                   v-if="signingStatus.filledDocumentUrl"
@@ -1614,7 +1626,7 @@ onUnmounted(() => {
                   color="success"
                   icon="i-heroicons-arrow-down-tray"
                 >
-                  ดาวน์โหลดเอกสาร
+                  {{ $t('signerSignDetail.completed.download') }}
                 </UButton>
               </div>
             </UCard>
@@ -1623,10 +1635,10 @@ onUnmounted(() => {
               <div class="text-center py-8">
                 <UIcon name="i-heroicons-clock" class="w-12 h-12 text-amber-400 mx-auto mb-4" />
                 <h3 class="font-semibold text-gray-900 mb-2">
-                  ยังไม่ถึงคิวของคุณ
+                  {{ $t('signerSignDetail.notYourTurn.title') }}
                 </h3>
                 <p class="text-sm text-gray-500">
-                  กำลังรอขั้นตอนก่อนหน้าดำเนินการให้เสร็จ
+                  {{ $t('signerSignDetail.notYourTurn.description') }}
                 </p>
               </div>
             </UCard>
@@ -1639,7 +1651,7 @@ onUnmounted(() => {
               class="rounded-md"
             >
               <i class="fas fa-arrow-left mr-2" />
-              กลับไปรายการที่ต้องลงนาม
+              {{ $t('signerSignDetail.actions.backToList') }}
             </UButton>
           </div>
         </div>
@@ -1648,7 +1660,7 @@ onUnmounted(() => {
           <template #header>
             <div class="flex items-center gap-2 min-w-0">
               <UIcon :name="getFileIcon(previewAttachment?.fileName ?? null)" class="text-gray-500 shrink-0" />
-              <span class="font-semibold text-gray-900 truncate">{{ previewAttachment?.fileName ?? 'เอกสารแนบ' }}</span>
+              <span class="font-semibold text-gray-900 truncate">{{ previewAttachment?.fileName ?? $t('signerSignDetail.attachments.title') }}</span>
             </div>
           </template>
           <template #body>
@@ -1669,7 +1681,7 @@ onUnmounted(() => {
               <div v-else class="text-center py-12 text-gray-500">
                 <UIcon name="i-heroicons-document" class="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p class="text-sm">
-                  ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้
+                  {{ $t('signerSignDetail.attachments.previewNotAvailable') }}
                 </p>
                 <UButton
                   :to="previewAttachment.fileUrl"
@@ -1679,7 +1691,7 @@ onUnmounted(() => {
                   icon="i-heroicons-arrow-down-tray"
                   class="mt-3"
                 >
-                  ดาวน์โหลดไฟล์
+                  {{ $t('signerSignDetail.attachments.actions.download') }}
                 </UButton>
               </div>
             </div>
@@ -1698,8 +1710,7 @@ onUnmounted(() => {
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <h3 class="text-sm font-semibold text-gray-900">
-                      เซ็นลายเซ็น — ขั้นตอนที่ {{ currentPendingStep?.stepOrder ?? '-' }}
-                      ({{ Array.from(new Set(currentPendingSteps.map(step => step.roleName))).join(', ') || '-' }})
+                      {{ $t('signerSignDetail.signature.popupTitle', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => step.roleName))).join(', ') || '-' }) }}
                     </h3>
                   </div>
                   <UButton
@@ -1714,7 +1725,7 @@ onUnmounted(() => {
               <div class="space-y-3 p-1">
                 <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
                   <div class="mb-2 flex items-center justify-between text-xs text-slate-500">
-                    <span>เซ็นในช่องด้านล่าง แล้วกดยืนยัน</span>
+                    <span>{{ $t('signerSignDetail.signature.popupHint') }}</span>
                   </div>
 
                   <div :style="signatureFieldBoxStyle" class="mx-auto">

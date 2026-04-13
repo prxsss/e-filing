@@ -2,7 +2,7 @@
 import type { TableRow } from '@nuxt/ui';
 
 definePageMeta({
-  title: 'signedHistory',
+  title: 'signerSignedHistory.title',
   middleware: ['permission'],
   permission: 'request.sign_history.view',
 });
@@ -25,6 +25,7 @@ type HistoryEntry = {
 };
 
 const router = useRouter();
+const { t, locale } = useI18n();
 
 const { data, status, refresh } = await useFetch<{ success: boolean; data: HistoryEntry[] }>(
   '/api/requests/signed-history',
@@ -44,7 +45,7 @@ watch([searchQuery, selectedAction], () => {
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr)
     return '-';
-  return new Date(dateStr).toLocaleDateString('th-TH', {
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -57,10 +58,10 @@ const actionColor: Record<string, string> = {
   signed: 'success',
   rejected: 'error',
 };
-const actionLabel: Record<string, string> = {
-  signed: 'ลงนามแล้ว',
-  rejected: 'ปฏิเสธ',
-};
+const actionLabel = computed<Record<string, string>>(() => ({
+  signed: t('signerSignedHistory.actions.status.signed'),
+  rejected: t('signerSignedHistory.actions.status.rejected'),
+}));
 const requestStatusColor: Record<string, string> = {
   completed: 'success',
   in_progress: 'warning',
@@ -68,29 +69,29 @@ const requestStatusColor: Record<string, string> = {
   submitted: 'info',
   draft: 'neutral',
 };
-const requestStatusLabel: Record<string, string> = {
-  completed: 'เสร็จสมบูรณ์',
-  in_progress: 'กำลังดำเนินการ',
-  rejected: 'ถูกปฏิเสธ',
-  submitted: 'ส่งแล้ว',
-  draft: 'ร่าง',
-};
+const requestStatusLabel = computed<Record<string, string>>(() => ({
+  completed: t('signerSignedHistory.requestStatus.completed'),
+  in_progress: t('signerSignedHistory.requestStatus.inProgress'),
+  rejected: t('signerSignedHistory.requestStatus.rejected'),
+  submitted: t('signerSignedHistory.requestStatus.submitted'),
+  draft: t('signerSignedHistory.requestStatus.draft'),
+}));
 
 const UBadge = resolveComponent('UBadge');
 const UIcon = resolveComponent('UIcon');
 
-const actionOptions = [
-  { label: 'ทั้งหมด', value: undefined },
-  { label: actionLabel.signed, value: 'signed' },
-  { label: actionLabel.rejected, value: 'rejected' },
-];
+const actionOptions = computed(() => [
+  { label: t('signerSignedHistory.filters.allActions'), value: undefined },
+  { label: actionLabel.value.signed, value: 'signed' },
+  { label: actionLabel.value.rejected, value: 'rejected' },
+]);
 
 const tableData = computed(() =>
   entries.value.map(entry => ({
     ...entry,
     id: entry.flowId,
     requestId: entry.requestId,
-    templateName: entry.request?.templateName ?? 'เอกสาร',
+    templateName: entry.request?.templateName ?? t('signerSignedHistory.table.defaultDocument'),
     actionStatus: entry.status,
     requestStatus: entry.request?.status ?? '',
     signedAt: entry.signedAt,
@@ -126,7 +127,7 @@ const paginatedEntries = computed(() => {
 
 const total = computed(() => filteredEntries.value.length);
 
-const columns: any[] = [
+const columns = computed<any[]>(() => [
   {
     id: 'rowNumber',
     header: '#',
@@ -136,12 +137,12 @@ const columns: any[] = [
       return ((page.value - 1) * pageCount) + index + 1;
     },
   },
-  { accessorKey: 'studentId', header: 'รหัสนิสิต' },
-  { accessorKey: 'studentName', header: 'ชื่อนิสิต' },
-  { accessorKey: 'templateName', header: 'ชื่อเอกสาร' },
-  { accessorKey: 'actionStatus', header: 'ผลการดำเนินการ' },
-  { accessorKey: 'requestStatus', header: 'สถานะคำร้อง' },
-  { accessorKey: 'signedAt', header: 'วันที่ดำเนินการ' },
+  { accessorKey: 'studentId', header: t('signerSignedHistory.table.studentId') },
+  { accessorKey: 'studentName', header: t('signerSignedHistory.table.studentName') },
+  { accessorKey: 'templateName', header: t('signerSignedHistory.table.documentName') },
+  { accessorKey: 'actionStatus', header: t('signerSignedHistory.table.actionResult') },
+  { accessorKey: 'requestStatus', header: t('signerSignedHistory.table.requestStatus') },
+  { accessorKey: 'signedAt', header: t('signerSignedHistory.table.actionDate') },
   { id: 'actions', header: '' },
   {
     id: 'navigate',
@@ -153,10 +154,10 @@ const columns: any[] = [
         class: 'w-5 h-5 text-gray-400',
       }),
   },
-];
+]);
 
 function onRowSelect(_e: Event, row: TableRow<any>) {
-  router.push(`/signer/sign/${row.original.requestId}`);
+  router.push(`/signer/signed-history/${row.original.requestId}`);
 }
 </script>
 
@@ -166,10 +167,10 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">
-          ประวัติการลงนาม
+          {{ $t('signerSignedHistory.header.title') }}
         </h1>
         <p class="text-sm text-slate-500 mt-1">
-          เอกสารที่คุณเคยลงนามหรือปฏิเสธ
+          {{ $t('signerSignedHistory.header.description') }}
         </p>
       </div>
       <UButton
@@ -180,7 +181,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         :loading="status === 'pending'"
         @click="() => refresh()"
       >
-        รีเฟรช
+        {{ $t('signerSignedHistory.actions.refresh') }}
       </UButton>
     </div>
 
@@ -189,7 +190,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
         <UInput
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
-          placeholder="ค้นหาตามรหัส ชื่อเอกสาร"
+          :placeholder="$t('signerSignedHistory.searchPlaceholder')"
           class="w-full sm:w-80"
         />
 
@@ -197,7 +198,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           v-model="selectedAction"
           :items="actionOptions"
           option-attribute="label"
-          placeholder="ผลการดำเนินการ"
+          :placeholder="$t('signerSignedHistory.filters.actionPlaceholder')"
           class="w-full sm:w-56"
         />
       </div>
@@ -251,7 +252,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
               target="_blank"
               @click.stop
             >
-              ดู PDF
+              {{ $t('signerSignedHistory.actions.viewPdf') }}
             </UButton>
           </div>
         </template>
@@ -263,10 +264,10 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           <UIcon name="i-lucide-inbox" class="w-8 h-8 text-slate-300" />
         </div>
         <h3 class="font-semibold text-slate-700 mb-1">
-          ยังไม่มีประวัติการลงนาม
+          {{ $t('signerSignedHistory.emptyState.title') }}
         </h3>
         <p class="text-sm text-slate-400">
-          เมื่อคุณลงนามหรือปฏิเสธเอกสาร จะปรากฏที่นี่
+          {{ $t('signerSignedHistory.emptyState.description') }}
         </p>
       </div>
 

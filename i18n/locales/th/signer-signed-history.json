@@ -1,0 +1,118 @@
+{
+  "signerSignedHistory": {
+    "title": "ประวัติการเซ็น",
+    "header": {
+      "title": "ประวัติการเซ็น",
+      "description": "เอกสารที่คุณเคยเซ็นหรือปฏิเสธ"
+    },
+    "actions": {
+      "refresh": "รีเฟรช",
+      "viewPdf": "ดู PDF",
+      "status": {
+        "signed": "เซ็นแล้ว",
+        "rejected": "ปฏิเสธ"
+      }
+    },
+    "searchPlaceholder": "ค้นหาตามรหัส ชื่อเอกสาร",
+    "filters": {
+      "allActions": "ทั้งหมด",
+      "actionPlaceholder": "ผลการดำเนินการ"
+    },
+    "table": {
+      "defaultDocument": "เอกสาร",
+      "studentId": "รหัสนิสิต",
+      "studentName": "ชื่อนิสิต",
+      "documentName": "ชื่อเอกสาร",
+      "actionResult": "ผลการดำเนินการ",
+      "requestStatus": "สถานะคำร้อง",
+      "actionDate": "วันที่ดำเนินการ"
+    },
+    "requestStatus": {
+      "completed": "เสร็จสมบูรณ์",
+      "inProgress": "กำลังดำเนินการ",
+      "rejected": "ถูกปฏิเสธ",
+      "submitted": "ส่งแล้ว",
+      "draft": "ร่าง"
+    },
+    "emptyState": {
+      "title": "ยังไม่มีประวัติการลงนาม",
+      "description": "เมื่อคุณลงนามหรือปฏิเสธเอกสาร จะปรากฏที่นี่"
+    }
+  },
+  "signerSignedHistoryDetail": {
+    "header": {
+      "defaultTitle": "ลงนามเอกสาร",
+      "requestNumber": "คำร้อง #{id}"
+    },
+    "signFlow": {
+      "title": "ลำดับการลงนาม"
+    },
+    "status": {
+      "waiting": "รอดำเนินการ",
+      "pending": "รอลงนาม",
+      "signed": "เซ็นแล้ว",
+      "rejected": "ปฏิเสธ",
+      "cancelled": "ยกเลิก"
+    },
+    "attachments": {
+      "title": "เอกสารแนบ",
+      "empty": "ไม่มีเอกสารแนบ",
+      "unnamed": "ไม่ระบุชื่อ",
+      "previewNotAvailable": "ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้",
+      "actions": {
+        "preview": "ดูไฟล์",
+        "openNew": "เปิดใหม่",
+        "download": "ดาวน์โหลดไฟล์"
+      }
+    },
+    "document": {
+      "title": "เอกสาร",
+      "openInNewTab": "เปิดในแท็บใหม่"
+    },
+    "signature": {
+      "title": "ลงลายเซ็น - ขั้นตอนที่ {step} ({role})",
+      "description": "วาดลายเซ็นของคุณในกรอบด้านล่าง แล้วกดยืนยัน",
+      "submit": "ส่งลายเซ็นและดำเนินการต่อ",
+      "reject": "ปฏิเสธการลงนาม"
+    },
+    "rejectDialog": {
+      "title": "ปฏิเสธการลงนาม",
+      "description": "ขั้นตอนที่ {step} ({role}) - กรุณาระบุเหตุผลในการปฏิเสธ",
+      "reasonPlaceholder": "ระบุเหตุผลในการปฏิเสธ เช่น ข้อมูลไม่ถูกต้อง / เอกสารไม่ครบ...",
+      "reasonErrorMessage": "กรุณาระบุเหตุผลในการปฏิเสธ",
+      "confirm": "ยืนยันการปฏิเสธ"
+    },
+    "toast": {
+      "rejectedTitle": "ปฏิเสธการลงนามแล้ว",
+      "rejectedDescription": "คำร้องถูกปฏิเสธเรียบร้อย"
+    },
+    "success": {
+      "completed": "เซ็นสำเร็จ! เอกสารดำเนินการเสร็จสมบูรณ์",
+      "forwarded": "เซ็นสำเร็จ! ส่งต่อไปยัง {role} แล้ว",
+      "nextStepFallback": "ขั้นตอนถัดไป"
+    },
+    "rejected": {
+      "title": "คำร้องถูกปฏิเสธ",
+      "reasonPrefix": "เหตุผล",
+      "description": "คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม"
+    },
+    "completed": {
+      "title": "เอกสารดำเนินการเสร็จสมบูรณ์",
+      "description": "ทุกขั้นตอนการเซ็นเสร็จเรียบร้อยแล้ว",
+      "download": "ดาวน์โหลดเอกสาร"
+    },
+    "notYourTurn": {
+      "title": "ยังไม่ถึงคิวของคุณ",
+      "description": "กำลังรอขั้นตอนก่อนหน้าดำเนินการให้เสร็จ"
+    },
+    "errors": {
+      "loadSigningStatus": "ไม่สามารถโหลดสถานะการเซ็นได้",
+      "loadDocument": "ไม่สามารถโหลดเอกสารได้",
+      "loadDocumentTitle": "ไม่สามารถโหลดเอกสารได้",
+      "rejectFailed": "ไม่สามารถปฏิเสธคำร้องได้",
+      "signFailed": "เซ็นไม่สำเร็จ",
+      "signatureRequired": "กรุณาลงลายเซ็นให้เรียบร้อยก่อน",
+      "generic": "เกิดข้อผิดพลาด"
+    }
+  }
+}

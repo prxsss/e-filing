@@ -38,5 +38,38 @@
       "completion": "Completion",
       "noData": "No template data for selected filters."
     }
+  },
+  "signerDashboard": {
+    "title": "Signer Dashboard",
+    "banner": {
+      "title": "Request Management System",
+      "description": "Review and sign student requests, and track status 24/7."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "readAll": "Mark all as read",
+      "empty": "No notifications",
+      "table": {
+        "message": "Message",
+        "type": "Type",
+        "time": "Time"
+      },
+      "types": {
+        "signRequest": "Awaiting Signature",
+        "signed": "Signed",
+        "rejected": "Rejected",
+        "completed": "Completed"
+      }
+    },
+    "quickLinks": {
+      "toSign": {
+        "title": "Awaiting Signature",
+        "description": "View all requests waiting for your signature."
+      },
+      "signedHistory": {
+        "title": "Signing History",
+        "description": "All requests you have signed or rejected."
+      }
+    }
   }
 }

@@ -2,7 +2,7 @@
 import { LazyBaseConfirmDialogWithReason } from '#components';
 
 definePageMeta({
-  title: 'Sign Document',
+  title: 'signerSignedHistory.title',
   middleware: ['permission'],
   permission: 'request.sign_history.view',
 });
@@ -56,6 +56,7 @@ type SigningStatus = {
 
 const route = useRoute();
 const requestId = Number(route.params.id);
+const { t } = useI18n();
 
 const overlay = useOverlay();
 const toast = useToast();
@@ -156,11 +157,11 @@ async function fetchStatus() {
       }
     }
     else {
-      error.value = result.error ?? 'Failed to load signing status';
+      error.value = result.error ?? t('signerSignedHistoryDetail.errors.loadSigningStatus');
     }
   }
   catch (err: any) {
-    error.value = err?.message ?? 'Failed to load document';
+    error.value = err?.message ?? t('signerSignedHistoryDetail.errors.loadDocument');
   }
   finally {
     isLoading.value = false;
@@ -173,13 +174,16 @@ function handleSignatureConfirmed(dataUrl: string) {
 
 async function rejectRequest() {
   const instance = confirmDialogWithReason.open({
-    title: 'ปฏิเสธการลงนาม',
-    description: `ขั้นตอนที่ ${signingStatus.value?.pendingStep?.stepOrder} (${signingStatus.value?.pendingStep?.roleName}) — กรุณาระบุเหตุผลในการปฏิเสธ`,
+    title: t('signerSignedHistoryDetail.rejectDialog.title'),
+    description: t('signerSignedHistoryDetail.rejectDialog.description', {
+      step: signingStatus.value?.pendingStep?.stepOrder,
+      role: signingStatus.value?.pendingStep?.roleName,
+    }),
     reasonRequired: true,
-    reasonPlaceholder: 'ระบุเหตุผลในการปฏิเสธ เช่น ข้อมูลไม่ถูกต้อง / เอกสารไม่ครบ...',
-    reasonErrorMessage: 'กรุณาระบุเหตุผลในการปฏิเสธ',
-    cancelButton: { label: 'ยกเลิก' },
-    confirmButton: { label: 'ยืนยันการปฏิเสธ', color: 'error' },
+    reasonPlaceholder: t('signerSignedHistoryDetail.rejectDialog.reasonPlaceholder'),
+    reasonErrorMessage: t('signerSignedHistoryDetail.rejectDialog.reasonErrorMessage'),
+    cancelButton: { label: t('common.actions.cancel') },
+    confirmButton: { label: t('signerSignedHistoryDetail.rejectDialog.confirm'), color: 'error' },
   });
 
   const result = await instance.result;
@@ -200,8 +204,8 @@ async function rejectRequest() {
 
     if (res.success) {
       toast.add({
-        title: 'ปฏิเสธการลงนามแล้ว',
-        description: 'คำร้องถูกปฏิเสธเรียบร้อย',
+        title: t('signerSignedHistoryDetail.toast.rejectedTitle'),
+        description: t('signerSignedHistoryDetail.toast.rejectedDescription'),
         color: 'error',
       });
       signatureDataUrl.value = null;
@@ -209,11 +213,11 @@ async function rejectRequest() {
       await fetchStatus();
     }
     else {
-      error.value = res.error ?? 'ไม่สามารถปฏิเสธคำร้องได้';
+      error.value = res.error ?? t('signerSignedHistoryDetail.errors.rejectFailed');
     }
   }
   catch (err: any) {
-    error.value = err?.message ?? 'เกิดข้อผิดพลาด';
+    error.value = err?.message ?? t('signerSignedHistoryDetail.errors.generic');
   }
   finally {
     isRejecting.value = false;
@@ -222,7 +226,7 @@ async function rejectRequest() {
 
 async function submitSignature() {
   if (!signatureDataUrl.value) {
-    error.value = 'กรุณาลงลายเซ็นให้เรียบร้อยก่อน';
+    error.value = t('signerSignedHistoryDetail.errors.signatureRequired');
     return;
   }
 
@@ -241,21 +245,23 @@ async function submitSignature() {
     if (result.success) {
       const newStatus = result.data?.status;
       if (newStatus === 'completed') {
-        successMessage.value = 'ลงนามสำเร็จ! เอกสารดำเนินการเสร็จสมบูรณ์';
+        successMessage.value = t('signerSignedHistoryDetail.success.completed');
       }
       else {
-        successMessage.value = `ลงนามสำเร็จ! ส่งต่อไปยัง ${result.data?.nextRole ?? 'ขั้นตอนถัดไป'} แล้ว`;
+        successMessage.value = t('signerSignedHistoryDetail.success.forwarded', {
+          role: result.data?.nextRole ?? t('signerSignedHistoryDetail.success.nextStepFallback'),
+        });
       }
       signatureDataUrl.value = null;
       showSignaturePad.value = false;
       await fetchStatus();
     }
     else {
-      error.value = result.error ?? 'ลงนามไม่สำเร็จ';
+      error.value = result.error ?? t('signerSignedHistoryDetail.errors.signFailed');
     }
   }
   catch (err: any) {
-    error.value = err?.message ?? 'เกิดข้อผิดพลาด';
+    error.value = err?.message ?? t('signerSignedHistoryDetail.errors.generic');
   }
   finally {
     isSigning.value = false;
@@ -270,13 +276,13 @@ const statusColor: Record<string, string> = {
   cancelled: 'neutral',
 };
 
-const statusLabel: Record<string, string> = {
-  waiting: 'รอดำเนินการ',
-  pending: 'รอลงนาม',
-  signed: 'ลงนามแล้ว',
-  rejected: 'ปฏิเสธ',
-  cancelled: 'ยกเลิก',
-};
+const statusLabel = computed<Record<string, string>>(() => ({
+  waiting: t('signerSignedHistoryDetail.status.waiting'),
+  pending: t('signerSignedHistoryDetail.status.pending'),
+  signed: t('signerSignedHistoryDetail.status.signed'),
+  rejected: t('signerSignedHistoryDetail.status.rejected'),
+  cancelled: t('signerSignedHistoryDetail.status.cancelled'),
+}));
 
 async function fetchAttachments() {
   try {
@@ -322,10 +328,10 @@ onMounted(() => {
         />
         <div>
           <h1 class="text-xl font-bold text-slate-800">
-            {{ signingStatus?.templateName ?? 'ลงนามเอกสาร' }}
+            {{ signingStatus?.templateName ?? $t('signerSignedHistoryDetail.header.defaultTitle') }}
           </h1>
           <p class="text-sm text-slate-500">
-            คำร้อง #{{ requestId }}
+            {{ $t('signerSignedHistoryDetail.header.requestNumber', { id: requestId }) }}
           </p>
         </div>
       </div>
@@ -361,7 +367,7 @@ onMounted(() => {
           <template #header>
             <h2 class="font-semibold text-slate-800 flex items-center gap-2">
               <UIcon name="i-lucide-list-ordered" class="text-green-600" />
-              ลำดับการลงนาม
+              {{ $t('signerSignedHistoryDetail.signFlow.title') }}
             </h2>
           </template>
           <div class="space-y-2">
@@ -401,13 +407,13 @@ onMounted(() => {
           <template #header>
             <h2 class="font-semibold text-slate-800 flex items-center gap-2">
               <UIcon name="i-lucide-paperclip" class="text-green-600" />
-              เอกสารแนบ
+              {{ $t('signerSignedHistoryDetail.attachments.title') }}
               <UBadge v-if="attachments.length > 0" :label="String(attachments.length)" color="neutral" variant="soft" size="sm" />
             </h2>
           </template>
           <!-- Empty state -->
           <p v-if="attachments.length === 0" class="text-sm text-slate-400 py-2">
-            ไม่มีเอกสารแนบ
+            {{ $t('signerSignedHistoryDetail.attachments.empty') }}
           </p>
           <div v-else class="divide-y divide-slate-100">
             <div
@@ -416,7 +422,7 @@ onMounted(() => {
               class="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
             >
               <UIcon :name="getFileIcon(att.fileName)" class="w-5 h-5 text-slate-400 shrink-0" />
-              <span class="text-sm text-slate-700 truncate flex-1">{{ att.fileName ?? 'ไม่ระบุชื่อ' }}</span>
+              <span class="text-sm text-slate-700 truncate flex-1">{{ att.fileName ?? $t('signerSignedHistoryDetail.attachments.unnamed') }}</span>
               <div class="flex items-center gap-2 shrink-0">
                 <UButton
                   v-if="att.fileUrl"
@@ -426,7 +432,7 @@ onMounted(() => {
                   icon="i-lucide-eye"
                   @click="openPreview(att)"
                 >
-                  ดูไฟล์
+                  {{ $t('signerSignedHistoryDetail.attachments.actions.preview') }}
                 </UButton>
                 <UButton
                   v-if="att.fileUrl"
@@ -437,7 +443,7 @@ onMounted(() => {
                   :to="att.fileUrl"
                   target="_blank"
                 >
-                  เปิดใหม่
+                  {{ $t('signerSignedHistoryDetail.attachments.actions.openNew') }}
                 </UButton>
               </div>
             </div>
@@ -447,7 +453,7 @@ onMounted(() => {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon :name="getFileIcon(previewAttachment?.fileName ?? null)" class="text-slate-500" />
-              <span class="font-semibold text-slate-800 truncate">{{ previewAttachment?.fileName ?? 'เอกสารแนบ' }}</span>
+              <span class="font-semibold text-slate-800 truncate">{{ previewAttachment?.fileName ?? $t('signerSignedHistoryDetail.attachments.title') }}</span>
             </div>
           </template>
           <template #body>
@@ -471,7 +477,7 @@ onMounted(() => {
               <div v-else class="text-center py-12 text-slate-500">
                 <UIcon name="i-lucide-file" class="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <p class="text-sm">
-                  ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้
+                  {{ $t('signerSignedHistoryDetail.attachments.previewNotAvailable') }}
                 </p>
                 <UButton
                   :to="previewAttachment.fileUrl"
@@ -481,7 +487,7 @@ onMounted(() => {
                   icon="i-lucide-download"
                   class="mt-3"
                 >
-                  ดาวน์โหลดไฟล์
+                  {{ $t('signerSignedHistoryDetail.attachments.actions.download') }}
                 </UButton>
               </div>
             </div>
@@ -494,7 +500,7 @@ onMounted(() => {
             <div class="flex items-center justify-between">
               <h2 class="font-semibold text-slate-800 flex items-center gap-2">
                 <UIcon name="i-lucide-file-text" class="text-green-600" />
-                เอกสาร
+                {{ $t('signerSignedHistoryDetail.document.title') }}
               </h2>
               <UButton
                 :to="signingStatus.filledDocumentUrl"
@@ -504,7 +510,7 @@ onMounted(() => {
                 size="sm"
                 icon="i-lucide-external-link"
               >
-                เปิดในแท็บใหม่
+                {{ $t('signerSignedHistoryDetail.document.openInNewTab') }}
               </UButton>
             </div>
           </template>
@@ -519,11 +525,10 @@ onMounted(() => {
           <template #header>
             <h2 class="font-semibold text-slate-800 flex items-center gap-2">
               <UIcon name="i-lucide-pen-line" class="text-amber-500" />
-              ลงลายเซ็น — ขั้นตอนที่ {{ signingStatus.pendingStep.stepOrder }}
-              ({{ signingStatus.pendingStep.roleName }})
+              {{ $t('signerSignedHistoryDetail.signature.title', { step: signingStatus.pendingStep.stepOrder, role: signingStatus.pendingStep.roleName }) }}
             </h2>
             <p class="text-sm text-slate-500 mt-1">
-              วาดลายเซ็นของคุณในกรอบด้านล่าง แล้วกดยืนยัน
+              {{ $t('signerSignedHistoryDetail.signature.description') }}
             </p>
           </template>
 
@@ -544,7 +549,7 @@ onMounted(() => {
                 :disabled="!signatureDataUrl || isRejecting"
                 @click="submitSignature"
               >
-                ส่งลายเซ็นและดำเนินการต่อ
+                {{ $t('signerSignedHistoryDetail.signature.submit') }}
               </UButton>
               <UButton
                 color="error"
@@ -555,7 +560,7 @@ onMounted(() => {
                 :disabled="isSigning"
                 @click="rejectRequest"
               >
-                ปฏิเสธการลงนาม
+                {{ $t('signerSignedHistoryDetail.signature.reject') }}
               </UButton>
             </div>
           </div>
@@ -566,13 +571,13 @@ onMounted(() => {
           <div class="text-center py-8">
             <UIcon name="i-lucide-x-circle" class="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h3 class="text-xl font-bold text-slate-800 mb-2">
-              คำร้องถูกปฏิเสธ
+              {{ $t('signerSignedHistoryDetail.rejected.title') }}
             </h3>
             <p v-if="signingStatus.note" class="text-slate-500 mb-4 max-w-md mx-auto">
-              เหตุผล: {{ signingStatus.note }}
+              {{ $t('signerSignedHistoryDetail.rejected.reasonPrefix') }}: {{ signingStatus.note }}
             </p>
             <p v-else class="text-slate-500 mb-4">
-              คำร้องนี้ถูกปฏิเสธโดยผู้ลงนาม
+              {{ $t('signerSignedHistoryDetail.rejected.description') }}
             </p>
           </div>
         </UCard>
@@ -582,10 +587,10 @@ onMounted(() => {
           <div class="text-center py-8">
             <UIcon name="i-lucide-circle-check-big" class="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 class="text-xl font-bold text-slate-800 mb-2">
-              เอกสารดำเนินการเสร็จสมบูรณ์
+              {{ $t('signerSignedHistoryDetail.completed.title') }}
             </h3>
             <p class="text-slate-500 mb-4">
-              ทุกขั้นตอนการลงนามเสร็จเรียบร้อยแล้ว
+              {{ $t('signerSignedHistoryDetail.completed.description') }}
             </p>
             <UButton
               v-if="signingStatus.filledDocumentUrl"
@@ -594,7 +599,7 @@ onMounted(() => {
               color="success"
               icon="i-lucide-download"
             >
-              ดาวน์โหลดเอกสาร
+              {{ $t('signerSignedHistoryDetail.completed.download') }}
             </UButton>
           </div>
         </UCard>
@@ -604,10 +609,10 @@ onMounted(() => {
           <div class="text-center py-8">
             <UIcon name="i-lucide-clock" class="w-12 h-12 text-amber-400 mx-auto mb-4" />
             <h3 class="font-semibold text-slate-800 mb-2">
-              ยังไม่ถึงคิวของคุณ
+              {{ $t('signerSignedHistoryDetail.notYourTurn.title') }}
             </h3>
             <p class="text-sm text-slate-500">
-              กำลังรอขั้นตอนก่อนหน้าดำเนินการให้เสร็จ
+              {{ $t('signerSignedHistoryDetail.notYourTurn.description') }}
             </p>
           </div>
         </UCard>
@@ -617,7 +622,7 @@ onMounted(() => {
       <div v-else class="text-center py-16">
         <UIcon name="i-lucide-triangle-alert" class="w-12 h-12 text-red-400 mx-auto mb-4" />
         <h3 class="font-semibold text-slate-800 mb-2">
-          ไม่สามารถโหลดเอกสารได้
+          {{ $t('signerSignedHistoryDetail.errors.loadDocumentTitle') }}
         </h3>
         <p class="text-sm text-slate-500">
           {{ error }}
