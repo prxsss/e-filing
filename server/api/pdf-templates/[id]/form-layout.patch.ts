@@ -9,6 +9,7 @@ type EntryField = {
   instanceId: string;
   questionLabel?: string;
   required?: boolean;
+  formSuggestionNote?: string;
 };
 
 type EntryGroup = {
@@ -17,7 +18,7 @@ type EntryGroup = {
   id: string;
   title?: string;
   required?: boolean;
-  fields: Array<{ instanceId: string; questionLabel?: string }>;
+  fields: Array<{ instanceId: string; questionLabel?: string; formSuggestionNote?: string }>;
 };
 
 type LayoutEntry = EntryField | EntryGroup;
@@ -46,7 +47,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Invalid template ID' });
   }
 
-  const body = await readBody<{ sectionTitle?: string; entries?: LayoutEntry[] } | null>(event);
+  const body = await readBody<{ sectionTitle?: string; entries?: LayoutEntry[]; signerSuggestionNotes?: Array<{ stepId: string; suggestionNote?: string }> } | null>(event);
   const sectionTitle = String(body?.sectionTitle || 'Request Information').trim() || 'Request Information';
   const entries: LayoutEntry[] = Array.isArray(body?.entries) ? body!.entries! : [];
 
@@ -56,6 +57,7 @@ export default defineEventHandler(async (event) => {
     required: boolean;
     formGroupId: string | null;
     formGroupTitle: string | null;
+    formSuggestionNote: string;
   };
   const fieldConfigMap = new Map<string, FieldConfig>();
   const groupsToStore: Array<{ id: string; title: string; required: boolean; order: number; fieldInstanceIds: string[] }> = [];
@@ -72,6 +74,7 @@ export default defineEventHandler(async (event) => {
           required: entry.required !== false,
           formGroupId: null,
           formGroupTitle: null,
+          formSuggestionNote: String(entry.formSuggestionNote || '').trim(),
         });
       }
     }
@@ -94,6 +97,7 @@ export default defineEventHandler(async (event) => {
               required: groupRequired,
               formGroupId: groupId,
               formGroupTitle: groupTitle,
+              formSuggestionNote: String(gf.formSuggestionNote || '').trim(),
             });
           }
         }
@@ -103,7 +107,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const currentTemplate = await db
-    .select({ id: requestTemplate.id, placedFieldsData: requestTemplate.placedFieldsData })
+    .select({ id: requestTemplate.id, placedFieldsData: requestTemplate.placedFieldsData, signingFlowData: requestTemplate.signingFlowData })
     .from(requestTemplate)
     .where(eq(requestTemplate.id, id))
     .limit(1);
@@ -114,6 +118,26 @@ export default defineEventHandler(async (event) => {
 
   const rawFields = parseMaybeJson(currentTemplate[0]!.placedFieldsData);
   const placedFieldsData = Array.isArray(rawFields) ? rawFields : [];
+
+  const signerSuggestionMap = new Map<string, string>();
+  for (const note of (body?.signerSuggestionNotes ?? [])) {
+    const stepId = String(note?.stepId || '').trim();
+    if (!stepId)
+      continue;
+    signerSuggestionMap.set(stepId, String(note?.suggestionNote || '').trim());
+  }
+
+  const rawSigningFlow = parseMaybeJson(currentTemplate[0]!.signingFlowData);
+  const signingFlowData = Array.isArray(rawSigningFlow) ? rawSigningFlow : [];
+  const updatedSigningFlowData = signingFlowData.map((step: any) => {
+    const stepId = String(step?.id || '').trim();
+    if (!stepId || !signerSuggestionMap.has(stepId))
+      return step;
+    return {
+      ...step,
+      suggestionNote: signerSuggestionMap.get(stepId),
+    };
+  });
 
   const updatedPlacedFieldsData = placedFieldsData.map((field: any) => {
     const instanceId = getPlacedFieldInstanceId(field);
@@ -130,16 +154,18 @@ export default defineEventHandler(async (event) => {
       formRequired: config.required,
       formGroupId: config.formGroupId,
       formGroupTitle: config.formGroupTitle,
+      formSuggestionNote: config.formSuggestionNote || String(field?.formSuggestionNote || ''),
     };
   });
 
   const updated = await db
     .update(requestTemplate)
-    .set({ placedFieldsData: updatedPlacedFieldsData })
+    .set({ placedFieldsData: updatedPlacedFieldsData, signingFlowData: updatedSigningFlowData })
     .where(eq(requestTemplate.id, id))
     .returning({
       id: requestTemplate.id,
       placedFieldsData: requestTemplate.placedFieldsData,
+      signingFlowData: requestTemplate.signingFlowData,
     });
 
   return { success: true, data: updated[0] };

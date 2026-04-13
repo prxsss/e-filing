@@ -31,6 +31,7 @@ type SigningStep = {
   roleName: string;
   assignedUserId?: string;
   color?: string;
+  suggestionNote?: string | null;
 };
 
 type UserOption = {
@@ -117,6 +118,14 @@ const selectedRecipients = ref<Record<string, string>>({}); // stepId -> userId
 
 function normalizeRoleName(roleName: unknown): string {
   return String(roleName ?? '').trim().toLowerCase();
+}
+
+function getFieldSuggestionNoteText(field: any): string {
+  return String(field?.formSuggestionNote ?? '').trim();
+}
+
+function getSignerSuggestionNoteText(step: any): string {
+  return String(step?.suggestionNote ?? '').trim();
 }
 
 function findSubmitterStep(steps: SigningStep[]): SigningStep | undefined {
@@ -2001,6 +2010,9 @@ watch(
                           :render-as-radio="isCheckboxField(item.field) && getCheckboxGroupId(item.field).length > 0"
                           @update:model-value="(value) => handleFieldValueUpdate(item.field, String(value ?? ''))"
                         />
+                        <p v-if="getFieldSuggestionNoteText(item.field)" class="mt-1 text-[11px] leading-4 text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 whitespace-pre-wrap wrap-break-word max-h-16 overflow-y-auto">
+                          {{ getFieldSuggestionNoteText(item.field) }}
+                        </p>
                         <p
                           v-if="hasFieldValidationError(item.field)"
                           class="mt-2 text-sm text-red-600"
@@ -2043,6 +2055,9 @@ watch(
                               :hide-required-asterisk="true"
                               @update:model-value="(value) => handleFieldValueUpdate(optionField, String(value ?? ''))"
                             />
+                            <p v-if="getFieldSuggestionNoteText(optionField)" class="mt-1 text-[11px] leading-4 text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 whitespace-pre-wrap wrap-break-word max-h-16 overflow-y-auto">
+                              {{ getFieldSuggestionNoteText(optionField) }}
+                            </p>
                           </div>
                         </div>
 
@@ -2188,6 +2203,9 @@ watch(
                     icon="i-heroicons-user"
                     class="w-full"
                   />
+                  <p v-if="getSignerSuggestionNoteText(step)" class="mt-1 text-[11px] leading-4 text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 whitespace-pre-wrap wrap-break-word max-h-16 overflow-y-auto">
+                    {{ getSignerSuggestionNoteText(step) }}
+                  </p>
                   <p
                     v-if="!getUserItems(step).length && !loadingUsersByRoleId[getResolvedRoleId(step) ?? 0]"
                     class="mt-1 text-xs text-gray-400"
