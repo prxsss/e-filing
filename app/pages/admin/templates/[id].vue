@@ -35,10 +35,12 @@ type SigningStepSummary = {
   roleName: string;
   description: string | null;
   isRequired: boolean;
+  suggestionNote: string | null;
   color: string;
 };
 
 const DEFAULT_SIGNING_STEP_COLOR = '#94A3B8';
+const SUGGESTION_NOTE_MAX_LENGTH = 240;
 
 // --- State ---
 const route = useRoute();
@@ -64,8 +66,10 @@ const isEditingFormLayout = ref(false);
 const formSectionTitle = ref('Request Information');
 const isSavingFormLayout = ref(false);
 const activeEditingFieldId = ref<string | null>(null);
+const fieldSuggestionNotes = ref<Record<string, string>>({});
+const signerSuggestionNoteMap = ref<Record<string, string>>({});
 
-// ─── Layout item types ────────────────────────────────────────────────────────
+// ─── Layout item types ────
 type AdminLayoutField = {
   kind: 'field';
   instanceId: string;
@@ -110,6 +114,13 @@ function parseMaybeJson(value: unknown): unknown {
   catch {
     return value;
   }
+}
+
+function normalizeSuggestionNote(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (text.length <= SUGGESTION_NOTE_MAX_LENGTH)
+    return text;
+  return text.slice(0, SUGGESTION_NOTE_MAX_LENGTH);
 }
 
 function normalizePlacedFieldsData(value: unknown): any[] {
@@ -265,6 +276,24 @@ function syncLayoutItems() {
 
   items.sort((a, b) => a.order - b.order);
   layoutItems.value = items.map(i => i.item);
+
+  fieldSuggestionNotes.value = {};
+  for (const field of sourceFields) {
+    const instanceId = String(field?.instanceId ?? '').trim();
+    if (!instanceId)
+      continue;
+    fieldSuggestionNotes.value[instanceId] = normalizeSuggestionNote(field?.formSuggestionNote);
+  }
+
+  signerSuggestionNoteMap.value = {};
+  const rawSigningFlow = parseMaybeJson(template.value?.signingFlowData);
+  const signingFlow = Array.isArray(rawSigningFlow) ? rawSigningFlow : [];
+  for (const step of signingFlow as any[]) {
+    const stepId = String(step?.id ?? '').trim();
+    if (!stepId)
+      continue;
+    signerSuggestionNoteMap.value[stepId] = normalizeSuggestionNote(step?.suggestionNote);
+  }
 }
 
 // Keep alias so fetchTemplate() / watcher still work after rename.
@@ -287,6 +316,22 @@ function setQuestionLabel(instanceId: string, value: string) {
       }
     }
   }
+}
+
+function setFieldSuggestionNote(instanceId: string, note: string) {
+  fieldSuggestionNotes.value[instanceId] = normalizeSuggestionNote(note);
+}
+
+function getFieldSuggestionNote(instanceId: string): string {
+  return fieldSuggestionNotes.value[instanceId] ?? '';
+}
+
+function setSignerSuggestionNote(stepId: string, note: string) {
+  signerSuggestionNoteMap.value[stepId] = normalizeSuggestionNote(note);
+}
+
+function getSignerSuggestionNote(stepId: string): string {
+  return signerSuggestionNoteMap.value[stepId] ?? '';
 }
 
 function getLayoutEntry(instanceId: string): { required: boolean } | undefined {
@@ -584,6 +629,7 @@ async function saveFormLayout(): Promise<boolean> {
       questionLabel: string;
       order: number;
       required: boolean;
+      formSuggestionNote?: string;
       groupId?: string;
       groupTitle?: string;
     };
@@ -598,6 +644,7 @@ async function saveFormLayout(): Promise<boolean> {
           questionLabel: String(item.questionLabel || '').trim() || String((fallback as any)?.formQuestionLabel || (fallback as any)?.label || (fallback as any)?.name || ''),
           order: orderCounter,
           required: item.required !== false,
+          formSuggestionNote: getFieldSuggestionNote(item.instanceId),
         });
       }
       else {
@@ -610,6 +657,7 @@ async function saveFormLayout(): Promise<boolean> {
             questionLabel: String(f.questionLabel || '').trim() || String((fallback as any)?.formQuestionLabel || (fallback as any)?.label || (fallback as any)?.name || ''),
             order: orderCounter,
             required: item.required !== false,
+            formSuggestionNote: getFieldSuggestionNote(f.instanceId),
             groupId: item.id,
             groupTitle,
           });
@@ -630,16 +678,21 @@ async function saveFormLayout(): Promise<boolean> {
           currentGroupEntry = { kind: 'group', id: f.groupId, title: f.groupTitle ?? '', required: f.required, order: f.order, fields: [] };
           entries.push(currentGroupEntry);
         }
-        (currentGroupEntry!.fields as Array<Record<string, unknown>>).push({ instanceId: f.instanceId, questionLabel: f.questionLabel });
+        (currentGroupEntry!.fields as Array<Record<string, unknown>>).push({ instanceId: f.instanceId, questionLabel: f.questionLabel, formSuggestionNote: f.formSuggestionNote });
       }
       else {
-        entries.push({ kind: 'field', instanceId: f.instanceId, questionLabel: f.questionLabel, order: f.order, required: f.required });
+        entries.push({ kind: 'field', instanceId: f.instanceId, questionLabel: f.questionLabel, formSuggestionNote: f.formSuggestionNote, order: f.order, required: f.required });
       }
     }
 
+    const signerSuggestionNotes = signingSteps.value.map(step => ({
+      stepId: step.id,
+      suggestionNote: getSignerSuggestionNote(step.id),
+    }));
+
     const result = await $fetch<{ success: boolean; data?: { placedFieldsData?: any[] }; error?: string }>(
       `/api/pdf-templates/${templateId.value}/form-layout`,
-      { method: 'PATCH', body: { sectionTitle: String(formSectionTitle.value || 'Request Information').trim(), entries } },
+      { method: 'PATCH', body: { sectionTitle: String(formSectionTitle.value || 'Request Information').trim(), entries, signerSuggestionNotes } },
     );
 
     if (!result.success)
@@ -710,6 +763,7 @@ async function confirmAndCancelFormLayoutEdit() {
       it.kind === 'field' ? { ...it } : { ...it, fields: it.fields.map(f => ({ ...f })) },
     );
   }
+  syncLayoutItems();
   isEditingFormLayout.value = false;
   activeEditingFieldId.value = null;
   formLayoutEditSnapshot.value = null;
@@ -783,6 +837,9 @@ function normalizeSigningFlowData(value: unknown): SigningStepSummary[] {
       roleName: typeof step?.roleName === 'string' && step.roleName.trim().length > 0
         ? step.roleName.trim()
         : `Signer ${index + 1}`,
+      suggestionNote: typeof step?.suggestionNote === 'string' && step.suggestionNote.trim().length > 0
+        ? step.suggestionNote.trim()
+        : null,
       description: typeof step?.description === 'string' && step.description.trim().length > 0
         ? step.description.trim()
         : null,
@@ -1230,6 +1287,19 @@ watch(layoutEditorFillableFields, () => {
                           </select>
                         </div>
                       </div>
+                      <div v-if="isEditingFormLayout" class="mb-2">
+                        <label class="text-xs text-gray-500 mb-1 block">Suggestion note</label>
+                        <UTextarea
+                          :model-value="getFieldSuggestionNote(item.instanceId)"
+                          :rows="2"
+                          :maxlength="SUGGESTION_NOTE_MAX_LENGTH"
+                          placeholder="เพิ่มคำแนะนำสำหรับนิสิต"
+                          @update:model-value="(value) => setFieldSuggestionNote(item.instanceId, String(value ?? ''))"
+                        />
+                        <p class="mt-1 text-[11px] text-gray-500 text-right">
+                          {{ getFieldSuggestionNote(item.instanceId).length }}/{{ SUGGESTION_NOTE_MAX_LENGTH }}
+                        </p>
+                      </div>
                       <form-field-input
                         v-if="isFieldVisible(orderedLayoutEditorFieldsById.get(item.instanceId))"
                         :model-value="previewFieldValues[getFieldValueKey(orderedLayoutEditorFieldsById.get(item.instanceId))]"
@@ -1362,6 +1432,19 @@ watch(layoutEditorFillableFields, () => {
                               @click="removeFieldFromGroup(item.id, groupField.instanceId)"
                             />
                           </div>
+                          <div v-if="isEditingFormLayout" class="mb-2">
+                            <label class="text-xs text-gray-500 mb-1 block">Suggestion note</label>
+                            <UTextarea
+                              :model-value="getFieldSuggestionNote(groupField.instanceId)"
+                              :rows="2"
+                              :maxlength="SUGGESTION_NOTE_MAX_LENGTH"
+                              placeholder="เพิ่มคำแนะนำสำหรับนิสิต"
+                              @update:model-value="(value) => setFieldSuggestionNote(groupField.instanceId, String(value ?? ''))"
+                            />
+                            <p class="mt-1 text-[11px] text-gray-500 text-right">
+                              {{ getFieldSuggestionNote(groupField.instanceId).length }}/{{ SUGGESTION_NOTE_MAX_LENGTH }}
+                            </p>
+                          </div>
                           <form-field-input
                             v-if="isFieldVisible(orderedLayoutEditorFieldsById.get(groupField.instanceId))"
                             :model-value="previewFieldValues[getFieldValueKey(orderedLayoutEditorFieldsById.get(groupField.instanceId))]"
@@ -1481,6 +1564,20 @@ watch(layoutEditorFillableFields, () => {
                     >
                       {{ step.isRequired ? 'Required' : 'Optional' }}
                     </UBadge>
+                    <div v-if="isEditingFormLayout" class="mt-2">
+                      <label class="text-xs text-gray-500 mb-1 block">Suggestion note</label>
+                      <UTextarea
+                        :model-value="getSignerSuggestionNote(step.id)"
+                        :rows="2"
+                        :maxlength="SUGGESTION_NOTE_MAX_LENGTH"
+                        placeholder="เพิ่มคำแนะนำสำหรับผู้ลงนามขั้นตอนนี้"
+                        class="w-full"
+                        @update:model-value="(value) => setSignerSuggestionNote(step.id, String(value ?? ''))"
+                      />
+                      <p class="mt-1 text-[11px] text-gray-500 text-right">
+                        {{ getSignerSuggestionNote(step.id).length }}/{{ SUGGESTION_NOTE_MAX_LENGTH }}
+                      </p>
+                    </div>
                   </div>
                 </div>
 

@@ -5,6 +5,7 @@ import { useDebounceFn } from '@vueuse/core';
 
 import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
 import { getStudentYear } from '~/utils/student';
+import { downloadFilesAsZip } from '~/utils/zip';
 
 type TemplateInfo = { id: number; name: string | null };
 
@@ -112,6 +113,7 @@ const UCheckbox = resolveComponent('UCheckbox');
 const UIcon = resolveComponent('UIcon');
 const table = ref<{ tableApi?: RequestsTableApi } | null>(null);
 const rowSelection = ref<Record<string, boolean>>({});
+const isBulkDownloading = ref(false);
 const columns: TableColumn<RequestItem>[] = [
   {
     id: 'select',
@@ -196,12 +198,38 @@ const selectedRowsWithPdf = computed<FilteredSelectedRow[]>(() => {
 const canBulkDownload = computed<boolean>(() => selectedRowsWithPdf.value.length > 0);
 async function onBulkDownload() {
   const rows = selectedRowsWithPdf.value;
-  for (const [index, row] of rows.entries()) {
-    const url = row.original.filledDocumentUrl;
-    if (url)
-      await downloadPdf(url, `request-${row.original.id}.pdf`);
-    if (index < rows.length - 1)
-      await new Promise(r => setTimeout(r, 250));
+  if (!rows.length)
+    return;
+
+  isBulkDownloading.value = true;
+  try {
+    const files = await Promise.all(rows.map(async (row) => {
+      const url = row.original.filledDocumentUrl;
+      if (!url)
+        return null;
+
+      const res = await fetch(url);
+      if (!res.ok)
+        throw new Error('Fetch failed');
+
+      return {
+        name: `request-${row.original.id}.pdf`,
+        data: new Uint8Array(await res.arrayBuffer()),
+      };
+    }));
+
+    const validFiles = files.filter(Boolean) as Array<{ name: string; data: Uint8Array }>;
+    await downloadFilesAsZip(validFiles, `requests-${templateId}-${new Date().toISOString().slice(0, 10)}.zip`);
+  }
+  catch {
+    for (const row of rows) {
+      const url = row.original.filledDocumentUrl;
+      if (url)
+        await downloadPdf(url, `request-${row.original.id}.pdf`);
+    }
+  }
+  finally {
+    isBulkDownloading.value = false;
   }
 }
 
@@ -367,7 +395,7 @@ const statsMap = computed(() => {
     <UCard>
       <!-- Filters -->
       <div class="w-full mb-5">
-        <div class="max-w-md ml-auto flex gap-2 items-center">
+        <div class="w-full flex flex-col gap-2 sm:max-w-md sm:ml-auto sm:flex-row sm:items-center">
           <UTooltip text="กรุณาเลือกรายการก่อน" :prevent="canBulkDownload">
             <UButton
               icon="i-heroicons-arrow-down-tray"
@@ -375,10 +403,11 @@ const statsMap = computed(() => {
               variant="soft"
               size="sm"
               :disabled="!canBulkDownload"
-              class="min-w-40 justify-center items-center"
+              :loading="isBulkDownloading"
+              class="w-full justify-center items-center sm:min-w-40 sm:w-auto"
               @click="onBulkDownload"
             >
-              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด PDF (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด PDF' }}
+              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด ZIP (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด ZIP' }}
             </UButton>
           </UTooltip>
           <UFieldGroup class="w-full">
@@ -403,8 +432,8 @@ const statsMap = computed(() => {
               />
             </template>
             <template #content>
-              <div class="w-lg p-4 space-y-4">
-                <div class="grid grid-cols-2 gap-3">
+              <div class="w-[min(92vw,32rem)] p-4 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <UFormField label="สถานะ">
                     <USelect
                       v-model="selectedStatus"
