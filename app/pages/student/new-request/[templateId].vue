@@ -92,11 +92,7 @@ const syncInteractionLayerRef = ref<HTMLElement | null>(null);
 const activeInteractionFieldInstanceId = ref<string | null>(null);
 const activeInteractionSource = ref<'form' | 'pdf' | null>(null);
 const enableSyncAutoScroll = false;
-const connectorPath = ref('');
-const connectorLayerWidth = ref(0);
-const connectorLayerHeight = ref(0);
 let interactionClearTimer: ReturnType<typeof setTimeout> | null = null;
-let connectorFrame: number | null = null;
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
 const isUploadingAttachment = ref(false);
@@ -657,58 +653,6 @@ function findSurfaceElement(surface: 'form' | 'pdf', instanceId: string): HTMLEl
   return Array.from(nodes).find(node => String(node.dataset.fieldInstanceId ?? '').trim() === instanceId) || null;
 }
 
-function queueConnectorUpdate() {
-  if (connectorFrame !== null) {
-    cancelAnimationFrame(connectorFrame);
-  }
-
-  connectorFrame = window.requestAnimationFrame(() => {
-    connectorFrame = null;
-
-    const root = syncInteractionLayerRef.value;
-    const activeId = activeInteractionFieldInstanceId.value;
-    if (!root || !activeId) {
-      connectorPath.value = '';
-      connectorLayerWidth.value = 0;
-      connectorLayerHeight.value = 0;
-      return;
-    }
-
-    const pdfElement = findSurfaceElement('pdf', activeId);
-    const formElement = findSurfaceElement('form', activeId);
-    if (!pdfElement || !formElement) {
-      connectorPath.value = '';
-      connectorLayerWidth.value = root.clientWidth;
-      connectorLayerHeight.value = root.clientHeight;
-      return;
-    }
-
-    const rootRect = root.getBoundingClientRect();
-    const pdfRect = pdfElement.getBoundingClientRect();
-    const formRect = formElement.getBoundingClientRect();
-
-    connectorLayerWidth.value = root.clientWidth;
-    connectorLayerHeight.value = root.clientHeight;
-
-    const startX = pdfRect.right - rootRect.left;
-    const startY = (pdfRect.top + (pdfRect.height / 2)) - rootRect.top;
-    const endX = formRect.left - rootRect.left;
-    const endY = (formRect.top + (formRect.height / 2)) - rootRect.top;
-
-    if (!(endX > startX + 24)) {
-      connectorPath.value = '';
-      return;
-    }
-
-    const horizontalDistance = endX - startX;
-    const curve = Math.min(120, Math.max(48, horizontalDistance * 0.35));
-    const control1X = startX + curve;
-    const control2X = endX - curve;
-
-    connectorPath.value = `M ${startX} ${startY} C ${control1X} ${startY} ${control2X} ${endY} ${endX} ${endY}`;
-  });
-}
-
 function clearInteractionTimer() {
   if (interactionClearTimer) {
     clearTimeout(interactionClearTimer);
@@ -724,7 +668,6 @@ function scheduleInteractionClear(source: 'form' | 'pdf') {
     }
     activeInteractionFieldInstanceId.value = null;
     activeInteractionSource.value = null;
-    queueConnectorUpdate();
   }, 130);
 }
 
@@ -751,9 +694,6 @@ async function activateInteractionField(field: any, source: 'form' | 'pdf') {
       scrollFormFieldIntoView(instanceId);
     }
   }
-
-  await nextTick();
-  queueConnectorUpdate();
 }
 
 function handleFormFieldEnter(field: any) {
@@ -1748,32 +1688,11 @@ function getFileIcon(fileName: string | null) {
 
 onMounted(() => {
   fetchTemplateData();
-
-  const syncLayer = syncInteractionLayerRef.value;
-  if (syncLayer) {
-    syncLayer.addEventListener('scroll', queueConnectorUpdate, true);
-  }
-
-  window.addEventListener('resize', queueConnectorUpdate);
-  window.addEventListener('scroll', queueConnectorUpdate, true);
 });
 
 onUnmounted(() => {
   clearPreviewRefreshTimer();
   clearInteractionTimer();
-
-  const syncLayer = syncInteractionLayerRef.value;
-  if (syncLayer) {
-    syncLayer.removeEventListener('scroll', queueConnectorUpdate, true);
-  }
-
-  window.removeEventListener('resize', queueConnectorUpdate);
-  window.removeEventListener('scroll', queueConnectorUpdate, true);
-
-  if (connectorFrame !== null) {
-    cancelAnimationFrame(connectorFrame);
-    connectorFrame = null;
-  }
 
   for (const pending of pendingAttachments.value) {
     URL.revokeObjectURL(pending.localUrl);
@@ -1807,13 +1726,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
   void syncOverlayDisplayFieldValues();
   schedulePreviewRefresh();
 }, { deep: true, immediate: true });
-
-watch(
-  () => [activeInteractionFieldInstanceId.value, scale.value, previewOverlayFields.value.length],
-  () => {
-    queueConnectorUpdate();
-  },
-);
 </script>
 
 <template>
@@ -1871,20 +1783,6 @@ watch(
         ref="syncInteractionLayerRef"
         class="relative grid grid-cols-1 lg:grid-cols-3 gap-6 items-start"
       >
-        <svg
-          v-if="connectorPath"
-          class="pointer-events-none absolute inset-0 z-20 hidden lg:block"
-          :width="connectorLayerWidth"
-          :height="connectorLayerHeight"
-          :viewBox="`0 0 ${Math.max(connectorLayerWidth, 1)} ${Math.max(connectorLayerHeight, 1)}`"
-          aria-hidden="true"
-        >
-          <path
-            class="connector-line"
-            :d="connectorPath"
-          />
-        </svg>
-
         <!-- Left: PDF Preview (sticky on large screens while scrolling the form) -->
         <div
           class="lg:col-span-2 lg:sticky lg:top-4 lg:z-10 lg:max-h-[min(100vh-5rem,100dvh-5rem)] lg:overflow-y-auto lg:pr-1 lg:-ml-1 lg:pl-1"
@@ -2370,26 +2268,5 @@ watch(
   border-color: rgba(14, 165, 233, 0.55) !important;
   background: transparent !important;
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.14);
-}
-
-.connector-line {
-  fill: none;
-  stroke: rgba(14, 165, 233, 0.55);
-  stroke-width: 2;
-  stroke-dasharray: 5 5;
-  stroke-linecap: round;
-  animation: connector-drift 1.5s linear infinite;
-}
-
-@keyframes connector-drift {
-  to {
-    stroke-dashoffset: -20;
-  }
-}
-
-@media (max-width: 1023px) {
-  .connector-line {
-    display: none;
-  }
 }
 </style>
