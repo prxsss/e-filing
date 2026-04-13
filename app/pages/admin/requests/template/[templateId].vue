@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import type { TableColumn, TableRow } from '@nuxt/ui';
 
-import { DateFormatter, getLocalTimeZone } from '@internationalized/date';
 import { useDebounceFn } from '@vueuse/core';
 
 import { PERIOD_OPTIONS, useRequestFiltersStore } from '~/stores/request-filters';
+import { getStudentYear } from '~/utils/student';
 
 type TemplateInfo = { id: number; name: string | null };
 
@@ -34,9 +34,13 @@ type RequestItem = {
   submittedAt: string | null;
   filledDocumentUrl?: string | null;
   studentId: string | null;
+  studentYear: string | number;
   studentNameEn: string | null;
   studentNameTh: string | null;
   studentName: string;
+  departmentNameTh: string | null;
+  departmentNameEn: string | null;
+  departmentName: string;
 };
 type SelectableRow = { getIsSelected: () => boolean; toggleSelected: (value: boolean) => void };
 type SelectableTable = { getIsSomePageRowsSelected: () => boolean; getIsAllPageRowsSelected: () => boolean; toggleAllPageRowsSelected: (value: boolean) => void };
@@ -65,11 +69,40 @@ function getStatusLabel(status: string) {
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '-';
-  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
+
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime()))
+    return '-';
+
+  return new Intl.DateTimeFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  });
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+function formatCalendarDate(value: { year: number; month: number; day: number } | null | undefined): string {
+  if (!value)
+    return '-';
+
+  const date = new Date(Date.UTC(value.year, value.month - 1, value.day));
+  return new Intl.DateTimeFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+function getStudentYearDisplay(studentId: string | null): string {
+  const normalizedId = String(studentId ?? '').trim();
+  if (!/^\d{2}/.test(normalizedId)) {
+    return '-';
+  }
+
+  const year = getStudentYear(normalizedId);
+  return Number.isFinite(year) && year > 0 ? String(year) : '-';
 }
 
 // === Table Columns ===
@@ -101,17 +134,33 @@ const columns: TableColumn<RequestItem>[] = [
   {
     accessorKey: 'studentName',
     header: t('studentName'),
-    size: 180,
+    size: 150,
     cell: (ctx: { row: TableRow<RequestItem> }) => ctx.row.original.studentName,
   },
-  { accessorKey: 'templateName', header: t('requestTitle'), size: 250 },
-  { accessorKey: 'status', header: t('status'), size: 150 },
-  { accessorKey: 'createdAt', header: t('submittedDate'), size: 165 },
-  { accessorKey: 'submittedAt', header: t('lastUpdated'), size: 165 },
+  {
+    accessorKey: 'departmentName',
+    header: t('department'),
+    size: 140,
+  },
+  { accessorKey: 'studentYear', header: t('studentYear'), size: 20 },
+  {
+    accessorKey: 'templateName',
+    header: t('requestTitle'),
+    size: 200,
+    meta: {
+      class: {
+        th: 'w-50 max-w-50 text-left',
+        td: 'w-50 max-w-50 text-left',
+      },
+    },
+  },
+  { accessorKey: 'status', header: t('status'), size: 120 },
+  { accessorKey: 'createdAt', header: t('submittedDate'), size: 130 },
+  { accessorKey: 'submittedAt', header: t('lastUpdated'), size: 130 },
   {
     id: 'actions',
     header: '',
-    size: 100,
+    size: 80,
     meta: { class: { td: 'text-right' } },
   },
 ];
@@ -160,8 +209,6 @@ async function onBulkDownload() {
 const filterStore = useRequestFiltersStore();
 const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
 
-const df = new DateFormatter('en-US', { dateStyle: 'medium' });
-
 // === Local Filter State ===
 const statusOptions = [
   { label: 'สถานะทั้งหมด', value: undefined },
@@ -175,7 +222,7 @@ const applySearch = useDebounceFn((val: string) => {
   debouncedSearch.value = val;
 }, 350);
 watch(searchQuery, applySearch);
-const selectedStatus = ref<string | undefined>(undefined);
+const selectedStatus = ref<RequestStatus | undefined>(undefined);
 const page = ref(1);
 const pageSize = 15;
 
@@ -209,13 +256,23 @@ const { data: response, status: fetchStatus, refresh } = await useFetch('/api/re
 const requests = computed<RequestItem[]>(() => {
   const raw = response.value?.data ?? [];
   return raw.map((item: any) => {
-    const studentName = locale.value === 'th' ? (item.studentNameTh ?? '') : (item.studentNameEn ?? '');
+    const studentName = locale.value === 'th'
+      ? (item.studentNameTh ?? '')
+      : (item.studentNameEn ?? '');
+    const departmentName = locale.value === 'th'
+      ? (item.departmentNameTh ?? item.departmentNameEn ?? '')
+      : (item.departmentNameEn ?? item.departmentNameTh ?? '');
+    const studentId = item.studentId ?? '';
     return {
       ...item,
-      studentId: item.studentId ?? '',
+      studentId,
+      studentYear: getStudentYearDisplay(studentId),
       studentNameEn: item.studentNameEn ?? '',
       studentNameTh: item.studentNameTh ?? '',
       studentName,
+      departmentNameTh: item.departmentNameTh ?? null,
+      departmentNameEn: item.departmentNameEn ?? null,
+      departmentName: departmentName || '-',
     };
   });
 });
@@ -374,10 +431,10 @@ const statsMap = computed(() => {
                     <UButton color="neutral" variant="outline" size="sm" class="w-full font-normal">
                       <template v-if="modelValue.start">
                         <template v-if="modelValue.end">
-                          {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }} - {{ df.format(modelValue.end.toDate(getLocalTimeZone())) }}
+                          {{ formatCalendarDate(modelValue.start) }} - {{ formatCalendarDate(modelValue.end) }}
                         </template>
                         <template v-else>
-                          {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }}
+                          {{ formatCalendarDate(modelValue.start) }}
                         </template>
                       </template>
                       <template v-else>
@@ -406,14 +463,28 @@ const statsMap = computed(() => {
       <UTable
         ref="table"
         v-model:row-selection="rowSelection"
+        class="w-full"
         :data="requests"
         :columns="columns"
         :get-row-id="(row: RequestItem) => String(row.id)"
         :loading="fetchStatus === 'pending'"
-        :ui="{ tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
+        :ui="{ base: 'table-fixed min-w-full', th: 'text-left', td: 'text-left', tr: 'cursor-pointer hover:bg-(--ui-bg-elevated)/50 transition-colors' }"
         empty=" "
         @select="onRowSelect"
       >
+        <template #templateName-cell="{ row }">
+          <div
+            class="max-w-50 truncate"
+            :title="row.original.templateName ?? '-'"
+          >
+            {{ row.original.templateName || '-' }}
+          </div>
+        </template>
+        <template #departmentName-cell="{ row }">
+          <div class="max-w-35 truncate" :title="row.original.departmentName || '-'">
+            {{ row.original.departmentName || '-' }}
+          </div>
+        </template>
         <template #createdAt-cell="{ row }">
           {{ formatDate(row.original.createdAt) }}
         </template>
