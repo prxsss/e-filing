@@ -1712,9 +1712,6 @@ defineExpose<{
   font-weight: 700;
   pointer-events: none;
   z-index: 1002;
-  max-width: min(18rem, 72cqw);
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .checkbox-tag {
@@ -1733,9 +1730,6 @@ defineExpose<{
   font-weight: 700;
   pointer-events: none;
   z-index: 1002;
-  max-width: min(18rem, 72cqw);
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .condition-tag--stacked {
