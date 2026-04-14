@@ -164,6 +164,12 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
       result.formSectionTitle = String(field.formSectionTitle);
     if (typeof field?.formRequired !== 'undefined')
       result.formRequired = Boolean(field.formRequired);
+    if (Object.prototype.hasOwnProperty.call(field ?? {}, 'formGroupId'))
+      result.formGroupId = field?.formGroupId == null ? null : String(field.formGroupId);
+    if (Object.prototype.hasOwnProperty.call(field ?? {}, 'formGroupTitle'))
+      result.formGroupTitle = field?.formGroupTitle == null ? null : String(field.formGroupTitle);
+    if (Object.prototype.hasOwnProperty.call(field ?? {}, 'formSuggestionNote'))
+      result.formSuggestionNote = field?.formSuggestionNote == null ? null : String(field.formSuggestionNote);
   }
 
   return result;
