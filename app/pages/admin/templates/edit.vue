@@ -1453,6 +1453,16 @@ function handleKeyDown(event: KeyboardEvent): void {
           return;
         }
         pushPlacedFieldsUndoSnapshot();
+        const pastedGroupSizeBySourceId: Record<string, number> = {};
+        for (const snapshot of snapshots) {
+          const sourceGroupId = String(snapshot?.groupId ?? '').trim();
+          if (!sourceGroupId) {
+            continue;
+          }
+          pastedGroupSizeBySourceId[sourceGroupId] = (pastedGroupSizeBySourceId[sourceGroupId] ?? 0) + 1;
+        }
+        const groupIdMapBySourceId: Record<string, string> = {};
+        const groupPositionCursorBySourceId: Record<string, number> = {};
         const newIds: string[] = [];
         let shouldRefresh = false;
         for (let i = 0; i < snapshots.length; i++) {
@@ -1460,6 +1470,9 @@ function handleKeyDown(event: KeyboardEvent): void {
             pdfRef: templatePdfRef.value,
             fileType: fileType.value,
             currentPage: currentPdfPage.value,
+            groupIdMapBySourceId,
+            pastedGroupSizeBySourceId,
+            groupPositionCursorBySourceId,
           });
           placedFields.value.push(newField);
           newIds.push(newField.instanceId);

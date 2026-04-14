@@ -100,6 +100,9 @@ export function buildPastedFieldInstance(
     pdfRef: PdfRef | null;
     fileType: FileTypeValue;
     currentPage: number;
+    groupIdMapBySourceId?: Record<string, string>;
+    pastedGroupSizeBySourceId?: Record<string, number>;
+    groupPositionCursorBySourceId?: Record<string, number>;
   },
 ): FieldInstance {
   const raw = JSON.parse(JSON.stringify(sourceSnapshot)) as FieldInstance;
@@ -107,11 +110,36 @@ export function buildPastedFieldInstance(
   raw.instanceId = `field_${raw.id}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   raw.instanceNumber = getNextFieldInstanceNumber(placedFields, raw);
 
-  raw.isGrouped = false;
-  raw.groupSize = 1;
-  raw.groupPosition = 0;
-  if (raw.groupId != null && String(raw.groupId).trim().length > 0) {
-    raw.groupId = `group_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const sourceGroupId = String(raw.groupId ?? '').trim();
+  const groupedPasteSize = sourceGroupId.length > 0
+    ? Number(opts.pastedGroupSizeBySourceId?.[sourceGroupId] ?? 0)
+    : 0;
+
+  if (sourceGroupId.length > 0 && groupedPasteSize > 1) {
+    const existingMappedGroupId = opts.groupIdMapBySourceId?.[sourceGroupId];
+    const mappedGroupId = existingMappedGroupId?.trim().length
+      ? existingMappedGroupId
+      : `group_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    if (opts.groupIdMapBySourceId) {
+      opts.groupIdMapBySourceId[sourceGroupId] = mappedGroupId;
+    }
+
+    const cursor = Number(opts.groupPositionCursorBySourceId?.[sourceGroupId] ?? 0);
+    if (opts.groupPositionCursorBySourceId) {
+      opts.groupPositionCursorBySourceId[sourceGroupId] = cursor + 1;
+    }
+
+    raw.groupId = mappedGroupId;
+    raw.isGrouped = true;
+    raw.groupSize = groupedPasteSize;
+    raw.groupPosition = Math.max(0, Math.min(groupedPasteSize - 1, cursor));
+  }
+  else {
+    raw.groupId = null;
+    raw.isGrouped = false;
+    raw.groupSize = 1;
+    raw.groupPosition = 0;
   }
 
   raw.pageNumber = opts.currentPage;
