@@ -471,7 +471,7 @@ const statsMap = computed(() => {
               class="w-full justify-center items-center sm:min-w-40 sm:w-auto"
               @click="onBulkDownload"
             >
-              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลด ZIP (${selectedRowsWithPdf.length})` : 'ดาวน์โหลด ZIP' }}
+              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลดคำร้อง (${selectedRowsWithPdf.length})` : 'ดาวน์โหลดคำร้อง' }}
             </UButton>
           </UTooltip>
           <UFieldGroup class="w-full">
@@ -602,14 +602,14 @@ const statsMap = computed(() => {
         </template>
         <template #actions-cell="{ row }">
           <div class="flex items-center justify-end gap-3" @click.stop>
-            <UTooltip text="ดาวน์โหลด PDF">
+            <UTooltip text="ดาวน์โหลดคำร้อง">
               <UButton
                 icon="i-heroicons-arrow-down-tray"
                 size="md"
                 variant="ghost"
                 color="neutral"
                 :disabled="!row.original.filledDocumentUrl"
-                :aria-label="row.original.filledDocumentUrl ? 'ดาวน์โหลด PDF' : 'ไม่มี PDF'"
+                :aria-label="row.original.filledDocumentUrl ? 'ดาวน์โหลด' : 'ไม่มี PDF'"
                 @click="row.original.filledDocumentUrl && downloadPdf(row.original.filledDocumentUrl, `request-${row.original.id}.pdf`)"
               />
             </UTooltip>
