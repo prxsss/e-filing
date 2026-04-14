@@ -608,6 +608,8 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
         catch {}
 
         let text = normalizedFieldValue.trim();
+        const firstLineIndent = Math.max(0, Number(field.textIndent ?? field.text_indent ?? 0) || 0) * CSS_PX_TO_PT;
+        const firstLineMaxWidth = Math.max(4, fieldW - firstLineIndent);
 
         const lines: string[] = [];
         const paragraphs = text.split('\n');
@@ -620,16 +622,17 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
               continue;
             }
             try {
+              const maxWidthForCurrentLine = lines.length === 0 ? firstLineMaxWidth : fieldW;
               const testWidth = font.widthOfTextAtSize(currentLine + word, fontSize);
-              if (testWidth > fieldW && currentLine !== '') {
+              if (testWidth > maxWidthForCurrentLine && currentLine !== '') {
                 lines.push(currentLine);
                 currentLine = word;
               }
-              else if (testWidth > fieldW && currentLine === '') {
+              else if (testWidth > maxWidthForCurrentLine && currentLine === '') {
                 let tempWord = '';
                 for (const char of word) {
                   const charTestWidth = font.widthOfTextAtSize(tempWord + char, fontSize);
-                  if (charTestWidth > fieldW && tempWord !== '') {
+                  if (charTestWidth > maxWidthForCurrentLine && tempWord !== '') {
                     lines.push(tempWord);
                     tempWord = char;
                   }
@@ -668,20 +671,24 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
         }
 
         textX = Math.max(fieldX, textX);
+        const firstLineTextX = field.textAlign === 'center' || field.textAlign === 'right'
+          ? textX
+          : Math.min(fieldX + fieldW - 2, textX + firstLineIndent);
+        const wrappedLineTextX = textX;
 
         const letterSpacing = (Number(field.letterSpacing ?? 0) || 0) * CSS_PX_TO_PT;
 
         if (letterSpacing !== 0 && text.length > 0) {
-          let cursorX = textX;
+          let cursorX = firstLineTextX;
           for (const char of text) {
             if (char === '\n') {
               textY -= (Number(field.lineHeight) || 1.5) * fontSize;
-              cursorX = textX;
+              cursorX = wrappedLineTextX;
               continue;
             }
             if (cursorX >= fieldX + fieldW) {
               textY -= (Number(field.lineHeight) || 1.5) * fontSize;
-              cursorX = textX;
+              cursorX = wrappedLineTextX;
             }
             targetPage.drawText(char, {
               x: cursorX,
@@ -700,15 +707,19 @@ async function generateFilledPdf(pdfBytes: Uint8Array, fields: any[], _template:
         }
         else {
           const customLineHeight = (Number(field.lineHeight) || 1.5) * fontSize;
-          targetPage.drawText(text, {
-            x: textX,
-            y: textY,
-            size: fontSize,
-            font,
-            color: PDFLib.rgb(0, 0, 0),
-            maxWidth: fieldW,
-            lineHeight: customLineHeight,
-          });
+          const linesToDraw = text.split('\n');
+          for (let lineIndex = 0; lineIndex < linesToDraw.length; lineIndex++) {
+            const line = linesToDraw[lineIndex] ?? '';
+            targetPage.drawText(line, {
+              x: lineIndex === 0 ? firstLineTextX : wrappedLineTextX,
+              y: textY - (lineIndex * customLineHeight),
+              size: fontSize,
+              font,
+              color: PDFLib.rgb(0, 0, 0),
+              maxWidth: lineIndex === 0 ? firstLineMaxWidth : fieldW,
+              lineHeight: customLineHeight,
+            });
+          }
         }
       }
       catch (error) {

@@ -56,6 +56,8 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
     result.textAlign = String(field.textAlign);
   if (Number.isFinite(field?.letterSpacing) && Number(field.letterSpacing) !== 0)
     result.letterSpacing = Number(field.letterSpacing);
+  if (Number.isFinite(field?.textIndent) && Number(field.textIndent) > 0)
+    result.textIndent = Math.min(300, Math.max(0, Number(field.textIndent)));
   if (Number.isFinite(field?.lineHeight) && Number(field.lineHeight) !== 1.5)
     result.lineHeight = Number(field.lineHeight);
   if (field?.textDecoration && String(field.textDecoration) !== 'none')

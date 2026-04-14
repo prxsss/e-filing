@@ -431,6 +431,7 @@ watch(
         textDecoration: newField.textDecoration || 'none',
         textAlign: newField.textAlign || 'left',
         letterSpacing: fieldType === 'date' || fieldType === 'time' ? 0 : (newField.letterSpacing ?? 0),
+        textIndent: Math.max(0, Number(newField.textIndent ?? newField.text_indent ?? 0) || 0),
         lineHeight: newField.lineHeight ?? 1.5,
         maxLength: normalizeMaxLength(newField.maxLength ?? newField.max_length),
         strikeThroughGroupMode: Boolean(newField.strikeThroughGroupMode ?? newField.strike_through_group_mode ?? false),
@@ -575,6 +576,7 @@ function onPropertyChange() {
     textDecoration: localField.value.textDecoration || 'none',
     textAlign: localField.value.textAlign || 'left',
     letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
+    textIndent: clampTextIndent(Number(localField.value.textIndent) || 0),
     lineHeight: localField.value.lineHeight ?? 1.5,
     maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
     strikeThroughGroupMode: isCheckboxType.value ? Boolean(localField.value.strikeThroughGroupMode) : false,
@@ -702,6 +704,7 @@ function saveDefaults() {
       textDecoration: localField.value.textDecoration || 'none',
       textAlign: localField.value.textAlign || 'left',
       letterSpacing: isDateField.value || isTimeField.value ? 0 : (localField.value.letterSpacing ?? 0),
+      textIndent: clampTextIndent(Number(localField.value.textIndent) || 0),
       lineHeight: localField.value.lineHeight ?? 1.5,
       maxLength: supportsMaxLength.value ? normalizeMaxLength(localField.value.maxLength) : null,
       strikeThroughGroupMode: isCheckboxType.value ? Boolean(localField.value.strikeThroughGroupMode) : false,
@@ -764,6 +767,13 @@ function clampLetterSpacing(value: number): number {
   return Math.min(20, Math.max(-5, value));
 }
 
+function clampTextIndent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(300, Math.max(0, Math.round(value)));
+}
+
 function clampLineHeight(value: number): number {
   if (!Number.isFinite(value)) {
     return 1.5;
@@ -792,6 +802,15 @@ function onLetterSpacingNumberPopoverInput() {
   onPropertyChange();
 }
 
+function onTextIndentNumberPopoverInput() {
+  onPropertyChange();
+}
+
+function onTextIndentNumberPopoverBlur() {
+  localField.value.textIndent = clampTextIndent(Number(localField.value.textIndent) || 0);
+  onPropertyChange();
+}
+
 function onLetterSpacingNumberPopoverBlur() {
   localField.value.letterSpacing = clampLetterSpacing(Number(localField.value.letterSpacing) || 0);
   onPropertyChange();
@@ -809,6 +828,7 @@ function onLineHeightNumberPopoverBlur() {
 const FIELD_DIM_MIN = 16;
 const FIELD_DIM_MAX = 8000;
 const LETTER_SPACING_STEP = 0.5;
+const TEXT_INDENT_STEP = 1;
 const LINE_HEIGHT_STEP = 0.1;
 const MAX_LENGTH_STEP = 1;
 const FIELD_DIM_STEP = 1;
@@ -816,6 +836,12 @@ const FIELD_DIM_STEP = 1;
 function bumpLetterSpacing(delta: number) {
   const cur = Number(localField.value.letterSpacing) || 0;
   localField.value.letterSpacing = clampLetterSpacing(cur + delta * LETTER_SPACING_STEP);
+  onPropertyChange();
+}
+
+function bumpTextIndent(delta: number) {
+  const cur = Number(localField.value.textIndent) || 0;
+  localField.value.textIndent = clampTextIndent(cur + delta * TEXT_INDENT_STEP);
   onPropertyChange();
 }
 
@@ -1038,6 +1064,41 @@ function onFieldHeightPopoverInput() {
             <template #content>
               <div class="spacing-popover-panel">
                 <template v-if="!isDateField && !isTimeField">
+                  <div class="spacing-popover-section">
+                    <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.firstLineIndent') }}</label>
+                    <div class="spacing-popover-stepper">
+                      <button
+                        type="button"
+                        class="spacing-stepper-btn"
+                        :aria-label="t('adminTemplates.create.fieldToolbar.aria.decreaseFirstLineIndent')"
+                        :disabled="Number(localField.textIndent) <= 0"
+                        @click="bumpTextIndent(-1)"
+                      >
+                        −
+                      </button>
+                      <input
+                        v-model.number="localField.textIndent"
+                        type="number"
+                        class="spacing-popover-input-compact"
+                        min="0"
+                        max="300"
+                        step="1"
+                        placeholder="0"
+                        @input="onTextIndentNumberPopoverInput"
+                        @blur="onTextIndentNumberPopoverBlur"
+                      >
+                      <button
+                        type="button"
+                        class="spacing-stepper-btn"
+                        :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseFirstLineIndent')"
+                        :disabled="Number(localField.textIndent) >= 300"
+                        @click="bumpTextIndent(1)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
                   <div class="spacing-popover-section">
                     <label class="spacing-popover-label">{{ t('adminTemplates.create.fieldToolbar.labels.letterSpacing') }}</label>
                     <div class="spacing-popover-stepper">

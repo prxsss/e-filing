@@ -130,7 +130,7 @@
           "alignLeft": "Align left",
           "alignCenter": "Align center",
           "alignRight": "Align right",
-          "advancedTextSettings": "Advanced settings: letter spacing, line height, max characters",
+          "advancedTextSettings": "Advanced settings: first-line indent, letter spacing, line height, max characters",
           "dateFormat": "Date format",
           "timeSeparator": "Time separator (blank = none)",
           "timeSeparatorSpacing": "Time separator spacing",
@@ -147,6 +147,8 @@
         "aria": {
           "selectFontSize": "Select font size",
           "textSpacingAndLimits": "Text spacing and limits settings",
+          "decreaseFirstLineIndent": "Decrease first-line indent",
+          "increaseFirstLineIndent": "Increase first-line indent",
           "decreaseLetterSpacing": "Decrease letter spacing",
           "increaseLetterSpacing": "Increase letter spacing",
           "decreaseLineHeight": "Decrease line height",
@@ -169,6 +171,7 @@
           "sarabun": "Sarabun"
         },
         "labels": {
+          "firstLineIndent": "First-line Indent",
           "letterSpacing": "Letter Spacing",
           "lineHeight": "Line Height",
           "maxCharacters": "Max Characters",

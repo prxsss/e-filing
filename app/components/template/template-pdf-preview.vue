@@ -474,7 +474,13 @@ onUnmounted(() => {
                       stroke-linejoin="round"
                     />
                   </svg>
-                  <span v-if="field.label">{{ field.label }}</span>
+                  <span
+                    v-if="field.label"
+                    class="field-value-text"
+                    :style="field.textAlign !== 'center' && field.textAlign !== 'right' && Number(field.textIndent ?? 0) > 0
+                      ? { textIndent: `${Number(field.textIndent ?? 0)}px` }
+                      : undefined"
+                  >{{ field.label }}</span>
                   <span v-if="field.isGrouped" class="instance-num">#{{ field.instanceNumber }}</span>
                 </template>
               </div>
@@ -558,6 +564,12 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.field-value-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 
 .checkbox-mark-svg {

@@ -29,6 +29,7 @@ export type Field = {
   fontFamily?: string;
   strikeThroughGroupMode?: boolean;
   strikeLineThickness?: number;
+  textIndent?: number;
   [key: string]: any;
 };
 
@@ -91,6 +92,7 @@ export type FieldInstance = Field & {
   timeShowMinute?: boolean;
   strikeThroughGroupMode?: boolean;
   strikeLineThickness?: number;
+  textIndent?: number;
   // Student form layout (/admin/templates/[id] Form Layout + template save)
   formOrder?: number;
   formQuestionLabel?: string;

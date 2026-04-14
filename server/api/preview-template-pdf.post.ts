@@ -408,6 +408,8 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
 
         // ── Horizontal alignment ───────────────────────────────────────────
         let text = applyFieldCharacterLimit(sampleValue, field).trim();
+        const firstLineIndent = Math.max(0, Number(field.textIndent ?? field.text_indent ?? 0) || 0) * CSS_PX_TO_PT;
+        const firstLineMaxWidth = Math.max(4, fieldW - firstLineIndent);
 
         // --- CUSTOM WRAP LOGIC ---
         // Pre-process text to wrap unbreakable strings that exceed field width
@@ -422,17 +424,18 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
               continue;
             }
             try {
+              const maxWidthForCurrentLine = lines.length === 0 ? firstLineMaxWidth : fieldW;
               const testWidth = font.widthOfTextAtSize(currentLine + word, fontSize);
-              if (testWidth > fieldW && currentLine !== '') {
+              if (testWidth > maxWidthForCurrentLine && currentLine !== '') {
                 lines.push(currentLine);
                 currentLine = word;
               }
-              else if (testWidth > fieldW && currentLine === '') {
+              else if (testWidth > maxWidthForCurrentLine && currentLine === '') {
                 // Word itself is too long, we need to character break it!
                 let tempWord = '';
                 for (const char of word) {
                   const charTestWidth = font.widthOfTextAtSize(tempWord + char, fontSize);
-                  if (charTestWidth > fieldW && tempWord !== '') {
+                  if (charTestWidth > maxWidthForCurrentLine && tempWord !== '') {
                     lines.push(tempWord);
                     tempWord = char;
                   }
@@ -471,21 +474,25 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         }
 
         textX = Math.max(fieldX, textX);
+        const firstLineTextX = field.textAlign === 'center' || field.textAlign === 'right'
+          ? textX
+          : Math.min(fieldX + fieldW - 2, textX + firstLineIndent);
+        const wrappedLineTextX = textX;
 
         // ── Letter spacing ─────────────────────────────────────────────────
         const letterSpacing = isDateOrTimeField(field) ? 0 : (Number(field.letterSpacing ?? 0) || 0) * CSS_PX_TO_PT;
 
         if (letterSpacing !== 0 && text.length > 0) {
-          let cursorX = textX;
+          let cursorX = firstLineTextX;
           for (const char of text) {
             if (char === '\n') {
               textY -= (Number(field.lineHeight) || 1.5) * fontSize;
-              cursorX = textX;
+              cursorX = wrappedLineTextX;
               continue;
             }
             if (cursorX >= fieldX + fieldW) {
               textY -= (Number(field.lineHeight) || 1.5) * fontSize;
-              cursorX = textX;
+              cursorX = wrappedLineTextX;
             }
             targetPage.drawText(char, {
               x: cursorX,
@@ -504,15 +511,19 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
         }
         else {
           const customLineHeight = (Number(field.lineHeight) || 1.5) * fontSize;
-          targetPage.drawText(text, {
-            x: textX,
-            y: textY,
-            size: fontSize,
-            font,
-            color: PDFLib.rgb(0.1, 0.3, 0.7),
-            maxWidth: fieldW,
-            lineHeight: customLineHeight,
-          });
+          const linesToDraw = text.split('\n');
+          for (let lineIndex = 0; lineIndex < linesToDraw.length; lineIndex++) {
+            const line = linesToDraw[lineIndex] ?? '';
+            targetPage.drawText(line, {
+              x: lineIndex === 0 ? firstLineTextX : wrappedLineTextX,
+              y: textY - (lineIndex * customLineHeight),
+              size: fontSize,
+              font,
+              color: PDFLib.rgb(0.1, 0.3, 0.7),
+              maxWidth: lineIndex === 0 ? firstLineMaxWidth : fieldW,
+              lineHeight: customLineHeight,
+            });
+          }
         }
 
         // ── Underline ──────────────────────────────────────────────────────
@@ -524,7 +535,7 @@ async function generatePreviewPdf(pdfBytes: Uint8Array, fields: any[]) {
           catch { /* keep field width */ }
 
           targetPage.drawRectangle({
-            x: textX,
+            x: firstLineTextX,
             y: textY - 1.5,
             width: underlineW,
             height: 0.75,

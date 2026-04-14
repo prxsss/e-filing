@@ -1504,6 +1504,9 @@ defineExpose<{
                     <span
                       v-if="getFieldTextOverride(field)"
                       class="field-value-text"
+                      :style="field.textAlign !== 'center' && field.textAlign !== 'right' && Number(field.textIndent ?? 0) > 0
+                        ? { textIndent: `${Number(field.textIndent ?? 0) * fitScale}px` }
+                        : undefined"
                       :title="getFieldTextOverride(field)"
                     ><span class="field-text-content">{{ getFieldTextOverride(field) }}</span></span>
                   </template>

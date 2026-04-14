@@ -130,7 +130,7 @@
           "alignLeft": "ชิดซ้าย",
           "alignCenter": "กึ่งกลาง",
           "alignRight": "ชิดขวา",
-          "advancedTextSettings": "การตั้งค่าขั้นสูง: ระยะห่างตัวอักษร ความสูงบรรทัด จำนวนตัวอักษรสูงสุด",
+          "advancedTextSettings": "การตั้งค่าขั้นสูง: ย่อหน้าบรรทัดแรก ระยะห่างตัวอักษร ความสูงบรรทัด จำนวนตัวอักษรสูงสุด",
           "dateFormat": "รูปแบบวันที่",
           "timeSeparator": "ตัวคั่นเวลา (เว้นว่าง = ไม่คั่น)",
           "timeSeparatorSpacing": "ระยะห่างตัวคั่นเวลา",
@@ -147,6 +147,8 @@
         "aria": {
           "selectFontSize": "เลือกขนาดตัวอักษร",
           "textSpacingAndLimits": "การตั้งค่าระยะห่างและขีดจำกัดข้อความ",
+          "decreaseFirstLineIndent": "ลดย่อหน้าบรรทัดแรก",
+          "increaseFirstLineIndent": "เพิ่มย่อหน้าบรรทัดแรก",
           "decreaseLetterSpacing": "ลดระยะห่างตัวอักษร",
           "increaseLetterSpacing": "เพิ่มระยะห่างตัวอักษร",
           "decreaseLineHeight": "ลดระยะห่างบรรทัด",
@@ -169,6 +171,7 @@
           "sarabun": "Sarabun (สารบรรณ)"
         },
         "labels": {
+          "firstLineIndent": "ย่อหน้าบรรทัดแรก",
           "letterSpacing": "ระยะห่างระหว่างตัวอักษร",
           "lineHeight": "ระยะห่างระหว่างบรรทัด",
           "maxCharacters": "จำนวนตัวอักษรสูงสุด",

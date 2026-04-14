@@ -912,7 +912,13 @@ defineExpose({
                   <!-- Keep checkbox box visually empty in builder preview -->
                 </template>
                 <template v-else>
-                  <span v-if="field.label">{{ field.label }}</span>
+                  <span
+                    v-if="field.label"
+                    class="field-value-text"
+                    :style="field.textAlign !== 'center' && field.textAlign !== 'right' && Number(field.textIndent ?? 0) > 0
+                      ? { textIndent: `${Number(field.textIndent ?? 0)}px` }
+                      : undefined"
+                  >{{ field.label }}</span>
                   <span
                     v-if="field.isGrouped && !isStrikeThroughGroupField(field)"
                     class="instance-num"
@@ -1103,6 +1109,12 @@ defineExpose({
   white-space: pre-wrap;
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.field-value-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
 }
 
 .instance-num {
