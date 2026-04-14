@@ -1021,7 +1021,7 @@ function schedulePreviewRefresh() {
 
   previewRefreshTimer = setTimeout(() => {
     void refreshPreviewPdf();
-  }, 1000);
+  }, 100);
 }
 
 function addFieldToPreview(fieldToAdd: Field): void {

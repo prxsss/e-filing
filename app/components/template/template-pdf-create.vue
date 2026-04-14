@@ -289,6 +289,7 @@ const pdfCanvas = ref<HTMLCanvasElement | null>(null);
 const containerWidth = ref(0);
 
 const pdfLoaded = ref(false);
+const hasRenderedPdfOnce = ref(false);
 const pdfDoc = shallowRef<PDFDocumentProxy | null>(null);
 const pdfjsLib = shallowRef<PDFJSType | null>(null);
 const totalPages = ref(1);
@@ -482,7 +483,9 @@ async function loadPdf(): Promise<void> {
     return;
 
   try {
-    pdfLoaded.value = false;
+    if (!hasRenderedPdfOnce.value) {
+      pdfLoaded.value = false;
+    }
     if (!pdfPageContainer.value)
       throw new Error('PDF container not found');
 
@@ -513,6 +516,7 @@ async function loadPdf(): Promise<void> {
     setTimeout(async () => {
       await renderCurrentPage();
       pdfLoaded.value = true;
+      hasRenderedPdfOnce.value = true;
       emit('pdfLoaded');
     }, 100);
   }
@@ -520,7 +524,9 @@ async function loadPdf(): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error loading PDF:', error);
     console.error(`Error loading PDF: ${errorMessage}`);
-    pdfLoaded.value = false;
+    if (!hasRenderedPdfOnce.value) {
+      pdfLoaded.value = false;
+    }
   }
 }
 
@@ -548,20 +554,29 @@ async function renderCurrentPage(): Promise<void> {
     isRendering.value = true;
     const pageNumber = currentPage.value;
     const page = await (pdfDoc.value as any).getPage(pageNumber);
+    const viewport = page.getViewport({ scale: scale.value });
+
+    // Render on an offscreen canvas first, then swap in one step to avoid visible blank/flicker.
+    const stagingCanvas = document.createElement('canvas');
+    stagingCanvas.height = viewport.height;
+    stagingCanvas.width = viewport.width;
+    const stagingContext = stagingCanvas.getContext('2d');
+    if (!stagingContext)
+      throw new Error('Failed to get staging canvas context');
+
+    // Store render task for potential cancellation
+    renderTask.value = page.render({ canvasContext: stagingContext, viewport });
+    await (renderTask.value as any).promise;
+    renderTask.value = null;
+
     const canvas = pdfCanvas.value;
     const context = canvas.getContext('2d');
     if (!context)
       throw new Error('Failed to get canvas context');
-    const viewport = page.getViewport({ scale: scale.value });
-
     canvas.height = viewport.height;
     canvas.width = viewport.width;
     context.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Store render task for potential cancellation
-    renderTask.value = page.render({ canvasContext: context, viewport });
-    await (renderTask.value as any).promise;
-    renderTask.value = null;
+    context.drawImage(stagingCanvas, 0, 0);
 
     // Note: canvas dimensions don't change with zoom
     // The CSS transform: scale() on parent handles all visual scaling
@@ -1411,7 +1426,7 @@ defineExpose<{
           }"
         >
           <div ref="pdfPageContainer" class="pdf-container">
-            <div v-if="!pdfLoaded" class="text-center py-5">
+            <div v-if="!pdfLoaded && !hasRenderedPdfOnce" class="text-center py-5">
               <i class="fas fa-file-pdf fa-3x text-muted mb-3" />
               <p class="text-muted mb-0">
                 {{ tr('loadingPdf') }}
@@ -1419,7 +1434,7 @@ defineExpose<{
             </div>
 
             <canvas
-              v-show="pdfLoaded"
+              v-show="pdfLoaded || hasRenderedPdfOnce"
               ref="pdfCanvas"
               class="pdf-canvas"
               :style="canvasDisplayStyle"

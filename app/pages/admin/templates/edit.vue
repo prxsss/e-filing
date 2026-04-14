@@ -808,7 +808,7 @@ function schedulePreviewRefresh() {
 
   previewRefreshTimer = setTimeout(() => {
     void refreshPreviewPdf();
-  }, 1000);
+  }, 100);
 }
 
 // ─── File Upload (replace PDF) ────────────────────────────────────────────────
