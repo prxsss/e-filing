@@ -718,11 +718,6 @@ function applyAdvancedSearch() {
               <div class="w-lg p-4 space-y-4">
                 <div class="grid grid-cols-2 gap-3">
                   <UFormField :label="t('adminUsers.list.advancedSearch.fields.faculty')">
-                    <!--
-                      Issue: Hover doesn't work for USelectMenu inside UPopover (unless `search-input` is enabled).
-                      Workaround: Keep `search-input` enabled and hide it via CSS.
-                      TODO: Investigate root cause and replace this workaround.
-                      -->
                     <USelectMenu
                       v-model="facultyFilterModel"
                       class="w-full"
@@ -768,11 +763,6 @@ function applyAdvancedSearch() {
                   </UFormField>
 
                   <UFormField :label="t('adminUsers.list.advancedSearch.fields.status')">
-                    <!--
-                      Issue: Hover doesn't work for USelectMenu inside UPopover (unless `search-input` is enabled).
-                      Workaround: Keep `search-input` enabled and hide it via CSS.
-                      TODO: Investigate root cause and replace this workaround.
-                      -->
                     <USelectMenu
                       v-model="statusFilterModel"
                       class="w-full"
@@ -814,7 +804,7 @@ function applyAdvancedSearch() {
       <UTable
         v-model:row-selection="rowSelection"
         :data="data"
-        :columns
+        :columns="columns"
         :get-row-id="(row: UserListItem) => row.id"
         :loading="isLoading"
         class="flex-1"

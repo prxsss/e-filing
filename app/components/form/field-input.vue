@@ -332,6 +332,13 @@ const displayLabel = computed(() => {
   return fallback;
 });
 
+const dropdownItems = computed(() => {
+  return dropdownOptions.value.map(option => ({
+    label: option.label,
+    value: option.value,
+  }));
+});
+
 function normalizeInputValue(value) {
   let normalizedValue = String(value ?? '');
 
@@ -398,16 +405,17 @@ const localValue = computed({
   },
 });
 
-function handleCheckboxChange(event) {
-  const target = event.target;
+function handleCheckboxModelUpdate(value) {
+  const isChecked = value === true;
+
   if (renderCheckboxAsRadio.value) {
-    if (target?.checked) {
+    if (isChecked) {
       emit('update:modelValue', 'true');
     }
     return;
   }
 
-  emit('update:modelValue', target?.checked ? 'true' : '');
+  emit('update:modelValue', isChecked ? 'true' : '');
 }
 
 watch(
@@ -477,12 +485,29 @@ const placeholder = computed(() => {
   return `Enter ${props.field.name || 'value'}`;
 });
 
+const dropdownPlaceholder = computed(() => {
+  return isLoadingDropdownOptions.value ? 'กำลังโหลดข้อมูล...' : placeholder.value;
+});
+
 const currentLength = computed(() => localValue.value.length);
 
 const textAreaRef = ref(null);
 
+function getTextAreaElement() {
+  if (!textAreaRef.value) {
+    return null;
+  }
+
+  if (textAreaRef.value instanceof HTMLTextAreaElement) {
+    return textAreaRef.value;
+  }
+
+  const root = textAreaRef.value.$el instanceof HTMLElement ? textAreaRef.value.$el : null;
+  return root?.querySelector('textarea') ?? null;
+}
+
 function adjustTextareaHeight() {
-  const el = textAreaRef.value;
+  const el = getTextAreaElement();
   if (!el || !isMultilineTextField.value) {
     return;
   }
@@ -511,21 +536,18 @@ onMounted(() => {
 <template>
   <div class="field-input">
     <template v-if="isCheckboxField">
-      <label class="field-checkbox-row">
-        <input
-          :checked="checkboxChecked"
-          :type="renderCheckboxAsRadio ? 'radio' : 'checkbox'"
-          :name="renderCheckboxAsRadio ? checkboxGroupId : undefined"
+      <div class="field-checkbox-row">
+        <UCheckbox
+          :model-value="checkboxChecked"
           :disabled="disabled || isSessionBoundField"
-          :class="renderCheckboxAsRadio ? 'form-radio' : 'form-checkbox'"
-          @change="handleCheckboxChange"
-        >
-        <span class="field-label mb-0">
+          @update:model-value="handleCheckboxModelUpdate"
+        />
+        <span class="field-label mb-0 leading-5">
           <i v-if="field.icon" :class="field.icon" class="mr-2" />
           {{ displayLabel || field.name }}
           <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
         </span>
-      </label>
+      </div>
     </template>
     <template v-else>
       <label v-if="displayLabel || field.name" class="field-label">
@@ -534,7 +556,7 @@ onMounted(() => {
         <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
       </label>
 
-      <textarea
+      <UTextarea
         v-if="isMultilineTextField"
         :id="field.instanceId ? `field-text-${field.instanceId}` : undefined"
         ref="textAreaRef"
@@ -543,23 +565,23 @@ onMounted(() => {
         :disabled="disabled || isSessionBoundField"
         :maxlength="maxLength || undefined"
         rows="1"
-        class="form-input form-textarea"
+        :ui="{
+          base: 'resize-none overflow-y-hidden min-h-10 leading-6 wrap-break-word whitespace-pre-wrap',
+        }"
+        class="w-full"
         @input="adjustTextareaHeight"
       />
-      <select
+      <USelectMenu
         v-else-if="isDropdownField"
         v-model="localValue"
+        :items="dropdownItems"
+        label-key="label"
+        value-key="value"
+        :placeholder="dropdownPlaceholder"
         :disabled="disabled || isLoadingDropdownOptions"
-        class="form-input"
-      >
-        <option value="">
-          {{ isLoadingDropdownOptions ? 'กำลังโหลดข้อมูล...' : placeholder }}
-        </option>
-        <option v-for="option in dropdownOptions" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-      <input
+        class="w-full"
+      />
+      <UInput
         v-else
         v-model="localValue"
         :type="inputType"
@@ -567,8 +589,8 @@ onMounted(() => {
         :placeholder="placeholder"
         :disabled="disabled || isSessionBoundField"
         :maxlength="maxLength || undefined"
-        class="form-input"
-      >
+        class="w-full"
+      />
       <p v-if="maxLength" class="field-helper">
         {{ currentLength }}/{{ maxLength }} characters
       </p>
@@ -593,52 +615,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.form-checkbox {
-  width: 1rem;
-  height: 1rem;
-  accent-color: #10b981;
-  flex-shrink: 0;
-}
-
-.form-radio {
-  width: 1rem;
-  height: 1rem;
-  accent-color: #10b981;
-  flex-shrink: 0;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-
-.form-textarea {
-  display: block;
-  resize: none;
-  overflow-y: hidden;
-  min-height: 2.5rem;
-  line-height: 1.5;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-.form-input:disabled {
-  background-color: #f3f4f6;
-  cursor: not-allowed;
 }
 
 .field-helper {
