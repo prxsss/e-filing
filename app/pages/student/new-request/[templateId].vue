@@ -1903,7 +1903,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                         <form-field-input
                           class="mb-0!"
                           :model-value="fieldValues[getFieldValueKey(item.field)]"
-                          :field="{ ...item.field, label: item.field.formQuestionLabel || item.field.label }"
+                          :field="item.field"
                           :disabled="isSaving || isCheckboxTemporarilyDisabled(item.field)"
                           :render-as-radio="isCheckboxField(item.field) && getCheckboxGroupId(item.field).length > 0"
                           @update:model-value="(value) => handleFieldValueUpdate(item.field, String(value ?? ''))"
@@ -1947,7 +1947,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                             <form-field-input
                               class="mb-0! w-full sm:w-auto"
                               :model-value="fieldValues[getFieldValueKey(optionField)]"
-                              :field="{ ...optionField, label: optionField.formQuestionLabel || optionField.label }"
+                              :field="optionField"
                               :disabled="isSaving || isCheckboxTemporarilyDisabled(optionField)"
                               :render-as-radio="true"
                               :hide-required-asterisk="true"

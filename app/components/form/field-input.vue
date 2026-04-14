@@ -193,6 +193,20 @@ const dropdownConfig = computed(() => {
 
 const dropdownOptions = ref([]);
 const isLoadingDropdownOptions = ref(false);
+const dropdownOptionsCache = ref({});
+const dropdownRequestsInFlight = ref({});
+
+const dropdownRequestKey = computed(() => {
+  if (!isDropdownField.value || !dropdownConfig.value) {
+    return '';
+  }
+
+  const sourceTable = String(dropdownConfig.value.sourceTable || '').trim();
+  const labelColumn = String(dropdownConfig.value.labelColumn || '').trim();
+  const roleId = Number.parseInt(String(dropdownConfig.value.roleId ?? ''), 10);
+  const rolePart = Number.isFinite(roleId) && roleId > 0 ? String(roleId) : '';
+  return `${sourceTable}|${labelColumn}|${rolePart}`;
+});
 
 async function loadDropdownOptions() {
   if (!isDropdownField.value || !dropdownConfig.value) {
@@ -200,33 +214,75 @@ async function loadDropdownOptions() {
     return;
   }
 
-  isLoadingDropdownOptions.value = true;
-  try {
-    const response = await $fetch('/api/template-fields/dropdown-options', {
-      query: {
-        table: dropdownConfig.value.sourceTable,
-        labelColumn: dropdownConfig.value.labelColumn,
-        roleId: dropdownConfig.value.roleId,
-      },
-    });
+  const key = dropdownRequestKey.value;
+  if (!key) {
+    dropdownOptions.value = [];
+    return;
+  }
 
-    if (response?.success && Array.isArray(response.data)) {
-      dropdownOptions.value = response.data
-        .filter(item => item && (item.id ?? null) !== null)
-        .map(item => ({
-          value: String(item.id),
-          label: String(item.label ?? item.id),
-        }));
+  const cached = dropdownOptionsCache.value[key];
+  if (Array.isArray(cached)) {
+    dropdownOptions.value = cached;
+    return;
+  }
+
+  const pendingRequest = dropdownRequestsInFlight.value[key];
+  if (pendingRequest) {
+    isLoadingDropdownOptions.value = true;
+    try {
+      const options = await pendingRequest;
+      dropdownOptions.value = options;
       return;
     }
-
-    dropdownOptions.value = [];
+    finally {
+      isLoadingDropdownOptions.value = false;
+    }
   }
-  catch (error) {
-    console.error('Error loading dropdown options:', error);
-    dropdownOptions.value = [];
+
+  isLoadingDropdownOptions.value = true;
+  const requestPromise = (async () => {
+    try {
+      const response = await $fetch('/api/template-fields/dropdown-options', {
+        query: {
+          table: dropdownConfig.value.sourceTable,
+          labelColumn: dropdownConfig.value.labelColumn,
+          roleId: dropdownConfig.value.roleId,
+        },
+      });
+
+      if (response?.success && Array.isArray(response.data)) {
+        return response.data
+          .filter(item => item && (item.id ?? null) !== null)
+          .map(item => ({
+            value: String(item.id),
+            label: String(item.label ?? item.id),
+          }));
+      }
+
+      return [];
+    }
+    catch (error) {
+      console.error('Error loading dropdown options:', error);
+      return [];
+    }
+  })();
+
+  dropdownRequestsInFlight.value = {
+    ...dropdownRequestsInFlight.value,
+    [key]: requestPromise,
+  };
+
+  try {
+    const options = await requestPromise;
+    dropdownOptionsCache.value = {
+      ...dropdownOptionsCache.value,
+      [key]: options,
+    };
+    dropdownOptions.value = options;
   }
   finally {
+    const { [key]: _removed, ...rest } = dropdownRequestsInFlight.value;
+    dropdownRequestsInFlight.value = rest;
     isLoadingDropdownOptions.value = false;
   }
 }
@@ -264,6 +320,16 @@ const maxLength = computed(() => {
     return null;
   }
   return parsed;
+});
+
+const displayLabel = computed(() => {
+  const primary = String(props.field?.formQuestionLabel ?? '').trim();
+  if (primary.length > 0) {
+    return primary;
+  }
+
+  const fallback = String(props.field?.label ?? props.field?.name ?? '').trim();
+  return fallback;
 });
 
 function normalizeInputValue(value) {
@@ -405,8 +471,8 @@ const placeholder = computed(() => {
     return dataLabel.length > 0 ? `เลือก${dataLabel}` : 'เลือกข้อมูล';
   }
 
-  if (props.field.label) {
-    return `Enter ${props.field.label}`;
+  if (displayLabel.value) {
+    return `Enter ${displayLabel.value}`;
   }
   return `Enter ${props.field.name || 'value'}`;
 });
@@ -433,7 +499,7 @@ watch(isMultilineTextField, () => {
   nextTick(adjustTextareaHeight);
 });
 
-watch([isDropdownField, dropdownConfig], async () => {
+watch(() => dropdownRequestKey.value, async () => {
   await loadDropdownOptions();
 }, { immediate: true });
 
@@ -456,15 +522,15 @@ onMounted(() => {
         >
         <span class="field-label mb-0">
           <i v-if="field.icon" :class="field.icon" class="mr-2" />
-          {{ field.label || field.name }}
+          {{ displayLabel || field.name }}
           <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
         </span>
       </label>
     </template>
     <template v-else>
-      <label v-if="field.label || field.name" class="field-label">
+      <label v-if="displayLabel || field.name" class="field-label">
         <i v-if="field.icon" :class="field.icon" class="mr-2" />
-        {{ field.label || field.name }}
+        {{ displayLabel || field.name }}
         <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
       </label>
 
