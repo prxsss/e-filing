@@ -46,7 +46,9 @@ type FlowStep = {
   roleName: string;
   status: string;
   assignedUserId: string | null;
+  assignedUserName: string | null;
   signedBy: string | null;
+  signedByName: string | null;
   signedAt: string | null;
 };
 
@@ -140,7 +142,7 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
       title: step.roleName,
       status,
       icon: 'i-heroicons-user-circle',
-      subtitle: step.signedBy || step.assignedUserId || undefined,
+      subtitle: step.signedByName || step.assignedUserName || undefined,
     };
   });
 });
@@ -514,7 +516,7 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  สร้างเมื่อ
+                  ยื่นเมื่อ
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.createdAt) }}
@@ -522,7 +524,7 @@ onMounted(loadAll);
               </div>
               <div v-if="requestData.submittedAt" class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  ยื่นเมื่อ
+                  อัปเดตล่าสุด
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.submittedAt) }}
