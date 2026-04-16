@@ -1327,7 +1327,7 @@ function onFieldHeightPopoverInput() {
                             class="spacing-popover-input-compact"
                             style="width: 2rem; min-width: 2rem;"
                             min="0"
-                            max="10"
+                            max="50"
                             step="1"
                             placeholder="1"
                             @input="onPropertyChange"
@@ -1336,8 +1336,8 @@ function onFieldHeightPopoverInput() {
                             type="button"
                             class="spacing-stepper-btn"
                             :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseDayNameGap')"
-                            :disabled="Number(localField.dateDayOfWeekGap) >= 10"
-                            @click="localField.dateDayOfWeekGap = Math.min(10, Number(localField.dateDayOfWeekGap) + 1); onPropertyChange()"
+                            :disabled="Number(localField.dateDayOfWeekGap) >= 50"
+                            @click="localField.dateDayOfWeekGap = Math.min(50, Number(localField.dateDayOfWeekGap) + 1); onPropertyChange()"
                           >
                             +
                           </button>
@@ -1452,8 +1452,8 @@ function onFieldHeightPopoverInput() {
                           type="button"
                           class="spacing-stepper-btn"
                           :aria-label="t('adminTemplates.create.fieldToolbar.aria.increaseSeparatorGap')"
-                          :disabled="Number(localField.dateSeparatorSpacing) >= 10"
-                          @click="localField.dateSeparatorSpacing = Math.min(10, Number(localField.dateSeparatorSpacing) + 1); onPropertyChange()"
+                          :disabled="Number(localField.dateSeparatorSpacing) >= 50"
+                          @click="localField.dateSeparatorSpacing = Math.min(50, Number(localField.dateSeparatorSpacing) + 1); onPropertyChange()"
                         >
                           +
                         </button>
