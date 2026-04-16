@@ -299,6 +299,64 @@ const scale = ref(1.5);
 const pdfNaturalDimensions = ref({ width: 0, height: 0 });
 const renderTask = shallowRef<RenderTask | null>(null);
 const isRendering = ref(false);
+const activePdfLoadingTask = shallowRef<any | null>(null);
+let loadPdfTimer: ReturnType<typeof setTimeout> | null = null;
+let loadPdfToken = 0;
+
+function clearLoadPdfTimer(): void {
+  if (loadPdfTimer) {
+    clearTimeout(loadPdfTimer);
+    loadPdfTimer = null;
+  }
+}
+
+function destroyActivePdfLoadingTask(): void {
+  if (!activePdfLoadingTask.value) {
+    return;
+  }
+
+  try {
+    activePdfLoadingTask.value.destroy?.();
+  }
+  catch {
+    // Ignore loading task destroy errors during rapid file switches.
+  }
+  finally {
+    activePdfLoadingTask.value = null;
+  }
+}
+
+async function cancelActiveRenderTask(): Promise<void> {
+  if (!renderTask.value) {
+    return;
+  }
+
+  const task = renderTask.value;
+  renderTask.value = null;
+
+  try {
+    await task.cancel?.();
+  }
+  catch {
+    // Ignore cancellation errors.
+  }
+}
+
+async function destroyActivePdfDocument(): Promise<void> {
+  if (!pdfDoc.value) {
+    return;
+  }
+
+  const doc = pdfDoc.value as any;
+  pdfDoc.value = null;
+
+  try {
+    await doc.destroy?.();
+  }
+  catch {
+    // Ignore destroy errors from stale docs.
+  }
+}
 
 const activeDrag = ref<{
   isDragging: boolean;
@@ -482,12 +540,20 @@ async function loadPdf(): Promise<void> {
   if (!props.pdfFile)
     return;
 
+  const requestToken = ++loadPdfToken;
+
   try {
     if (!hasRenderedPdfOnce.value) {
       pdfLoaded.value = false;
     }
     if (!pdfPageContainer.value)
       throw new Error('PDF container not found');
+
+    clearLoadPdfTimer();
+    destroyActivePdfLoadingTask();
+    await cancelActiveRenderTask();
+    await destroyActivePdfDocument();
+    isRendering.value = false;
 
     const arrayBuffer = await props.pdfFile.arrayBuffer();
     // Clone the ArrayBuffer to prevent detachment when transferred to worker
@@ -499,8 +565,22 @@ async function loadPdf(): Promise<void> {
       cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
       cMapPacked: true,
     });
+    activePdfLoadingTask.value = loadingTask;
 
     const loadedDoc = await loadingTask.promise;
+    if (activePdfLoadingTask.value === loadingTask) {
+      activePdfLoadingTask.value = null;
+    }
+    if (requestToken !== loadPdfToken) {
+      try {
+        await (loadedDoc as any).destroy?.();
+      }
+      catch {
+        // Ignore destroy errors on stale docs.
+      }
+      return;
+    }
+
     pdfDoc.value = loadedDoc as PDFDocumentProxy;
     totalPages.value = loadedDoc.numPages;
     currentPage.value = 1;
@@ -513,7 +593,11 @@ async function loadPdf(): Promise<void> {
     };
 
     await nextTick();
-    setTimeout(async () => {
+    loadPdfTimer = setTimeout(async () => {
+      loadPdfTimer = null;
+      if (requestToken !== loadPdfToken) {
+        return;
+      }
       await renderCurrentPage();
       pdfLoaded.value = true;
       hasRenderedPdfOnce.value = true;
@@ -521,6 +605,9 @@ async function loadPdf(): Promise<void> {
     }, 100);
   }
   catch (error: unknown) {
+    if (activePdfLoadingTask.value) {
+      activePdfLoadingTask.value = null;
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error loading PDF:', error);
     console.error(`Error loading PDF: ${errorMessage}`);
@@ -1181,7 +1268,15 @@ watch(
     if (newFile) {
       await nextTick();
       await loadPdf();
+      return;
     }
+
+    loadPdfToken++;
+    clearLoadPdfTimer();
+    destroyActivePdfLoadingTask();
+    await cancelActiveRenderTask();
+    await destroyActivePdfDocument();
+    pdfLoaded.value = false;
   },
   { immediate: true },
 );
@@ -1360,6 +1455,12 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  loadPdfToken++;
+  clearLoadPdfTimer();
+  destroyActivePdfLoadingTask();
+  void cancelActiveRenderTask();
+  void destroyActivePdfDocument();
+
   resizeObserver?.disconnect();
 
   previewContainer.value?.removeEventListener('mousedown', onPanPointerDown);

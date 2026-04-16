@@ -112,6 +112,40 @@ const isPreviewOutputEnabled = ref<boolean>(true);
 
 let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let previewRequestToken = 0;
+let previewRequestAbortController: AbortController | null = null;
+let lastPreviewRequestSignature = '';
+
+function abortPreviewRequest(): void {
+  if (previewRequestAbortController) {
+    previewRequestAbortController.abort();
+    previewRequestAbortController = null;
+  }
+}
+
+function buildPreviewRequestSignature(fieldValueSnapshot: Record<string, string>): string {
+  const file = uploadedFile.value;
+  const fileKey = file ? `${file.name}:${file.size}:${file.lastModified}` : 'no-file';
+  const fieldsKey = placedFields.value
+    .map((field) => {
+      const key = getPreviewFieldKey(field);
+      return [
+        key,
+        String(field.pageNumber ?? ''),
+        String(field.normalizedX ?? ''),
+        String(field.normalizedY ?? ''),
+        String(field.normalizedWidth ?? ''),
+        String(field.normalizedHeight ?? ''),
+        String(field.x ?? ''),
+        String(field.y ?? ''),
+        String(field.width ?? ''),
+        String(field.height ?? ''),
+        normalizeFieldValue(fieldValueSnapshot[key] || ''),
+      ].join('|');
+    })
+    .join(';');
+
+  return `${fileKey}::${fieldsKey}`;
+}
 
 // === WIZARD STATE ===
 const currentWizardStep = ref<WizardStep>(1);
@@ -471,8 +505,11 @@ function togglePreviewOutput(): void {
   isPreviewOutputEnabled.value = !isPreviewOutputEnabled.value;
 
   if (!isPreviewOutputEnabled.value) {
+    clearPreviewRefreshTimer();
+    abortPreviewRequest();
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
+    lastPreviewRequestSignature = '';
     return;
   }
 
@@ -934,6 +971,12 @@ async function processFile(file: File): Promise<void> {
     previewImageUrl.value = null;
   }
 
+  clearPreviewRefreshTimer();
+  abortPreviewRequest();
+  previewPdfFile.value = null;
+  previewSyncedFieldValues.value = {};
+  lastPreviewRequestSignature = '';
+
   placedFields.value = [];
   selectedFieldInstanceIds.value = [];
   currentPdfPage.value = 1;
@@ -956,8 +999,11 @@ async function processFile(file: File): Promise<void> {
 
 async function refreshPreviewPdf(): Promise<void> {
   if (!isPreviewOutputEnabled.value || !uploadedFile.value || fileType.value !== 'pdf' || !hasPreviewInputs.value) {
+    abortPreviewRequest();
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
+    isRefreshingPreview.value = false;
+    lastPreviewRequestSignature = '';
     return;
   }
 
@@ -965,6 +1011,14 @@ async function refreshPreviewPdf(): Promise<void> {
   const fieldValueSnapshot = Object.fromEntries(
     placedFields.value.map(field => [getPreviewFieldKey(field), previewFieldValues.value[getPreviewFieldKey(field)] || '']),
   );
+  const requestSignature = buildPreviewRequestSignature(fieldValueSnapshot);
+  if (requestSignature === lastPreviewRequestSignature && previewPdfFile.value) {
+    return;
+  }
+
+  abortPreviewRequest();
+  const abortController = new AbortController();
+  previewRequestAbortController = abortController;
 
   const formData = new FormData();
   formData.append('pdfFile', uploadedFile.value, uploadedFile.value.name);
@@ -983,6 +1037,7 @@ async function refreshPreviewPdf(): Promise<void> {
     const response = await fetch('/api/preview-template-pdf', {
       method: 'POST',
       body: formData,
+      signal: abortController.signal,
     });
 
     if (!response.ok) {
@@ -999,11 +1054,18 @@ async function refreshPreviewPdf(): Promise<void> {
       previewBytes,
     ], `template-preview-${Date.now()}.pdf`, { type: 'application/pdf' });
     previewSyncedFieldValues.value = fieldValueSnapshot;
+    lastPreviewRequestSignature = requestSignature;
   }
   catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return;
+    }
     console.error('Failed to refresh template preview PDF:', error);
   }
   finally {
+    if (previewRequestAbortController === abortController) {
+      previewRequestAbortController = null;
+    }
     if (requestToken === previewRequestToken) {
       isRefreshingPreview.value = false;
     }
@@ -1014,8 +1076,11 @@ function schedulePreviewRefresh() {
   clearPreviewRefreshTimer();
 
   if (!isPreviewOutputEnabled.value || !uploadedFile.value || fileType.value !== 'pdf' || !hasPreviewInputs.value) {
+    abortPreviewRequest();
     previewPdfFile.value = null;
     previewSyncedFieldValues.value = {};
+    isRefreshingPreview.value = false;
+    lastPreviewRequestSignature = '';
     return;
   }
 
@@ -1718,6 +1783,8 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  clearPreviewRefreshTimer();
+  abortPreviewRequest();
   if (previewImageUrl.value) {
     URL.revokeObjectURL(previewImageUrl.value);
   }
