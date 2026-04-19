@@ -17,6 +17,7 @@ type FlowStep = {
   stepOrder: number;
   roleId: number;
   roleName: string;
+  roleNameTh: string;
   assignedFieldInstanceIds: string[];
   status: string;
   signedBy: string | null;
@@ -77,7 +78,7 @@ type RejectMode = 'status_only' | 'with_signature_and_field';
 
 const route = useRoute();
 const requestId = Number(route.params.id);
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const overlay = useOverlay();
 const toast = useToast();
@@ -1337,7 +1338,7 @@ onUnmounted(() => {
                     <UIcon v-else-if="step.status === 'rejected'" name="i-heroicons-x-mark" class="w-4 h-4" />
                     <template v-else>{{ step.stepOrder }}</template>
                   </span>
-                  <span class="font-medium text-sm text-gray-900">{{ step.roleName }}</span>
+                  <span class="font-medium text-sm text-gray-900">{{ locale === 'th' ? step.roleNameTh : step.roleName }}</span>
                   <UBadge
                     :color="(statusColor[step.status] ?? 'neutral')"
                     :label="statusLabel[step.status] ?? step.status"
@@ -1448,7 +1449,7 @@ onUnmounted(() => {
               variant="soft"
               icon="i-heroicons-pencil-square"
               :title="$t('signerSignDetail.signature.alertTitle')"
-              :description="$t('signerSignDetail.signature.alertDescription', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => step.roleName))).join(', ') || '-' })"
+              :description="$t('signerSignDetail.signature.alertDescription', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => locale === 'th' ? step.roleNameTh : step.roleName))).join(', ') || '-' })"
             />
 
             <UCard
@@ -1710,7 +1711,7 @@ onUnmounted(() => {
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <h3 class="text-sm font-semibold text-gray-900">
-                      {{ $t('signerSignDetail.signature.popupTitle', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => step.roleName))).join(', ') || '-' }) }}
+                      {{ $t('signerSignDetail.signature.popupTitle', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => locale === 'th' ? step.roleNameTh : step.roleName))).join(', ') || '-' }) }}
                     </h3>
                   </div>
                   <UButton

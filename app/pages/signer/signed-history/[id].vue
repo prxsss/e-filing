@@ -14,6 +14,7 @@ type FlowStep = {
   stepOrder: number;
   roleId: number;
   roleName: string;
+  roleNameTh: string;
   assignedFieldInstanceIds: string[];
   status: string;
   signedBy: string | null;
@@ -56,7 +57,7 @@ type SigningStatus = {
 
 const route = useRoute();
 const requestId = Number(route.params.id);
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const overlay = useOverlay();
 const toast = useToast();
@@ -390,7 +391,7 @@ onMounted(() => {
                 <UIcon v-else-if="step.status === 'rejected'" name="i-lucide-x" class="w-4 h-4" />
                 <template v-else>{{ step.stepOrder }}</template>
               </span>
-              <span class="font-medium text-sm">{{ step.roleName }}</span>
+              <span class="font-medium text-sm">{{ locale === 'th' ? step.roleNameTh : step.roleName }}</span>
               <UBadge
                 :color="(statusColor[step.status] ?? 'neutral') as any"
                 :label="statusLabel[step.status] ?? step.status"

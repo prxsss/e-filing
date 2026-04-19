@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
+import { request, requestTemplate, roles, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -45,11 +45,20 @@ export default defineEventHandler(async (event) => {
       .where(eq(requestTemplate.id, Number(requestData.templateId)))
       .limit(1);
 
-    const flowSteps = await db
-      .select()
+    const flowStepRows = await db
+      .select({
+        step: signatureFlow,
+        roleNameTh: roles.nameTh,
+      })
       .from(signatureFlow)
+      .leftJoin(roles, eq(signatureFlow.roleId, roles.id))
       .where(eq(signatureFlow.requestId, requestId))
       .orderBy(asc(signatureFlow.stepOrder));
+
+    const flowSteps = flowStepRows.map(({ step, roleNameTh }) => ({
+      ...step,
+      roleNameTh: roleNameTh ?? '-',
+    }));
 
     const flowUserIds = Array.from(new Set(
       flowSteps.flatMap(step => [step.assignedUserId, step.signedBy])
