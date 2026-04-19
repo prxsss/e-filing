@@ -113,7 +113,13 @@ const columns = computed<any[]>(() => [
     },
   },
   { accessorKey: 'studentId', header: t('signerToSign.table.studentId') },
-  { accessorKey: 'studentName', header: t('signerToSign.table.studentName') },
+  { id: 'studentName', header: t('signerToSign.table.studentName'), cell: (ctx: any) => {
+    const name = ctx.row.original.studentNameEn;
+    const nameTh = ctx.row.original.studentNameTh;
+    return locale.value === 'th' && nameTh && nameTh !== '-'
+      ? nameTh
+      : name;
+  } },
   { accessorKey: 'templateName', header: t('signerToSign.table.document'), size: 420 },
   { accessorKey: 'stepInfo', header: t('signerToSign.table.step') },
   { accessorKey: 'submittedAt', header: t('signerToSign.table.submittedDate') },

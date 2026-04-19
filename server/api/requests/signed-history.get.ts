@@ -31,8 +31,10 @@ export default defineEventHandler(async (event) => {
         filledDocumentUrl: request.filledDocumentUrl,
         templateName: requestTemplate.name,
         userId: request.userId,
+        requesterTitleTh: users.titleTh,
         requesterFirstNameTh: users.firstNameTh,
         requesterLastNameTh: users.lastNameTh,
+        requesterTitleEn: users.titleEn,
         requesterFirstNameEn: users.firstNameEn,
         requesterLastNameEn: users.lastNameEn,
       })
@@ -46,9 +48,10 @@ export default defineEventHandler(async (event) => {
     const data = myFlows.map((flow) => {
       const req = requestMap.get(flow.requestId);
       const studentName = req
-        ? (req.requesterFirstNameTh && req.requesterLastNameTh
-            ? `${req.requesterFirstNameTh} ${req.requesterLastNameTh}`
-            : `${req.requesterFirstNameEn ?? ''} ${req.requesterLastNameEn ?? ''}`.trim())
+        ? (`${req.requesterTitleEn ?? ''} ${req.requesterFirstNameEn ?? ''} ${req.requesterLastNameEn ?? ''}`.trim() || '-')
+        : '-';
+      const studentNameTh = req
+        ? (`${req.requesterTitleTh ?? ''}${req.requesterFirstNameTh ?? ''} ${req.requesterLastNameTh ?? ''}`.trim() || '-')
         : '-';
 
       return {
@@ -59,6 +62,7 @@ export default defineEventHandler(async (event) => {
         signedAt: flow.signedAt,
         studentId: req?.userId ?? null,
         studentName,
+        studentNameTh,
         request: req ?? null,
       };
     });
