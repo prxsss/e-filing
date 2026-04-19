@@ -53,11 +53,14 @@ type FlowStep = {
   id: number;
   stepOrder: number;
   roleName: string;
+  roleNameTh: string;
   status: string;
   signedBy: string | null;
   signedAt: string | null;
   assignedUserName?: string | null;
+  assignedUserNameTh?: string | null;
   signedByName?: string | null;
+  signedByNameTh?: string | null;
 };
 
 type SigningStatus = {
@@ -697,10 +700,10 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
 
     return {
       id: step.id,
-      title: String(step.assignedUserName ?? '').trim() || step.roleName,
+      title: String(locale.value === 'th' ? step.assignedUserNameTh ?? '' : step.assignedUserName ?? '').trim() || step.roleName,
       status,
       icon: 'i-heroicons-user-circle',
-      subtitle: `${t('studentMyRequests.detail.rolePrefix')}: ${step.roleName}`,
+      subtitle: `${t('studentMyRequests.detail.rolePrefix')}: ${locale.value === 'th' ? step.roleNameTh : step.roleName}`,
     };
   });
 });

@@ -66,6 +66,7 @@ export default defineEventHandler(async (event) => {
     ));
 
     const userNameById = new Map<string, string>();
+    const userNameThById = new Map<string, string | null>();
     if (flowUserIds.length > 0) {
       const flowUsers = await db
         .select({
@@ -83,14 +84,17 @@ export default defineEventHandler(async (event) => {
       for (const flowUser of flowUsers) {
         const fullNameTh = `${flowUser.titleTh ?? ''}${flowUser.firstNameTh ?? ''} ${flowUser.lastNameTh ?? ''}`.trim();
         const fullNameEn = `${flowUser.titleEn ?? ''} ${flowUser.firstNameEn ?? ''} ${flowUser.lastNameEn ?? ''}`.trim();
-        userNameById.set(flowUser.id, fullNameTh || fullNameEn || flowUser.id);
+        userNameById.set(flowUser.id, fullNameEn || flowUser.id);
+        userNameThById.set(flowUser.id, fullNameTh || flowUser.id);
       }
     }
 
     const flowStepsWithNames = flowSteps.map(step => ({
       ...step,
       assignedUserName: step.assignedUserId ? (userNameById.get(step.assignedUserId) ?? null) : null,
+      assignedUserNameTh: step.assignedUserId ? (userNameThById.get(step.assignedUserId) ?? null) : null,
       signedByName: step.signedBy ? (userNameById.get(step.signedBy) ?? null) : null,
+      signedByNameTh: step.signedBy ? (userNameThById.get(step.signedBy) ?? null) : null,
     }));
 
     // Determine whether the current user may act on a pending step.
