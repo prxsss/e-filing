@@ -1,5 +1,11 @@
 {
   "adminTemplates": {
+    "shared": {
+      "pdfPreview": {
+        "zoom": "Zoom",
+        "reset": "Reset"
+      }
+    },
     "create": {
       "wizard": {
         "placeFields": "Place Fields",

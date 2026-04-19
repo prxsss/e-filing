@@ -24,6 +24,11 @@
   },
   "signerSignDetail": {
     "title": "เซ็นคำร้อง",
+    "signatureCanvas": {
+      "placeholder": "ลงลายมือชื่อที่นี่ / Sign here",
+      "clear": "ล้าง",
+      "confirm": "ยืนยันลายเซ็น"
+    },
     "breadcrumb": {
       "list": "รายการที่ต้องลงนาม",
       "requestNumber": "คำร้อง #{id}"

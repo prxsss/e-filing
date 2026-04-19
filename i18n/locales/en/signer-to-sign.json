@@ -24,6 +24,11 @@
   },
   "signerSignDetail": {
     "title": "Sign Request",
+    "signatureCanvas": {
+      "placeholder": "Sign here",
+      "clear": "Clear",
+      "confirm": "Confirm Signature"
+    },
     "breadcrumb": {
       "list": "To Sign",
       "requestNumber": "Request #{id}"

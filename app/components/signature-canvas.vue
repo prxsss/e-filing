@@ -184,7 +184,7 @@ onUnmounted(() => {
         v-if="!hasDrawn"
         class="absolute inset-0 flex items-center justify-center text-sm text-slate-400 pointer-events-none select-none"
       >
-        ลงลายมือชื่อที่นี่ / Sign here
+        {{ $t('signerSignDetail.signatureCanvas.placeholder') }}
       </p>
     </div>
 
@@ -197,7 +197,7 @@ onUnmounted(() => {
         :disabled="disabled || !hasDrawn"
         @click="clear"
       >
-        ล้าง
+        {{ $t('signerSignDetail.signatureCanvas.clear') }}
       </UButton>
       <UButton
         color="success"
@@ -206,7 +206,7 @@ onUnmounted(() => {
         :disabled="disabled || !hasDrawn"
         @click="confirm"
       >
-        ยืนยันลายเซ็น
+        {{ $t('signerSignDetail.signatureCanvas.confirm') }}
       </UButton>
     </div>
   </div>

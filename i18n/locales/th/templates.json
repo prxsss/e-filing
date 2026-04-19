@@ -1,5 +1,11 @@
 {
   "adminTemplates": {
+    "shared": {
+      "pdfPreview": {
+        "zoom": "ซูม",
+        "reset": "รีเซ็ต"
+      }
+    },
     "create": {
       "wizard": {
         "placeFields": "วางฟิลด์",

@@ -324,7 +324,7 @@ onUnmounted(() => {
     <!-- Toolbar: Zoom + Page Navigation -->
     <div class="flex items-center gap-4 bg-white rounded-lg border border-gray-200 px-4 py-2 mb-4">
       <!-- Zoom Controls -->
-      <span class="text-sm text-gray-600">Zoom:</span>
+      <span class="text-sm text-gray-600">{{ $t('adminTemplates.shared.pdfPreview.zoom') }}:</span>
       <UButton
         icon="i-heroicons-minus"
         size="xs"
@@ -341,7 +341,7 @@ onUnmounted(() => {
         @click="zoomIn"
       />
       <UButton size="xs" variant="ghost" @click="zoomReset">
-        Reset
+        {{ $t('adminTemplates.shared.pdfPreview.reset') }}
       </UButton>
 
       <!-- Open in new tab (optional) -->
