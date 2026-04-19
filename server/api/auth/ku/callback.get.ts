@@ -197,6 +197,7 @@ export default defineEventHandler(async (event) => {
           lastNameTh: userInfo['last-name'],
           email: userInfo['google-mail'] ?? '',
           status: USER_STATUS.ACTIVE,
+          provider: 'ku-all-login',
         });
 
         await tx.insert(userRoles).values({

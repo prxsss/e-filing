@@ -73,6 +73,48 @@ const resendLabel = computed(() => {
   return t('auth.forgot.form.resendOtp');
 });
 
+function resolveForgotPasswordErrorMessage(errorValue: unknown, defaultKey: string) {
+  const fetchError = errorValue as {
+    data?: {
+      message?: string;
+    };
+    statusCode?: number;
+    response?: {
+      status?: number;
+    };
+  };
+
+  const backendMessage = fetchError.data?.message;
+
+  if (backendMessage) {
+    switch (backendMessage) {
+      case 'Email not found.':
+        return t('auth.forgot.errors.emailNotFound');
+      case 'This account is not activated.':
+        return t('auth.forgot.errors.accountNotActivated');
+      case 'Account is banned.':
+        return t('auth.forgot.errors.accountBanned');
+      case 'This account does not support password reset.':
+      case 'This email is registered with KU ALL-Login. Please sign in with KU ALL-Login.':
+        return t('auth.forgot.errors.passwordResetNotSupported');
+      case 'Invalid or expired OTP.':
+        return t('auth.forgot.errors.otpInvalid');
+      case 'Please wait 1 minute before requesting a new OTP.':
+        return t('auth.forgot.errors.resendCooldown');
+      default:
+        return backendMessage;
+    }
+  }
+
+  const status = fetchError.statusCode ?? fetchError.response?.status;
+  if (status === 404)
+    return t('auth.forgot.errors.emailNotFound');
+  if (status === 429)
+    return t('auth.forgot.errors.resendCooldown');
+
+  return t(defaultKey);
+}
+
 watch(otpDigits, (value) => {
   formState.otp = value.join('').replaceAll(' ', '').slice(0, 6);
 }, { deep: true });
@@ -127,8 +169,7 @@ async function requestOtp() {
     startResendCooldown();
   }
   catch (e: unknown) {
-    const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('errors.general.description');
+    error.value = resolveForgotPasswordErrorMessage(e, 'errors.general.description');
   }
   finally {
     loading.value = false;
@@ -155,8 +196,7 @@ async function resendOtp() {
     startResendCooldown();
   }
   catch (e: unknown) {
-    const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('errors.general.description');
+    error.value = resolveForgotPasswordErrorMessage(e, 'errors.general.description');
   }
   finally {
     resendLoading.value = false;
@@ -184,8 +224,7 @@ async function verifyOtp() {
     successMessage.value = t('auth.forgot.messages.otpVerified');
   }
   catch (e: unknown) {
-    const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('auth.forgot.messages.otpInvalid');
+    error.value = resolveForgotPasswordErrorMessage(e, 'auth.forgot.errors.otpInvalid');
   }
   finally {
     otpLoading.value = false;
@@ -224,8 +263,7 @@ async function resetPassword() {
     await navigateTo(localePath('/login'));
   }
   catch (e: unknown) {
-    const message = (e as { data?: { message?: string } })?.data?.message;
-    error.value = message || t('errors.general.description');
+    error.value = resolveForgotPasswordErrorMessage(e, 'errors.general.description');
   }
   finally {
     loading.value = false;

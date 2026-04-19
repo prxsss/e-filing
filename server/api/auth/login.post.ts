@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       id: users.id,
       studentId: users.studentId,
       staffId: users.staffId,
+      provider: users.provider,
       titleEn: users.titleEn,
       fullNameEn: sql<string>`
           concat_ws(' ', ${users.firstNameEn}, ${users.lastNameEn})
@@ -34,6 +35,14 @@ export default defineEventHandler(async (event) => {
   if (!user) {
     throw createError({ statusCode: 401, message: 'Invalid email or password' });
   }
+
+  if (user.provider === 'ku-all-login') {
+    throw createError({
+      statusCode: 400,
+      message: 'This email is registered with KU ALL-Login. Please sign in with KU ALL-Login method.',
+    });
+  }
+
   if (user.status === USER_STATUS.INACTIVE) {
     throw createError({ statusCode: 403, message: 'Account is not activated.' });
   }

@@ -47,6 +47,8 @@ export const useAuthStore = defineStore('auth', () => {
           return translate('auth.login.errors.accountNotActivated', 'Account is not activated.');
         case 'Account is banned.':
           return translate('auth.login.errors.accountBanned', 'Account is banned.');
+        case 'This email is registered with KU ALL-Login. Please sign in with KU ALL-Login method.':
+          return translate('auth.login.errors.useKuAllLogin', 'This email is registered with KU ALL-Login. Please sign in with KU ALL-Login.');
         default:
           return backendMessage;
       }

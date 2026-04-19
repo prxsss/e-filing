@@ -13,6 +13,12 @@ export const usersRelations = relations(users, ({many}) => ({
 	userSignatures: many(userSignatures),
 	userRoles: many(userRoles),
 	signatures: many(signatures),
+	signatureFlows_assignedUserId: many(signatureFlow, {
+		relationName: "signatureFlow_assignedUserId_users_id"
+	}),
+	signatureFlows_signedBy: many(signatureFlow, {
+		relationName: "signatureFlow_signedBy_users_id"
+	}),
 	notifications: many(notifications),
 	requests: many(request),
 	activationOtps: many(activationOtps),
@@ -98,6 +104,11 @@ export const requestRelations = relations(request, ({one, many}) => ({
 
 export const signatureFlowRelations = relations(signatureFlow, ({one, many}) => ({
 	signatures: many(signatures),
+	user_assignedUserId: one(users, {
+		fields: [signatureFlow.assignedUserId],
+		references: [users.id],
+		relationName: "signatureFlow_assignedUserId_users_id"
+	}),
 	request: one(request, {
 		fields: [signatureFlow.requestId],
 		references: [request.id]
@@ -105,6 +116,11 @@ export const signatureFlowRelations = relations(signatureFlow, ({one, many}) => 
 	role: one(roles, {
 		fields: [signatureFlow.roleId],
 		references: [roles.id]
+	}),
+	user_signedBy: one(users, {
+		fields: [signatureFlow.signedBy],
+		references: [users.id],
+		relationName: "signatureFlow_signedBy_users_id"
 	}),
 }));
 

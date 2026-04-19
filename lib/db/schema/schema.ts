@@ -1,6 +1,6 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, bigint, integer, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import {nanoid} from 'nanoid'
+import { nanoid } from "nanoid"
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 export const userStatus = pgEnum("user_status", ['active', 'inactive', 'banned'])
@@ -28,6 +28,7 @@ export const users = pgTable("users", {
 	studentId: text("student_id"),
 	staffId: text("staff_id"),
 	status: userStatus().default('inactive').notNull(),
+	provider: text().default('local').notNull(),
 }, (table) => [
 	unique("users_email_unique").on(table.email),
 	unique("users_student_id_key").on(table.studentId),
@@ -171,6 +172,11 @@ export const signatureFlow = pgTable("signature_flow", {
 	pendingAt: timestamp("pending_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	foreignKey({
+			columns: [table.assignedUserId],
+			foreignColumns: [users.id],
+			name: "signature_flow_assigned_user_id_fkey"
+		}),
+	foreignKey({
 			columns: [table.requestId],
 			foreignColumns: [request.id],
 			name: "signature_flow_request_id_fkey"
@@ -180,7 +186,31 @@ export const signatureFlow = pgTable("signature_flow", {
 			foreignColumns: [roles.id],
 			name: "signature_flow_role_id_fkey"
 		}),
+	foreignKey({
+			columns: [table.signedBy],
+			foreignColumns: [users.id],
+			name: "signature_flow_signed_by_fkey"
+		}),
 ]);
+
+export const requestTemplate = pgTable("request_template", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	name: text(),
+	description: text(),
+	version: text(),
+	isActive: boolean("is_active"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	createdBy: bigint("created_by", { mode: "number" }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	documentUrl: text("document_url"),
+	placedFieldsData: jsonb("placed_fields_data"),
+	signingFlowData: jsonb("signing_flow_data"),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	documentWidth: bigint("document_width", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	documentHeight: bigint("document_height", { mode: "number" }),
+});
 
 export const attachments = pgTable("attachments", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -261,25 +291,6 @@ export const request = pgTable("request", {
 		}),
 ]);
 
-export const requestTemplate = pgTable("request_template", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	name: text(),
-	description: text(),
-	version: text(),
-	isActive: boolean("is_active"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	createdBy: bigint("created_by", { mode: "number" }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	documentUrl: text("document_url"),
-	placedFieldsData: jsonb("placed_fields_data"),
-	signingFlowData: jsonb("signing_flow_data"),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	documentWidth: bigint("document_width", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	documentHeight: bigint("document_height", { mode: "number" }),
-});
-
 export const requestTemplateValues = pgTable("request_template_values", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_values_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -349,8 +360,8 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	strikeThroughGroupMode: boolean("strike_through_group_mode").default(false),
 	strikeLineThickness: doublePrecision("strike_line_thickness").default(1.5),
 	sessionField: text("session_field"),
-	dropdownConfig: jsonb("dropdown_config").default({}),
 	dateFormatConfig: jsonb("date_format_config").default({}),
+	dropdownConfig: jsonb("dropdown_config").default({}),
 });
 
 export const rolePermissions = pgTable("role_permissions", {
