@@ -1,27 +1,32 @@
 <script setup>
 definePageMeta({ layout: 'admin' });
 
+const { t } = useI18n();
+function tr(key, params) {
+  return params ? t(`adminTemplates.fieldsPage.${key}`, params) : t(`adminTemplates.fieldsPage.${key}`);
+}
+
 const supabase = useSupabaseClient();
 const fields = ref([]);
 const loading = ref(false);
 const errorMessage = ref(null);
 const isEditing = ref(false);
 
-const availableIcons = ref([
-  { name: 'Signature', class: 'fas fa-signature' },
-  { name: 'Check Mark', class: 'fas fa-check' },
-  { name: 'Stamp', class: 'fas fa-stamp' },
-  { name: 'Certificate', class: 'fas fa-certificate' },
-  { name: 'File', class: 'fas fa-file-alt' },
-  { name: 'User', class: 'fas fa-user' },
-  { name: 'Calendar', class: 'fas fa-calendar' },
-  { name: 'Clock', class: 'fas fa-clock' },
-  { name: 'Building', class: 'fas fa-building' },
-  { name: 'Company', class: 'fas fa-landmark' },
-  { name: 'Location', class: 'fas fa-map-marker-alt' },
-  { name: 'Document', class: 'fas fa-file-contract' },
-  { name: 'Money', class: 'fas fa-money-bill' },
-]);
+const availableIcons = computed(() => ([
+  { name: tr('icons.signature'), class: 'fas fa-signature' },
+  { name: tr('icons.checkMark'), class: 'fas fa-check' },
+  { name: tr('icons.stamp'), class: 'fas fa-stamp' },
+  { name: tr('icons.certificate'), class: 'fas fa-certificate' },
+  { name: tr('icons.file'), class: 'fas fa-file-alt' },
+  { name: tr('icons.user'), class: 'fas fa-user' },
+  { name: tr('icons.calendar'), class: 'fas fa-calendar' },
+  { name: tr('icons.clock'), class: 'fas fa-clock' },
+  { name: tr('icons.building'), class: 'fas fa-building' },
+  { name: tr('icons.company'), class: 'fas fa-landmark' },
+  { name: tr('icons.location'), class: 'fas fa-map-marker-alt' },
+  { name: tr('icons.document'), class: 'fas fa-file-contract' },
+  { name: tr('icons.money'), class: 'fas fa-money-bill' },
+]));
 
 // Use pagination composable
 const {
@@ -125,7 +130,7 @@ async function saveField() {
     && currentField.value.type !== 'Icon'
     && !currentField.value.label.trim()
   ) {
-    errorMessage.value = 'Label is required for non-fillable fields';
+    errorMessage.value = tr('errors.labelRequiredForNonFillable');
     loading.value = false;
     return;
   }
@@ -134,7 +139,7 @@ async function saveField() {
     currentField.value.default_width < 10
     || currentField.value.default_width > 1000
   ) {
-    errorMessage.value = 'Width must be between 10 and 1000 pixels';
+    errorMessage.value = tr('errors.widthRange');
     loading.value = false;
     return;
   }
@@ -143,7 +148,7 @@ async function saveField() {
     currentField.value.default_height < 10
     || currentField.value.default_height > 500
   ) {
-    errorMessage.value = 'Height must be between 10 and 500 pixels';
+    errorMessage.value = tr('errors.heightRange');
     loading.value = false;
     return;
   }
@@ -199,7 +204,7 @@ async function saveField() {
 
 async function deleteField(fieldId) {
   // eslint-disable-next-line no-alert
-  if (!window.confirm('Are you sure you want to delete this field?')) {
+  if (!window.confirm(tr('confirmDeleteField'))) {
     return;
   }
   try {
@@ -245,7 +250,7 @@ watch(
     <div class="card card-primary shadow-sm">
       <div class="card-header bg-gradient-primary">
         <h3 class="card-title text-white">
-          <i class="fas fa-list-alt mr-2" />All Fields
+          <i class="fas fa-list-alt mr-2" />{{ tr('allFields') }}
         </h3>
         <div class="card-tools">
           <button
@@ -253,7 +258,7 @@ watch(
             data-toggle="modal"
             data-target="#addFieldModal"
           >
-            <i class="fas fa-plus mr-2" /> Add New Field
+            <i class="fas fa-plus mr-2" /> {{ tr('addNewField') }}
           </button>
         </div>
       </div>
@@ -265,16 +270,16 @@ watch(
                 <th class="text-center" style="width: 50px">
                   #
                 </th>
-                <th>Field Name</th>
-                <th>Field Label</th>
+                <th>{{ tr('fieldName') }}</th>
+                <th>{{ tr('fieldLabel') }}</th>
                 <th class="text-center" style="width: 200px">
-                  Field Type
+                  {{ tr('fieldType') }}
                 </th>
                 <th class="text-center" style="width: 100px">
-                  User Input
+                  {{ tr('userInput') }}
                 </th>
                 <th class="text-center" style="width: 150px">
-                  Actions
+                  {{ t('actions') }}
                 </th>
               </tr>
             </thead>
@@ -286,7 +291,7 @@ watch(
                 <td>
                   <span class="font-weight-medium">{{ field.name }}</span>
                 </td>
-                <td>{{ field.label || "-" }}</td>
+                <td>{{ field.label || '-' }}</td>
                 <td class="text-center">
                   <span
                     class="type-badge"
@@ -305,21 +310,21 @@ watch(
                       field.is_fillable ? 'status-active' : 'status-inactive'
                     "
                   >
-                    {{ field.is_fillable ? "Yes" : "No" }}
+                    {{ field.is_fillable ? tr('yes') : tr('no') }}
                   </span>
                 </td>
                 <td class="text-center">
                   <div class="action-buttons">
                     <button
                       class="btn btn-icon"
-                      title="Edit"
+                      :title="tr('edit')"
                       @click="openEditModal(field)"
                     >
                       <i class="fas fa-edit text-warning" />
                     </button>
                     <button
                       class="btn btn-icon text-danger"
-                      title="Delete"
+                      :title="tr('delete')"
                       @click="deleteField(field.id)"
                     >
                       <i class="fas fa-trash" />
@@ -332,7 +337,7 @@ watch(
                   <div class="empty-state">
                     <i class="fas fa-list-alt fa-2x text-muted mb-2" />
                     <p class="text-muted">
-                      No fields found.
+                      {{ tr('noFieldsFound') }}
                     </p>
                   </div>
                 </td>
@@ -364,7 +369,7 @@ watch(
           <div class="modal-header">
             <h5 id="addFieldModalLabel" class="modal-title">
               <i class="fas fa-edit text-primary mr-2" />
-              {{ isEditing ? "Edit Field" : "Add New Field" }}
+              {{ isEditing ? tr('editField') : tr('addNewField') }}
             </h5>
             <button
               type="button"
@@ -382,14 +387,14 @@ watch(
                 <div class="col-md-6">
                   <div class="form-group">
                     <label class="font-weight-semibold">
-                      <i class="fas fa-tag text-primary mr-1" />Field Name
+                      <i class="fas fa-tag text-primary mr-1" />{{ tr('fieldName') }}
                     </label>
                     <input
                       id="fieldName"
                       v-model="currentField.name"
                       type="text"
                       class="form-control form-control-lg"
-                      placeholder="Enter field name"
+                      :placeholder="tr('enterFieldName')"
                       required
                     >
                   </div>
@@ -397,7 +402,7 @@ watch(
                 <div class="col-md-6">
                   <div class="form-group">
                     <label class="font-weight-semibold">
-                      <i class="fas fa-cube text-primary mr-1" />Field Type
+                      <i class="fas fa-cube text-primary mr-1" />{{ tr('fieldType') }}
                     </label>
                     <select
                       id="fieldType"
@@ -424,7 +429,7 @@ watch(
                 class="form-group"
               >
                 <label class="font-weight-semibold">
-                  <i class="fas fa-tag text-primary mr-1" />Field Label
+                  <i class="fas fa-tag text-primary mr-1" />{{ tr('fieldLabel') }}
                   <span class="text-danger">*</span>
                 </label>
                 <input
@@ -432,7 +437,7 @@ watch(
                   v-model="currentField.label"
                   type="text"
                   class="form-control form-control-lg"
-                  placeholder="Enter field label"
+                  :placeholder="tr('enterFieldLabel')"
                   required
                 >
               </div>
@@ -440,7 +445,7 @@ watch(
               <!-- Icon Select (conditional) -->
               <div v-if="currentField.type === 'Icon'" class="form-group">
                 <label class="font-weight-semibold">
-                  <i class="fas fa-icons text-primary mr-1" />Select Icon
+                  <i class="fas fa-icons text-primary mr-1" />{{ tr('selectIcon') }}
                 </label>
                 <div class="input-group">
                   <select
@@ -450,7 +455,7 @@ watch(
                     required
                   >
                     <option value="" hidden>
-                      Select an icon
+                      {{ tr('selectAnIcon') }}
                     </option>
                     <option
                       v-for="icon in availableIcons"
@@ -474,7 +479,7 @@ watch(
                   <div class="form-group">
                     <label class="font-weight-semibold">
                       <i class="fas fa-arrows-alt-h text-primary mr-1" />
-                      Default Width (px)
+                      {{ tr('defaultWidthPx') }}
                     </label>
                     <input
                       id="fieldWidth"
@@ -492,7 +497,7 @@ watch(
                   <div class="form-group">
                     <label class="font-weight-semibold">
                       <i class="fas fa-arrows-alt-v text-primary mr-1" />
-                      Default Height (px)
+                      {{ tr('defaultHeightPx') }}
                     </label>
                     <input
                       id="fieldHeight"
@@ -528,12 +533,11 @@ watch(
                     class="custom-control-label font-weight-semibold"
                     for="fieldIsFillable"
                   >
-                    <i class="fas fa-keyboard text-primary mr-1" />User Input?
+                    <i class="fas fa-keyboard text-primary mr-1" />{{ tr('userInputQuestion') }}
                   </label>
                 </div>
                 <small class="form-text text-muted ml-4">
-                  Check if this field should be filled by users. Uncheck if it
-                  displays static content.
+                  {{ tr('userInputHint') }}
                 </small>
               </div>
 
@@ -552,7 +556,7 @@ watch(
                 data-dismiss="modal"
                 @click="resetForm"
               >
-                <i class="fas fa-times mr-2" />Close
+                <i class="fas fa-times mr-2" />{{ tr('close') }}
               </button>
               <button
                 type="submit"
@@ -560,7 +564,7 @@ watch(
                 :disabled="loading"
               >
                 <i class="fas fa-save mr-2" />
-                {{ loading ? "Saving..." : "Save Field" }}
+                {{ loading ? tr('saving') : tr('saveField') }}
               </button>
             </div>
           </form>

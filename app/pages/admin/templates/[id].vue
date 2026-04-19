@@ -47,6 +47,12 @@ const route = useRoute();
 const router = useRouter();
 const overlay = useOverlay();
 const toast = useToast();
+const localePath = useLocalePath();
+const { t } = useI18n();
+
+function tr(key: string, params?: Record<string, unknown>) {
+  return params ? t(`adminTemplates.detail.${key}`, params) : t(`adminTemplates.detail.${key}`);
+}
 const templateId = computed(() => {
   const value = route.params.id;
   return Array.isArray(value) ? value[0] : value;
@@ -63,7 +69,7 @@ const confirmDialog = overlay.create(LazyBaseConfirmDialog);
 const placedFields = ref<any[]>([]);
 const previewFieldValues = ref<Record<string, string>>({});
 const isEditingFormLayout = ref(false);
-const formSectionTitle = ref('Request Information');
+const formSectionTitle = ref(tr('requestInformation'));
 const isSavingFormLayout = ref(false);
 const activeEditingFieldId = ref<string | null>(null);
 const fieldSuggestionNotes = ref<Record<string, string>>({});
@@ -99,9 +105,9 @@ const signingSteps = computed<SigningStepSummary[]>(() => normalizeSigningFlowDa
 
 const templateDescriptionPreview = computed(() => {
   if (isLoading.value)
-    return 'Loading...';
+    return tr('loading');
 
-  return template.value?.description?.trim() || 'ยังไม่มีคำอธิบาย';
+  return template.value?.description?.trim() || tr('noDescription');
 });
 
 function parseMaybeJson(value: unknown): unknown {
@@ -692,11 +698,11 @@ async function saveFormLayout(): Promise<boolean> {
 
     const result = await $fetch<{ success: boolean; data?: { placedFieldsData?: any[] }; error?: string }>(
       `/api/pdf-templates/${templateId.value}/form-layout`,
-      { method: 'PATCH', body: { sectionTitle: String(formSectionTitle.value || 'Request Information').trim(), entries, signerSuggestionNotes } },
+      { method: 'PATCH', body: { sectionTitle: String(formSectionTitle.value || tr('requestInformation')).trim(), entries, signerSuggestionNotes } },
     );
 
     if (!result.success)
-      throw new Error(result.error || 'Failed to save form layout');
+      throw new Error(result.error || tr('saveLayoutFailed'));
 
     if (Array.isArray(result.data?.placedFieldsData)) {
       placedFields.value = result.data!.placedFieldsData!;
@@ -706,11 +712,11 @@ async function saveFormLayout(): Promise<boolean> {
       await fetchTemplate();
     }
 
-    toast.add({ title: 'บันทึกสำเร็จ', description: 'บันทึกการจัดรูปแบบฟอร์มแล้ว', color: 'success' });
+    toast.add({ title: tr('savedTitle'), description: tr('savedLayoutDescription'), color: 'success' });
     return true;
   }
   catch (err) {
-    toast.add({ title: 'เกิดข้อผิดพลาด', description: err instanceof Error ? err.message : 'ไม่สามารถบันทึก Form Layout ได้', color: 'error' });
+    toast.add({ title: tr('errorTitle'), description: err instanceof Error ? err.message : tr('saveLayoutFailed'), color: 'error' });
     return false;
   }
   finally {
@@ -730,10 +736,10 @@ function startEditFormLayout() {
 
 async function confirmAndSaveFormLayout() {
   const instance = confirmDialog.open({
-    title: 'ยืนยันการบันทึก',
-    description: 'ยืนยันการบันทึกไปใช้กับฟอร์มฝั่งนิสิต?',
-    cancelButton: { label: 'ยกเลิก' },
-    confirmButton: { label: 'บันทึก', color: 'primary' },
+    title: tr('confirmSaveTitle'),
+    description: tr('confirmSaveDescription'),
+    cancelButton: { label: t('cancel') },
+    confirmButton: { label: t('saveChanges'), color: 'primary' },
   });
   const confirmed = await instance.result;
   if (!confirmed)
@@ -748,10 +754,10 @@ async function confirmAndSaveFormLayout() {
 
 async function confirmAndCancelFormLayoutEdit() {
   const instance = confirmDialog.open({
-    title: 'ยืนยันการยกเลิก',
-    description: 'ยกเลิกการแก้ไข การเปลี่ยนแปลงที่ยังไม่บันทึกจะถูกยกเลิก',
-    cancelButton: { label: 'กลับไปแก้ไข' },
-    confirmButton: { label: 'ยกเลิกการแก้ไข', color: 'error' },
+    title: tr('confirmCancelTitle'),
+    description: tr('confirmCancelDescription'),
+    cancelButton: { label: tr('backToEditing') },
+    confirmButton: { label: tr('cancelEditing'), color: 'error' },
   });
   const confirmed = await instance.result;
   if (!confirmed)
@@ -836,7 +842,7 @@ function normalizeSigningFlowData(value: unknown): SigningStepSummary[] {
       order: typeof step?.order === 'number' ? step.order : index + 1,
       roleName: typeof step?.roleName === 'string' && step.roleName.trim().length > 0
         ? step.roleName.trim()
-        : `Signer ${index + 1}`,
+        : tr('signerFallback', { order: index + 1 }),
       suggestionNote: typeof step?.suggestionNote === 'string' && step.suggestionNote.trim().length > 0
         ? step.suggestionNote.trim()
         : null,
@@ -854,7 +860,7 @@ function normalizeSigningFlowData(value: unknown): SigningStepSummary[] {
 // --- Methods ---
 async function fetchTemplate() {
   if (!templateId.value) {
-    error.value = 'Template ID is required';
+    error.value = tr('templateIdRequired');
     isLoading.value = false;
     return;
   }
@@ -871,12 +877,12 @@ async function fetchTemplate() {
       syncFormFieldLayout();
     }
     else {
-      error.value = 'Template not found';
+      error.value = tr('templateNotFound');
     }
   }
   catch (err) {
     console.error('Error fetching template:', err);
-    error.value = err instanceof Error ? err.message : 'Failed to load template';
+    error.value = err instanceof Error ? err.message : tr('loadTemplateFailed');
   }
   finally {
     isLoading.value = false;
@@ -894,10 +900,10 @@ async function deleteTemplate() {
     return;
 
   const instance = confirmDialog.open({
-    title: 'ลบ Template',
-    description: `คุณต้องการลบ "${template.value?.name}" หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`,
-    cancelButton: { label: 'ยกเลิก' },
-    confirmButton: { label: 'ลบ', color: 'error' },
+    title: tr('deleteTemplateTitle'),
+    description: tr('deleteTemplateDescription', { name: template.value?.name || '-' }),
+    cancelButton: { label: t('cancel') },
+    confirmButton: { label: t('delete'), color: 'error' },
   });
 
   const confirmed = await instance.result;
@@ -908,17 +914,17 @@ async function deleteTemplate() {
   try {
     await $fetch(`/api/pdf-templates/${templateId.value}`, { method: 'DELETE' });
     toast.add({
-      title: 'ลบสำเร็จ',
-      description: `Template "${template.value?.name}" ถูกลบแล้ว`,
+      title: tr('deletedTitle'),
+      description: tr('deletedDescription', { name: template.value?.name || '-' }),
       color: 'success',
     });
-    router.push('/admin/templates');
+    router.push(localePath('/admin/templates'));
   }
   catch (err) {
     console.error('Error deleting template:', err);
     toast.add({
-      title: 'เกิดข้อผิดพลาด',
-      description: 'ไม่สามารถลบ Template ได้',
+      title: tr('errorTitle'),
+      description: tr('deleteTemplateFailed'),
       color: 'error',
     });
   }
@@ -952,10 +958,13 @@ async function onSwitchChange(newValue: boolean) {
   }
 
   const instance = confirmDialog.open({
-    title: desired ? 'เปิดใช้งาน Template' : 'ปิดใช้งาน Template',
-    description: `คุณต้องการ ${desired ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} เอกสาร "${template.value.name}" หรือไม่?`,
-    cancelButton: { label: 'ยกเลิก' },
-    confirmButton: { label: desired ? 'เปิดใช้งาน' : 'ปิดใช้งาน', color: desired ? 'primary' : 'error' },
+    title: desired ? tr('enableTemplateTitle') : tr('disableTemplateTitle'),
+    description: tr('toggleTemplateDescription', {
+      action: desired ? tr('enableAction') : tr('disableAction'),
+      name: template.value.name || '-',
+    }),
+    cancelButton: { label: t('cancel') },
+    confirmButton: { label: desired ? tr('enableAction') : tr('disableAction'), color: desired ? 'primary' : 'error' },
   });
 
   const confirmed = await instance.result;
@@ -973,12 +982,12 @@ async function onSwitchChange(newValue: boolean) {
 
     template.value.isActive = desired;
     switchState.value = desired;
-    toast.add({ title: desired ? 'เปิดใช้งานเรียบร้อย' : 'ปิดใช้งานเรียบร้อย', color: 'success' });
+    toast.add({ title: desired ? tr('enabledSuccess') : tr('disabledSuccess'), color: 'success' });
   }
   catch (err) {
     console.error('Failed to update template active state:', err);
     switchState.value = prev;
-    toast.add({ title: 'เกิดข้อผิดพลาด', description: err instanceof Error ? err.message : 'ไม่สามารถเปลี่ยนสถานะเทมเพลตได้', color: 'error' });
+    toast.add({ title: tr('errorTitle'), description: err instanceof Error ? err.message : tr('toggleTemplateFailed'), color: 'error' });
   }
 }
 
@@ -1001,14 +1010,14 @@ watch(layoutEditorFillableFields, () => {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <UBreadcrumb
           :links="[
-            { label: 'Templates', to: '/admin/templates' },
-            { label: template?.name || 'Loading...', to: templateId ? `/admin/templates/${templateId}` : '/admin/templates' },
+            { label: t('allTemplates'), to: localePath('/admin/templates') },
+            { label: template?.name || tr('loading'), to: templateId ? localePath(`/admin/templates/${templateId}`) : localePath('/admin/templates') },
           ]"
         />
         <div class="mt-4 flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">
-              {{ template?.name || 'Document Preview' }}
+              {{ template?.name || tr('documentPreview') }}
             </h1>
             <p class="mt-1 text-sm text-gray-500">
               {{ templateDescriptionPreview }}
@@ -1025,7 +1034,7 @@ watch(layoutEditorFillableFields, () => {
                   :class="switchState ? 'bg-green-50 border-green-200 hover:bg-green-100 focus:ring-green-200' : 'bg-red-50 border-red-200 hover:bg-red-100 focus:ring-red-200'"
                   @click="onSwitchChange(!switchState)"
                 >
-                  <span class="sr-only">Toggle template active</span>
+                  <span class="sr-only">{{ tr('toggleTemplateActive') }}</span>
 
                   <!-- Track + sliding knob -->
                   <span class="relative inline-block w-14 h-7 rounded-full p-1">
@@ -1041,7 +1050,7 @@ watch(layoutEditorFillableFields, () => {
                   </span>
 
                   <span :class="switchState ? 'text-green-600 font-semibold text-sm' : 'text-red-600 font-semibold text-sm'">
-                    {{ switchState ? 'Active' : 'Inactive' }}
+                    {{ switchState ? tr('active') : tr('inactive') }}
                   </span>
                 </button>
               </template>
@@ -1050,7 +1059,7 @@ watch(layoutEditorFillableFields, () => {
                   <div class="h-7 w-16 rounded-full p-1" :class="[switchState ? 'bg-green-500' : 'bg-red-500']">
                     <span class="block w-6 h-6 bg-white rounded-full shadow" :class="switchState ? 'ml-8' : 'ml-0'" />
                   </div>
-                  <span class="text-sm font-medium text-gray-700">{{ switchState ? 'Active' : 'Inactive' }}</span>
+                  <span class="text-sm font-medium text-gray-700">{{ switchState ? tr('active') : tr('inactive') }}</span>
                 </div>
               </template>
             </div>
@@ -1073,9 +1082,8 @@ watch(layoutEditorFillableFields, () => {
               :to="`/admin/templates/edit?id=${templateId}`"
               icon="i-heroicons-pencil-square"
               variant="solid"
-              color="info"
             >
-              Edit Template
+              {{ tr('editTemplate') }}
             </UButton>
           </div>
         </div>
@@ -1089,7 +1097,7 @@ watch(layoutEditorFillableFields, () => {
         <div class="text-center">
           <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
           <p class="text-gray-500">
-            กำลังโหลด Template...
+            {{ tr('loadingTemplate') }}
           </p>
         </div>
       </div>
@@ -1101,8 +1109,8 @@ watch(layoutEditorFillableFields, () => {
           <p class="text-red-600 mb-4">
             {{ error }}
           </p>
-          <UButton @click="$router.push('/admin/templates')">
-            กลับไปหน้ารายการ Templates
+          <UButton @click="$router.push(localePath('/admin/templates'))">
+            {{ tr('backToTemplates') }}
           </UButton>
         </div>
       </UCard>
@@ -1129,7 +1137,7 @@ watch(layoutEditorFillableFields, () => {
             <template #header>
               <div class="flex items-center justify-between gap-2">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  Form Layout (Student View)
+                  {{ tr('formLayoutStudentView') }}
                 </h3>
                 <div class="flex items-center gap-1 justify-end">
                   <template v-if="!isEditingFormLayout">
@@ -1139,7 +1147,7 @@ watch(layoutEditorFillableFields, () => {
                       icon="i-heroicons-pencil-square"
                       @click="startEditFormLayout"
                     >
-                      Edit Layout
+                      {{ tr('editLayout') }}
                     </UButton>
                   </template>
                   <template v-else>
@@ -1151,7 +1159,7 @@ watch(layoutEditorFillableFields, () => {
                       :disabled="isSavingFormLayout"
                       @click="confirmAndCancelFormLayoutEdit"
                     >
-                      Cancel
+                      {{ t('cancel') }}
                     </UButton>
                     <UButton
                       size="xs"
@@ -1160,7 +1168,7 @@ watch(layoutEditorFillableFields, () => {
                       :loading="isSavingFormLayout"
                       @click="confirmAndSaveFormLayout"
                     >
-                      Save Layout
+                      {{ tr('saveLayout') }}
                     </UButton>
                   </template>
                 </div>
@@ -1168,7 +1176,7 @@ watch(layoutEditorFillableFields, () => {
             </template>
             <div class="space-y-3 w-full">
               <div>
-                <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">Section Title</label>
+                <label class="text-xs font-semibold text-gray-500 uppercase mb-1 block">{{ tr('sectionTitle') }}</label>
                 <UInput
                   v-model="formSectionTitle"
                   :disabled="!isEditingFormLayout"
@@ -1178,7 +1186,7 @@ watch(layoutEditorFillableFields, () => {
 
               <div class="rounded-lg border border-gray-200 p-3">
                 <h4 class="text-sm font-semibold text-gray-700 mb-3">
-                  {{ formSectionTitle || 'Request Information' }}
+                  {{ formSectionTitle || tr('requestInformation') }}
                 </h4>
                 <div class="space-y-3">
                   <template
@@ -1203,7 +1211,7 @@ watch(layoutEditorFillableFields, () => {
                         v-if="layoutDragFromIndex === null"
                         type="button"
                         class="pointer-events-auto opacity-0 group-hover/gap:opacity-100 transition-opacity shrink-0 w-6 h-6 rounded-full bg-white border-2 border-indigo-400 text-indigo-500 flex items-center justify-center text-sm font-bold hover:bg-indigo-50 leading-none"
-                        title="เพิ่มกลุ่มตรงนี้"
+                        :title="tr('addGroupHere')"
                         @click.stop="addGroupAt(itemIndex)"
                       >
                         +
@@ -1232,8 +1240,8 @@ watch(layoutEditorFillableFields, () => {
                           v-if="isEditingFormLayout"
                           type="button"
                           class="layout-drag-handle shrink-0 flex items-center justify-center w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-manipulation"
-                          title="ลากเพื่อสลับลำดับ"
-                          aria-label="ลากเพื่อสลับลำดับคำถาม"
+                          :title="tr('dragToReorder')"
+                          :aria-label="tr('dragToReorderQuestion')"
                           draggable="true"
                           @dragstart="onLayoutDragStart($event, itemIndex)"
                           @dragend="onLayoutDragEnd"
@@ -1269,31 +1277,31 @@ watch(layoutEditorFillableFields, () => {
                       >
                         <UCheckbox
                           :model-value="item.required"
-                          label="ต้องกรอก"
+                          :label="tr('required')"
                           @update:model-value="(v) => setLayoutRequired(item.instanceId, Boolean(v))"
                         />
                         <div v-if="availableGroups.length > 0" class="flex items-center gap-1">
-                          <span class="text-xs text-gray-500">ย้ายไปกลุ่ม:</span>
+                          <span class="text-xs text-gray-500">{{ tr('moveToGroup') }}</span>
                           <select
                             class="text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white"
                             @change="(e) => { const v = (e.target as HTMLSelectElement).value; if (v) assignFieldToGroup(item.instanceId, v); (e.target as HTMLSelectElement).value = ''; }"
                           >
                             <option value="">
-                              -- เลือกกลุ่ม --
+                              {{ tr('selectGroupOption') }}
                             </option>
                             <option v-for="g in availableGroups" :key="g.id" :value="g.id">
-                              {{ g.title || '(ไม่มีชื่อ)' }}
+                              {{ g.title || tr('untitledGroup') }}
                             </option>
                           </select>
                         </div>
                       </div>
                       <div v-if="isEditingFormLayout" class="mb-2">
-                        <label class="text-xs text-gray-500 mb-1 block">Suggestion note</label>
+                        <label class="text-xs text-gray-500 mb-1 block">{{ tr('suggestionNote') }}</label>
                         <UTextarea
                           :model-value="getFieldSuggestionNote(item.instanceId)"
                           :rows="2"
                           :maxlength="SUGGESTION_NOTE_MAX_LENGTH"
-                          placeholder="เพิ่มคำแนะนำสำหรับนิสิต"
+                          :placeholder="tr('studentSuggestionPlaceholder')"
                           @update:model-value="(value) => setFieldSuggestionNote(item.instanceId, String(value ?? ''))"
                         />
                         <p class="mt-1 text-[11px] text-gray-500 text-right">
@@ -1311,7 +1319,7 @@ watch(layoutEditorFillableFields, () => {
                         v-else-if="orderedLayoutEditorFieldsById.get(item.instanceId)"
                         class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
                       >
-                        ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
+                        {{ tr('hiddenByConditionHint') }}
                       </p>
                     </div>
 
@@ -1332,8 +1340,8 @@ watch(layoutEditorFillableFields, () => {
                           v-if="isEditingFormLayout"
                           type="button"
                           class="layout-drag-handle shrink-0 flex items-center justify-center w-8 h-8 rounded-md border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-manipulation"
-                          title="ลากเพื่อสลับลำดับ"
-                          aria-label="ลากเพื่อสลับลำดับกลุ่ม"
+                          :title="tr('dragToReorder')"
+                          :aria-label="tr('dragToReorderGroup')"
                           draggable="true"
                           @dragstart="onLayoutDragStart($event, itemIndex)"
                           @dragend="onLayoutDragEnd"
@@ -1344,7 +1352,7 @@ watch(layoutEditorFillableFields, () => {
                           v-model="item.title"
                           :disabled="!isEditingFormLayout"
                           class="flex-1 min-w-0"
-                          placeholder="ตั้งหัวข้อกลุ่ม..."
+                          :placeholder="tr('groupTitlePlaceholder')"
                           @focus="activeEditingFieldId = item.fields[0] ? item.fields[0].instanceId : null"
                         />
                         <UButton
@@ -1367,7 +1375,7 @@ watch(layoutEditorFillableFields, () => {
                           icon="i-heroicons-trash"
                           variant="ghost"
                           color="error"
-                          title="ลบกลุ่ม (คืนฟิลด์กลับ)"
+                          :title="tr('removeGroupAndReturnFields')"
                           @click="removeGroup(item.id)"
                         />
                       </div>
@@ -1379,7 +1387,7 @@ watch(layoutEditorFillableFields, () => {
                       >
                         <UCheckbox
                           :model-value="item.required"
-                          label="ต้องกรอก"
+                          :label="tr('required')"
                           @update:model-value="(v) => setGroupRequired(item.id, Boolean(v))"
                         />
                       </div>
@@ -1387,7 +1395,7 @@ watch(layoutEditorFillableFields, () => {
                       <!-- Group title in preview mode -->
                       <div v-if="!isEditingFormLayout && item.title" class="text-sm font-medium text-gray-700 flex items-center gap-0.5 mb-2">
                         <span>{{ item.title }}</span>
-                        <abbr v-if="item.required" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
+                        <abbr v-if="item.required" class="text-red-500 no-underline ml-0.5 font-semibold" :title="tr('required')">*</abbr>
                       </div>
 
                       <!-- Fields inside group -->
@@ -1428,17 +1436,17 @@ watch(layoutEditorFillableFields, () => {
                               icon="i-heroicons-arrow-uturn-left"
                               variant="ghost"
                               color="neutral"
-                              title="นำออกจากกลุ่ม"
+                              :title="tr('removeFromGroup')"
                               @click="removeFieldFromGroup(item.id, groupField.instanceId)"
                             />
                           </div>
                           <div v-if="isEditingFormLayout" class="mb-2">
-                            <label class="text-xs text-gray-500 mb-1 block">Suggestion note</label>
+                            <label class="text-xs text-gray-500 mb-1 block">{{ tr('suggestionNote') }}</label>
                             <UTextarea
                               :model-value="getFieldSuggestionNote(groupField.instanceId)"
                               :rows="2"
                               :maxlength="SUGGESTION_NOTE_MAX_LENGTH"
-                              placeholder="เพิ่มคำแนะนำสำหรับนิสิต"
+                              :placeholder="tr('studentSuggestionPlaceholder')"
                               @update:model-value="(value) => setFieldSuggestionNote(groupField.instanceId, String(value ?? ''))"
                             />
                             <p class="mt-1 text-[11px] text-gray-500 text-right">
@@ -1456,7 +1464,7 @@ watch(layoutEditorFillableFields, () => {
                             v-else-if="orderedLayoutEditorFieldsById.get(groupField.instanceId)"
                             class="text-xs text-gray-500 px-2 py-2 rounded border border-dashed border-gray-200 bg-gray-50/80"
                           >
-                            ไม่แสดงผลตามเงื่อนไข (ติ๊ก checkbox ที่เกี่ยวข้องเพื่อดูตัวอย่าง)
+                            {{ tr('hiddenByConditionHint') }}
                           </p>
                         </div>
 
@@ -1467,7 +1475,7 @@ watch(layoutEditorFillableFields, () => {
                             @change="(e) => { const v = (e.target as HTMLSelectElement).value; if (v) assignFieldToGroup(v, item.id); (e.target as HTMLSelectElement).value = ''; }"
                           >
                             <option value="">
-                              + เพิ่มฟิลด์ในกลุ่มนี้
+                              {{ tr('addFieldToThisGroup') }}
                             </option>
                             <option
                               v-for="standaloneItem in layoutItems.filter(it => it.kind === 'field')"
@@ -1506,7 +1514,7 @@ watch(layoutEditorFillableFields, () => {
                         v-if="layoutDragFromIndex === null"
                         type="button"
                         class="pointer-events-auto opacity-0 group-hover/gap:opacity-100 transition-opacity shrink-0 w-6 h-6 rounded-full bg-white border-2 border-indigo-400 text-indigo-500 flex items-center justify-center text-sm font-bold hover:bg-indigo-50 leading-none"
-                        title="เพิ่มกลุ่มตรงนี้"
+                        :title="tr('addGroupHere')"
                         @click.stop="addGroupAt(layoutItems.length)"
                       >
                         +
@@ -1520,7 +1528,7 @@ watch(layoutEditorFillableFields, () => {
                     </div>
                   </div>
                   <p v-if="layoutItems.length === 0" class="text-sm text-gray-400 text-center py-3">
-                    ไม่มีฟิลด์ที่นิสิตต้องกรอก
+                    {{ tr('noStudentFillableFields') }}
                   </p>
                 </div>
               </div>
@@ -1531,11 +1539,11 @@ watch(layoutEditorFillableFields, () => {
           <UCard>
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Order of signing
+                {{ tr('signingOrder') }}
               </h3>
             </template>
             <div v-if="signingSteps.length === 0" class="text-sm text-gray-500">
-              ยังไม่มีการกำหนดลำดับการลงนาม
+              {{ tr('noSigningOrderConfigured') }}
             </div>
             <div v-else class="space-y-0">
               <template
@@ -1562,15 +1570,15 @@ watch(layoutEditorFillableFields, () => {
                       size="xs"
                       class="mt-1"
                     >
-                      {{ step.isRequired ? 'Required' : 'Optional' }}
+                      {{ step.isRequired ? t('required') : t('optional') }}
                     </UBadge>
                     <div v-if="isEditingFormLayout" class="mt-2">
-                      <label class="text-xs text-gray-500 mb-1 block">Suggestion note</label>
+                      <label class="text-xs text-gray-500 mb-1 block">{{ tr('suggestionNote') }}</label>
                       <UTextarea
                         :model-value="getSignerSuggestionNote(step.id)"
                         :rows="2"
                         :maxlength="SUGGESTION_NOTE_MAX_LENGTH"
-                        placeholder="เพิ่มคำแนะนำสำหรับผู้ลงนามขั้นตอนนี้"
+                        :placeholder="tr('signerSuggestionPlaceholder')"
                         class="w-full"
                         @update:model-value="(value) => setSignerSuggestionNote(step.id, String(value ?? ''))"
                       />

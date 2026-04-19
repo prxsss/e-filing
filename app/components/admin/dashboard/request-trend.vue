@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{
   refreshToken: 0,
 });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 type TrendRow = {
   bucket: string;
@@ -40,7 +40,7 @@ const chartData = computed(() => {
     return {
       label: Number.isNaN(date.getTime())
         ? row.bucket
-        : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(date),
+        : new Intl.DateTimeFormat(locale.value, { month: 'short', day: 'numeric' }).format(date),
       submissions: row.submissions,
       completions: row.completions,
     };

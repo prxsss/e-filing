@@ -1,4 +1,5 @@
 import accessControl from './access-control.json';
+import adminRequests from './admin-requests.json';
 import auth from './auth.json';
 import common from './common.json';
 import dashboard from './dashboard.json';
@@ -14,6 +15,7 @@ import templates from './templates.json';
 import users from './users.json';
 
 export default {
+  ...adminRequests,
   ...common,
   ...dashboard,
   ...studentMyRequests,

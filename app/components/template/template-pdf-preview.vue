@@ -12,7 +12,7 @@ const props = defineProps({
   /** When set, show a button to open this URL in a new tab (e.g. signed PDF link) */
   openInNewTabUrl: { type: String, default: null },
   /** Label for the open-in-new-tab button */
-  openInNewTabLabel: { type: String, default: 'เปิด PDF ในแท็บใหม่' },
+  openInNewTabLabel: { type: String, default: '' },
   /** Highlight specific field on preview by instanceId */
   highlightedFieldInstanceId: { type: String, default: '' },
   /** Enable field click interactions on preview */
@@ -22,6 +22,8 @@ const props = defineProps({
 const emit = defineEmits<{
   fieldClicked: [instanceId: string];
 }>();
+
+const { t } = useI18n();
 
 // --- Refs ---
 const viewerArea = ref<HTMLDivElement | null>(null);
@@ -38,6 +40,8 @@ const renderScale = ref(1.5); // Internal canvas render resolution
 const pdfNaturalDimensions = ref({ width: 0, height: 0 });
 const renderTask = shallowRef<RenderTask | null>(null);
 const isRendering = ref(false);
+
+const resolvedOpenInNewTabLabel = computed(() => props.openInNewTabLabel || t('adminTemplates.shared.pdfPreview.openInNewTab'));
 
 // Zoom
 const uiScale = ref(1);
@@ -153,7 +157,7 @@ async function initPdfJs(): Promise<PDFJSType> {
   }
   catch (err) {
     console.error('Error loading PDF.js:', err);
-    throw new Error('Failed to load PDF library');
+    throw new Error(t('adminTemplates.shared.pdfPreview.failedToLoadPdfLibrary'));
   }
 }
 
@@ -353,7 +357,7 @@ onUnmounted(() => {
           color="primary"
           @click="openPdfInNewTab"
         >
-          {{ openInNewTabLabel }}
+          {{ resolvedOpenInNewTabLabel }}
         </UButton>
       </div>
 
@@ -370,7 +374,7 @@ onUnmounted(() => {
           @click="prevPage"
         />
         <span class="text-sm text-gray-600">
-          Page
+          {{ t('adminTemplates.shared.pdfPreview.page') }}
           <select
             v-model="currentPage"
             class="mx-1 px-1 py-0.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -379,7 +383,7 @@ onUnmounted(() => {
               {{ i }}
             </option>
           </select>
-          of {{ totalPages }}
+          {{ t('adminTemplates.shared.pdfPreview.of') }} {{ totalPages }}
         </span>
         <UButton
           icon="i-heroicons-chevron-right"
@@ -410,7 +414,7 @@ onUnmounted(() => {
             <div v-if="!pdfLoaded && !loadError" class="text-center py-12">
               <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4" />
               <p class="text-gray-500">
-                Loading PDF...
+                {{ t('adminTemplates.shared.pdfPreview.loadingPdf') }}
               </p>
             </div>
 
@@ -456,7 +460,7 @@ onUnmounted(() => {
                   v-if="field.imageUrl"
                   :src="field.imageUrl"
                   class="signature-img"
-                  alt="ลายเซ็น"
+                  :alt="t('adminTemplates.shared.pdfPreview.signatureAlt')"
                 >
                 <template v-else>
                   <svg

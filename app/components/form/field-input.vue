@@ -26,6 +26,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 const { user } = useUserSession();
+const { t } = useI18n();
 
 const fieldType = computed(() => String(props.field?.type || props.field?.fieldType || '').toLowerCase());
 const sessionFieldBinding = computed(() => {
@@ -476,17 +477,19 @@ const inputMode = computed(() => {
 const placeholder = computed(() => {
   if (isDropdownField.value) {
     const dataLabel = String(dropdownConfig.value?.dataLabel ?? '').trim();
-    return dataLabel.length > 0 ? `เลือก${dataLabel}` : 'เลือกข้อมูล';
+    return dataLabel.length > 0
+      ? t('adminTemplates.shared.formField.selectWithLabel', { label: dataLabel })
+      : t('adminTemplates.shared.formField.selectData');
   }
 
   if (displayLabel.value) {
-    return `Enter ${displayLabel.value}`;
+    return t('adminTemplates.shared.formField.enterWithLabel', { label: displayLabel.value });
   }
-  return `Enter ${props.field.name || 'value'}`;
+  return t('adminTemplates.shared.formField.enterWithLabel', { label: props.field.name || t('adminTemplates.shared.formField.value') });
 });
 
 const dropdownPlaceholder = computed(() => {
-  return isLoadingDropdownOptions.value ? 'กำลังโหลดข้อมูล...' : placeholder.value;
+  return isLoadingDropdownOptions.value ? t('adminTemplates.shared.formField.loadingData') : placeholder.value;
 });
 
 const currentLength = computed(() => localValue.value.length);
@@ -545,7 +548,7 @@ onMounted(() => {
         <span class="field-label mb-0 leading-5">
           <i v-if="field.icon" :class="field.icon" class="mr-2" />
           {{ displayLabel || field.name }}
-          <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
+          <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" :title="t('required')">*</abbr>
         </span>
       </div>
     </template>
@@ -553,7 +556,7 @@ onMounted(() => {
       <label v-if="displayLabel || field.name" class="field-label">
         <i v-if="field.icon" :class="field.icon" class="mr-2" />
         {{ displayLabel || field.name }}
-        <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" title="จำเป็นต้องกรอก">*</abbr>
+        <abbr v-if="showRequiredAsterisk" class="text-red-500 no-underline ml-0.5 font-semibold" :title="t('required')">*</abbr>
       </label>
 
       <UTextarea
@@ -592,7 +595,7 @@ onMounted(() => {
         class="w-full"
       />
       <p v-if="maxLength" class="field-helper">
-        {{ currentLength }}/{{ maxLength }} characters
+        {{ t('adminTemplates.shared.formField.characterCount', { current: currentLength, max: maxLength }) }}
       </p>
     </template>
   </div>

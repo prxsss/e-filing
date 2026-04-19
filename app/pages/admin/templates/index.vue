@@ -28,6 +28,7 @@ type ApiResponse<T> = {
 
 // --- 2. State & Data ---
 const localePath = useLocalePath();
+const { t, locale } = useI18n();
 const searchQuery = ref('');
 const statusFilter = ref('all');
 const isLoading = ref(true);
@@ -35,11 +36,11 @@ const error = ref<string | null>(null);
 
 const authStore = useAuthStore();
 
-const statusOptions = [
-  { value: 'all', label: 'สถานะ: ทั้งหมด (All)' },
-  { value: 'active', label: 'เปิดใช้งาน (Active)' },
-  { value: 'inactive', label: 'ปิดใช้งาน (Inactive)' },
-];
+const statusOptions = computed(() => [
+  { value: 'all', label: t('adminTemplates.list.statusAll') },
+  { value: 'active', label: t('adminTemplates.list.statusActive') },
+  { value: 'inactive', label: t('adminTemplates.list.statusInactive') },
+]);
 
 const templates = ref<Template[]>([]);
 
@@ -57,7 +58,7 @@ async function fetchTemplates() {
   }
   catch (err) {
     console.error('Error fetching templates:', err);
-    error.value = err instanceof Error ? err.message : 'Failed to load templates';
+    error.value = err instanceof Error ? err.message : t('adminTemplates.list.loadFailed');
   }
   finally {
     isLoading.value = false;
@@ -82,7 +83,7 @@ const filteredTemplates = computed(() => {
 
 function formatDate(dateString: string) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('th-TH', {
+  return date.toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -109,7 +110,7 @@ onMounted(() => {
       <div class="text-center">
         <UIcon name="i-lucide-loader" class="text-4xl text-gray-400 mb-4 animate-spin" />
         <p class="text-gray-500">
-          กำลังโหลด Templates...
+          {{ t('adminTemplates.list.loading') }}
         </p>
       </div>
     </div>
@@ -123,7 +124,7 @@ onMounted(() => {
             {{ error }}
           </p>
           <UButton @click="fetchTemplates">
-            ลองอีกครั้ง
+            {{ t('adminTemplates.list.tryAgain') }}
           </UButton>
         </div>
       </UCard>
@@ -135,14 +136,14 @@ onMounted(() => {
       <div class="flex justify-between items-end">
         <div>
           <h1 class="text-2xl font-bold mb-4">
-            ต้นแบบเอกสาร (Templates)
+            {{ t('allTemplates') }}
           </h1>
         </div>
         <div class="flex items-center gap-2">
           <UButton
             v-if="authStore.can('template.create')"
             icon="i-heroicons-plus"
-            label="สร้างต้นแบบใหม่"
+            :label="t('createTemplate')"
             size="lg"
             class="shadow-sm"
             @click="navigateToCreate"
@@ -160,9 +161,9 @@ onMounted(() => {
               icon="i-heroicons-magnifying-glass"
               size="lg"
               variant="outline"
-              placeholder="ค้นหาชื่อเอกสาร, รหัส, หรือรายละเอียด..."
+              :placeholder="t('adminTemplates.list.searchPlaceholder')"
             />
-            <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="isLoading" @click="fetchTemplates" />
+            <UButton icon="i-heroicons-magnifying-glass" :label="t('search')" color="primary" variant="solid" :loading="isLoading" @click="fetchTemplates" />
             <USelect
               v-model="statusFilter"
               :items="statusOptions"
@@ -207,7 +208,7 @@ onMounted(() => {
             >
               <div class="flex items-center gap-1.5">
                 <span class="w-1.5 h-1.5 rounded-full" :class="template.isActive ? 'bg-emerald-500' : 'bg-red-500'" />
-                {{ template.isActive ? 'Active' : 'Inactive' }}
+                {{ template.isActive ? t('adminTemplates.list.active') : t('adminTemplates.list.inactive') }}
               </div>
             </UBadge>
           </div>
@@ -221,7 +222,7 @@ onMounted(() => {
             </div>
 
             <p class="text-sm line-clamp-2 h-10 leading-relaxed">
-              {{ template.description || 'ไม่มีคำอธิบาย' }}
+              {{ template.description || t('adminTemplates.list.noDescription') }}
             </p>
           </div>
 
@@ -238,15 +239,15 @@ onMounted(() => {
             <UIcon name="i-heroicons-document-magnifying-glass" class="w-8 h-8" />
           </div>
           <h3 class="text-gray-900 font-medium text-lg">
-            ไม่พบเอกสารที่ค้นหา
+            {{ t('adminTemplates.list.emptyTitle') }}
           </h3>
           <p class="text-gray-500 text-sm mt-1">
-            ลองปรับเปลี่ยนคำค้นหา หรือตัวกรองสถานะใหม่
+            {{ t('adminTemplates.list.emptyDescription') }}
           </p>
           <UButton
             variant="link"
             color="neutral"
-            label="ล้างตัวกรองทั้งหมด"
+            :label="t('adminTemplates.list.clearAllFilters')"
             class="mt-2"
             @click="{ searchQuery = ''; statusFilter = 'all' }"
           />

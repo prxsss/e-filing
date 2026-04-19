@@ -12,6 +12,14 @@
       "period": "เลือกช่วงเวลา",
       "faculty": "ตัวกรองคณะ"
     },
+    "autoRefresh": {
+      "label": "รีเฟรชอัตโนมัติ",
+      "options": {
+        "every15Seconds": "ทุก 15 วินาที",
+        "every30Seconds": "ทุก 30 วินาที",
+        "every1Minute": "ทุก 1 นาที"
+      }
+    },
     "requestTrend": {
       "title": "แนวโน้มคำร้อง",
       "submissions": "ยื่นคำร้อง",
@@ -21,6 +29,13 @@
     },
     "signatureBottlenecks": {
       "title": "คอขวดการเซ็น",
+      "topLimitOptions": {
+        "top5": "สูงสุด 5 อันดับ",
+        "top10": "สูงสุด 10 อันดับ",
+        "all": "ทั้งหมด"
+      },
+      "avgHours": "เฉลี่ย {value} ชั่วโมง",
+      "avgDays": "เฉลี่ย {value} วัน",
       "noData": "ไม่มีข้อมูลคอขวดสำหรับตัวกรองที่เลือก"
     },
     "workloadByFaculty": {
@@ -36,6 +51,11 @@
       "templateName": "ชื่อเทมเพลต",
       "usageCount": "จำนวนครั้งที่ใช้",
       "completion": "อัตราการสำเร็จ",
+      "topLimitOptions": {
+        "top5": "สูงสุด 5 อันดับ",
+        "top10": "สูงสุด 10 อันดับ",
+        "all": "ทั้งหมด"
+      },
       "noData": "ไม่มีข้อมูลเทมเพลตสำหรับตัวกรองที่เลือก"
     }
   },

@@ -12,6 +12,14 @@
       "period": "Select Period",
       "faculty": "Faculty Filter"
     },
+    "autoRefresh": {
+      "label": "Auto Refresh",
+      "options": {
+        "every15Seconds": "Every 15 seconds",
+        "every30Seconds": "Every 30 seconds",
+        "every1Minute": "Every 1 minute"
+      }
+    },
     "requestTrend": {
       "title": "Request Trend",
       "submissions": "Submissions",
@@ -21,6 +29,13 @@
     },
     "signatureBottlenecks": {
       "title": "Signature Bottlenecks",
+      "topLimitOptions": {
+        "top5": "Top 5",
+        "top10": "Top 10",
+        "all": "All"
+      },
+      "avgHours": "{value} hrs avg",
+      "avgDays": "{value} days avg",
       "noData": "No bottleneck data for selected filters."
     },
     "workloadByFaculty": {
@@ -36,6 +51,11 @@
       "templateName": "Template Name",
       "usageCount": "Usage Count",
       "completion": "Completion",
+      "topLimitOptions": {
+        "top5": "Top 5",
+        "top10": "Top 10",
+        "all": "All"
+      },
       "noData": "No template data for selected filters."
     }
   },

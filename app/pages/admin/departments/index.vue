@@ -216,10 +216,10 @@ async function handleDeleteDepartment(id: number, name: string) {
 const columns: TableColumn<DepartmentListItem>[] = [
   {
     accessorKey: 'rowNo',
-    header: t('common.table.no'),
+    header: '#',
     meta: {
       class: {
-        th: 'w-20 text-right',
+        th: 'text-right',
         td: 'text-right',
       },
     },

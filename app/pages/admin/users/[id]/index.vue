@@ -70,10 +70,10 @@ const { data: requestApiResult } = await useFetch<RequestApiResult> ('/api/reque
 
 const columns: TableColumn<Request>[] = [
   {
-    header: t('common.table.no'),
+    header: '#',
     meta: {
       class: {
-        th: 'w-12 text-right',
+        th: 'text-right',
         td: 'text-right',
       },
     },

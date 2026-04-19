@@ -43,6 +43,11 @@ const { selectedPeriod, modelValue, dateRangeQuery } = storeToRefs(filterStore);
 
 type DateRangeQuery = { startDate?: string; endDate?: string };
 
+const periodOptions = computed(() => PERIOD_OPTIONS.map(period => ({
+  label: t(`common.periodOptions.${period}`),
+  value: period,
+})));
+
 const customDateRangeQuery = computed<DateRangeQuery>(() =>
   selectedPeriod.value === 'Custom' ? dateRangeQuery.value : {},
 );
@@ -61,8 +66,24 @@ const { data: summaryResponse, status: summaryStatus, refresh: refreshSummary } 
 const summary = computed(() => summaryResponse.value?.data ?? null);
 
 function formatMedianTurnaround(hoursValue: number) {
+  const dayFormatter = new Intl.NumberFormat(locale.value, {
+    style: 'unit',
+    unit: 'day',
+    unitDisplay: 'short',
+  });
+  const hourFormatter = new Intl.NumberFormat(locale.value, {
+    style: 'unit',
+    unit: 'hour',
+    unitDisplay: 'short',
+  });
+  const minuteFormatter = new Intl.NumberFormat(locale.value, {
+    style: 'unit',
+    unit: 'minute',
+    unitDisplay: 'short',
+  });
+
   if (!Number.isFinite(hoursValue) || hoursValue <= 0)
-    return '0m';
+    return minuteFormatter.format(0);
 
   const totalMinutes = Math.round(hoursValue * 60);
   const days = Math.floor(totalMinutes / (24 * 60));
@@ -73,11 +94,11 @@ function formatMedianTurnaround(hoursValue: number) {
   const parts: string[] = [];
 
   if (days > 0)
-    parts.push(`${days}d`);
+    parts.push(dayFormatter.format(days));
   if (hours > 0)
-    parts.push(`${hours}h`);
+    parts.push(hourFormatter.format(hours));
   if (minutes > 0 || parts.length === 0)
-    parts.push(`${minutes}m`);
+    parts.push(minuteFormatter.format(minutes));
 
   return parts.join(' ');
 }
@@ -139,7 +160,7 @@ onUnmounted(() => {
 });
 const autoRefreshOptions = computed<DropdownMenuItem[]>(() => ([
   {
-    label: '15s',
+    label: t('adminDashboard.autoRefresh.options.every15Seconds'),
     type: 'checkbox',
     checked: selectedAutoRefresh.value === 15000,
     onUpdateChecked: (checked: boolean) => {
@@ -148,7 +169,7 @@ const autoRefreshOptions = computed<DropdownMenuItem[]>(() => ([
     },
   },
   {
-    label: '30s',
+    label: t('adminDashboard.autoRefresh.options.every30Seconds'),
     type: 'checkbox',
     checked: selectedAutoRefresh.value === 30000,
     onUpdateChecked: (checked: boolean) => {
@@ -157,7 +178,7 @@ const autoRefreshOptions = computed<DropdownMenuItem[]>(() => ([
     },
   },
   {
-    label: '1m',
+    label: t('adminDashboard.autoRefresh.options.every1Minute'),
     type: 'checkbox',
     checked: selectedAutoRefresh.value === 60000,
     onUpdateChecked: (checked: boolean) => {
@@ -167,9 +188,9 @@ const autoRefreshOptions = computed<DropdownMenuItem[]>(() => ([
   },
 ]));
 
-const df = new DateFormatter('en-US', {
+const dateFormatter = computed(() => new DateFormatter(locale.value, {
   dateStyle: 'medium',
-});
+}));
 </script>
 
 <template>
@@ -183,7 +204,7 @@ const df = new DateFormatter('en-US', {
           {{ $t('adminDashboard.description') }}
         </p>
       </div>
-      <div class="self-end lg:self-auto flex gap-3">
+      <div class="self-stretch sm:self-end lg:self-auto flex flex-col sm:flex-row gap-3">
         <USelect
           v-model="selectedFacultyId"
           icon="i-lucide-building"
@@ -198,7 +219,9 @@ const df = new DateFormatter('en-US', {
           <USelect
             v-model="selectedPeriod"
             icon="i-lucide-calendar"
-            :items="[...PERIOD_OPTIONS]"
+            :items="periodOptions"
+            label-key="label"
+            value-key="value"
             :ui="{
               content: 'min-w-fit',
             }"
@@ -207,11 +230,11 @@ const df = new DateFormatter('en-US', {
             <UButton color="neutral" variant="outline">
               <template v-if="modelValue.start">
                 <template v-if="modelValue.end">
-                  {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }} - {{ df.format(modelValue.end.toDate(getLocalTimeZone())) }}
+                  {{ dateFormatter.format(modelValue.start.toDate(getLocalTimeZone())) }} - {{ dateFormatter.format(modelValue.end.toDate(getLocalTimeZone())) }}
                 </template>
 
                 <template v-else>
-                  {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }}
+                  {{ dateFormatter.format(modelValue.start.toDate(getLocalTimeZone())) }}
                 </template>
               </template>
               <template v-else>
@@ -224,8 +247,8 @@ const df = new DateFormatter('en-US', {
             </template>
           </UPopover>
         </UFieldGroup>
-        <UFieldGroup>
-          <UTooltip :delay-duration="200" text="Auto Refresh">
+        <UFieldGroup class="self-end sm:self-auto">
+          <UTooltip :delay-duration="200" :text="t('adminDashboard.autoRefresh.label')">
             <UButton
               leading-icon="i-lucide-refresh-ccw" :color="autoRefresh ? 'primary' : 'neutral'" variant="subtle" :ui="{
                 leadingIcon: autoRefresh ? 'animate-spin' : '',

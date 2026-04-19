@@ -1,9 +1,9 @@
 import type { SQL } from 'drizzle-orm';
 
 import db from '~~/lib/db';
-import { request, signatureFlow } from '~~/lib/db/schema';
+import { request, roles, signatureFlow } from '~~/lib/db/schema';
 import { resolveDashboardRange } from '~~/server/utils/dashboard-period';
-import { and, gte, lte, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, ne, sql } from 'drizzle-orm';
 
 function parseFacultyId(value: unknown): number | undefined {
   const parsed = Number(value);
@@ -83,12 +83,14 @@ export default defineEventHandler(async (event) => {
   const baseQuery = db
     .select({
       roleName: signatureFlow.roleName,
+      roleNameTh: roles.nameTh,
       pendingCount: sql<number>`COUNT(CASE WHEN ${signatureFlow.status} = 'pending' THEN 1 END)::int`,
       avgWaitingHours: avgWaitingHoursExpression,
     })
     .from(signatureFlow)
+    .innerJoin(roles, eq(signatureFlow.roleId, roles.id))
     .where(and(...conditions))
-    .groupBy(signatureFlow.roleName)
+    .groupBy(signatureFlow.roleName, roles.nameTh)
     .orderBy(sql`${avgWaitingHoursExpression} DESC`);
 
   const rows = typeof limit === 'number'

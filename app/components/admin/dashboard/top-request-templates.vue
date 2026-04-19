@@ -29,7 +29,11 @@ type TopTemplateRow = {
 const { t } = useI18n();
 
 const topLimit = ref<'5' | '10' | 'all'>('5');
-const topLimitOptions = ['5', '10', 'all'];
+const topLimitOptions = computed(() => ([
+  { label: t('adminDashboard.topRequestTemplates.topLimitOptions.top5'), value: '5' },
+  { label: t('adminDashboard.topRequestTemplates.topLimitOptions.top10'), value: '10' },
+  { label: t('adminDashboard.topRequestTemplates.topLimitOptions.all'), value: 'all' },
+]));
 
 const query = computed(() => ({
   period: props.period,
@@ -71,17 +75,18 @@ watch(() => props.refreshToken, () => {
 const columns: TableColumn<TopRequestTemplate>[] = [
   {
     accessorKey: 'rowNo',
-    header: t('common.table.no'),
-    meta: {
-      class: {
-        th: 'w-20 text-right',
-        td: 'text-right',
-      },
-    },
+    header: '#',
   },
   {
     accessorKey: 'templateName',
     header: t('adminDashboard.topRequestTemplates.templateName'),
+    cell: ({ getValue }) => {
+      const value = getValue() as string;
+      return h('span', {
+        class: 'block max-w-[14rem] truncate',
+        title: value,
+      }, value);
+    },
   },
   {
     accessorKey: 'usage',
@@ -130,6 +135,8 @@ const columns: TableColumn<TopRequestTemplate>[] = [
         v-model="topLimit"
         size="sm"
         :items="topLimitOptions"
+        label-key="label"
+        value-key="value"
         :ui="{ content: 'min-w-fit' }"
       />
     </div>

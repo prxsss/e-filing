@@ -105,10 +105,10 @@ function clearSearch() {
 const columns: TableColumn<FacultyListItem>[] = [
   {
     id: 'no',
-    header: t('common.table.no'),
+    header: '#',
     meta: {
       class: {
-        th: 'w-20 text-right',
+        th: 'text-right',
         td: 'text-right',
       },
     },

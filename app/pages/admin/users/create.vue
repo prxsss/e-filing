@@ -100,10 +100,10 @@ const { data: departments } = await useFetch('/api/departments', {
 const columns = computed<TableColumn<RoleAssignment>[]>(() => [
   {
     id: 'no',
-    header: t('common.table.no'),
+    header: '#',
     meta: {
       class: {
-        th: 'text-right w-20',
+        th: 'text-right',
         td: 'text-right',
       },
     },

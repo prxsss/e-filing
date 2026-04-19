@@ -140,13 +140,13 @@ const columns: TableColumn<RequestItem>[] = [
       h(UCheckbox, {
         'modelValue': ctx.table.getIsSomePageRowsSelected() ? 'indeterminate' : ctx.table.getIsAllPageRowsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => ctx.table.toggleAllPageRowsSelected(!!value),
-        'aria-label': 'Select all',
+        'aria-label': t('selectAllRows'),
       }),
     cell: (ctx: { row: SelectableRow }) =>
       h(UCheckbox, {
         'modelValue': ctx.row.getIsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => ctx.row.toggleSelected(!!value),
-        'aria-label': 'Select row',
+        'aria-label': t('selectRow'),
       }),
     enableSorting: false,
     enableHiding: false,
@@ -291,12 +291,17 @@ const page = ref(1);
 const pageSize = 15;
 
 // === Filter Helpers ===
-const statusOptions = [
-  { label: 'สถานะทั้งหมด', value: undefined },
-  { label: 'กำลังดำเนินการ', value: 'in_progress' },
-  { label: 'ปฏิเสธ', value: 'rejected' },
-  { label: 'เสร็จสิ้น', value: 'completed' },
-];
+const statusOptions = computed(() => [
+  { label: t('allStatuses'), value: undefined },
+  { label: t('inProgress'), value: 'in_progress' },
+  { label: t('rejected'), value: 'rejected' },
+  { label: t('completed'), value: 'completed' },
+]);
+
+const periodOptions = computed(() => PERIOD_OPTIONS.map(period => ({
+  label: t(`common.periodOptions.${period}`),
+  value: period,
+})));
 
 const { data: templatesData } = await useFetch('/api/pdf-templates', {
   query: { pageSize: 100 },
@@ -308,7 +313,7 @@ const templateOptions = computed(() => {
     label: t.name ?? '-',
     value: t.id,
   }));
-  return [{ label: 'แบบฟอร์มทั้งหมด', value: undefined }, ...options];
+  return [{ label: t('allRequestTypes'), value: undefined }, ...options];
 });
 
 const hasActiveFilters = computed(() =>
@@ -386,9 +391,9 @@ const statsMap = computed(() => {
     <div class="flex justify-between items-end">
       <div>
         <h1 class="text-2xl font-bold mb-4">
-          คำร้องทั้งหมด
+          {{ t('adminRequestsTitle') }}
         </h1>
-        <p>ตรวจสอบและติดตามสถานะคำร้องของผู้ใช้ทุกคน</p>
+        <p>{{ t('adminRequestsSubtitle') }}</p>
       </div>
       <div class="flex items-center gap-2">
         <UButton
@@ -398,7 +403,7 @@ const statsMap = computed(() => {
           size="sm"
           @click="refresh()"
         >
-          รีเฟรช
+          {{ t('refresh') }}
         </UButton>
       </div>
     </div>
@@ -414,7 +419,7 @@ const statsMap = computed(() => {
           {{ total }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          คำร้องทั้งหมด
+          {{ t('allRequests') }}
         </div>
       </UCard>
       <UCard
@@ -426,7 +431,7 @@ const statsMap = computed(() => {
           {{ statsMap.in_progress }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          กำลังดำเนินการ
+          {{ t('inProgress') }}
         </div>
       </UCard>
       <UCard
@@ -438,7 +443,7 @@ const statsMap = computed(() => {
           {{ statsMap.rejected }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          ปฏิเสธ
+          {{ t('rejected') }}
         </div>
       </UCard>
       <UCard
@@ -450,7 +455,7 @@ const statsMap = computed(() => {
           {{ statsMap.completed }}
         </div>
         <div class="text-sm text-gray-500 mt-0.5">
-          เสร็จสิ้น
+          {{ t('completed') }}
         </div>
       </UCard>
     </div>
@@ -460,7 +465,7 @@ const statsMap = computed(() => {
       <!-- Filters -->
       <div class="w-full mb-5">
         <div class="w-full flex flex-col gap-2 sm:max-w-md sm:ml-auto sm:flex-row sm:items-center">
-          <UTooltip text="กรุณาเลือกรายการก่อน" :prevent="canBulkDownload">
+          <UTooltip :text="t('selectAtLeastOneItem')" :prevent="canBulkDownload">
             <UButton
               icon="i-heroicons-arrow-down-tray"
               color="primary"
@@ -471,7 +476,7 @@ const statsMap = computed(() => {
               class="w-full justify-center items-center sm:min-w-40 sm:w-auto"
               @click="onBulkDownload"
             >
-              {{ selectedRowsWithPdf.length > 1 ? `ดาวน์โหลดคำร้อง (${selectedRowsWithPdf.length})` : 'ดาวน์โหลดคำร้อง' }}
+              {{ selectedRowsWithPdf.length > 1 ? t('downloadRequestsCount', { count: selectedRowsWithPdf.length }) : t('downloadRequest') }}
             </UButton>
           </UTooltip>
           <UFieldGroup class="w-full">
@@ -481,10 +486,10 @@ const statsMap = computed(() => {
               icon="i-heroicons-magnifying-glass"
               size="lg"
               variant="outline"
-              placeholder="ค้นหาตามชื่อคำร้อง รหัสนิสิต หรือชื่อนิสิต..."
+              :placeholder="t('searchRequestsPlaceholder')"
               :loading="fetchStatus === 'pending'"
             />
-            <UButton icon="i-heroicons-magnifying-glass" label="ค้นหา" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />
+            <UButton icon="i-heroicons-magnifying-glass" :label="t('search')" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />
           </UFieldGroup>
           <UPopover arrow :content="{ align: 'end', side: 'bottom' }">
             <template #default="{ open }">
@@ -498,38 +503,40 @@ const statsMap = computed(() => {
             <template #content>
               <div class="w-[min(92vw,32rem)] p-4 space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <UFormField label="สถานะ">
+                  <UFormField :label="t('status')">
                     <USelect
                       v-model="selectedStatus"
                       :items="statusOptions"
                       option-attribute="label"
-                      placeholder="สถานะ"
+                      :placeholder="t('status')"
                       class="w-full"
                       size="sm"
                     />
                   </UFormField>
-                  <UFormField label="ช่วงเวลา">
+                  <UFormField :label="t('period')">
                     <USelect
                       v-model="selectedPeriod"
                       icon="i-lucide-calendar"
-                      :items="[...PERIOD_OPTIONS]"
+                      :items="periodOptions"
+                      label-key="label"
+                      value-key="value"
                       class="w-full"
                       size="sm"
                       :ui="{ content: 'min-w-fit' }"
                     />
                   </UFormField>
                 </div>
-                <UFormField label="ประเภทคำร้อง">
+                <UFormField :label="t('requestType')">
                   <USelect
                     v-model="selectedTemplateId"
                     :items="templateOptions"
                     option-attribute="label"
-                    placeholder="ประเภทคำร้องทั้งหมด"
+                    :placeholder="t('allRequestTypes')"
                     class="w-full"
                     size="sm"
                   />
                 </UFormField>
-                <UFormField label="กำหนดช่วงวันที่เอง">
+                <UFormField :label="t('customDateRange')">
                   <UPopover arrow :content="{ align: 'start', side: 'bottom' }">
                     <UButton color="neutral" variant="outline" size="sm" class="w-full font-normal">
                       <template v-if="modelValue.start">
@@ -541,7 +548,7 @@ const statsMap = computed(() => {
                         </template>
                       </template>
                       <template v-else>
-                        เลือกวันที่
+                        {{ t('selectDate') }}
                       </template>
                     </UButton>
                     <template #content>
@@ -553,7 +560,7 @@ const statsMap = computed(() => {
                   <UButton
                     color="neutral" variant="ghost" :ui="{ base: 'rounded-md!' }" @click="clearFilters"
                   >
-                    ล้าง
+                    {{ t('clearFilters') }}
                   </UButton>
                 </div>
               </div>
@@ -602,14 +609,14 @@ const statsMap = computed(() => {
         </template>
         <template #actions-cell="{ row }">
           <div class="flex items-center justify-end gap-3" @click.stop>
-            <UTooltip text="ดาวน์โหลดคำร้อง">
+            <UTooltip :text="t('downloadRequest')">
               <UButton
                 icon="i-heroicons-arrow-down-tray"
                 size="md"
                 variant="ghost"
                 color="neutral"
                 :disabled="!row.original.filledDocumentUrl"
-                :aria-label="row.original.filledDocumentUrl ? 'ดาวน์โหลด' : 'ไม่มี PDF'"
+                :aria-label="row.original.filledDocumentUrl ? t('download') : t('noPdfAvailable')"
                 @click="row.original.filledDocumentUrl && downloadPdf(row.original.filledDocumentUrl, `request-${row.original.id}.pdf`)"
               />
             </UTooltip>
@@ -624,12 +631,12 @@ const statsMap = computed(() => {
           <UIcon name="i-heroicons-inbox" class="w-8 h-8 text-gray-400" />
         </div>
         <h3 class="font-medium mb-1">
-          ไม่พบข้อมูลคำร้อง
+          {{ t('noRequestsFound') }}
         </h3>
         <p v-if="hasActiveFilters" class="text-sm text-gray-400">
-          ลองปรับเงื่อนไขการค้นหา หรือ
+          {{ t('tryAdjustingFiltersOr') }}
           <button class="text-primary-500 underline" @click="clearFilters">
-            ล้างตัวกรอง
+            {{ t('clearFilters') }}
           </button>
         </p>
       </div>
@@ -638,7 +645,7 @@ const statsMap = computed(() => {
       <template v-if="total > 0" #footer>
         <div class="flex items-center justify-between py-2">
           <span class="text-sm text-gray-500">
-            แสดง {{ requests.length }} จาก {{ total }} รายการ
+            {{ t('showingXOfYItems', { shown: requests.length, total }) }}
           </span>
           <UPagination
             v-model:page="page"

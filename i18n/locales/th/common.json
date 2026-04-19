@@ -1,6 +1,22 @@
 {
   "common": {
     "allFaculties": "ทุกคณะ",
+    "periodOptions": {
+      "Today": "วันนี้",
+      "Yesterday": "เมื่อวาน",
+      "Last 7 days": "7 วันที่ผ่านมา",
+      "Last 14 days": "14 วันที่ผ่านมา",
+      "Last 30 days": "30 วันที่ผ่านมา",
+      "This week": "สัปดาห์นี้",
+      "Last week": "สัปดาห์ที่แล้ว",
+      "This month": "เดือนนี้",
+      "Last month": "เดือนที่แล้ว",
+      "This quarter": "ไตรมาสนี้",
+      "Last quarter": "ไตรมาสที่แล้ว",
+      "Year to date (YTD)": "ตั้งแต่ต้นปี (YTD)",
+      "Last 12 months": "12 เดือนที่ผ่านมา",
+      "Custom": "กำหนดเอง"
+    },
     "actions": {
       "cancel": "ยกเลิก",
       "delete": "ลบ",

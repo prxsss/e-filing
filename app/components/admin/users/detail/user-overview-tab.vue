@@ -30,10 +30,10 @@ type UserAssignment = UserDetail['assignments'][number];
 const columns: TableColumn<UserAssignment>[] = [
   {
     id: 'no',
-    header: t('common.table.no'),
+    header: '#',
     meta: {
       class: {
-        th: 'text-right w-20',
+        th: 'text-right',
         td: 'text-right',
       },
     },

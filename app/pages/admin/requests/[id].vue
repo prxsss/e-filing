@@ -44,11 +44,14 @@ type FlowStep = {
   id: number;
   stepOrder: number;
   roleName: string;
+  roleNameTh: string;
   status: string;
   assignedUserId: string | null;
   assignedUserName: string | null;
+  assignedUserNameTh: string | null;
   signedBy: string | null;
   signedByName: string | null;
+  signedByNameTh: string | null;
   signedAt: string | null;
 };
 
@@ -70,7 +73,7 @@ type WorkflowStep = {
 // --- State ---
 const route = useRoute();
 const localePath = useLocalePath();
-const { locale } = useI18n();
+const { t, locale } = useI18n();
 const requestId = route.params.id;
 
 const isLoading = ref(true);
@@ -92,13 +95,17 @@ const isDownloadingRequestBundle = ref(false);
 function formatDate(dateStr: string | null): string {
   if (!dateStr)
     return '—';
-  return new Date(dateStr).toLocaleDateString('th-TH', {
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString(locale.value === 'th' ? 'th-TH' : 'en-US');
 }
 
 type BadgeColor = 'success' | 'error' | 'warning' | 'info' | 'neutral';
@@ -111,12 +118,12 @@ const statusColorMap: Record<string, BadgeColor> = {
   completed: 'success',
 };
 const statusLabelMap: Record<string, string> = {
-  draft: 'ร่าง',
-  submitted: 'ส่งแล้ว',
-  pending: 'รอดำเนินการ',
-  in_progress: 'กำลังดำเนินการ',
-  rejected: 'ปฏิเสธ',
-  completed: 'สำเร็จแล้ว',
+  draft: t('draft'),
+  submitted: t('submitted'),
+  pending: t('pending'),
+  in_progress: t('inProgress'),
+  rejected: t('rejected'),
+  completed: t('completed'),
 };
 const statusColor = computed<BadgeColor>(() => statusColorMap[requestData.value?.status ?? ''] ?? 'neutral');
 const statusLabel = computed(() => statusLabelMap[requestData.value?.status ?? ''] ?? (requestData.value?.status ?? '—'));
@@ -139,10 +146,12 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
 
     return {
       id: step.id,
-      title: step.roleName,
+      title: locale.value === 'th' ? step.roleNameTh : step.roleName,
       status,
       icon: 'i-heroicons-user-circle',
-      subtitle: step.signedByName || step.assignedUserName || undefined,
+      subtitle: locale.value === 'th'
+        ? step.signedByNameTh || step.assignedUserNameTh || undefined
+        : step.signedByName || step.assignedUserName || undefined,
     };
   });
 });
@@ -313,7 +322,7 @@ async function loadAll() {
     ]);
 
     if (!reqResult.success) {
-      error.value = reqResult.error || 'ไม่พบคำร้อง';
+      error.value = reqResult.error || t('noRequestsFound');
       return;
     }
 
@@ -356,7 +365,7 @@ async function loadAll() {
     }
   }
   catch (err: any) {
-    error.value = err?.message || 'เกิดข้อผิดพลาด';
+    error.value = err?.message || t('error');
   }
   finally {
     isLoading.value = false;
@@ -373,7 +382,7 @@ onMounted(loadAll);
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <UBreadcrumb
           :links="[
-            { label: 'คำร้องทั้งหมด', to: localePath('/admin/requests') },
+            { label: t('allRequests'), to: localePath('/admin/requests') },
             { label: templateData?.name || `#${requestId}` },
           ]"
         />
@@ -387,7 +396,7 @@ onMounted(loadAll);
             />
             <div>
               <h1 class="text-2xl font-bold text-gray-900">
-                {{ templateData?.name || 'รายละเอียดคำร้อง' }}
+                {{ templateData?.name || t('requestDetails') }}
               </h1>
             </div>
           </div>
@@ -399,7 +408,7 @@ onMounted(loadAll);
               :loading="isDownloadingRequestBundle"
               @click="downloadRequestWithAttachments"
             >
-              ดาวน์โหลดคำร้องพร้อมไฟล์แนบ
+              {{ t('downloadRequestWithAttachments') }}
             </UButton>
           </div>
         </div>
@@ -413,7 +422,7 @@ onMounted(loadAll);
         <div class="text-center">
           <UIcon name="i-heroicons-arrow-path" class="text-4xl text-gray-400 mb-4 animate-spin" />
           <p class="text-gray-500">
-            กำลังโหลด...
+            {{ t('loading') }}
           </p>
         </div>
       </div>
@@ -426,7 +435,7 @@ onMounted(loadAll);
             {{ error }}
           </p>
           <UButton :to="localePath('/admin/requests')">
-            กลับไปหน้ารายการคำร้อง
+            {{ t('backToRequests') }}
           </UButton>
         </div>
       </UCard>
@@ -440,14 +449,14 @@ onMounted(loadAll);
               :pdf-url="displayPdfUrl"
               :placed-fields="isFilledPdf ? [] : allFillableFields"
               :open-in-new-tab-url="requestData?.filledDocumentUrl ?? undefined"
-              open-in-new-tab-label="เปิด PDF ในแท็บใหม่"
+              :open-in-new-tab-label="t('openPdfInNewTab')"
             />
           </div>
           <div v-else class="flex items-center justify-center h-64 bg-white rounded-xl border border-gray-200 text-gray-400 shadow-sm">
             <div class="text-center">
               <UIcon name="i-heroicons-document" class="w-12 h-12 mb-2 mx-auto opacity-40" />
               <p class="text-sm">
-                ไม่พบไฟล์เอกสาร
+                {{ t('noDocumentFileFound') }}
               </p>
             </div>
           </div>
@@ -459,13 +468,13 @@ onMounted(loadAll);
           <UCard v-if="requestData">
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                สถานะคำร้อง
+                {{ t('requestStatus') }}
               </h3>
             </template>
             <dl class="space-y-3 text-sm">
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  รหัสคำร้อง
+                  {{ t('requestId') }}
                 </dt>
                 <dd class="font-mono font-medium text-gray-900">
                   #{{ requestData.id }}
@@ -473,7 +482,7 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  สถานะ
+                  {{ t('status') }}
                 </dt>
                 <dd>
                   <UBadge :color="statusColor" variant="subtle">
@@ -483,7 +492,7 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  รหัสนิสิต
+                  {{ t('studentId') }}
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ requestData.requesterStudentId || '—' }}
@@ -491,7 +500,7 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  ชื่อผู้ยื่น
+                  {{ t('requesterName') }}
                 </dt>
                 <dd class="font-medium text-gray-900 max-w-[60%] text-right truncate" :title="requesterDisplayName">
                   {{ requesterDisplayName }}
@@ -500,7 +509,7 @@ onMounted(loadAll);
 
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  ชั้นปี
+                  {{ t('studentYear') }}
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ requesterStudentYearDisplay }}
@@ -508,7 +517,7 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  สาขาวิชา
+                  {{ t('department') }}
                 </dt>
                 <dd class="font-medium text-gray-900 max-w-[60%] text-right truncate" :title="requesterDepartmentDisplayName">
                   {{ requesterDepartmentDisplayName }}
@@ -516,7 +525,7 @@ onMounted(loadAll);
               </div>
               <div class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  ยื่นเมื่อ
+                  {{ t('submittedDate') }}
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.createdAt) }}
@@ -524,7 +533,7 @@ onMounted(loadAll);
               </div>
               <div v-if="requestData.submittedAt" class="flex justify-between items-center">
                 <dt class="text-gray-500 font-medium">
-                  อัปเดตล่าสุด
+                  {{ t('lastUpdated') }}
                 </dt>
                 <dd class="font-medium text-gray-900">
                   {{ formatDate(requestData.submittedAt) }}
@@ -532,7 +541,7 @@ onMounted(loadAll);
               </div>
               <div v-if="requestData.note" class="flex flex-col gap-1.5 mt-2">
                 <dt class="text-gray-500 font-medium">
-                  หมายเหตุ
+                  {{ t('note') }}
                 </dt>
                 <dd class="text-sm bg-gray-50 rounded border border-gray-200 px-3 py-2 text-gray-800">
                   {{ requestData.note }}
@@ -545,7 +554,7 @@ onMounted(loadAll);
           <UCard v-if="signingStatus && workflowSteps.length > 0">
             <template #header>
               <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                Order of signing
+                {{ t('signingOrder') }}
               </h3>
             </template>
 
@@ -554,7 +563,7 @@ onMounted(loadAll);
               icon="i-lucide-x-circle"
               color="error"
               variant="soft"
-              :title="`ปฏิเสธ: ${signingStatus.note}`"
+              :title="t('rejectedWithNote', { note: signingStatus.note })"
               class="mb-3"
             />
 
@@ -595,7 +604,7 @@ onMounted(loadAll);
                       {{ step.title }}
                     </p>
                     <p v-if="step.subtitle" class="text-xs text-gray-400 mt-0.5 truncate">
-                      โดย: {{ step.subtitle }}
+                      {{ t('bySigner', { name: step.subtitle }) }}
                     </p>
                     <UBadge
                       v-if="step.status === 'completed'"
@@ -604,7 +613,7 @@ onMounted(loadAll);
                       size="xs"
                       class="mt-1.5"
                     >
-                      Signed
+                      {{ t('signed') }}
                     </UBadge>
                     <UBadge
                       v-else-if="step.status === 'in-progress'"
@@ -613,7 +622,7 @@ onMounted(loadAll);
                       size="xs"
                       class="mt-1.5"
                     >
-                      In Progress
+                      {{ t('inProgress') }}
                     </UBadge>
                     <UBadge
                       v-else-if="step.status === 'rejected'"
@@ -622,7 +631,7 @@ onMounted(loadAll);
                       size="xs"
                       class="mt-1.5"
                     >
-                      Rejected
+                      {{ t('rejected') }}
                     </UBadge>
                   </div>
                 </div>
@@ -647,7 +656,7 @@ onMounted(loadAll);
             <template #header>
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-500 uppercase">
-                  ไฟล์แนบ
+                  {{ t('attachments') }}
                 </h3>
                 <UButton
                   size="xs"
@@ -657,7 +666,7 @@ onMounted(loadAll);
                   :loading="isDownloadingAll"
                   @click="downloadAllAsZip"
                 >
-                  ดาวน์โหลดทั้งหมด
+                  {{ t('downloadAll') }}
                 </UButton>
               </div>
             </template>
@@ -671,10 +680,10 @@ onMounted(loadAll);
                   <UIcon name="i-heroicons-paper-clip" class="w-5 h-5 text-gray-400 shrink-0" />
                   <div class="min-w-0">
                     <p class="font-medium text-sm text-gray-900 truncate">
-                      {{ attachment.fileName || 'ไฟล์แนบ' }}
+                      {{ attachment.fileName || t('attachment') }}
                     </p>
                     <p class="text-xs text-gray-500 mt-0.5">
-                      {{ new Date(attachment.createdAt).toLocaleDateString('th-TH') }}
+                      {{ formatShortDate(attachment.createdAt) }}
                     </p>
                   </div>
                 </div>
