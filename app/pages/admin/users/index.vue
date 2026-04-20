@@ -313,7 +313,11 @@ const columns: TableColumn<UserListItem>[] = [
       if (roles.length === 0) {
         return h('div', { class: 'text-slate-500' }, '-');
       }
-      return h('div', { class: 'flex flex-wrap gap-1' }, roles?.map(role => h(UBadge, { variant: 'soft', color: 'primary' }, `${locale.value === 'th' ? role.nameTh : role.name} ${role.count > 1 ? `(${role.count})` : ''}`)));
+      return h('div', { class: 'flex flex-wrap gap-1' }, roles?.map(role => h(
+        UBadge,
+        { variant: 'soft', color: 'primary' },
+        { default: () => `${locale.value === 'th' ? role.nameTh : role.name} ${role.count > 1 ? `(${role.count})` : ''}` },
+      )));
     },
   },
   {
@@ -334,7 +338,7 @@ const columns: TableColumn<UserListItem>[] = [
       const { status } = row.original;
       const color = status === USER_STATUS.BANNED ? 'error' : status === USER_STATUS.ACTIVE ? 'success' : 'neutral';
       const statusText = status === USER_STATUS.BANNED ? t('common.status.banned') : status === USER_STATUS.ACTIVE ? t('common.status.active') : t('common.status.inactive');
-      return h(UBadge, { variant: 'soft', color }, statusText);
+      return h(UBadge, { variant: 'soft', color }, { default: () => statusText });
     },
   },
   {

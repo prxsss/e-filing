@@ -129,7 +129,15 @@ const columns: TableColumn<FacultyListItem>[] = [
   {
     accessorKey: 'departmentCount',
     header: t('adminFaculties.list.columns.departments'),
-    cell: ({ row }) => h('div', null, h(UBadge, { variant: 'soft', color: 'neutral', class: 'font-bold rounded-full' }, row.original.departmentCount)),
+    cell: ({ row }) => h(
+      'div',
+      null,
+      h(
+        UBadge,
+        { variant: 'soft', color: 'neutral', class: 'font-bold rounded-full' },
+        { default: () => String(row.original.departmentCount) },
+      ),
+    ),
   },
   {
     accessorKey: 'deanName',

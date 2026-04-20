@@ -94,7 +94,7 @@ const columns: TableColumn<Request>[] = [
         completed: t('completed'),
         rejected: t('rejected'),
       })[row.getValue('status') as string];
-      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, label);
+      return h(UBadge, { class: 'capitalize', variant: 'soft', color }, { default: () => label });
     },
   },
   {

@@ -21,9 +21,14 @@
       }
     },
     "list": {
-      "statusAll": "Status: All",
+      "statusAll": "All",
       "statusActive": "Active",
       "statusInactive": "Inactive",
+      "sortByName": "Sort by Name",
+      "sortByCreatedAt": "Sort by Created Date",
+      "ascending": "Ascending",
+      "descending": "Descending",
+      "sortDirectionAria": "Toggle sort direction (current: {direction})",
       "loadFailed": "Failed to load templates",
       "loading": "Loading templates...",
       "tryAgain": "Try again",

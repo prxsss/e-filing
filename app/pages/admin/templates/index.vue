@@ -31,6 +31,8 @@ const localePath = useLocalePath();
 const { t, locale } = useI18n();
 const searchQuery = ref('');
 const statusFilter = ref('all');
+const sortField = ref<'name' | 'createdAt'>('name');
+const sortDirection = ref<'asc' | 'desc'>('asc');
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
@@ -42,7 +44,19 @@ const statusOptions = computed(() => [
   { value: 'inactive', label: t('adminTemplates.list.statusInactive') },
 ]);
 
+const sortFieldOptions = computed(() => [
+  { value: 'name', label: t('adminTemplates.list.sortByName') },
+  { value: 'createdAt', label: t('adminTemplates.list.sortByCreatedAt') },
+]);
+
 const templates = ref<Template[]>([]);
+
+watch(sortField, (newField, oldField) => {
+  if (newField === oldField)
+    return;
+
+  sortDirection.value = newField === 'createdAt' ? 'desc' : 'asc';
+});
 
 // Fetch templates from API
 async function fetchTemplates() {
@@ -67,7 +81,7 @@ async function fetchTemplates() {
 
 // --- 3. Computed Logic ---
 const filteredTemplates = computed(() => {
-  return templates.value.filter((item) => {
+  const filtered = templates.value.filter((item) => {
     // 1. Filter Status
     if (statusFilter.value === 'active' && !item.isActive)
       return false;
@@ -78,6 +92,31 @@ const filteredTemplates = computed(() => {
     const query = searchQuery.value.toLowerCase();
     return (item.name?.toLowerCase().includes(query) ?? false)
       || item.description?.toLowerCase().includes(query);
+  });
+
+  const localeCode = locale.value === 'th' ? 'th-TH' : 'en-US';
+
+  const getTimestamp = (value: string | null | undefined) => {
+    const parsed = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  return [...filtered].sort((a, b) => {
+    let compareResult = 0;
+
+    if (sortField.value === 'createdAt') {
+      compareResult = getTimestamp(a.createdAt) - getTimestamp(b.createdAt);
+    }
+    else {
+      const nameA = (a.name ?? '').trim();
+      const nameB = (b.name ?? '').trim();
+      compareResult = nameA.localeCompare(nameB, localeCode, {
+        sensitivity: 'base',
+        numeric: true,
+      });
+    }
+
+    return sortDirection.value === 'asc' ? compareResult : -compareResult;
   });
 });
 
@@ -153,26 +192,56 @@ onMounted(() => {
 
       <!-- 2. Filters & Search Bar -->
       <div class="w-full">
-        <div class="max-w-md ml-auto">
-          <UFieldGroup class="w-full">
-            <UInput
-              v-model="searchQuery"
-              class="w-full"
-              icon="i-heroicons-magnifying-glass"
-              size="lg"
-              variant="outline"
-              :placeholder="t('adminTemplates.list.searchPlaceholder')"
-            />
-            <UButton icon="i-heroicons-magnifying-glass" :label="t('search')" color="primary" variant="solid" :loading="isLoading" @click="fetchTemplates" />
+        <div class="space-y-2">
+          <div class="flex justify-end">
+            <UFieldGroup class="w-full sm:w-auto">
+              <UInput
+                v-model="searchQuery"
+                class="w-full sm:w-96"
+                icon="i-heroicons-magnifying-glass"
+                size="md"
+                variant="outline"
+                :placeholder="t('adminTemplates.list.searchPlaceholder')"
+              />
+              <UButton
+                icon="i-heroicons-magnifying-glass"
+                color="primary"
+                variant="solid"
+                size="md"
+                :loading="isLoading"
+                :aria-label="t('search')"
+                @click="fetchTemplates"
+              />
+            </UFieldGroup>
+          </div>
+
+          <div class="flex flex-col sm:flex-row justify-end gap-2">
             <USelect
               v-model="statusFilter"
               :items="statusOptions"
               option-attribute="label"
               icon="i-heroicons-funnel"
               size="md"
-              class="w-full"
+              class="w-full sm:w-40"
             />
-          </UFieldGroup>
+            <USelect
+              v-model="sortField"
+              :items="sortFieldOptions"
+              option-attribute="label"
+              icon="i-heroicons-adjustments-horizontal"
+              size="md"
+              class="w-full sm:w-44"
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="md"
+              class="justify-center sm:w-10"
+              :icon="sortDirection === 'asc' ? 'i-heroicons-bars-arrow-up' : 'i-heroicons-bars-arrow-down'"
+              :aria-label="t('adminTemplates.list.sortDirectionAria', { direction: sortDirection === 'asc' ? t('adminTemplates.list.ascending') : t('adminTemplates.list.descending') })"
+              @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
+            />
+          </div>
         </div>
       </div>
 
@@ -249,7 +318,7 @@ onMounted(() => {
             color="neutral"
             :label="t('adminTemplates.list.clearAllFilters')"
             class="mt-2"
-            @click="{ searchQuery = ''; statusFilter = 'all' }"
+            @click="{ searchQuery = ''; statusFilter = 'all'; sortField = 'name'; sortDirection = 'asc'; }"
           />
         </div>
       </div>
