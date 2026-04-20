@@ -23,6 +23,16 @@ type EntryGroup = {
 
 type LayoutEntry = EntryField | EntryGroup;
 
+type SignatureEntry = {
+  instanceId: string;
+  questionLabel?: string;
+};
+
+type SigningFlowStepUpdate = {
+  stepId: string;
+  order?: number;
+};
+
 function getPlacedFieldInstanceId(field: Record<string, unknown> | null | undefined): string {
   if (!field || typeof field !== 'object')
     return '';
@@ -47,9 +57,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Invalid template ID' });
   }
 
-  const body = await readBody<{ sectionTitle?: string; entries?: LayoutEntry[]; signerSuggestionNotes?: Array<{ stepId: string; suggestionNote?: string }> } | null>(event);
+  const body = await readBody<{
+    sectionTitle?: string;
+    entries?: LayoutEntry[];
+    signatureEntries?: SignatureEntry[];
+    signerSuggestionNotes?: Array<{ stepId: string; suggestionNote?: string }>;
+    signingFlowSteps?: SigningFlowStepUpdate[];
+  } | null>(event);
   const sectionTitle = String(body?.sectionTitle || 'Request Information').trim() || 'Request Information';
   const entries: LayoutEntry[] = Array.isArray(body?.entries) ? body!.entries! : [];
+  const signatureEntries: SignatureEntry[] = Array.isArray(body?.signatureEntries) ? body!.signatureEntries! : [];
 
   type FieldConfig = {
     questionLabel: string;
@@ -127,25 +144,66 @@ export default defineEventHandler(async (event) => {
     signerSuggestionMap.set(stepId, String(note?.suggestionNote || '').trim());
   }
 
+  const signatureQuestionLabelMap = new Map<string, string>();
+  for (const entry of signatureEntries) {
+    const instanceId = String(entry?.instanceId || '').trim();
+    if (!instanceId)
+      continue;
+    signatureQuestionLabelMap.set(instanceId, String(entry?.questionLabel || '').trim());
+  }
+
+  const signingStepOrderMap = new Map<string, number>();
+  for (const update of (body?.signingFlowSteps ?? [])) {
+    const stepId = String(update?.stepId || '').trim();
+    const rawOrder = Number(update?.order);
+    if (!stepId || !Number.isFinite(rawOrder))
+      continue;
+    signingStepOrderMap.set(stepId, rawOrder);
+  }
+
   const rawSigningFlow = parseMaybeJson(currentTemplate[0]!.signingFlowData);
   const signingFlowData = Array.isArray(rawSigningFlow) ? rawSigningFlow : [];
   const updatedSigningFlowData = signingFlowData.map((step: any) => {
     const stepId = String(step?.id || '').trim();
-    if (!stepId || !signerSuggestionMap.has(stepId))
+    if (!stepId)
       return step;
-    return {
-      ...step,
-      suggestionNote: signerSuggestionMap.get(stepId),
-    };
+
+    const hasSuggestionUpdate = signerSuggestionMap.has(stepId);
+    const hasOrderUpdate = signingStepOrderMap.has(stepId);
+    if (!hasSuggestionUpdate && !hasOrderUpdate)
+      return step;
+
+    const nextStep = { ...step };
+    if (hasSuggestionUpdate)
+      nextStep.suggestionNote = signerSuggestionMap.get(stepId);
+    if (hasOrderUpdate)
+      nextStep.order = signingStepOrderMap.get(stepId);
+
+    return nextStep;
   });
 
   const updatedPlacedFieldsData = placedFieldsData.map((field: any) => {
     const instanceId = getPlacedFieldInstanceId(field);
     if (!instanceId.length)
       return field;
+
+    const signatureQuestionLabel = signatureQuestionLabelMap.get(instanceId);
     const config = fieldConfigMap.get(instanceId);
+
+    if (!config && signatureQuestionLabel === undefined)
+      return field;
+
+    if (!config && signatureQuestionLabel !== undefined) {
+      return {
+        ...field,
+        formSectionTitle: sectionTitle,
+        formQuestionLabel: signatureQuestionLabel || String(field?.formQuestionLabel || field?.label || field?.name || ''),
+      };
+    }
+
     if (!config)
       return field;
+
     return {
       ...field,
       formSectionTitle: sectionTitle,

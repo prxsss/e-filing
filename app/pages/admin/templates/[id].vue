@@ -39,6 +39,11 @@ type SigningStepSummary = {
   color: string;
 };
 
+type SignatureLayoutItem = {
+  instanceId: string;
+  questionLabel: string;
+};
+
 const DEFAULT_SIGNING_STEP_COLOR = '#94A3B8';
 const SUGGESTION_NOTE_MAX_LENGTH = 240;
 
@@ -96,12 +101,29 @@ type AdminLayoutItem = AdminLayoutField | AdminLayoutGroup;
 type FormLayoutSnapshot = {
   sectionTitle: string;
   items: AdminLayoutItem[];
+  signatureItems: SignatureLayoutItem[];
+  signingSteps: SigningStepSummary[];
 };
 
 const layoutItems = ref<AdminLayoutItem[]>([]);
+const signatureLayoutItems = ref<SignatureLayoutItem[]>([]);
+const editableSigningSteps = ref<SigningStepSummary[]>([]);
 const formLayoutEditSnapshot = ref<FormLayoutSnapshot | null>(null);
 
-const signingSteps = computed<SigningStepSummary[]>(() => normalizeSigningFlowData(template.value?.signingFlowData));
+const signingSteps = computed<SigningStepSummary[]>(() => {
+  const source = isEditingFormLayout.value
+    ? editableSigningSteps.value
+    : normalizeSigningFlowData(template.value?.signingFlowData);
+
+  return [...source].sort((a, b) => {
+    if (a.order !== b.order)
+      return a.order - b.order;
+    const roleCompare = a.roleName.localeCompare(b.roleName);
+    if (roleCompare !== 0)
+      return roleCompare;
+    return a.id.localeCompare(b.id);
+  });
+});
 
 const templateDescriptionPreview = computed(() => {
   if (isLoading.value)
@@ -218,6 +240,10 @@ const layoutEditorFillableFields = computed(() => {
   );
 });
 
+const signatureFields = computed(() => {
+  return placedFields.value.filter((field: any) => getFieldType(field) === 'signature');
+});
+
 const orderedLayoutEditorFieldsById = computed(() => {
   const map = new Map<string, any>();
   for (const field of layoutEditorFillableFields.value) {
@@ -300,6 +326,13 @@ function syncLayoutItems() {
       continue;
     signerSuggestionNoteMap.value[stepId] = normalizeSuggestionNote(step?.suggestionNote);
   }
+
+  editableSigningSteps.value = normalizeSigningFlowData(template.value?.signingFlowData);
+
+  signatureLayoutItems.value = signatureFields.value.map((field: any) => ({
+    instanceId: String(field?.instanceId ?? ''),
+    questionLabel: String(field?.formQuestionLabel || field?.label || field?.name || ''),
+  }));
 }
 
 // Keep alias so fetchTemplate() / watcher still work after rename.
@@ -338,6 +371,61 @@ function setSignerSuggestionNote(stepId: string, note: string) {
 
 function getSignerSuggestionNote(stepId: string): string {
   return signerSuggestionNoteMap.value[stepId] ?? '';
+}
+
+function setSignatureQuestionLabel(instanceId: string, value: string) {
+  const item = signatureLayoutItems.value.find(entry => entry.instanceId === instanceId);
+  if (!item)
+    return;
+  item.questionLabel = value;
+}
+
+function revertSignatureLabelIfEmpty(instanceId: string) {
+  const item = signatureLayoutItems.value.find(entry => entry.instanceId === instanceId);
+  if (!item || item.questionLabel.trim().length > 0)
+    return;
+
+  const field = signatureFields.value.find((candidate: any) => String(candidate?.instanceId ?? '') === instanceId);
+  if (!field)
+    return;
+
+  item.questionLabel = String(field?.formQuestionLabel || field?.label || field?.name || '');
+}
+
+function getSigningStageOrders(steps: SigningStepSummary[]): number[] {
+  return [...new Set(steps.map(step => step.order))].sort((a, b) => a - b);
+}
+
+function moveSigningStage(order: number, direction: -1 | 1) {
+  if (!isEditingFormLayout.value)
+    return;
+
+  const orders = getSigningStageOrders(editableSigningSteps.value);
+  const currentIndex = orders.findIndex(candidate => candidate === order);
+  if (currentIndex < 0)
+    return;
+
+  const targetIndex = currentIndex + direction;
+  if (targetIndex < 0 || targetIndex >= orders.length)
+    return;
+
+  const targetOrder = orders[targetIndex]!;
+  editableSigningSteps.value = editableSigningSteps.value.map((step) => {
+    if (step.order === order)
+      return { ...step, order: targetOrder };
+    if (step.order === targetOrder)
+      return { ...step, order };
+    return step;
+  });
+}
+
+function canMoveSigningStage(order: number, direction: -1 | 1): boolean {
+  const orders = getSigningStageOrders(signingSteps.value);
+  const index = orders.findIndex(candidate => candidate === order);
+  if (index < 0)
+    return false;
+  const target = index + direction;
+  return target >= 0 && target < orders.length;
 }
 
 function getLayoutEntry(instanceId: string): { required: boolean } | undefined {
@@ -429,6 +517,8 @@ function focusLayoutInputByInstanceId(instanceId: string) {
       }
     }
   }
+  if (!row)
+    row = document.getElementById(`form-layout-signature-row-${instanceId}`);
   if (!row)
     return;
   row.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -696,9 +786,28 @@ async function saveFormLayout(): Promise<boolean> {
       suggestionNote: getSignerSuggestionNote(step.id),
     }));
 
-    const result = await $fetch<{ success: boolean; data?: { placedFieldsData?: any[] }; error?: string }>(
+    const signatureEntries = signatureLayoutItems.value.map(item => ({
+      instanceId: item.instanceId,
+      questionLabel: String(item.questionLabel || '').trim(),
+    }));
+
+    const signingFlowSteps = signingSteps.value.map(step => ({
+      stepId: step.id,
+      order: step.order,
+    }));
+
+    const result = await $fetch<{ success: boolean; data?: { placedFieldsData?: any[]; signingFlowData?: any[] }; error?: string }>(
       `/api/pdf-templates/${templateId.value}/form-layout`,
-      { method: 'PATCH', body: { sectionTitle: String(formSectionTitle.value || tr('requestInformation')).trim(), entries, signerSuggestionNotes } },
+      {
+        method: 'PATCH',
+        body: {
+          sectionTitle: String(formSectionTitle.value || tr('requestInformation')).trim(),
+          entries,
+          signatureEntries,
+          signerSuggestionNotes,
+          signingFlowSteps,
+        },
+      },
     );
 
     if (!result.success)
@@ -706,6 +815,13 @@ async function saveFormLayout(): Promise<boolean> {
 
     if (Array.isArray(result.data?.placedFieldsData)) {
       placedFields.value = result.data!.placedFieldsData!;
+      if (template.value) {
+        template.value = {
+          ...template.value,
+          placedFieldsData: result.data!.placedFieldsData,
+          signingFlowData: result.data?.signingFlowData ?? template.value.signingFlowData,
+        };
+      }
       syncLayoutItems();
     }
     else {
@@ -730,6 +846,8 @@ function startEditFormLayout() {
     items: layoutItems.value.map(it =>
       it.kind === 'field' ? { ...it } : { ...it, fields: it.fields.map(f => ({ ...f })) },
     ),
+    signatureItems: signatureLayoutItems.value.map(item => ({ ...item })),
+    signingSteps: editableSigningSteps.value.map(step => ({ ...step })),
   };
   isEditingFormLayout.value = true;
 }
@@ -768,6 +886,8 @@ async function confirmAndCancelFormLayoutEdit() {
     layoutItems.value = snap.items.map(it =>
       it.kind === 'field' ? { ...it } : { ...it, fields: it.fields.map(f => ({ ...f })) },
     );
+    signatureLayoutItems.value = snap.signatureItems.map(item => ({ ...item }));
+    editableSigningSteps.value = snap.signingSteps.map(step => ({ ...step }));
   }
   syncLayoutItems();
   isEditingFormLayout.value = false;
@@ -1532,6 +1652,29 @@ watch(layoutEditorFillableFields, () => {
                   </p>
                 </div>
               </div>
+
+              <div v-if="signatureLayoutItems.length > 0" class="rounded-lg border border-gray-200 p-3">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">
+                  Signature Fields
+                </h4>
+                <div class="space-y-2">
+                  <div
+                    v-for="signatureItem in signatureLayoutItems"
+                    :id="`form-layout-signature-row-${signatureItem.instanceId}`"
+                    :key="`signature-field-${signatureItem.instanceId}`"
+                    :class="getFieldCardClass(signatureItem.instanceId)"
+                  >
+                    <UInput
+                      :model-value="signatureItem.questionLabel"
+                      :disabled="!isEditingFormLayout"
+                      :placeholder="signatureItem.instanceId"
+                      @focus="activeEditingFieldId = signatureItem.instanceId"
+                      @blur="() => { activeEditingFieldId = null; revertSignatureLabelIfEmpty(signatureItem.instanceId); }"
+                      @update:model-value="(value) => setSignatureQuestionLabel(signatureItem.instanceId, String(value ?? ''))"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </UCard>
 
@@ -1573,6 +1716,22 @@ watch(layoutEditorFillableFields, () => {
                       {{ step.isRequired ? t('required') : t('optional') }}
                     </UBadge>
                     <div v-if="isEditingFormLayout" class="mt-2">
+                      <div class="flex items-center gap-1 mb-2">
+                        <UButton
+                          size="xs"
+                          icon="i-heroicons-chevron-up"
+                          variant="ghost"
+                          :disabled="!canMoveSigningStage(step.order, -1)"
+                          @click="moveSigningStage(step.order, -1)"
+                        />
+                        <UButton
+                          size="xs"
+                          icon="i-heroicons-chevron-down"
+                          variant="ghost"
+                          :disabled="!canMoveSigningStage(step.order, 1)"
+                          @click="moveSigningStage(step.order, 1)"
+                        />
+                      </div>
                       <label class="text-xs text-gray-500 mb-1 block">{{ tr('suggestionNote') }}</label>
                       <UTextarea
                         :model-value="getSignerSuggestionNote(step.id)"

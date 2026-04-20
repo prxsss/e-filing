@@ -23,6 +23,33 @@ function normalizeSignatureDataUrl(raw: unknown): string {
   return '';
 }
 
+function normalizeSignatureEntries(raw: unknown): Array<{ fieldInstanceId: string; signatureDataUrl: string }> {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const byInstanceId = new Map<string, string>();
+
+  for (const entry of raw) {
+    const fieldInstanceId = String((entry as any)?.fieldInstanceId ?? '').trim();
+    if (!fieldInstanceId.length) {
+      continue;
+    }
+
+    const signatureDataUrl = normalizeSignatureDataUrl((entry as any)?.signatureDataUrl);
+    if (!signatureDataUrl.length) {
+      continue;
+    }
+
+    byInstanceId.set(fieldInstanceId, signatureDataUrl);
+  }
+
+  return Array.from(byInstanceId.entries()).map(([fieldInstanceId, signatureDataUrl]) => ({
+    fieldInstanceId,
+    signatureDataUrl,
+  }));
+}
+
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
 
@@ -34,8 +61,9 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    const { signatureDataUrl, regenerateFilledPdf, userSignatureId } = body as {
+    const { signatureDataUrl, regenerateFilledPdf, userSignatureId, signatureEntries } = body as {
       signatureDataUrl?: string;
+      signatureEntries?: Array<{ fieldInstanceId?: string; signatureDataUrl?: string }>;
       /** When true, rebuild filled PDF from DB in memory (avoids extra HTTP round-trip + re-download after generate-filled-pdf). */
       regenerateFilledPdf?: boolean;
       /** Optional saved signature id owned by current signer. */
@@ -43,6 +71,7 @@ export default defineEventHandler(async (event) => {
     };
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
 
+    const normalizedSignatureEntries = normalizeSignatureEntries(signatureEntries);
     let finalSignatureDataUrl = normalizeSignatureDataUrl(signatureDataUrl);
     let selectedUserSignatureId: number | null = null;
 
@@ -68,13 +97,19 @@ export default defineEventHandler(async (event) => {
       selectedUserSignatureId = savedSignature.id;
     }
 
-    if (!finalSignatureDataUrl) {
+    if (!finalSignatureDataUrl && normalizedSignatureEntries.length === 0) {
       return { success: false, error: 'Invalid signature data' };
     }
 
     // Enforce a reasonable payload size limit (~1 MB base64 ≈ 750 KB image)
     if (finalSignatureDataUrl.length > 1_048_576) {
       return { success: false, error: 'Signature image is too large (max 1 MB)' };
+    }
+
+    for (const entry of normalizedSignatureEntries) {
+      if (entry.signatureDataUrl.length > 1_048_576) {
+        return { success: false, error: 'Signature image is too large (max 1 MB)' };
+      }
     }
 
     // Get user's role IDs
@@ -163,10 +198,6 @@ export default defineEventHandler(async (event) => {
     // Never trust the client alone: if this step includes form fields, we must burn DB values into the PDF.
     const effectiveRegenerateFilledPdf = Boolean(regenerateFilledPdf) || pendingStepHasNonSignatureFields;
 
-    // ── Decode signature and embed into PDF ────────────────────────────────
-    const base64Data = finalSignatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
-    const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-
     // Collect only the non-signature field instance IDs for this step.
     const nonSigAssignedIds = assignedIds.filter((id) => {
       const f = allFields.find((field: any) => String(field?.instanceId ?? '').trim() === id);
@@ -179,6 +210,40 @@ export default defineEventHandler(async (event) => {
         return assignedIds.includes(f.instanceId) && fieldType === 'signature';
       },
     );
+
+    const signatureDataUrlByFieldInstanceId = new Map<string, string>();
+    if (normalizedSignatureEntries.length > 0) {
+      const normalizedEntriesMap = new Map(
+        normalizedSignatureEntries.map(entry => [entry.fieldInstanceId, entry.signatureDataUrl]),
+      );
+
+      for (const field of signatureFields) {
+        const fieldInstanceId = String(field?.instanceId ?? '').trim();
+        if (!fieldInstanceId.length) {
+          continue;
+        }
+
+        const perFieldSignatureDataUrl = normalizedEntriesMap.get(fieldInstanceId);
+        if (!perFieldSignatureDataUrl) {
+          return {
+            success: false,
+            error: `Missing signature for field instance ${fieldInstanceId}`,
+          };
+        }
+
+        signatureDataUrlByFieldInstanceId.set(fieldInstanceId, perFieldSignatureDataUrl);
+      }
+    }
+    else {
+      for (const field of signatureFields) {
+        const fieldInstanceId = String(field?.instanceId ?? '').trim();
+        if (!fieldInstanceId.length) {
+          continue;
+        }
+
+        signatureDataUrlByFieldInstanceId.set(fieldInstanceId, finalSignatureDataUrl);
+      }
+    }
 
     let signedPdfUrl: string | null = null;
     let pdfHash = '';
@@ -229,7 +294,7 @@ export default defineEventHandler(async (event) => {
       const PDFLib = await import('pdf-lib');
       const pdfDoc = await PDFLib.PDFDocument.load(pdfBytesForSign);
       const pages = pdfDoc.getPages();
-      const sigImage = await pdfDoc.embedPng(sigBytes);
+      const signatureImageCache = new Map<string, any>();
 
       const templateWidth = template.documentWidth || 595;
       const templateHeight = template.documentHeight || 842;
@@ -258,6 +323,20 @@ export default defineEventHandler(async (event) => {
           y = field.y || 0;
           width = field.width || 150;
           height = field.height || 60;
+        }
+
+        const fieldInstanceId = String(field?.instanceId ?? '').trim();
+        const dataUrl = signatureDataUrlByFieldInstanceId.get(fieldInstanceId) || finalSignatureDataUrl;
+        if (!dataUrl) {
+          continue;
+        }
+
+        let sigImage = signatureImageCache.get(dataUrl);
+        if (!sigImage) {
+          const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+          const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+          sigImage = await pdfDoc.embedPng(sigBytes);
+          signatureImageCache.set(dataUrl, sigImage);
         }
 
         // PDF coordinate system: y=0 is bottom-left; UI: y=0 is top-left
@@ -341,13 +420,14 @@ export default defineEventHandler(async (event) => {
 
       if (flowSignatureFieldInstanceIds.length > 0) {
         for (const fieldInstanceId of flowSignatureFieldInstanceIds) {
+          const perFieldSignatureDataUrl = signatureDataUrlByFieldInstanceId.get(fieldInstanceId) || finalSignatureDataUrl;
           await db.insert(signatures).values({
             requestId,
             signatureFlowId: flow.id,
             userId,
             fieldInstanceId: fieldInstanceId ?? null,
             pdfHash,
-            dataUrl: finalSignatureDataUrl ?? undefined,
+            dataUrl: perFieldSignatureDataUrl ?? undefined,
             userSignatureId: selectedUserSignatureId,
           });
         }

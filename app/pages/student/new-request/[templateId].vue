@@ -85,7 +85,8 @@ const previewSyncedFieldValues = ref<Record<string, string>>({});
 const dropdownOptionsCache = ref<Record<string, Array<{ value: string; label: string }>>>({});
 const scale = ref(1);
 const isRefreshingPreview = ref(false);
-const submitterSignatureDataUrl = ref<string | null>(null);
+const submitterSignatureByInstanceId = ref<Record<string, string>>({});
+const activeSubmitterSignatureFieldInstanceId = ref<string | null>(null);
 const showSubmitterSignaturePopup = ref(false);
 const templatePdfRef = ref<PdfCreateExpose | null>(null);
 const syncInteractionLayerRef = ref<HTMLElement | null>(null);
@@ -261,12 +262,12 @@ const allRecipientsSelected = computed(() =>
   recipientSteps.value.every(step => !!selectedRecipients.value[step.id]),
 );
 
-const submitterSignatureFieldCount = computed(() => {
+const submitterSignatureFields = computed<any[]>(() => {
   const submitterStep = findSubmitterStep(signingSteps.value);
   const templateFields = templateData.value?.placedFieldsData;
 
   if (!submitterStep || !Array.isArray(templateFields)) {
-    return 0;
+    return [];
   }
 
   return templateFields.filter((field: any) => {
@@ -274,25 +275,55 @@ const submitterSignatureFieldCount = computed(() => {
       return false;
     }
 
-    return getFieldSignerStepId(field) === submitterStep.id;
-  }).length;
+    return getFieldSignerStepId(field) === submitterStep.id && isFieldVisible(field);
+  });
 });
 
-const submitterSignatureField = computed<any | null>(() => {
-  const submitterStep = findSubmitterStep(signingSteps.value);
-  const templateFields = templateData.value?.placedFieldsData;
+const submitterSignatureFieldCount = computed(() => submitterSignatureFields.value.length);
 
-  if (!submitterStep || !Array.isArray(templateFields)) {
+function getSubmitterSignatureFieldInstanceId(field: any): string {
+  return String(field?.instanceId ?? '').trim();
+}
+
+function hasConfirmedSubmitterSignatureForField(field: any): boolean {
+  const instanceId = getSubmitterSignatureFieldInstanceId(field);
+  if (!instanceId.length) {
+    return false;
+  }
+
+  return String(submitterSignatureByInstanceId.value[instanceId] ?? '').length > 0;
+}
+
+function getSubmitterSignatureFieldTitle(field: any, index: number): string {
+  const explicitLabel = String(field?.formQuestionLabel ?? field?.formLabel ?? field?.label ?? field?.name ?? '').trim();
+  if (explicitLabel.length > 0) {
+    return explicitLabel;
+  }
+
+  return `${t('studentNewRequest.detail.signature.sectionTitle')} #${index + 1}`;
+}
+
+function getActiveSubmitterSignatureField() {
+  if (submitterSignatureFields.value.length === 0) {
     return null;
   }
 
-  return templateFields.find((field: any) => {
-    if (getFieldType(field) !== 'signature') {
-      return false;
-    }
+  const activeInstanceId = String(activeSubmitterSignatureFieldInstanceId.value ?? '').trim();
+  if (activeInstanceId.length > 0) {
+    const matchedField = submitterSignatureFields.value.find((field) => {
+      return getSubmitterSignatureFieldInstanceId(field) === activeInstanceId;
+    });
 
-    return getFieldSignerStepId(field) === submitterStep.id;
-  }) || null;
+    if (matchedField) {
+      return matchedField;
+    }
+  }
+
+  return submitterSignatureFields.value[0] ?? null;
+}
+
+const submitterSignatureField = computed<any | null>(() => {
+  return getActiveSubmitterSignatureField();
 });
 
 const submitterSignatureFieldScale = 5.5;
@@ -383,7 +414,13 @@ const submitterSignatureFieldBoxStyle = computed(() => {
 });
 
 const requiresSubmitterSignature = computed(() => submitterSignatureFieldCount.value > 0);
-const hasConfirmedSubmitterSignature = computed(() => (submitterSignatureDataUrl.value ?? '').length > 0);
+const hasConfirmedSubmitterSignature = computed(() => {
+  if (submitterSignatureFields.value.length === 0) {
+    return false;
+  }
+
+  return submitterSignatureFields.value.every(field => hasConfirmedSubmitterSignatureForField(field));
+});
 const canSubmitRequest = computed(() => !isSaving.value);
 
 watch(allRecipientsSelected, (ok) => {
@@ -396,10 +433,46 @@ watch(requiresSubmitterSignature, (required) => {
   if (!required) {
     showSubmitterSignaturePopup.value = false;
     showSubmitterSignatureError.value = false;
+    activeSubmitterSignatureFieldInstanceId.value = null;
+    submitterSignatureByInstanceId.value = {};
   }
 });
 
-function openSubmitterSignaturePopup() {
+watch(submitterSignatureFields, (fields) => {
+  const validIds = new Set(
+    fields
+      .map(field => getSubmitterSignatureFieldInstanceId(field))
+      .filter(instanceId => instanceId.length > 0),
+  );
+
+  const nextMap: Record<string, string> = {};
+  for (const [instanceId, dataUrl] of Object.entries(submitterSignatureByInstanceId.value)) {
+    if (validIds.has(instanceId) && String(dataUrl ?? '').length > 0) {
+      nextMap[instanceId] = dataUrl;
+    }
+  }
+  submitterSignatureByInstanceId.value = nextMap;
+
+  const activeId = String(activeSubmitterSignatureFieldInstanceId.value ?? '').trim();
+  if (activeId.length > 0 && !validIds.has(activeId)) {
+    activeSubmitterSignatureFieldInstanceId.value = null;
+  }
+
+  if (!activeSubmitterSignatureFieldInstanceId.value && fields.length > 0) {
+    const firstUnconfirmedField = fields.find(field => !hasConfirmedSubmitterSignatureForField(field));
+    const defaultField = firstUnconfirmedField ?? fields[0];
+    const defaultInstanceId = getSubmitterSignatureFieldInstanceId(defaultField);
+    activeSubmitterSignatureFieldInstanceId.value = defaultInstanceId || null;
+  }
+}, { immediate: true, deep: true });
+
+function openSubmitterSignaturePopup(field?: any) {
+  const pickedField = field ?? getActiveSubmitterSignatureField();
+  if (pickedField) {
+    const instanceId = getSubmitterSignatureFieldInstanceId(pickedField);
+    activeSubmitterSignatureFieldInstanceId.value = instanceId || activeSubmitterSignatureFieldInstanceId.value;
+  }
+
   showSubmitterSignaturePopup.value = true;
   showSubmitterSignatureError.value = false;
 }
@@ -409,7 +482,16 @@ function closeSubmitterSignaturePopup() {
 }
 
 function handleSubmitterSignatureConfirmed(dataUrl: string) {
-  submitterSignatureDataUrl.value = dataUrl;
+  const activeField = getActiveSubmitterSignatureField();
+  const instanceId = activeField ? getSubmitterSignatureFieldInstanceId(activeField) : '';
+  if (!instanceId.length) {
+    return;
+  }
+
+  submitterSignatureByInstanceId.value = {
+    ...submitterSignatureByInstanceId.value,
+    [instanceId]: dataUrl,
+  };
   showSubmitterSignaturePopup.value = false;
   showSubmitterSignatureError.value = false;
 }
@@ -484,10 +566,6 @@ function normalizeCheckboxValue(value: unknown): string {
 
 function getFieldType(field: any): string {
   return String(field?.type || field?.fieldType || '').toLowerCase();
-}
-
-function isSignatureField(field: any): boolean {
-  return getFieldType(field) === 'signature';
 }
 
 function isCheckboxField(field: any): boolean {
@@ -1117,27 +1195,25 @@ const previewOverlayFields = computed(() => {
     return currentValue.length === 0 || currentValue !== syncedValue;
   });
 
-  if (!submitterSignatureDataUrl.value) {
+  const submitterSignatures = submitterSignatureByInstanceId.value;
+  if (Object.keys(submitterSignatures).length === 0) {
     return overlayFields;
   }
 
-  const submitterStepId = findSubmitterStep(signingSteps.value)?.id;
-  const templateFields = templateData.value?.placedFieldsData;
+  const signatureOverlayFields = submitterSignatureFields.value
+    .map((field: any) => {
+      const instanceId = getSubmitterSignatureFieldInstanceId(field);
+      const dataUrl = instanceId ? String(submitterSignatures[instanceId] ?? '') : '';
+      if (!instanceId.length || !dataUrl.length) {
+        return null;
+      }
 
-  if (!submitterStepId || !Array.isArray(templateFields)) {
-    return overlayFields;
-  }
-
-  const signatureOverlayFields = templateFields
-    .filter((field: any) =>
-      isSignatureField(field)
-      && getFieldSignerStepId(field) === submitterStepId
-      && isFieldVisible(field),
-    )
-    .map((field: any) => ({
-      ...field,
-      imageUrl: submitterSignatureDataUrl.value,
-    }));
+      return {
+        ...field,
+        imageUrl: dataUrl,
+      };
+    })
+    .filter((field): field is any => field !== null);
 
   return [...overlayFields, ...signatureOverlayFields];
 });
@@ -1564,11 +1640,26 @@ async function submitRequest() {
     if (updateResult.success) {
       const needsSubmitterSignature = Boolean(updateResult?.data?.requiresSubmitterSignature);
       if (needsSubmitterSignature) {
-        if (submitterSignatureDataUrl.value) {
+        const signatureEntries = submitterSignatureFields.value
+          .map((field: any) => {
+            const fieldInstanceId = getSubmitterSignatureFieldInstanceId(field);
+            const signatureDataUrl = fieldInstanceId ? String(submitterSignatureByInstanceId.value[fieldInstanceId] ?? '') : '';
+            if (!fieldInstanceId.length || !signatureDataUrl.length) {
+              return null;
+            }
+
+            return {
+              fieldInstanceId,
+              signatureDataUrl,
+            };
+          })
+          .filter((entry): entry is { fieldInstanceId: string; signatureDataUrl: string } => entry !== null);
+
+        if (signatureEntries.length > 0) {
           const signResult: any = await $fetch(`/api/requests/${activeRequestId}/sign`, {
             method: 'POST',
             body: {
-              signatureDataUrl: submitterSignatureDataUrl.value,
+              signatureEntries,
             },
           });
 
@@ -2140,14 +2231,36 @@ watch([pdfFile, placedFields, fieldValues], () => {
                     {{ t('studentNewRequest.detail.signature.openPopupHint') }}
                   </p>
                 </div>
+              </div>
 
-                <UButton
-                  color="primary"
-                  icon="i-heroicons-pencil-square"
-                  @click="openSubmitterSignaturePopup"
+              <div class="space-y-2">
+                <div
+                  v-for="(signatureField, signatureFieldIndex) in submitterSignatureFields"
+                  :key="`submitter-signature-${getSubmitterSignatureFieldInstanceId(signatureField) || signatureFieldIndex}`"
+                  class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
                 >
-                  {{ hasConfirmedSubmitterSignature ? t('studentNewRequest.detail.signature.edit') : t('studentNewRequest.detail.signature.openPopup') }}
-                </UButton>
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-sm text-slate-700 font-medium">
+                      {{ getSubmitterSignatureFieldTitle(signatureField, signatureFieldIndex) }}
+                    </div>
+
+                    <UButton
+                      color="primary"
+                      size="sm"
+                      icon="i-heroicons-pencil-square"
+                      @click="openSubmitterSignaturePopup(signatureField)"
+                    >
+                      {{ hasConfirmedSubmitterSignatureForField(signatureField) ? t('studentNewRequest.detail.signature.edit') : t('studentNewRequest.detail.signature.openPopup') }}
+                    </UButton>
+                  </div>
+
+                  <p
+                    v-if="hasConfirmedSubmitterSignatureForField(signatureField)"
+                    class="mt-2 text-xs text-green-700"
+                  >
+                    {{ t('studentNewRequest.detail.signature.confirmed') }}
+                  </p>
+                </div>
               </div>
 
               <p
