@@ -60,17 +60,12 @@ type PendingAttachment = {
   size: number;
 };
 
-type PdfCreateExpose = {
-  focusFieldByInstanceId?: (instanceId: string) => Promise<void> | void;
-};
-
 // --- State ---
 const route = useRoute();
 const templateId = Number(route.params.templateId);
 const isLoading = ref(true);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
-const successMessage = ref('');
 const showRequiredFieldErrors = ref(false);
 const showSubmitterSignatureError = ref(false);
 const showRecipientSelectionError = ref(false);
@@ -88,15 +83,12 @@ const isRefreshingPreview = ref(false);
 const submitterSignatureByInstanceId = ref<Record<string, string>>({});
 const activeSubmitterSignatureFieldInstanceId = ref<string | null>(null);
 const showSubmitterSignaturePopup = ref(false);
-const templatePdfRef = ref<PdfCreateExpose | null>(null);
 const syncInteractionLayerRef = ref<HTMLElement | null>(null);
 const activeInteractionFieldInstanceId = ref<string | null>(null);
 const activeInteractionSource = ref<'form' | 'pdf' | null>(null);
-const enableSyncAutoScroll = false;
 let interactionClearTimer: ReturnType<typeof setTimeout> | null = null;
 
 const pendingAttachments = ref<PendingAttachment[]>([]);
-const isUploadingAttachment = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 let previewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -721,16 +713,6 @@ function isInteractionFieldActive(field: any): boolean {
   return fieldInstanceId.length > 0 && fieldInstanceId === activeInteractionFieldInstanceId.value;
 }
 
-function findSurfaceElement(surface: 'form' | 'pdf', instanceId: string): HTMLElement | null {
-  const root = syncInteractionLayerRef.value;
-  if (!root) {
-    return null;
-  }
-
-  const nodes = root.querySelectorAll<HTMLElement>(`[data-field-surface="${surface}"][data-field-instance-id]`);
-  return Array.from(nodes).find(node => String(node.dataset.fieldInstanceId ?? '').trim() === instanceId) || null;
-}
-
 function clearInteractionTimer() {
   if (interactionClearTimer) {
     clearTimeout(interactionClearTimer);
@@ -749,12 +731,7 @@ function scheduleInteractionClear(source: 'form' | 'pdf') {
   }, 130);
 }
 
-function scrollFormFieldIntoView(instanceId: string) {
-  const target = findSurfaceElement('form', instanceId);
-  target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-async function activateInteractionField(field: any, source: 'form' | 'pdf') {
+function activateInteractionField(field: any, source: 'form' | 'pdf') {
   const instanceId = getFieldInstanceId(field);
   if (!instanceId.length) {
     return;
@@ -763,15 +740,6 @@ async function activateInteractionField(field: any, source: 'form' | 'pdf') {
   clearInteractionTimer();
   activeInteractionFieldInstanceId.value = instanceId;
   activeInteractionSource.value = source;
-
-  if (enableSyncAutoScroll) {
-    if (source === 'form') {
-      await templatePdfRef.value?.focusFieldByInstanceId?.(instanceId);
-    }
-    else {
-      scrollFormFieldIntoView(instanceId);
-    }
-  }
 }
 
 function handleFormFieldEnter(field: any) {
@@ -1022,21 +990,6 @@ function handleFieldValueUpdate(field: any, nextValue: string) {
   fieldValues.value[key] = '';
 }
 
-function isCheckboxTemporarilyDisabled(field: any): boolean {
-  if (!isCheckboxField(field)) {
-    return false;
-  }
-
-  const groupId = getCheckboxGroupId(field);
-  if (!groupId) {
-    return false;
-  }
-
-  // Grouped checkboxes are rendered as radios in this page, so options must
-  // stay enabled to allow changing the selected option.
-  return false;
-}
-
 function hydrateFieldValueKeys() {
   for (const field of placedFields.value) {
     const valueKey = getFieldValueKey(field);
@@ -1063,10 +1016,6 @@ function hydrateFieldValueKeys() {
       ? normalizeCheckboxValue(fieldValues.value[manualKey])
       : String(fieldValues.value[manualKey] ?? '');
   }
-}
-
-function clearHiddenFieldValues() {
-  // Keep hidden field values so they are restored when the field becomes visible again.
 }
 
 function resolveCurrentFieldValue(field: any): string {
@@ -1366,7 +1315,6 @@ async function fetchTemplateData() {
         }
 
         hydrateFieldValueKeys();
-        clearHiddenFieldValues();
       }
     }
     else {
@@ -1664,12 +1612,12 @@ async function submitRequest() {
           });
 
           if (!signResult.success) {
-            navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+            error.value = t('studentNewRequest.detail.errors.submitFailed');
             return;
           }
         }
         else {
-          navigateTo(localePath(`/teacher/sign/${activeRequestId}`));
+          error.value = t('studentNewRequest.detail.signature.errorRequired');
           return;
         }
       }
@@ -1813,7 +1761,6 @@ watch(activeSignerStepIds, (activeStepIds) => {
 
 watch([pdfFile, placedFields, fieldValues], () => {
   hydrateFieldValueKeys();
-  clearHiddenFieldValues();
   void syncOverlayDisplayFieldValues();
   schedulePreviewRefresh();
 }, { deep: true, immediate: true });
@@ -1908,7 +1855,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
           <!-- PDF Viewer -->
           <div v-if="previewDisplayFile" style="min-height: 600px;">
             <template-pdf-create
-              ref="templatePdfRef"
               :pdf-file="previewDisplayFile"
               :placed-fields="previewOverlayFields"
               :strike-group-context-fields="getVisiblePlacedFields()"
@@ -1929,14 +1875,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
 
         <!-- Right: Form Fields -->
         <div class="space-y-6">
-          <!-- Success Message -->
-          <UCard v-if="successMessage" class="bg-green-50 border-green-200">
-            <div class="flex items-center gap-2 text-green-800">
-              <i class="fas fa-check-circle" />
-              <span class="font-medium">{{ successMessage }}</span>
-            </div>
-          </UCard>
-
           <!-- Error Message -->
           <UCard v-if="error" class="bg-red-50 border-red-200">
             <div class="flex items-center gap-2 text-red-800">
@@ -1995,7 +1933,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                           class="mb-0!"
                           :model-value="fieldValues[getFieldValueKey(item.field)]"
                           :field="item.field"
-                          :disabled="isSaving || isCheckboxTemporarilyDisabled(item.field)"
+                          :disabled="isSaving"
                           :render-as-radio="isCheckboxField(item.field) && getCheckboxGroupId(item.field).length > 0"
                           @update:model-value="(value) => handleFieldValueUpdate(item.field, String(value ?? ''))"
                         />
@@ -2039,7 +1977,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
                               class="mb-0! w-full sm:w-auto"
                               :model-value="fieldValues[getFieldValueKey(optionField)]"
                               :field="optionField"
-                              :disabled="isSaving || isCheckboxTemporarilyDisabled(optionField)"
+                              :disabled="isSaving"
                               :render-as-radio="true"
                               :hide-required-asterisk="true"
                               @update:model-value="(value) => handleFieldValueUpdate(optionField, String(value ?? ''))"
@@ -2082,7 +2020,6 @@ watch([pdfFile, placedFields, fieldValues], () => {
                   size="xs"
                   color="primary"
                   icon="i-heroicons-paper-clip"
-                  :loading="isUploadingAttachment"
                   @click="triggerFileUpload"
                 >
                   {{ t('studentNewRequest.detail.attachments.addFile') }}

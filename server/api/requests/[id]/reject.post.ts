@@ -3,7 +3,7 @@ import { getSignRequestContext } from '~~/server/utils/get-sign-request-context'
 import { and, asc, eq, sql } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
+import { notifications, request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
 
 type RejectMode = 'status_only' | 'with_signature_and_field';
 
@@ -328,6 +328,29 @@ export default defineEventHandler(async (event) => {
       ]);
       await signNotificationService.notifyRejected({ signerName: signer.signerName }, { ...context, templateId: template.templateId }, reason);
 
+      if (context.studentId) {
+        const nitroApp = useNitroApp() as any;
+        const [createdNotification] = await db
+          .insert(notifications)
+          .values({
+            userId: String(context.studentId),
+            message: `Your request was rejected by ${signer.signerName}.`,
+            type: 'rejected',
+            link: '/student/my-requests',
+            isRead: false,
+          })
+          .returning();
+
+        if (createdNotification) {
+          try {
+            nitroApp.io.to(createdNotification.userId).emit('notification', createdNotification);
+          }
+          catch (socketErr) {
+            console.error('[reject notification socket emit error]', socketErr);
+          }
+        }
+      }
+
       return {
         success: true,
         data: {
@@ -400,6 +423,7 @@ export default defineEventHandler(async (event) => {
       const [context, nextSigners] = await Promise.all([
         getSignRequestContext(requestId),
         db.select({
+          assignedUserId: signatureFlow.assignedUserId,
           signerEmail: users.email,
           signerName: sql<string>`
       concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
@@ -422,6 +446,33 @@ export default defineEventHandler(async (event) => {
             stepOrder: step.stepOrder,
           }, context)),
         );
+
+        const nitroApp = useNitroApp() as any;
+        const nextSignerNotifications = nextSigners
+          .filter(step => String(step.assignedUserId ?? '').length > 0)
+          .map(step => ({
+            userId: String(step.assignedUserId),
+            message: 'You have a new request to sign.',
+            type: 'sign_request' as const,
+            link: `/signer/sign/${requestId}`,
+            isRead: false,
+          }));
+
+        if (nextSignerNotifications.length > 0) {
+          const createdNotifications = await db
+            .insert(notifications)
+            .values(nextSignerNotifications)
+            .returning();
+
+          for (const notification of createdNotifications) {
+            try {
+              nitroApp.io.to(notification.userId).emit('notification', notification);
+            }
+            catch (socketErr) {
+              console.error('[reject next-signer notification socket emit error]', socketErr);
+            }
+          }
+        }
       }
 
       return {

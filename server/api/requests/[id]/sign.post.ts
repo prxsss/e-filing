@@ -1,5 +1,5 @@
 import db from '~~/lib/db';
-import { request, requestTemplate, signatureFlow, signatures, userRoles, users, userSignatures } from '~~/lib/db/schema';
+import { notifications, request, requestTemplate, signatureFlow, signatures, userRoles, users, userSignatures } from '~~/lib/db/schema';
 import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
@@ -513,6 +513,7 @@ export default defineEventHandler(async (event) => {
       // Notify all newly-activated signers in the next group.
       // NOTE: this must run for every stage transition, including 1 -> 2.
       const nextSigners = await db.select({
+        assignedUserId: signatureFlow.assignedUserId,
         signerEmail: users.email,
         signerName: sql<string>`
             concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
@@ -553,6 +554,63 @@ export default defineEventHandler(async (event) => {
         await Promise.all(notifyTasks);
       }
 
+      const nitroApp = useNitroApp() as any;
+      const nextSignerNotificationRows = nextSigners
+        .filter(step => String(step.assignedUserId ?? '').length > 0)
+        .map(step => ({
+          userId: String(step.assignedUserId),
+          message: 'You have a new request to sign.',
+          type: 'sign_request' as const,
+          link: `/signer/sign/${requestId}`,
+          isRead: false,
+        }));
+
+      if (nextSignerNotificationRows.length > 0) {
+        const createdNotifications = await db
+          .insert(notifications)
+          .values(nextSignerNotificationRows)
+          .returning();
+
+        for (const notification of createdNotifications) {
+          try {
+            nitroApp.io.to(notification.userId).emit('notification', notification);
+          }
+          catch (socketErr) {
+            console.error('[sign notification socket emit error]', socketErr);
+          }
+        }
+      }
+
+      if (activeStepOrder > 1) {
+        const [currentSigner] = await db.select({
+          signerName: sql<string>`
+            concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+          `,
+        }).from(users).where(eq(users.id, userId));
+
+        if (currentSigner && context.studentId) {
+          const [createdStudentNotification] = await db
+            .insert(notifications)
+            .values({
+              userId: String(context.studentId),
+              message: `${currentSigner.signerName} has signed your request.`,
+              type: 'signed',
+              link: '/student/my-requests',
+              isRead: false,
+            })
+            .returning();
+
+          if (createdStudentNotification) {
+            try {
+              nitroApp.io.to(createdStudentNotification.userId).emit('notification', createdStudentNotification);
+            }
+            catch (socketErr) {
+              console.error('[sign student notification socket emit error]', socketErr);
+            }
+          }
+        }
+      }
+
       return {
         success: true,
         data: {
@@ -576,6 +634,29 @@ export default defineEventHandler(async (event) => {
 
       // Notify requester about completion
       await signNotificationService.notifyCompleted(signerName, context);
+
+      if (context.studentId) {
+        const nitroApp = useNitroApp() as any;
+        const [createdNotification] = await db
+          .insert(notifications)
+          .values({
+            userId: String(context.studentId),
+            message: 'Your request has been completed.',
+            type: 'completed',
+            link: '/student/my-requests',
+            isRead: false,
+          })
+          .returning();
+
+        if (createdNotification) {
+          try {
+            nitroApp.io.to(createdNotification.userId).emit('notification', createdNotification);
+          }
+          catch (socketErr) {
+            console.error('[complete notification socket emit error]', socketErr);
+          }
+        }
+      }
 
       return {
         success: true,

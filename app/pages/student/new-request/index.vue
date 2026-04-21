@@ -13,8 +13,10 @@ type Template = {
 };
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const searchQuery = ref('');
+const sortDirection = ref<'asc' | 'desc'>('asc');
+const isSearching = ref(false);
 
 const { data: templatesData, status, error, refresh } = await useFetch<{ success: boolean; data: Template[] }>('/api/pdf-templates');
 
@@ -26,16 +28,39 @@ const activeTemplates = computed<Template[]>(() => {
 
 const filteredRequests = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  if (!query)
-    return activeTemplates.value;
-  return activeTemplates.value.filter(t =>
-    (t.name ?? '').toLowerCase().includes(query)
-    || (t.description ?? '').toLowerCase().includes(query),
-  );
+  const filtered = !query
+    ? activeTemplates.value
+    : activeTemplates.value.filter(t =>
+        (t.name ?? '').toLowerCase().includes(query)
+        || (t.description ?? '').toLowerCase().includes(query),
+      );
+
+  const localeCode = locale.value === 'th' ? 'th-TH' : 'en-US';
+
+  return [...filtered].sort((a, b) => {
+    const nameA = (a.name ?? '').trim();
+    const nameB = (b.name ?? '').trim();
+    const compareResult = nameA.localeCompare(nameB, localeCode, {
+      sensitivity: 'base',
+      numeric: true,
+    });
+
+    return sortDirection.value === 'asc' ? compareResult : -compareResult;
+  });
 });
 
 function handleSelectRequest(templateId: number) {
   router.push(`/student/new-request/${templateId}`);
+}
+
+async function handleSearch() {
+  isSearching.value = true;
+  try {
+    await refresh();
+  }
+  finally {
+    isSearching.value = false;
+  }
 }
 </script>
 
@@ -80,15 +105,40 @@ function handleSelectRequest(templateId: number) {
         </div>
       </div>
 
-      <!-- Search bar -->
-      <div class="p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-4">
-        <div class="relative w-full">
-          <UInput
-            v-model="searchQuery"
-            icon="i-heroicons-magnifying-glass"
-            :placeholder="t('studentNewRequest.list.searchPlaceholder')"
-            class="w-full"
+      <!-- Search and sort controls -->
+      <div class="space-y-2">
+        <div class="flex justify-end">
+          <UFieldGroup class="w-full sm:w-auto">
+            <UInput
+              v-model="searchQuery"
+              icon="i-heroicons-magnifying-glass"
+              :placeholder="t('studentNewRequest.list.searchPlaceholder')"
+              class="w-full sm:w-96"
+              size="md"
+              @keyup.enter="handleSearch"
+            />
+            <UButton
+              icon="i-heroicons-magnifying-glass"
+              color="primary"
+              variant="solid"
+              size="md"
+              :loading="isSearching"
+              :aria-label="t('search')"
+              @click="handleSearch"
+            />
+          </UFieldGroup>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="outline"
             size="md"
+            class="justify-center sm:w-auto"
+            :icon="sortDirection === 'asc' ? 'i-heroicons-bars-arrow-up' : 'i-heroicons-bars-arrow-down'"
+            :label="t('studentNewRequest.list.sortByName')"
+            :aria-label="t('studentNewRequest.list.sortDirectionAria', { direction: sortDirection === 'asc' ? t('studentNewRequest.list.ascending') : t('studentNewRequest.list.descending') })"
+            @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
           />
         </div>
       </div>

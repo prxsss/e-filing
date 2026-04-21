@@ -72,7 +72,9 @@
       "usingSaved": "Using saved signature. Submit to continue, or draw a new one to change it",
       "confirmed": "Signature confirmed. Submit to continue",
       "saveForNextTime": "Save this signature for next time",
+      "saveShort": "Save",
       "clearConfirmed": "Clear confirmed signature",
+      "clearShort": "Clear",
       "popupTitle": "Sign - Step {step} ({roles})",
       "popupHint": "Sign in the box below and confirm"
     },

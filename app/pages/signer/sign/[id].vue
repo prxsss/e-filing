@@ -1464,81 +1464,96 @@ onUnmounted(() => {
                 </h3>
               </template>
 
-              <div class="flex flex-col gap-3">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <p class="text-xs text-gray-500">
-                    {{ $t('signerSignDetail.signature.helper') }}
-                  </p>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <UButton
-                      v-if="hasSavedSignature"
-                      color="neutral"
-                      variant="soft"
-                      icon="i-heroicons-bookmark"
-                      :disabled="isSigning || isLoadingSavedSignature"
-                      @click="useSavedSignatureForCurrentSign"
-                    >
-                      {{ $t('signerSignDetail.signature.useSaved') }}
-                    </UButton>
-                    <UButton
-                      color="primary"
-                      icon="i-heroicons-pencil-square"
-                      :disabled="isSigning"
-                      @click="openSignaturePopup"
-                    >
-                      {{ hasConfirmedSignature ? $t('signerSignDetail.signature.drawOrEdit') : $t('signerSignDetail.signature.openPad') }}
-                    </UButton>
-                  </div>
-                </div>
+              <div class="space-y-3">
+                <p class="text-xs leading-5 text-gray-500">
+                  {{ $t('signerSignDetail.signature.helper') }}
+                </p>
 
-                <p
+                <div
                   v-if="showSignatureSubmitError"
-                  class="text-sm text-red-600"
+                  class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
                 >
                   {{ $t('signerSignDetail.signature.submitError') }}
-                </p>
+                </div>
 
-                <p
-                  v-if="isUsingSavedSignature"
-                  class="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2"
+                <div
+                  v-else-if="isUsingSavedSignature"
+                  class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700"
                 >
                   {{ $t('signerSignDetail.signature.usingSaved') }}
-                </p>
+                </div>
 
-                <p
+                <div
                   v-else-if="hasConfirmedSignature"
-                  class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2"
+                  class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
                 >
                   {{ $t('signerSignDetail.signature.confirmed') }}
-                </p>
+                </div>
 
-                <div v-if="signatureSource === 'drawn' && hasConfirmedSignature" class="pt-1">
+                <div class="flex flex-col gap-2">
                   <UButton
-                    size="sm"
+                    color="primary"
+                    icon="i-heroicons-pencil-square"
+                    block
+                    :disabled="isSigning"
+                    @click="openSignaturePopup"
+                  >
+                    {{ hasConfirmedSignature ? $t('signerSignDetail.signature.drawOrEdit') : $t('signerSignDetail.signature.openPad') }}
+                  </UButton>
+
+                  <UButton
+                    v-if="hasSavedSignature"
                     color="neutral"
-                    variant="outline"
-                    icon="i-heroicons-bookmark-square"
-                    :loading="isSavingSignature"
-                    :disabled="isSigning"
-                    @click="saveCurrentSignatureForFuture"
+                    variant="soft"
+                    icon="i-heroicons-bookmark"
+                    block
+                    :disabled="isSigning || isLoadingSavedSignature"
+                    @click="useSavedSignatureForCurrentSign"
                   >
-                    {{ $t('signerSignDetail.signature.saveForNextTime') }}
+                    {{ $t('signerSignDetail.signature.useSaved') }}
                   </UButton>
-                </div>
 
-                <div v-if="hasConfirmedSignature" class="pt-1">
-                  <UButton
-                    size="sm"
-                    color="error"
-                    variant="ghost"
-                    icon="i-heroicons-trash"
-                    :disabled="isSigning"
-                    @click="clearConfirmedSignature"
+                  <div
+                    v-if="hasConfirmedSignature"
+                    class="flex items-center justify-end gap-2"
                   >
-                    {{ $t('signerSignDetail.signature.clearConfirmed') }}
-                  </UButton>
+                    <UTooltip
+                      v-if="signatureSource === 'drawn'"
+                      :text="$t('signerSignDetail.signature.saveForNextTime')"
+                      :popper="{ placement: 'top' }"
+                    >
+                      <UButton
+                        size="sm"
+                        color="neutral"
+                        variant="outline"
+                        icon="i-heroicons-bookmark-square"
+                        :loading="isSavingSignature"
+                        :disabled="isSigning"
+                        :aria-label="$t('signerSignDetail.signature.saveForNextTime')"
+                        @click="saveCurrentSignatureForFuture"
+                      >
+                        {{ $t('signerSignDetail.signature.saveShort') }}
+                      </UButton>
+                    </UTooltip>
+
+                    <UTooltip
+                      :text="$t('signerSignDetail.signature.clearConfirmed')"
+                      :popper="{ placement: 'top' }"
+                    >
+                      <UButton
+                        size="sm"
+                        color="error"
+                        variant="ghost"
+                        icon="i-heroicons-trash"
+                        :disabled="isSigning"
+                        :aria-label="$t('signerSignDetail.signature.clearConfirmed')"
+                        @click="clearConfirmedSignature"
+                      >
+                        {{ $t('signerSignDetail.signature.clearShort') }}
+                      </UButton>
+                    </UTooltip>
+                  </div>
                 </div>
-                <!-- Action buttons moved out of the signature card for layout parity with student new-request -->
               </div>
             </UCard>
 
