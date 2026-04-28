@@ -35,6 +35,7 @@ const entries = computed<HistoryEntry[]>(() => data.value?.data ?? []);
 
 const searchQuery = ref('');
 const selectedAction = ref<string | undefined>(undefined);
+const sortDirection = ref<'asc' | 'desc'>('desc');
 const page = ref(1);
 const pageCount = 10;
 
@@ -119,10 +120,23 @@ const filteredEntries = computed(() => {
   });
 });
 
+const sortedEntries = computed(() => {
+  const data = [...filteredEntries.value];
+  const getTimestamp = (value: string | null | undefined) => {
+    const parsed = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  return data.sort((a, b) => {
+    const result = getTimestamp(a.signedAt) - getTimestamp(b.signedAt);
+    return sortDirection.value === 'asc' ? result : -result;
+  });
+});
+
 const paginatedEntries = computed(() => {
   const start = (page.value - 1) * pageCount;
   const end = start + pageCount;
-  return filteredEntries.value.slice(start, end);
+  return sortedEntries.value.slice(start, end);
 });
 
 const total = computed(() => filteredEntries.value.length);
@@ -192,21 +206,32 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
     </div>
 
     <UCard>
-      <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+      <div class="flex flex-col sm:flex-row gap-3 mb-6">
         <UInput
           v-model="searchQuery"
           icon="i-heroicons-magnifying-glass"
           :placeholder="$t('signerSignedHistory.searchPlaceholder')"
           class="w-full sm:w-80"
         />
+        <div class="flex w-full sm:w-auto sm:ml-auto items-center gap-2">
+          <USelect
+            v-model="selectedAction"
+            :items="actionOptions"
+            option-attribute="label"
+            :placeholder="$t('signerSignedHistory.filters.actionPlaceholder')"
+            class="w-full sm:w-56"
+          />
 
-        <USelect
-          v-model="selectedAction"
-          :items="actionOptions"
-          option-attribute="label"
-          :placeholder="$t('signerSignedHistory.filters.actionPlaceholder')"
-          class="w-full sm:w-56"
-        />
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="md"
+            class="justify-center w-10"
+            :icon="sortDirection === 'asc' ? 'i-heroicons-bars-arrow-up' : 'i-heroicons-bars-arrow-down'"
+            :aria-label="sortDirection === 'asc' ? t('adminTemplates.list.ascending') : t('adminTemplates.list.descending')"
+            @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
+          />
+        </div>
       </div>
 
       <UTable
@@ -265,7 +290,7 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
       </UTable>
 
       <!-- Empty State -->
-      <div v-if="filteredEntries.length === 0 && status !== 'pending'" class="py-12 text-center">
+      <div v-if="sortedEntries.length === 0 && status !== 'pending'" class="py-12 text-center">
         <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-lucide-inbox" class="w-8 h-8 text-slate-300" />
         </div>

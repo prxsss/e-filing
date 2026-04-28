@@ -62,6 +62,7 @@ const UIcon = resolveComponent('UIcon');
 // === Reactive State ===
 const searchQuery = ref('');
 const selectedStatus = ref<string | undefined>(undefined);
+const sortDirection = ref<'asc' | 'desc'>('desc');
 const page = ref(1);
 const pageCount = 10;
 
@@ -122,6 +123,18 @@ const { data: response, status: fetchStatus } = await useFetch('/api/requests', 
 });
 
 const requests = computed(() => response.value?.data ?? []);
+const sortedRequests = computed(() => {
+  const data = [...requests.value];
+  const getTimestamp = (value: string | null | undefined) => {
+    const parsed = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  return data.sort((a, b) => {
+    const result = getTimestamp(a.createdAt) - getTimestamp(b.createdAt);
+    return sortDirection.value === 'asc' ? result : -result;
+  });
+});
 const total = computed(() => response.value?.meta?.total ?? 0);
 
 // === Methods ===
@@ -174,13 +187,22 @@ function handleNewRequest() {
             :placeholder="t('studentMyRequests.list.statusPlaceholder')"
             class="w-40"
           />
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="md"
+            class="justify-center w-10"
+            :icon="sortDirection === 'asc' ? 'i-heroicons-bars-arrow-up' : 'i-heroicons-bars-arrow-down'"
+            :aria-label="sortDirection === 'asc' ? t('adminTemplates.list.ascending') : t('adminTemplates.list.descending')"
+            @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
+          />
         </UFieldGroup>
       </div>
     </div>
     <!-- Table Card -->
     <UCard>
       <UTable
-        :data="requests"
+        :data="sortedRequests"
         :columns="columns"
         :loading="fetchStatus === 'pending'"
         class="flex-1"
@@ -205,7 +227,7 @@ function handleNewRequest() {
         </template>
       </UTable>
       <!-- Empty State -->
-      <div v-if="requests.length === 0 && fetchStatus !== 'pending'" class="py-12 text-center">
+      <div v-if="sortedRequests.length === 0 && fetchStatus !== 'pending'" class="py-12 text-center">
         <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-heroicons-inbox" class="w-8 h-8 " />
         </div>

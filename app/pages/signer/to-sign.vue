@@ -38,6 +38,7 @@ const { data, status, refresh } = await useFetch<{ success: boolean; data: Signi
 const tasks = computed<SigningTask[]>(() => data.value?.data ?? []);
 
 const searchQuery = ref('');
+const sortDirection = ref<'asc' | 'desc'>('desc');
 const page = ref(1);
 const pageCount = 10;
 
@@ -80,10 +81,23 @@ const filteredTasks = computed(() => {
   });
 });
 
+const sortedTasks = computed(() => {
+  const data = [...filteredTasks.value];
+  const getTimestamp = (value: string | null | undefined) => {
+    const parsed = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  return data.sort((a, b) => {
+    const result = getTimestamp(a.submittedAt) - getTimestamp(b.submittedAt);
+    return sortDirection.value === 'asc' ? result : -result;
+  });
+});
+
 const paginatedTasks = computed(() => {
   const start = (page.value - 1) * pageCount;
   const end = start + pageCount;
-  return filteredTasks.value.slice(start, end);
+  return sortedTasks.value.slice(start, end);
 });
 
 const total = computed(() => filteredTasks.value.length);
@@ -120,7 +134,7 @@ const columns = computed<any[]>(() => [
       ? nameTh
       : name;
   } },
-  { accessorKey: 'templateName', header: t('signerToSign.table.document'), size: 420 },
+  { accessorKey: 'templateName', header: t('signerToSign.table.document'), size: 300 },
   { accessorKey: 'stepInfo', header: t('signerToSign.table.step') },
   { accessorKey: 'submittedAt', header: t('signerToSign.table.submittedDate') },
   {
@@ -172,6 +186,15 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           :placeholder="$t('signerToSign.searchPlaceholder')"
           class="w-full sm:w-90"
         />
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="md"
+          class="justify-center w-10"
+          :icon="sortDirection === 'asc' ? 'i-heroicons-bars-arrow-up' : 'i-heroicons-bars-arrow-down'"
+          :aria-label="sortDirection === 'asc' ? t('adminTemplates.list.ascending') : t('adminTemplates.list.descending')"
+          @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
+        />
       </div>
 
       <UTable
@@ -195,14 +218,14 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           </UBadge>
         </template>
         <template #templateName-cell="{ row }">
-          <div class="max-w-md truncate" :title="row.original.templateName">
+          <div class="w-70 truncate" :title="row.original.templateName">
             {{ row.original.templateName }}
           </div>
         </template>
       </UTable>
 
       <!-- Empty State -->
-      <div v-if="filteredTasks.length === 0 && status !== 'pending'" class="py-12 text-center">
+      <div v-if="sortedTasks.length === 0 && status !== 'pending'" class="py-12 text-center">
         <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-lucide-inbox" class="w-8 h-8 text-slate-300" />
         </div>

@@ -40,6 +40,8 @@ type RequestItem = {
   departmentName: string;
 };
 
+type SortField = 'studentId' | 'studentName' | 'templateName' | 'createdAt';
+
 type SelectableRow = {
   getIsSelected: () => boolean;
   toggleSelected: (value: boolean) => void;
@@ -287,6 +289,8 @@ watch(searchQuery, applySearch);
 
 const selectedStatus = ref<RequestStatus | undefined>(getInitialStatusFromQuery());
 const selectedTemplateId = ref<number | undefined>(undefined);
+const sortField = ref<SortField>('createdAt');
+const sortDirection = ref<'asc' | 'desc'>('desc');
 const page = ref(1);
 const pageSize = 15;
 
@@ -302,6 +306,13 @@ const periodOptions = computed(() => PERIOD_OPTIONS.map(period => ({
   label: t(`common.periodOptions.${period}`),
   value: period,
 })));
+
+const sortFieldOptions = computed(() => [
+  { value: 'studentId', label: t('studentId') },
+  { value: 'studentName', label: t('studentName') },
+  { value: 'templateName', label: t('requestTitle') },
+  { value: 'createdAt', label: t('submittedDate') },
+]);
 
 const { data: templatesData } = await useFetch('/api/pdf-templates', {
   query: { pageSize: 100 },
@@ -333,6 +344,13 @@ function clearFilters() {
 watch([debouncedSearch, selectedStatus, selectedTemplateId, dateRangeQuery], () => {
   page.value = 1;
 }, { deep: true });
+
+watch(sortField, (newField, oldField) => {
+  if (newField === oldField)
+    return;
+
+  sortDirection.value = newField === 'createdAt' ? 'desc' : 'asc';
+});
 
 // === Fetch ===
 const queryParams = computed(() => ({
@@ -370,6 +388,48 @@ const requests = computed<RequestItem[]>(() => {
       departmentName: departmentName || '-',
     };
   });
+});
+
+const sortedRequests = computed<RequestItem[]>(() => {
+  const data = [...requests.value];
+  const localeCode = locale.value === 'th' ? 'th-TH' : 'en-US';
+
+  const getTimestamp = (value: string | null | undefined) => {
+    const parsed = value ? new Date(value).getTime() : 0;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const getText = (value: string | null | undefined) => (value ?? '').trim();
+
+  const compare = (a: RequestItem, b: RequestItem) => {
+    let result = 0;
+
+    if (sortField.value === 'createdAt') {
+      result = getTimestamp(a.createdAt) - getTimestamp(b.createdAt);
+    }
+    else if (sortField.value === 'studentId') {
+      result = getText(a.studentId).localeCompare(getText(b.studentId), localeCode, {
+        sensitivity: 'base',
+        numeric: true,
+      });
+    }
+    else if (sortField.value === 'studentName') {
+      result = getText(a.studentName).localeCompare(getText(b.studentName), localeCode, {
+        sensitivity: 'base',
+        numeric: true,
+      });
+    }
+    else {
+      result = getText(a.templateName).localeCompare(getText(b.templateName), localeCode, {
+        sensitivity: 'base',
+        numeric: true,
+      });
+    }
+
+    return sortDirection.value === 'asc' ? result : -result;
+  };
+
+  return data.sort(compare);
 });
 const total = computed(() => response.value?.meta?.total ?? 0);
 
@@ -464,7 +524,7 @@ const statsMap = computed(() => {
     <UCard>
       <!-- Filters -->
       <div class="w-full mb-5">
-        <div class="w-full flex flex-col gap-2 sm:max-w-md sm:ml-auto sm:flex-row sm:items-center">
+        <div class="w-full flex flex-col gap-2 sm:max-w-4xl sm:ml-auto sm:flex-row sm:items-center justify-end">
           <UTooltip :text="t('selectAtLeastOneItem')" :prevent="canBulkDownload">
             <UButton
               icon="i-heroicons-arrow-down-tray"
@@ -479,7 +539,8 @@ const statsMap = computed(() => {
               {{ selectedRowsWithPdf.length > 1 ? t('downloadRequestsCount', { count: selectedRowsWithPdf.length }) : t('downloadRequest') }}
             </UButton>
           </UTooltip>
-          <UFieldGroup class="w-full">
+
+          <UFieldGroup class="w-100">
             <UInput
               v-model="searchQuery"
               class="w-full"
@@ -491,6 +552,26 @@ const statsMap = computed(() => {
             />
             <UButton icon="i-heroicons-magnifying-glass" :label="t('search')" color="primary" variant="solid" :loading="fetchStatus === 'pending'" @click="applySearch(searchQuery)" />
           </UFieldGroup>
+
+          <div class="flex w-full sm:w-auto items-center gap-2">
+            <USelect
+              v-model="sortField"
+              :items="sortFieldOptions"
+              option-attribute="label"
+              icon="i-heroicons-adjustments-horizontal"
+              size="md"
+              class="w-40 sm:w-33"
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="md"
+              class="justify-center sm:w-10"
+              :icon="sortDirection === 'asc' ? 'i-heroicons-bars-arrow-up' : 'i-heroicons-bars-arrow-down'"
+              :aria-label="t('adminTemplates.list.sortDirectionAria', { direction: sortDirection === 'asc' ? t('adminTemplates.list.ascending') : t('adminTemplates.list.descending') })"
+              @click="sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'"
+            />
+          </div>
           <UPopover arrow :content="{ align: 'end', side: 'bottom' }">
             <template #default="{ open }">
               <UButton
@@ -574,7 +655,7 @@ const statsMap = computed(() => {
         ref="table"
         v-model:row-selection="rowSelection"
         class="w-full"
-        :data="requests"
+        :data="sortedRequests"
         :columns="columns"
         :get-row-id="(row: RequestItem) => String(row.id)"
         :loading="fetchStatus === 'pending'"
@@ -626,7 +707,7 @@ const statsMap = computed(() => {
       </UTable>
 
       <!-- Empty State -->
-      <div v-if="requests.length === 0 && fetchStatus !== 'pending'" class="py-12 text-center">
+      <div v-if="sortedRequests.length === 0 && fetchStatus !== 'pending'" class="py-12 text-center">
         <div class="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
           <UIcon name="i-heroicons-inbox" class="w-8 h-8 text-gray-400" />
         </div>
@@ -645,7 +726,7 @@ const statsMap = computed(() => {
       <template v-if="total > 0" #footer>
         <div class="flex items-center justify-between py-2">
           <span class="text-sm text-gray-500">
-            {{ t('showingXOfYItems', { shown: requests.length, total }) }}
+            {{ t('showingXOfYItems', { shown: sortedRequests.length, total }) }}
           </span>
           <UPagination
             v-model:page="page"

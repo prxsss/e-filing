@@ -4,7 +4,7 @@
       "title": "My Requests",
       "description": "Track all request statuses and submission history",
       "newRequest": "Create New Request",
-      "searchPlaceholder": "Search by ID or title...",
+      "searchPlaceholder": "Search by template name...",
       "searchButton": "Search",
       "statusPlaceholder": "Status",
       "emptyTitle": "No requests found",

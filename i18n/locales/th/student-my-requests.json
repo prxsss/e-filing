@@ -4,7 +4,7 @@
       "title": "คำร้องของฉัน",
       "description": "ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด",
       "newRequest": "สร้างคำร้องใหม่",
-      "searchPlaceholder": "ค้นหาตามรหัส หรือชื่อเรื่อง...",
+      "searchPlaceholder": "ค้นหาตามชื่อคำร้อง...",
       "searchButton": "ค้นหา",
       "statusPlaceholder": "สถานะ",
       "emptyTitle": "ไม่พบข้อมูลคำร้อง",
