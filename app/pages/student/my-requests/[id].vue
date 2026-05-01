@@ -61,6 +61,7 @@ type FlowStep = {
   assignedUserNameTh?: string | null;
   signedByName?: string | null;
   signedByNameTh?: string | null;
+  rejectedReason?: string | null;
 };
 
 type SigningStatus = {
@@ -76,6 +77,7 @@ type WorkflowStep = {
   status: WorkflowDisplayStatus;
   icon: string;
   subtitle?: string;
+  rejectedReason?: string;
 };
 // --- State ---
 const route = useRoute();
@@ -704,6 +706,7 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
       status,
       icon: 'i-heroicons-user-circle',
       subtitle: `${t('studentMyRequests.detail.rolePrefix')}: ${locale.value === 'th' ? step.roleNameTh : step.roleName}`,
+      rejectedReason: status === 'rejected' ? String(step.rejectedReason ?? '').trim() || undefined : undefined,
     };
   });
 });
@@ -714,6 +717,15 @@ const hasLocalRejectedSteps = computed(() => {
   }
 
   return (signingStatus.value.flowSteps ?? []).some(step => step.status === 'rejected');
+});
+
+const localRejectedReasons = computed(() => {
+  const reasons = workflowSteps.value
+    .filter(step => step.status === 'rejected')
+    .map(step => String(step.rejectedReason ?? '').trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(reasons));
 });
 
 // Open PDF in new tab
@@ -1090,6 +1102,20 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
               variant="soft" :title="t('studentMyRequests.detail.localRejectedWarning')" class="mb-3"
             />
 
+            <div
+              v-if="hasLocalRejectedSteps && localRejectedReasons.length > 0"
+              class="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3"
+            >
+              <p class="text-xs font-semibold text-amber-800">
+                {{ t('studentMyRequests.detail.note') }}
+              </p>
+              <ul class="list-disc pl-4 text-xs text-amber-900 space-y-1">
+                <li v-for="(reason, reasonIndex) in localRejectedReasons" :key="`rejection-reason-${reasonIndex}`">
+                  {{ reason }}
+                </li>
+              </ul>
+            </div>
+
             <div class="space-y-0">
               <template v-for="(step, index) in workflowSteps" :key="step.id">
                 <div class="flex items-center gap-3 py-2">
@@ -1121,6 +1147,12 @@ watch([templatePdfFile, fillableFields, fieldValues, submissionReferenceTimestam
                     </p>
                     <p v-if="step.subtitle" class="text-xs text-gray-400 mt-0.5 truncate">
                       {{ step.subtitle }}
+                    </p>
+                    <p
+                      v-if="step.status === 'rejected' && step.rejectedReason"
+                      class="text-xs text-red-600 mt-1"
+                    >
+                      {{ `${t('studentMyRequests.detail.note')}: ${step.rejectedReason}` }}
                     </p>
                     <UBadge
                       v-if="step.status === 'completed'" color="success" variant="subtle" size="xs"

@@ -1,7 +1,37 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { request, requestTemplate, roles, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
+import { auditLogs, request, requestTemplate, roles, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
+
+type RejectAuditPayload = {
+  type?: string;
+  signatureFlowId?: unknown;
+  reason?: unknown;
+};
+
+function parseRejectAuditPayload(action: string | null): { signatureFlowId: number; reason: string } | null {
+  if (!action) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(action) as RejectAuditPayload;
+    if (payload?.type !== 'signature_flow_rejected') {
+      return null;
+    }
+
+    const signatureFlowId = Number.parseInt(String(payload.signatureFlowId ?? ''), 10);
+    const reason = String(payload.reason ?? '').trim();
+    if (!Number.isFinite(signatureFlowId) || signatureFlowId <= 0 || reason.length === 0) {
+      return null;
+    }
+
+    return { signatureFlowId, reason };
+  }
+  catch {
+    return null;
+  }
+}
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -95,7 +125,36 @@ export default defineEventHandler(async (event) => {
       assignedUserNameTh: step.assignedUserId ? (userNameThById.get(step.assignedUserId) ?? null) : null,
       signedByName: step.signedBy ? (userNameById.get(step.signedBy) ?? null) : null,
       signedByNameTh: step.signedBy ? (userNameThById.get(step.signedBy) ?? null) : null,
+      rejectedReason: null as string | null,
     }));
+
+    const rejectAuditRows = await db
+      .select({
+        action: auditLogs.action,
+      })
+      .from(auditLogs)
+      .where(eq(auditLogs.requestId, requestId))
+      .orderBy(desc(auditLogs.createdAt));
+
+    const rejectedReasonByFlowId = new Map<number, string>();
+    for (const row of rejectAuditRows) {
+      const parsed = parseRejectAuditPayload(row.action);
+      if (!parsed || rejectedReasonByFlowId.has(parsed.signatureFlowId)) {
+        continue;
+      }
+      rejectedReasonByFlowId.set(parsed.signatureFlowId, parsed.reason);
+    }
+
+    for (const step of flowStepsWithNames) {
+      if (step.status !== 'rejected') {
+        continue;
+      }
+
+      step.rejectedReason = rejectedReasonByFlowId.get(step.id) ?? null;
+      if (!step.rejectedReason && requestData.status === 'rejected') {
+        step.rejectedReason = requestData.note ?? null;
+      }
+    }
 
     // Determine whether the current user may act on a pending step.
     // With parallel signing there can be multiple pending steps at the same order;

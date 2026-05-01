@@ -24,7 +24,7 @@
   "noDocumentFileFound": "ไม่พบไฟล์เอกสาร",
   "requestStatus": "สถานะคำร้อง",
   "requesterName": "ชื่อผู้ยื่น",
-  "note": "หมายเหตุ",
+  "note": "เหตุผล",
   "signingOrder": "ลำดับการเซ็น",
   "rejectedWithNote": "ปฏิเสธ: {note}",
   "bySigner": "โดย: {name}",

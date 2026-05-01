@@ -48,19 +48,23 @@ export async function buildFilledPdfBytesForRequest(
       .where(eq(userRoles.userId, userId));
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
-    const [pendingFlow] = await db
+    const pendingFlows = await db
       .select()
       .from(signatureFlow)
       .where(and(
         eq(signatureFlow.requestId, requestId),
         eq(signatureFlow.status, 'pending'),
       ))
-      .orderBy(asc(signatureFlow.stepOrder))
-      .limit(1);
+      .orderBy(asc(signatureFlow.stepOrder));
 
-    if (pendingFlow) {
-      isAuthorizedSigner = pendingFlow.assignedUserId === userId
-        || (pendingFlow.assignedUserId === null && userRoleIds.includes(pendingFlow.roleId));
+    if (pendingFlows.length > 0) {
+      const activeStepOrder = pendingFlows[0].stepOrder;
+      const activeStageFlows = pendingFlows.filter(flow => flow.stepOrder === activeStepOrder);
+
+      isAuthorizedSigner = activeStageFlows.some((flow) => {
+        return flow.assignedUserId === userId
+          || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId));
+      });
     }
   }
 

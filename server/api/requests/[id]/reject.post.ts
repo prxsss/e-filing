@@ -6,7 +6,7 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 import db from '../../../../lib/db';
-import { notifications, request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
+import { auditLogs, notifications, request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
 
 type RejectMode = 'status_only' | 'with_signature_and_field';
 
@@ -35,6 +35,11 @@ function parsePositiveInteger(value: unknown): number | null {
     return null;
   }
   return parsed;
+}
+
+function parseNullableInteger(value: unknown): number | null {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeCheckboxValue(value: unknown): string {
@@ -491,6 +496,20 @@ export default defineEventHandler(async (event) => {
         .set({ status: 'rejected', note: reason })
         .where(eq(request.id, requestId));
 
+      await db.insert(auditLogs).values({
+        requestId,
+        performedBy: parseNullableInteger(userId),
+        action: JSON.stringify({
+          type: 'signature_flow_rejected',
+          signatureFlowId: flowEntry.id,
+          stepOrder: activeStepOrder,
+          rejectionMode: 'full_request',
+          rejectDataMode: rejectMode,
+          reason,
+          at: nowIso,
+        }),
+      });
+
       const [context, [signer], [template]] = await Promise.all([
         getSignRequestContext(requestId),
 
@@ -549,6 +568,20 @@ export default defineEventHandler(async (event) => {
       .update(signatureFlow)
       .set({ status: 'rejected', signedBy: userId, signedAt: nowIso })
       .where(eq(signatureFlow.id, flowEntry.id));
+
+    await db.insert(auditLogs).values({
+      requestId,
+      performedBy: parseNullableInteger(userId),
+      action: JSON.stringify({
+        type: 'signature_flow_rejected',
+        signatureFlowId: flowEntry.id,
+        stepOrder: activeStepOrder,
+        rejectionMode: 'local_step',
+        rejectDataMode: rejectMode,
+        reason,
+        at: nowIso,
+      }),
+    });
 
     const updatedStageEntries = await db
       .select()
