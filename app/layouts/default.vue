@@ -176,8 +176,14 @@ const userDisplayName = computed(() => {
     : joinNameParts(user.titleTh, user.fullNameTh);
 });
 
-const displayRoles = computed(() => {
-  const roles = locale.value === 'en' ? authStore.session.user?.roles : authStore.session.user?.rolesTh;
+const userRoles = computed(() => {
+  const { user } = authStore.session;
+  const roles = locale.value === 'en' ? user?.roles : user?.rolesTh;
+  return roles || [];
+});
+
+const limitedRolesDisplay = computed(() => {
+  const roles = userRoles.value;
   if (!roles || roles.length === 0)
     return '';
 
@@ -189,12 +195,12 @@ const displayRoles = computed(() => {
 });
 
 const showMoreRolesIndicator = computed(() => {
-  const roles = locale.value === 'en' ? authStore.session.user?.roles : authStore.session.user?.rolesTh;
+  const roles = userRoles.value;
   return roles && roles.length > 2;
 });
 
 const remainingRoles = computed(() => {
-  const roles = locale.value === 'en' ? authStore.session.user?.roles : authStore.session.user?.rolesTh;
+  const roles = userRoles.value;
   if (!roles || roles.length <= 2)
     return [];
   return roles.slice(2);
@@ -255,7 +261,7 @@ const remainingRolesText = computed(() => {
 
           <template #right>
             <!-- Language Selector -->
-            <USelect :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
+            <USelect class="hidden sm:inline-flex" :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
 
             <!-- Color Mode Button -->
             <!-- <UColorModeButton /> -->
@@ -266,12 +272,12 @@ const remainingRolesText = computed(() => {
             <div class="pl-4 border-l-2 border-slate-200">
               <!-- User Info -->
               <div v-if="authStore.session.loggedIn" class="flex items-center gap-3">
-                <div class="text-right hidden md:block">
+                <div class="text-right hidden sm:block">
                   <p class="font-semibold text-sm">
                     {{ userDisplayName }}
                   </p>
                   <p class="text-xs capitalize">
-                    {{ displayRoles }}
+                    {{ limitedRolesDisplay }}
                     <UTooltip
                       v-if="showMoreRolesIndicator"
                       :shortcuts="[]"
@@ -288,10 +294,38 @@ const remainingRolesText = computed(() => {
                     </UTooltip>
                   </p>
                 </div>
+
                 <UAvatar
                   icon="i-lucide-user"
                   size="lg"
+                  class="hidden sm:inline-flex"
                 />
+
+                <!-- Mobile User Info -->
+                <UPopover class="inline-flex sm:hidden" arrow>
+                  <UAvatar
+
+                    icon="i-lucide-user"
+                    size="lg"
+                  />
+
+                  <template #content>
+                    <div class="w-72">
+                      <div class="p-4">
+                        <p class="font-semibold text-sm">
+                          {{ userDisplayName }}
+                        </p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                          <UBadge v-for="(role, index) in userRoles" :key="index" :label="role" variant="soft" color="neutral" />
+                        </div>
+                      </div>
+                      <div class="border-b border-slate-200" />
+                      <div class="p-4">
+                        <USelect class="w-full" :model-value="locale" :items="languageItems" label-key="name" value-key="code" :icon="selectedLanguageIcon" @update:model-value="setLocale($event)" />
+                      </div>
+                    </div>
+                  </template>
+                </UPopover>
               </div>
               <div v-else class="flex items-center gap-3">
                 <div class="hidden md:block space-y-1">
