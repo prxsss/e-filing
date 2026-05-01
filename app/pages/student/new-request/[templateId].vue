@@ -2222,6 +2222,7 @@ watch([pdfFile, placedFields, fieldValues], () => {
               color="success"
               size="lg"
               :loading="isSaving"
+              loading-icon="i-lucide-loader-circle"
               :disabled="!canSubmitRequest"
               @click="submitRequest"
             >
