@@ -1,7 +1,7 @@
 {
   "studentNewRequest": {
     "list": {
-      "title": "Create New Request",
+      "title": "New Request",
       "description": "Choose a request template to submit",
       "searchPlaceholder": "Search templates...",
       "sortByName": "Sort By Name",
@@ -17,7 +17,7 @@
       "emptyDescription": "Try changing your search or check again later"
     },
     "detail": {
-      "breadcrumb": "Create New Request",
+      "breadcrumb": "New Request",
       "breadcrumbMyRequests": "My Requests",
       "loading": "Loading template...",
       "noTemplate": "Template not found",

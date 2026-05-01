@@ -3,7 +3,7 @@
     "list": {
       "title": "คำร้องของฉัน",
       "description": "ติดตามสถานะและประวัติการยื่นคำร้องทั้งหมด",
-      "newRequest": "สร้างคำร้องใหม่",
+      "newRequest": "ยื่นคำร้องใหม่",
       "searchPlaceholder": "ค้นหาตามชื่อคำร้อง...",
       "searchButton": "ค้นหา",
       "statusPlaceholder": "สถานะ",

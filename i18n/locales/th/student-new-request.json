@@ -1,7 +1,7 @@
 {
   "studentNewRequest": {
     "list": {
-      "title": "สร้างคำร้องใหม่",
+      "title": "ยื่นคำร้องใหม่",
       "description": "เลือกเทมเพลตคำร้องที่ต้องการยื่น",
       "searchPlaceholder": "ค้นหาเทมเพลต...",
       "sortByName": "เรียงตามชื่อ",
@@ -17,7 +17,7 @@
       "emptyDescription": "ลองเปลี่ยนคำค้นหา หรือตรวจสอบภายหลัง"
     },
     "detail": {
-      "breadcrumb": "สร้างคำร้องใหม่",
+      "breadcrumb": "ยื่นคำร้องใหม่",
       "breadcrumbMyRequests": "คำร้องของฉัน",
       "loading": "กำลังโหลดเทมเพลต...",
       "noTemplate": "ไม่พบข้อมูลเทมเพลต",
