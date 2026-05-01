@@ -19,7 +19,9 @@ const emit = defineEmits<{
 const { t, locale } = useI18n();
 
 function tr(key: string, params?: Record<string, unknown>) {
-  return t(`adminTemplates.create.signingFlowEditor.${key}`, params);
+  return params
+    ? t(`adminTemplates.create.signingFlowEditor.${key}`, params)
+    : t(`adminTemplates.create.signingFlowEditor.${key}`);
 }
 
 // Local state
@@ -77,6 +79,30 @@ const selectedStep = computed<SigningStep | null>(() => {
   if (!selectedStepId.value)
     return null;
   return props.signingSteps.find(s => s.id === selectedStepId.value) || null;
+});
+
+const selectedStepRejectsRequestImmediately = computed<boolean>({
+  get() {
+    return Boolean(selectedStep.value?.rejectsRequestImmediately);
+  },
+  set(value: boolean) {
+    if (!selectedStep.value) {
+      return;
+    }
+
+    const updatedSteps = props.signingSteps.map((step) => {
+      if (step.id !== selectedStep.value!.id) {
+        return step;
+      }
+
+      return {
+        ...step,
+        rejectsRequestImmediately: Boolean(value),
+      };
+    });
+
+    emit('update:signingSteps', updatedSteps);
+  },
 });
 
 function getFieldType(field: FieldInstance): string {
@@ -209,6 +235,7 @@ function addStep(): void {
     roleName: role.name,
     description: getRoleDescription(role) || undefined,
     isRequired: newStepIsRequired.value,
+    rejectsRequestImmediately: false,
     assignedFieldInstanceIds: [],
     color: getNextColor(),
   };
@@ -224,6 +251,21 @@ function addStep(): void {
 
   // Auto-select the new step
   selectedStepId.value = newStep.id;
+}
+
+function toggleStepRejectsImmediately(stepId: string): void {
+  const updatedSteps = props.signingSteps.map((step) => {
+    if (step.id !== stepId) {
+      return step;
+    }
+
+    return {
+      ...step,
+      rejectsRequestImmediately: !step.rejectsRequestImmediately,
+    };
+  });
+
+  emit('update:signingSteps', updatedSteps);
 }
 
 // Remove a signing step (parallel-aware)
@@ -454,6 +496,25 @@ watch(() => props.signingSteps.length, (newLen) => {
                 <UBadge color="neutral" variant="subtle" size="xs">
                   {{ step.assignedFieldInstanceIds.length }} {{ tr('fields') }}
                 </UBadge>
+                <UBadge
+                  v-if="step.rejectsRequestImmediately"
+                  color="error"
+                  variant="subtle"
+                  size="xs"
+                >
+                  {{ tr('rejectImmediatelyBadge') }}
+                </UBadge>
+              </div>
+              <div class="mt-2">
+                <UButton
+                  size="xs"
+                  :color="step.rejectsRequestImmediately ? 'error' : 'neutral'"
+                  :variant="step.rejectsRequestImmediately ? 'soft' : 'outline'"
+                  :icon="step.rejectsRequestImmediately ? 'i-heroicons-bolt-solid' : 'i-heroicons-bolt'"
+                  @click.stop="toggleStepRejectsImmediately(step.id)"
+                >
+                  {{ tr('rejectImmediatelyOptionShort') }}
+                </UButton>
               </div>
             </div>
 
@@ -617,6 +678,13 @@ watch(() => props.signingSteps.length, (newLen) => {
             >
               {{ tr('parallel') }}
             </UBadge>
+          </div>
+          <div class="pt-1">
+            <UCheckbox
+              v-model="selectedStepRejectsRequestImmediately"
+              :label="tr('rejectImmediatelyOption')"
+              :description="tr('rejectImmediatelyHelp')"
+            />
           </div>
         </div>
 
