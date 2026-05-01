@@ -1,12 +1,13 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, bigint, integer, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
+import {nanoid} from "nanoid";
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 export const userStatus = pgEnum("user_status", ['active', 'inactive', 'banned'])
 
 
 export const users = pgTable("users", {
-	id: text().primaryKey().notNull(),
+	id: text().primaryKey().notNull().$defaultFn(() => nanoid(12)),
 	firstNameEn: text("first_name_en").notNull(),
 	lastNameEn: text("last_name_en").notNull(),
 	firstNameTh: text("first_name_th").notNull(),
