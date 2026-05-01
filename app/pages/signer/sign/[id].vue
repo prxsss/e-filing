@@ -842,9 +842,30 @@ function getFirstEnteredFieldPayload(): { fieldId: number; instanceId: string; v
   return null;
 }
 
+function buildRejectFieldValuesPayload(): Array<{ fieldId: number; instanceId: string; value: string }> {
+  return visibleSignerFillableFields.value
+    .map((field) => {
+      const instanceId = String(field?.instanceId ?? '').trim();
+      const fieldId = Number.parseInt(String(field?.id ?? ''), 10);
+      if (!instanceId.length || !Number.isFinite(fieldId) || fieldId <= 0) {
+        return null;
+      }
+      return {
+        fieldId,
+        instanceId,
+        value: resolveCurrentFieldValue(field) || '',
+      };
+    })
+    .filter(Boolean) as Array<{ fieldId: number; instanceId: string; value: string }>;
+}
+
 function validateAllVisibleSignerFieldsForRejectWithData(): string | null {
   const fields = visibleSignerInputFields.value;
   const validatedCheckboxGroups = new Set<string>();
+
+  if (!fields.length) {
+    return null;
+  }
 
   for (const field of fields) {
     if (isCheckboxField(field)) {
@@ -919,7 +940,7 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
     }
 
     selectedFieldPayload = getFirstEnteredFieldPayload();
-    if (!selectedFieldPayload) {
+    if (!selectedFieldPayload && visibleSignerInputFields.value.length > 0) {
       toast.add({
         title: t('signerSignDetail.toast.noFieldValueForModeTitle'),
         description: t('signerSignDetail.toast.noFieldValueForModeDescription'),
@@ -947,8 +968,11 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
       rejectMode: mode,
     };
 
-    if (mode === 'with_signature_and_field' && selectedFieldPayload) {
-      requestBody.selectedField = selectedFieldPayload;
+    if (mode === 'with_signature_and_field') {
+      if (selectedFieldPayload) {
+        requestBody.selectedField = selectedFieldPayload;
+      }
+      requestBody.fieldValues = buildRejectFieldValuesPayload();
       if (signatureSource.value === 'saved' && selectedSavedSignatureId.value) {
         requestBody.userSignatureId = selectedSavedSignatureId.value;
       }

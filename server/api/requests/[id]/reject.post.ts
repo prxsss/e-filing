@@ -1,6 +1,9 @@
+import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
+import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 
 import db from '../../../../lib/db';
 import { notifications, request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
@@ -83,6 +86,7 @@ export default defineEventHandler(async (event) => {
     const rawRejectMode = String(body?.rejectMode ?? body?.mode ?? 'status_only').trim();
     const rejectMode: RejectMode = rawRejectMode === 'with_signature_and_field' ? 'with_signature_and_field' : 'status_only';
     const selectedFieldPayload = body?.selectedField as { fieldId?: unknown; instanceId?: unknown; value?: unknown } | undefined;
+    const incomingFieldValues = Array.isArray(body?.fieldValues) ? body.fieldValues : [];
     const selectedFieldId = parsePositiveInteger(selectedFieldPayload?.fieldId);
     const selectedFieldInstanceId = String(selectedFieldPayload?.instanceId ?? '').trim();
     const selectedFieldIncomingValue = String(selectedFieldPayload?.value ?? '');
@@ -130,10 +134,6 @@ export default defineEventHandler(async (event) => {
 
       if (finalSignatureDataUrl.length > 1_048_576) {
         return { success: false, error: 'รูปภาพลายเซ็นมีขนาดใหญ่เกินไป (สูงสุด 1 MB)' };
-      }
-
-      if (!selectedFieldId || !selectedFieldInstanceId.length) {
-        return { success: false, error: 'ต้องเลือกฟิลด์ 1 รายการสำหรับโหมดปฏิเสธพร้อมข้อมูล' };
       }
     }
 
@@ -216,78 +216,258 @@ export default defineEventHandler(async (event) => {
         ? templateData.placedFieldsData as any[]
         : [];
 
-      const templateField = placedFields.find((field: any) => {
-        const fieldId = parsePositiveInteger(field?.id);
-        const fieldInstanceId = String(field?.instanceId ?? '').trim();
-        return fieldId === selectedFieldId && fieldInstanceId === selectedFieldInstanceId;
-      });
-
-      if (!templateField) {
-        return { success: false, error: 'ไม่พบฟิลด์ที่เลือกในเทมเพลต' };
-      }
-
       const allowedAssignedIds = new Set(
         flowEntriesForUserAtActiveStep.flatMap((flow) => {
           const ids = (flow.assignedFieldInstanceIds as string[]) ?? [];
           return ids.map(id => String(id ?? '').trim()).filter(id => id.length > 0);
         }),
       );
+      const hasSelectedField = Boolean(selectedFieldId && selectedFieldInstanceId.length > 0);
 
-      if (!allowedAssignedIds.has(selectedFieldInstanceId)) {
-        return { success: false, error: 'ฟิลด์ที่เลือกไม่อยู่ในรายการที่ผู้ลงนามปัจจุบันมีสิทธิ์แก้ไข' };
-      }
+      let signatureFieldInstanceId = '';
+      const signatureField = placedFields.find((field: any) => {
+        return getFieldType(field) === 'signature'
+          && allowedAssignedIds.has(String(field?.instanceId ?? '').trim());
+      });
+      signatureFieldInstanceId = String(signatureField?.instanceId ?? '').trim();
 
-      let valueToPersist = selectedFieldIncomingValue;
-      if (!String(valueToPersist).trim().length) {
-        valueToPersist = getTemplatePreferredFieldValue(templateField);
-      }
+      const normalizedIncomingFieldValues = incomingFieldValues
+        .map((entry: any) => ({
+          fieldId: parsePositiveInteger(entry?.fieldId),
+          instanceId: String(entry?.instanceId ?? '').trim(),
+          value: String(entry?.value ?? ''),
+        }))
+        .filter((entry: { fieldId: number | null; instanceId: string; value: string }) => entry.fieldId && entry.instanceId.length > 0 && allowedAssignedIds.has(entry.instanceId));
 
-      if (isCheckboxField(templateField)) {
-        valueToPersist = normalizeCheckboxValue(valueToPersist);
-      }
-
-      const maxLength = parsePositiveInteger(templateField?.maxLength ?? templateField?.max_length);
-      if (maxLength && valueToPersist.length > maxLength) {
-        valueToPersist = valueToPersist.slice(0, maxLength);
-      }
-
-      const existingFieldValue = await db
-        .select({ id: requestTemplateValues.id })
-        .from(requestTemplateValues)
-        .where(and(
-          eq(requestTemplateValues.requestId, requestId),
-          eq(requestTemplateValues.fieldId, selectedFieldId!),
-          eq(requestTemplateValues.fieldInstanceId, selectedFieldInstanceId),
-        ))
-        .limit(1);
-
-      if (existingFieldValue[0]) {
-        await db
-          .update(requestTemplateValues)
-          .set({
-            value: valueToPersist,
-            createdAt: nowIso,
-          })
-          .where(eq(requestTemplateValues.id, existingFieldValue[0].id));
-      }
-      else {
-        await db.insert(requestTemplateValues).values({
-          requestId,
+      if (normalizedIncomingFieldValues.length === 0 && hasSelectedField) {
+        normalizedIncomingFieldValues.push({
           fieldId: selectedFieldId!,
-          fieldInstanceId: selectedFieldInstanceId,
-          value: valueToPersist,
+          instanceId: selectedFieldInstanceId,
+          value: selectedFieldIncomingValue,
         });
       }
+
+      for (const fieldValue of normalizedIncomingFieldValues) {
+        const templateField = placedFields.find((field: any) => {
+          const fieldId = parsePositiveInteger(field?.id);
+          const fieldInstanceId = String(field?.instanceId ?? '').trim();
+          return fieldId === fieldValue.fieldId && fieldInstanceId === fieldValue.instanceId;
+        });
+
+        if (!templateField) {
+          continue;
+        }
+
+        let valueToPersist = fieldValue.value;
+        if (!String(valueToPersist).trim().length) {
+          valueToPersist = getTemplatePreferredFieldValue(templateField);
+        }
+
+        if (isCheckboxField(templateField)) {
+          valueToPersist = normalizeCheckboxValue(valueToPersist);
+        }
+
+        const maxLength = parsePositiveInteger(templateField?.maxLength ?? templateField?.max_length);
+        if (maxLength && valueToPersist.length > maxLength) {
+          valueToPersist = valueToPersist.slice(0, maxLength);
+        }
+
+        const existingFieldValue = await db
+          .select({ id: requestTemplateValues.id })
+          .from(requestTemplateValues)
+          .where(and(
+            eq(requestTemplateValues.requestId, requestId),
+            eq(requestTemplateValues.fieldId, fieldValue.fieldId!),
+            eq(requestTemplateValues.fieldInstanceId, fieldValue.instanceId),
+          ))
+          .limit(1);
+
+        if (existingFieldValue[0]) {
+          await db
+            .update(requestTemplateValues)
+            .set({
+              value: valueToPersist,
+              createdAt: nowIso,
+            })
+            .where(eq(requestTemplateValues.id, existingFieldValue[0].id));
+        }
+        else {
+          await db.insert(requestTemplateValues).values({
+            requestId,
+            fieldId: fieldValue.fieldId!,
+            fieldInstanceId: fieldValue.instanceId,
+            value: valueToPersist,
+          });
+        }
+      }
+
+      const assignedIds = Array.from(allowedAssignedIds);
+      const nonSigAssignedIds = assignedIds.filter((id) => {
+        const field = placedFields.find((candidate: any) => String(candidate?.instanceId ?? '').trim() === id);
+        return field && getFieldType(field) !== 'signature';
+      });
+      const signatureFields = placedFields.filter((field: any) => {
+        return assignedIds.includes(String(field?.instanceId ?? '').trim()) && getFieldType(field) === 'signature';
+      });
+
+      let _signedPdfUrl: string | null = null;
+      let pdfHash = '';
+
+      const maxMergeAttempts = 3;
+      for (let attempt = 1; attempt <= maxMergeAttempts; attempt++) {
+        const [requestSnapshot] = await db
+          .select({ filledDocumentUrl: request.filledDocumentUrl })
+          .from(request)
+          .where(eq(request.id, requestId))
+          .limit(1);
+
+        if (!requestSnapshot) {
+          return { success: false, error: 'Request not found' };
+        }
+
+        const baseFilledDocumentUrl = requestSnapshot.filledDocumentUrl ?? null;
+        const basePdfUrl = baseFilledDocumentUrl ?? undefined;
+
+        const built = await buildFilledPdfBytesForRequest(requestId, userId, {
+          fieldInstanceIdFilter: nonSigAssignedIds,
+          basePdfUrl: basePdfUrl ?? undefined,
+        });
+
+        if (!built.success) {
+          return { success: false, error: built.error === 'Forbidden' ? 'Not allowed to regenerate PDF' : built.error };
+        }
+
+        const PDFLib = await import('pdf-lib');
+        const pdfDoc = await PDFLib.PDFDocument.load(built.bytes);
+        const pages = pdfDoc.getPages();
+        const signatureImageCache = new Map<string, any>();
+
+        const [templateRecord] = await db
+          .select({ documentWidth: requestTemplate.documentWidth, documentHeight: requestTemplate.documentHeight })
+          .from(requestTemplate)
+          .where(eq(requestTemplate.id, Number(requestData.templateId)))
+          .limit(1);
+
+        const templateWidth = Number(templateRecord?.documentWidth ?? 595);
+        const templateHeight = Number(templateRecord?.documentHeight ?? 842);
+
+        for (const field of signatureFields) {
+          const pageIndex = (field.pageNumber || 1) - 1;
+          const targetPage = pages[pageIndex];
+          if (!targetPage) {
+            continue;
+          }
+
+          const { height: pageHeight } = targetPage.getSize();
+
+          let x: number;
+          let y: number;
+          let width: number;
+          let height: number;
+
+          if (field.normalizedX !== undefined) {
+            x = field.normalizedX * templateWidth;
+            y = field.normalizedY * templateHeight;
+            width = field.normalizedWidth * templateWidth;
+            height = field.normalizedHeight * templateHeight;
+          }
+          else {
+            x = field.x || 0;
+            y = field.y || 0;
+            width = field.width || 150;
+            height = field.height || 60;
+          }
+
+          let sigImage = signatureImageCache.get(finalSignatureDataUrl);
+          if (!sigImage) {
+            const base64Data = finalSignatureDataUrl.replace(/^data:image\/\w+;base64,/, '');
+            const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            sigImage = await pdfDoc.embedPng(sigBytes);
+            signatureImageCache.set(finalSignatureDataUrl, sigImage);
+          }
+
+          targetPage.drawImage(sigImage, {
+            x,
+            y: pageHeight - y - height,
+            width,
+            height,
+            opacity: 1,
+          });
+        }
+
+        const signedPdfBytes = await pdfDoc.save();
+        pdfHash = createHash('sha256').update(new Uint8Array(signedPdfBytes)).digest('hex');
+
+        const pdfFilename = `request-${requestId}-reject-${activeStepOrder}-${Date.now()}.pdf`;
+        const { error: pdfUploadError } = await supabaseAdmin.storage
+          .from('filled-requests')
+          .upload(pdfFilename, signedPdfBytes, {
+            contentType: 'application/pdf',
+            cacheControl: '31536000',
+            upsert: false,
+          });
+
+        if (pdfUploadError) {
+          return { success: false, error: `PDF upload failed: ${pdfUploadError.message}` };
+        }
+
+        const { data: { publicUrl: candidateSignedPdfUrl } } = supabaseAdmin.storage
+          .from('filled-requests')
+          .getPublicUrl(pdfFilename);
+
+        const whereCondition = baseFilledDocumentUrl === null
+          ? and(eq(request.id, requestId), isNull(request.filledDocumentUrl))
+          : and(eq(request.id, requestId), eq(request.filledDocumentUrl, baseFilledDocumentUrl));
+
+        const updatedRequest = await db
+          .update(request)
+          .set({ filledDocumentUrl: candidateSignedPdfUrl })
+          .where(whereCondition)
+          .returning({ id: request.id });
+
+        if (updatedRequest.length > 0) {
+          _signedPdfUrl = candidateSignedPdfUrl;
+          break;
+        }
+
+        if (attempt === maxMergeAttempts) {
+          return { success: false, error: 'Another signer updated this request at the same time. Please reject again.' };
+        }
+      }
+
+      const signatureFieldInstanceIds = signatureFields
+        .map((field: any) => String(field?.instanceId ?? '').trim())
+        .filter((id: string) => id.length > 0);
 
       for (const flow of flowEntriesForUserAtActiveStep) {
-        await db.insert(signatures).values({
-          requestId,
-          signatureFlowId: flow.id,
-          userId,
-          fieldInstanceId: selectedFieldInstanceId,
-          dataUrl: finalSignatureDataUrl,
-          userSignatureId: selectedUserSignatureId,
-        });
+        if (signatureFieldInstanceIds.length > 0) {
+          for (const fieldInstanceId of signatureFieldInstanceIds) {
+            await db.insert(signatures).values({
+              requestId,
+              signatureFlowId: flow.id,
+              userId,
+              fieldInstanceId,
+              dataUrl: finalSignatureDataUrl,
+              userSignatureId: selectedUserSignatureId,
+              pdfHash,
+            });
+          }
+        }
+        else {
+          signatureFieldInstanceId = hasSelectedField
+            ? selectedFieldInstanceId
+            : (assignedIds[0] ?? '');
+
+          await db.insert(signatures).values({
+            requestId,
+            signatureFlowId: flow.id,
+            userId,
+            fieldInstanceId: signatureFieldInstanceId || null,
+            dataUrl: finalSignatureDataUrl,
+            userSignatureId: selectedUserSignatureId,
+            pdfHash,
+          });
+        }
       }
     }
 
@@ -334,7 +514,8 @@ export default defineEventHandler(async (event) => {
           .insert(notifications)
           .values({
             userId: String(context.studentId),
-            message: `Your request was rejected by ${signer.signerName}.`,
+            messageEng: `Your request was rejected by ${signer.signerName}.`,
+            messageTh: `คำร้องของคุณถูกปฏิเสธโดย ${signer.signerName}.`,
             type: 'rejected',
             link: '/student/my-requests',
             isRead: false,
@@ -452,7 +633,8 @@ export default defineEventHandler(async (event) => {
           .filter(step => String(step.assignedUserId ?? '').length > 0)
           .map(step => ({
             userId: String(step.assignedUserId),
-            message: 'You have a new request to sign.',
+            messageEng: 'You have a new request to sign.',
+            messageTh: 'คุณมีคำร้องใหม่ให้ลงนาม',
             type: 'sign_request' as const,
             link: `/signer/sign/${requestId}`,
             isRead: false,
