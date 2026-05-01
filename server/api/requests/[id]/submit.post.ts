@@ -1,5 +1,6 @@
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
+import { trimTemplateTitle } from '~~/server/utils/trim-template-title';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
@@ -124,6 +125,37 @@ export default defineEventHandler(async (event) => {
 
     const getTemplateFieldType = (field: any): string =>
       String(field?.type ?? field?.fieldType ?? '').trim().toLowerCase();
+
+    const buildSignRequestMessages = (context: {
+      documentTitle?: string | null;
+      studentName?: string | null;
+      studentNameTh?: string | null;
+      studentNameEn?: string | null;
+      department?: string | null;
+      departmentTh?: string | null;
+      departmentEn?: string | null;
+    }) => {
+      const documentTitle = trimTemplateTitle(context.documentTitle);
+      const titleTh = documentTitle || 'คำร้อง';
+      const titleEng = documentTitle || 'request';
+
+      const studentNameTh = String(context.studentNameTh ?? context.studentName ?? '').trim();
+      const departmentTh = String(context.departmentTh ?? context.department ?? '').trim();
+      const studentNameEn = String(context.studentNameEn ?? '').trim() || studentNameTh;
+      const departmentEn = String(context.departmentEn ?? '').trim() || departmentTh;
+
+      const identityTh = [studentNameTh, departmentTh].filter(Boolean).join(' สาขา');
+      const identityEng = [studentNameEn, departmentEn].filter(Boolean).join(' ');
+
+      return {
+        messageEng: identityEng
+          ? `You have ${titleEng} from ${identityEng} to sign`
+          : `You have ${titleEng} to sign`,
+        messageTh: identityTh
+          ? `คุณมี ${titleTh} จาก ${identityTh} ที่ต้องเซ็น`
+          : `คุณมี ${titleTh} ที่ต้องเซ็น`,
+      };
+    };
 
     const isTemplateCheckboxField = (field: any): boolean => {
       const fieldType = getTemplateFieldType(field);
@@ -394,6 +426,7 @@ export default defineEventHandler(async (event) => {
         ).values());
 
         if (uniquePendingAssignees.length > 0) {
+          const { messageEng, messageTh } = buildSignRequestMessages(context);
           await Promise.allSettled(
             uniquePendingAssignees.map(step => signNotificationService.notifySigner({
               signerEmail: step.signerEmail,
@@ -406,7 +439,8 @@ export default defineEventHandler(async (event) => {
             .insert(notifications)
             .values(uniquePendingAssignees.map(step => ({
               userId: String(step.userId),
-              message: 'You have a new request to sign.',
+              messageEng,
+              messageTh,
               type: 'sign_request' as const,
               link: `/signer/sign/${requestId}`,
               isRead: false,

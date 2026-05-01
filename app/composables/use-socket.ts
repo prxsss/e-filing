@@ -61,7 +61,8 @@ type Notification = {
   id: number;
   userId: string;
   type: 'sign_request' | 'signed' | 'completed' | 'rejected';
-  message: string | null;
+  messageEng: string | null;
+  messageTh: string | null;
   link: string | null;
   isRead: boolean;
   createdAt: string;

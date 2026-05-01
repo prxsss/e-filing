@@ -13,10 +13,16 @@ export interface EmailAdapter {
 export interface SignRequestContext {
   requestId: number;
   studentName: string;
+  studentNameTh: string;
+  studentNameEn: string;
   studentEmail: string;
   studentId: string;
   faculty: string;
+  facultyTh: string;
+  facultyEn: string;
   department: string;
+  departmentTh: string;
+  departmentEn: string;
   documentTitle: string;
   totalSteps: number;
 }

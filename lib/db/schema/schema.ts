@@ -1,13 +1,12 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, bigint, integer, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import { nanoid } from "nanoid"
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected'])
 export const userStatus = pgEnum("user_status", ['active', 'inactive', 'banned'])
 
 
 export const users = pgTable("users", {
-	id: text().primaryKey().notNull().$defaultFn(() => nanoid(12)),
+	id: text().primaryKey().notNull(),
 	firstNameEn: text("first_name_en").notNull(),
 	lastNameEn: text("last_name_en").notNull(),
 	firstNameTh: text("first_name_th").notNull(),
@@ -228,23 +227,6 @@ export const attachments = pgTable("attachments", {
 		}).onUpdate("cascade").onDelete("cascade"),
 ]);
 
-export const notifications = pgTable("notifications", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "notifications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	userId: text("user_id"),
-	message: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	isRead: boolean("is_read").default(false).notNull(),
-	type: notificationType().notNull(),
-	link: text(),
-}, (table) => [
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "notifications_user_id_fkey"
-		}),
-]);
-
 export const auditLogs = pgTable("audit_logs", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "audit_logs_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -363,6 +345,24 @@ export const requestTemplateFields = pgTable("request_template_fields", {
 	dateFormatConfig: jsonb("date_format_config").default({}),
 	dropdownConfig: jsonb("dropdown_config").default({}),
 });
+
+export const notifications = pgTable("notifications", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "notifications_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	userId: text("user_id"),
+	messageEng: text("message_eng"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	isRead: boolean("is_read").default(false).notNull(),
+	type: notificationType().notNull(),
+	link: text(),
+	messageTh: text("message_th"),
+}, (table) => [
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "notifications_user_id_fkey"
+		}),
+]);
 
 export const rolePermissions = pgTable("role_permissions", {
 	roleId: integer("role_id").notNull(),

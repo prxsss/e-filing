@@ -1,18 +1,21 @@
 // server/utils/email/templates/notify-signer.ts
 import type { EmailPayload, SignRequestContext } from '../types';
 
+import { trimTemplateTitle } from '../../trim-template-title';
+
 export function notifySignerTemplate(options: {
   to: string;
   signerName: string;
   currentStep: number;
   signUrl: string;
 } & SignRequestContext): EmailPayload {
+  const documentTitle = trimTemplateTitle(options.documentTitle);
   return {
     to: options.to,
-    subject: `[ขอลายเซ็น] ${options.documentTitle} — ${options.studentName} (${options.studentId})`,
+    subject: `[ขอลายเซ็น] ${documentTitle} — ${options.studentName} (${options.studentId})`,
     text: [
       `เรียน ${options.signerName}`,
-      `${options.studentName} (${options.studentId}) ขอลายเซ็นในเอกสาร "${options.documentTitle}"`,
+      `${options.studentName} (${options.studentId}) ขอลายเซ็นในเอกสาร "${documentTitle}"`,
       `คณะ/สาขา: ${options.faculty}`,
       `ขั้นตอนที่ ${options.currentStep} จาก ${options.totalSteps}`,
       `ลงนามได้ที่: ${options.signUrl}`,
@@ -27,7 +30,7 @@ export function notifySignerTemplate(options: {
       <tr>
         <td style="padding:24px 32px;border-bottom:1px solid #e0e0e0;">
           <p style="margin:0 0 2px;font-size:12px;color:#888;">ขอลายเซ็นเอกสาร — ขั้นตอนที่ ${options.currentStep}/${options.totalSteps}</p>
-          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${options.documentTitle}</h1>
+          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${documentTitle}</h1>
         </td>
       </tr>
       <tr>

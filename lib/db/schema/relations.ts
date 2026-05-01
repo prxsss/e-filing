@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { users, userSignatures, departments, userRoles, faculties, roles, request, signatures, signatureFlow, attachments, notifications, requestTemplateValues, activationOtps, permissions, rolePermissions } from "./schema";
+import { users, userSignatures, departments, userRoles, faculties, roles, request, signatures, signatureFlow, attachments, requestTemplateValues, activationOtps, notifications, permissions, rolePermissions } from "./schema";
 
 export const userSignaturesRelations = relations(userSignatures, ({one, many}) => ({
 	user: one(users, {
@@ -19,9 +19,9 @@ export const usersRelations = relations(users, ({many}) => ({
 	signatureFlows_signedBy: many(signatureFlow, {
 		relationName: "signatureFlow_signedBy_users_id"
 	}),
-	notifications: many(notifications),
 	requests: many(request),
 	activationOtps: many(activationOtps),
+	notifications: many(notifications),
 }));
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({
@@ -131,13 +131,6 @@ export const attachmentsRelations = relations(attachments, ({one}) => ({
 	}),
 }));
 
-export const notificationsRelations = relations(notifications, ({one}) => ({
-	user: one(users, {
-		fields: [notifications.userId],
-		references: [users.id]
-	}),
-}));
-
 export const requestTemplateValuesRelations = relations(requestTemplateValues, ({one}) => ({
 	request: one(request, {
 		fields: [requestTemplateValues.requestId],
@@ -148,6 +141,13 @@ export const requestTemplateValuesRelations = relations(requestTemplateValues, (
 export const activationOtpsRelations = relations(activationOtps, ({one}) => ({
 	user: one(users, {
 		fields: [activationOtps.userId],
+		references: [users.id]
+	}),
+}));
+
+export const notificationsRelations = relations(notifications, ({one}) => ({
+	user: one(users, {
+		fields: [notifications.userId],
 		references: [users.id]
 	}),
 }));

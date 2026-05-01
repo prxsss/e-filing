@@ -9,11 +9,14 @@ export default defineEventHandler(async (event) => {
     // Allowed notification types from enum
     const allowedTypes = notificationType.enumValues;
 
+    const messageEng = body.messageEng ?? body.message_eng ?? body.message ?? null;
+    const messageTh = body.messageTh ?? body.message_th ?? null;
+
     // Validate required fields
-    if (!body.userId || !body.message || !body.type) {
+    if (!body.userId || (!messageEng && !messageTh) || !body.type) {
       return {
         success: false,
-        error: 'userId, message, and type are required',
+        error: 'userId, messageEng/messageTh, and type are required',
       };
     }
 
@@ -27,7 +30,8 @@ export default defineEventHandler(async (event) => {
     // Prepare notification data
     const notificationData = {
       userId: String(body.userId),
-      message: body.message,
+      messageEng,
+      messageTh,
       type: body.type,
       link: body.link ?? null,
       isRead: false,

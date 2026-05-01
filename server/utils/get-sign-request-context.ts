@@ -9,13 +9,18 @@ export async function getSignRequestContext(requestId: number): Promise<SignRequ
     db
       .select({
         documentTitle: requestTemplate.name,
-        studentName: sql<string>`
+        studentNameTh: sql<string>`
           concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+        `,
+        studentNameEn: sql<string>`
+          concat(${users.titleEn}, ${users.firstNameEn}, ' ', ${users.lastNameEn})
         `,
         studentEmail: users.email,
         studentId: users.id,
-        faculty: faculties.nameTh,
-        department: departments.nameTh,
+        facultyTh: faculties.nameTh,
+        facultyEn: faculties.nameEn,
+        departmentTh: departments.nameTh,
+        departmentEn: departments.nameEn,
       })
       .from(request)
       .innerJoin(users, eq(request.userId, users.id))
@@ -33,11 +38,17 @@ export async function getSignRequestContext(requestId: number): Promise<SignRequ
 
   return {
     requestId,
-    studentName: req.studentName,
+    studentName: req.studentNameTh,
+    studentNameTh: req.studentNameTh,
+    studentNameEn: req.studentNameEn,
     studentEmail: req.studentEmail,
     studentId: req.studentId,
-    faculty: req.faculty,
-    department: req.department,
+    faculty: req.facultyTh,
+    facultyTh: req.facultyTh,
+    facultyEn: req.facultyEn,
+    department: req.departmentTh,
+    departmentTh: req.departmentTh,
+    departmentEn: req.departmentEn,
     documentTitle: req.documentTitle!,
     totalSteps: total - 1, // total steps = total entries in signatureFlow - 1 (because the first entry is the requester)
   };

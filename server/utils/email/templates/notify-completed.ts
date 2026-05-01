@@ -1,16 +1,19 @@
 // server/utils/email/templates/notify-completed.ts
 import type { EmailPayload, SignRequestContext } from '../types';
 
+import { trimTemplateTitle } from '../../trim-template-title';
+
 export function notifyCompletedTemplate(options: {
   signerName: string;
   trackUrl: string;
 } & SignRequestContext): EmailPayload {
+  const documentTitle = trimTemplateTitle(options.documentTitle);
   return {
     to: options.studentEmail,
-    subject: `[ลงนามครบแล้ว] ${options.documentTitle}`,
+    subject: `[ลงนามครบแล้ว] ${documentTitle}`,
     text: [
       `เรียน ${options.studentName}`,
-      `${options.signerName} ได้ลงนามในเอกสาร "${options.documentTitle}" แล้ว`,
+      `${options.signerName} ได้ลงนามในเอกสาร "${documentTitle}" แล้ว`,
       `เอกสารได้รับลายเซ็นครบทุกขั้นตอนแล้ว`,
       `ติดตามสถานะ: ${options.trackUrl}`,
     ].join('\n\n'),
@@ -24,7 +27,7 @@ export function notifyCompletedTemplate(options: {
       <tr>
         <td style="padding:24px 32px;border-bottom:1px solid #e0e0e0;">
           <p style="margin:0 0 2px;font-size:12px;color:#888;">ดำเนินการเสร็จสิ้น</p>
-          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${options.documentTitle}</h1>
+          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${documentTitle}</h1>
         </td>
       </tr>
       <tr>

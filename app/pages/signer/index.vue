@@ -8,7 +8,7 @@ definePageMeta({
 const localePath = useLocalePath();
 const router = useRouter();
 const authStore = useAuthStore();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 // === Types ===
 type NotificationType = 'sign_request' | 'signed' | 'completed' | 'rejected';
@@ -17,7 +17,8 @@ type Notification = {
   id: number;
   userId: string;
   type: NotificationType;
-  message: string | null;
+  messageEng: string | null;
+  messageTh: string | null;
   link: string | null;
   isRead: boolean;
   createdAt: string;
@@ -75,6 +76,12 @@ const notifTypeColor: Record<NotificationType, string> = {
   completed: 'success',
 };
 
+function getNotificationMessage(notif: Notification): string {
+  if (locale.value === 'th')
+    return notif.messageTh ?? notif.messageEng ?? notifTypeLabel[notif.type] ?? '—';
+  return notif.messageEng ?? notif.messageTh ?? notifTypeLabel[notif.type] ?? '—';
+}
+
 const columns = [
   {
     id: 'unread',
@@ -91,8 +98,9 @@ const columns = [
     },
   },
   {
-    accessorKey: 'message',
+    accessorKey: 'messageEng',
     header: t('signerDashboard.notifications.table.message'),
+    cell: (ctx: any) => getNotificationMessage(ctx.row.original as Notification),
   },
   {
     accessorKey: 'type',
@@ -232,11 +240,11 @@ async function markAllRead() {
           <template #message-cell="{ row }">
             <div v-if="!row.original.isRead" class="flex items-center gap-2">
               <span class="font-semibold text-gray-900 leading-snug">
-                {{ row.original.message ?? '—' }}
+                {{ getNotificationMessage(row.original) }}
               </span>
             </div>
             <span v-else class="text-gray-400 text-sm leading-snug">
-              {{ row.original.message ?? '—' }}
+              {{ getNotificationMessage(row.original) }}
             </span>
           </template>
 

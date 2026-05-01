@@ -1,16 +1,19 @@
 import type { EmailPayload, SignRequestContext } from '../types';
 
+import { trimTemplateTitle } from '../../trim-template-title';
+
 export function notifySignedTemplate(options: {
   signerName: string;
   currentStep: number;
   trackUrl: string;
 } & SignRequestContext): EmailPayload {
+  const documentTitle = trimTemplateTitle(options.documentTitle);
   return {
     to: options.studentEmail,
-    subject: `[อัปเดตคำร้อง] ${options.documentTitle} — ขั้นตอนที่ ${options.currentStep}/${options.totalSteps} ผ่านแล้ว`,
+    subject: `[อัปเดตคำร้อง] ${documentTitle} — ขั้นตอนที่ ${options.currentStep}/${options.totalSteps} ผ่านแล้ว`,
     text: [
       `เรียน ${options.studentName}`,
-      `${options.signerName} ได้ลงนามในเอกสาร "${options.documentTitle}" แล้ว`,
+      `${options.signerName} ได้ลงนามในเอกสาร "${documentTitle}" แล้ว`,
       `ความคืบหน้า: ${options.currentStep}/${options.totalSteps} ขั้นตอน`,
       `ติดตามสถานะ: ${options.trackUrl}`,
     ].join('\n\n'),
@@ -24,7 +27,7 @@ export function notifySignedTemplate(options: {
       <tr>
         <td style="padding:24px 32px;border-bottom:1px solid #e0e0e0;">
           <p style="margin:0 0 2px;font-size:12px;color:#888;">อัปเดตสถานะคำร้อง</p>
-          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${options.documentTitle}</h1>
+          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${documentTitle}</h1>
         </td>
       </tr>
       <tr>

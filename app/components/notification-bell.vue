@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const authStore = useAuthStore();
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const localePath = useLocalePath();
 
 // === Types ===
@@ -10,7 +10,8 @@ type Notification = {
   id: number;
   userId: string;
   type: NotificationType;
-  message: string | null;
+  messageEng: string | null;
+  messageTh: string | null;
   link: string | null;
   isRead: boolean;
   createdAt: string;
@@ -58,6 +59,12 @@ const notifTypeColor: Record<NotificationType, 'warning' | 'success' | 'error' |
   rejected: 'error',
   completed: 'success',
 };
+
+function getNotificationMessage(notif: Notification): string {
+  if (locale.value === 'th')
+    return notif.messageTh ?? notif.messageEng ?? notifTypeLabel[notif.type] ?? '—';
+  return notif.messageEng ?? notif.messageTh ?? notifTypeLabel[notif.type] ?? '—';
+}
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -139,7 +146,7 @@ async function onNotificationClick(notif: Notification) {
                 <span class="text-xs text-gray-400">{{ formatRelativeTime(notif.createdAt) }}</span>
               </div>
               <div :class="notif.isRead ? 'text-gray-400 text-sm' : 'font-semibold text-gray-900'">
-                {{ notif.message ?? '—' }}
+                {{ getNotificationMessage(notif) }}
               </div>
             </div>
             <UIcon

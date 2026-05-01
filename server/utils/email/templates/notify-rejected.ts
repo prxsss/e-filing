@@ -1,16 +1,19 @@
 import type { EmailPayload, SignRequestContext } from '../types';
 
+import { trimTemplateTitle } from '../../trim-template-title';
+
 export function notifyRejectedTemplate(options: {
   rejectedBy: string;
   reason: string;
   resubmitUrl: string;
 } & SignRequestContext): EmailPayload {
+  const documentTitle = trimTemplateTitle(options.documentTitle);
   return {
     to: options.studentEmail,
-    subject: `[คำร้องถูกปฏิเสธ] ${options.documentTitle}`,
+    subject: `[คำร้องถูกปฏิเสธ] ${documentTitle}`,
     text: [
       `เรียน ${options.studentName}`,
-      `เอกสาร "${options.documentTitle}" ถูกปฏิเสธโดย ${options.rejectedBy}`,
+      `เอกสาร "${documentTitle}" ถูกปฏิเสธโดย ${options.rejectedBy}`,
       `เหตุผล: ${options.reason}`,
       `ยื่นคำร้องใหม่ได้ที่: ${options.resubmitUrl}`,
     ].join('\n\n'),
@@ -24,7 +27,7 @@ export function notifyRejectedTemplate(options: {
       <tr>
         <td style="padding:24px 32px;border-bottom:1px solid #e0e0e0;">
           <p style="margin:0 0 2px;font-size:12px;color:#888;">คำร้องถูกปฏิเสธ</p>
-          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${options.documentTitle}</h1>
+          <h1 style="margin:4px 0 0;font-size:18px;color:#111;">${documentTitle}</h1>
         </td>
       </tr>
       <tr>

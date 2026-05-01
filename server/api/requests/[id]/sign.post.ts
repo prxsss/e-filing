@@ -4,6 +4,7 @@ import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
+import { trimTemplateTitle } from '~~/server/utils/trim-template-title';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
@@ -451,6 +452,37 @@ export default defineEventHandler(async (event) => {
       .set({ status: 'signed', signedBy: userId, signedAt: new Date().toISOString() })
       .where(inArray(signatureFlow.id, flowEntriesForUserAtActiveStep.map(flow => flow.id)));
 
+    const buildSignRequestMessages = (context: {
+      documentTitle?: string | null;
+      studentName?: string | null;
+      studentNameTh?: string | null;
+      studentNameEn?: string | null;
+      department?: string | null;
+      departmentTh?: string | null;
+      departmentEn?: string | null;
+    }) => {
+      const documentTitle = trimTemplateTitle(context.documentTitle);
+      const titleTh = documentTitle || 'คำร้อง';
+      const titleEng = documentTitle || 'request';
+
+      const studentNameTh = String(context.studentNameTh ?? context.studentName ?? '').trim();
+      const departmentTh = String(context.departmentTh ?? context.department ?? '').trim();
+      const studentNameEn = String(context.studentNameEn ?? '').trim() || studentNameTh;
+      const departmentEn = String(context.departmentEn ?? '').trim() || departmentTh;
+
+      const identityTh = [studentNameTh, departmentTh].filter(Boolean).join(' สาขา');
+      const identityEng = [studentNameEn, departmentEn].filter(Boolean).join(' ');
+
+      return {
+        messageEng: identityEng
+          ? `You have ${titleEng} from ${identityEng} to sign`
+          : `You have ${titleEng} to sign`,
+        messageTh: identityTh
+          ? `คุณมี ${titleTh} จาก ${identityTh} ที่ต้องเซ็น`
+          : `คุณมี ${titleTh} ที่ต้องเซ็น`,
+      };
+    };
+
     // Get context for notification
     const context = await getSignRequestContext(requestId);
 
@@ -559,7 +591,7 @@ export default defineEventHandler(async (event) => {
         .filter(step => String(step.assignedUserId ?? '').length > 0)
         .map(step => ({
           userId: String(step.assignedUserId),
-          message: 'You have a new request to sign.',
+          ...buildSignRequestMessages(context),
           type: 'sign_request' as const,
           link: `/signer/sign/${requestId}`,
           isRead: false,
@@ -593,7 +625,8 @@ export default defineEventHandler(async (event) => {
             .insert(notifications)
             .values({
               userId: String(context.studentId),
-              message: `${currentSigner.signerName} has signed your request.`,
+              messageEng: `${currentSigner.signerName} has signed your request.`,
+              messageTh: `${currentSigner.signerName} ได้ลงนามคำร้องของคุณแล้ว`,
               type: 'signed',
               link: '/student/my-requests',
               isRead: false,
@@ -641,7 +674,8 @@ export default defineEventHandler(async (event) => {
           .insert(notifications)
           .values({
             userId: String(context.studentId),
-            message: 'Your request has been completed.',
+            messageEng: 'Your request has been completed.',
+            messageTh: 'คำร้องของคุณเสร็จสมบูรณ์แล้ว',
             type: 'completed',
             link: '/student/my-requests',
             isRead: false,
