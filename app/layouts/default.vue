@@ -175,6 +175,35 @@ const userDisplayName = computed(() => {
     ? joinNameParts(user.titleEn, user.fullNameEn)
     : joinNameParts(user.titleTh, user.fullNameTh);
 });
+
+const displayRoles = computed(() => {
+  const roles = authStore.session.user?.roles;
+  if (!roles || roles.length === 0)
+    return '';
+
+  if (roles.length <= 2) {
+    return roles.join(', ');
+  }
+
+  return `${roles[0]}, ${roles[1]}`;
+});
+
+const showMoreRolesIndicator = computed(() => {
+  const roles = authStore.session.user?.roles;
+  return roles && roles.length > 2;
+});
+
+const remainingRoles = computed(() => {
+  const roles = authStore.session.user?.roles;
+  if (!roles || roles.length <= 2)
+    return [];
+  return roles.slice(2);
+});
+
+const remainingRolesText = computed(() => {
+  const remaining = remainingRoles.value;
+  return remaining.join(', ');
+});
 </script>
 
 <template>
@@ -242,7 +271,21 @@ const userDisplayName = computed(() => {
                     {{ userDisplayName }}
                   </p>
                   <p class="text-xs capitalize">
-                    {{ authStore.session.user?.currentRole }}
+                    {{ displayRoles }}
+                    <UTooltip
+                      v-if="showMoreRolesIndicator"
+                      :shortcuts="[]"
+                      arrow
+                      :delay-duration="0"
+                    >
+                      <span class="cursor-pointer hover:underline">(+{{ remainingRoles.length }} more)</span>
+
+                      <template #content>
+                        <div class="whitespace-nowrap">
+                          {{ remainingRolesText }}
+                        </div>
+                      </template>
+                    </UTooltip>
                   </p>
                 </div>
                 <UAvatar
