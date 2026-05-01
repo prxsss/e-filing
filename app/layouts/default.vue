@@ -278,7 +278,7 @@ const remainingRolesText = computed(() => {
                       arrow
                       :delay-duration="0"
                     >
-                      <span class="cursor-pointer hover:underline">(+{{ remainingRoles.length }} more)</span>
+                      <span class="cursor-pointer hover:underline">(+{{ remainingRoles.length }} {{ t('common.more') }})</span>
 
                       <template #content>
                         <div class="whitespace-nowrap">

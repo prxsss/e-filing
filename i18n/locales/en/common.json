@@ -1,6 +1,7 @@
 {
   "common": {
     "allFaculties": "All Faculties",
+    "more": "more",
     "periodOptions": {
       "Today": "Today",
       "Yesterday": "Yesterday",

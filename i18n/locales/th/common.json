@@ -1,6 +1,7 @@
 {
   "common": {
     "allFaculties": "ทุกคณะ",
+    "more": "เพิ่มเติม",
     "periodOptions": {
       "Today": "วันนี้",
       "Yesterday": "เมื่อวาน",
