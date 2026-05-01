@@ -2,7 +2,7 @@ import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
 import { getSignRequestContext } from '~~/server/utils/get-sign-request-context';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 import db from '../../../../lib/db';
@@ -191,6 +191,22 @@ export default defineEventHandler(async (event) => {
     if (requestData.status === 'rejected' || requestData.status === 'completed') {
       return { success: false, error: 'คำร้องนี้ดำเนินการเสร็จสิ้นแล้ว ไม่สามารถปฏิเสธได้' };
     }
+
+    const [templateRuleData] = await db
+      .select({ signingFlowData: requestTemplate.signingFlowData })
+      .from(requestTemplate)
+      .where(eq(requestTemplate.id, Number(requestData.templateId)))
+      .limit(1);
+
+    const templateSigningFlowData = Array.isArray(templateRuleData?.signingFlowData)
+      ? templateRuleData.signingFlowData as Array<{ id?: unknown; rejectsRequestImmediately?: unknown }>
+      : [];
+
+    const currentStepRule = templateSigningFlowData.find((step) => {
+      return String(step?.id ?? '').trim() === String(flowEntry.stepId ?? '').trim();
+    });
+
+    const shouldRejectWholeRequestImmediately = Boolean(currentStepRule?.rejectsRequestImmediately);
 
     const activeStepOrder = flowEntry.stepOrder;
     const stageEntries = await db
@@ -476,8 +492,10 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Non-parallel stage: preserve existing full-request rejection behavior.
-    if (!isParallelStage) {
+    // Full-request rejection behavior:
+    // - non-parallel stages (existing behavior)
+    // - parallel stages configured to reject immediately for this role/step
+    if (!isParallelStage || shouldRejectWholeRequestImmediately) {
       await db
         .update(signatureFlow)
         .set({ status: 'rejected', signedBy: userId, signedAt: nowIso })
@@ -488,7 +506,8 @@ export default defineEventHandler(async (event) => {
         .set({ status: 'cancelled' })
         .where(and(
           eq(signatureFlow.requestId, requestId),
-          eq(signatureFlow.status, 'waiting'),
+          ne(signatureFlow.id, flowEntry.id),
+          inArray(signatureFlow.status, ['pending', 'waiting']),
         ));
 
       await db
