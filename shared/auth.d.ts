@@ -9,6 +9,7 @@ declare module '#auth-utils' {
     titleTh?: string;
     fullNameTh: string;
     roles: string[];
+    rolesTh: string[];
     currentRole: string;
     permissions: string[];
     typePerson?: string;

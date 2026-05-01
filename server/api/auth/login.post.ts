@@ -59,8 +59,9 @@ export default defineEventHandler(async (event) => {
 
   const [userAuth] = await db
     .select({
-      roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
-      permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
+      roles: sql<string[]>`coalesce(array_agg(DISTINCT ${roles.name}), '{}')`,
+      rolesTh: sql<string[]>`coalesce(array_agg(DISTINCT ${roles.nameTh}), '{}')`,
+      permissions: sql<string[]>`coalesce(array_agg(DISTINCT ${permissions.code}), '{}')`,
       facultyNameTh: sql<string | null>`max(${faculties.nameTh})`,
       departmentCode: sql<string | null>`max(${departments.departmentCode})`,
       departmentNameTh: sql<string | null>`max(${departments.nameTh})`,
@@ -81,6 +82,7 @@ export default defineEventHandler(async (event) => {
       titleTh: user.titleTh || undefined,
       fullNameTh: user.fullNameTh,
       roles: userAuth.roles,
+      rolesTh: userAuth.rolesTh,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
       email: user.email,
@@ -110,6 +112,7 @@ export default defineEventHandler(async (event) => {
       departmentCode: userAuth.departmentCode || undefined,
       departmentNameTh: userAuth.departmentNameTh || undefined,
       roles: userAuth.roles,
+      rolesTh: userAuth.rolesTh,
       currentRole: userAuth.roles[0],
       permissions: userAuth.permissions,
     },

@@ -124,10 +124,6 @@ export const useAuthStore = defineStore('auth', () => {
     return permissionCodes.some(code => userPermissions.includes(code));
   }
 
-  function hasRole(roleName: string) {
-    return session.user.value?.currentRole === roleName;
-  }
-
   return {
     session,
     loading,
@@ -138,6 +134,5 @@ export const useAuthStore = defineStore('auth', () => {
     clearError,
     can,
     canAny,
-    hasRole,
   };
 });

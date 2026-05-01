@@ -255,8 +255,9 @@ export default defineEventHandler(async (event) => {
 
     const [userAuth] = await db
       .select({
-        roles: sql<string[]>`array_agg(DISTINCT ${roles.name})`,
-        permissions: sql<string[]>`array_agg(DISTINCT ${permissions.code})`,
+        roles: sql<string[]>`coalesce(array_agg(DISTINCT ${roles.name}), '{}')`,
+        rolesTh: sql<string[]>`coalesce(array_agg(DISTINCT ${roles.nameTh}), '{}')`,
+        permissions: sql<string[]>`coalesce(array_agg(DISTINCT ${permissions.code}), '{}')`,
         facultyNameTh: sql<string | null>`max(${faculties.nameTh})`,
         departmentCode: sql<string | null>`max(${departments.departmentCode})`,
         departmentNameTh: sql<string | null>`max(${departments.nameTh})`,
@@ -280,6 +281,7 @@ export default defineEventHandler(async (event) => {
         fullNameTh: user.fullNameTh,
         titleTh: user.titleTh || undefined,
         roles: mappedRoles,
+        rolesTh: userAuth?.rolesTh ?? [],
         currentRole: mappedRoles[0] ?? '',
         permissions: mappedPermissions,
         typePerson: userInfo['type-person'],

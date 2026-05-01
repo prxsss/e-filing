@@ -177,7 +177,7 @@ const userDisplayName = computed(() => {
 });
 
 const displayRoles = computed(() => {
-  const roles = authStore.session.user?.roles;
+  const roles = locale.value === 'en' ? authStore.session.user?.roles : authStore.session.user?.rolesTh;
   if (!roles || roles.length === 0)
     return '';
 
@@ -189,12 +189,12 @@ const displayRoles = computed(() => {
 });
 
 const showMoreRolesIndicator = computed(() => {
-  const roles = authStore.session.user?.roles;
+  const roles = locale.value === 'en' ? authStore.session.user?.roles : authStore.session.user?.rolesTh;
   return roles && roles.length > 2;
 });
 
 const remainingRoles = computed(() => {
-  const roles = authStore.session.user?.roles;
+  const roles = locale.value === 'en' ? authStore.session.user?.roles : authStore.session.user?.rolesTh;
   if (!roles || roles.length <= 2)
     return [];
   return roles.slice(2);
