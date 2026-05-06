@@ -116,34 +116,59 @@ export function placeField(field: any, options?: { preserveFormLayout?: boolean 
   }
 
   if (type === 'date' || type === 'time' || type === 'datetime') {
-    if (typeof field?.dateShowDay !== 'undefined')
-      result.dateShowDay = Boolean(field.dateShowDay);
-    if (typeof field?.dateShowMonth !== 'undefined')
-      result.dateShowMonth = Boolean(field.dateShowMonth);
-    if (typeof field?.dateShowYear !== 'undefined')
-      result.dateShowYear = Boolean(field.dateShowYear);
-    if (typeof field?.dateShowDayOfWeek !== 'undefined')
-      result.dateShowDayOfWeek = Boolean(field.dateShowDayOfWeek);
-    if (typeof field?.dateDayOfWeekStyle !== 'undefined')
-      result.dateDayOfWeekStyle = field.dateDayOfWeekStyle === 'short' ? 'short' : 'long';
-    if (Number.isFinite(Number(field?.dateDayOfWeekGap)))
-      result.dateDayOfWeekGap = Number(field.dateDayOfWeekGap);
-    if (typeof field?.dateMonthStyle !== 'undefined')
-      result.dateMonthStyle = (field.dateMonthStyle === 'short' || field.dateMonthStyle === 'long') ? field.dateMonthStyle : 'numeric';
-    if (typeof field?.dateCalendar !== 'undefined')
-      result.dateCalendar = field.dateCalendar === 'be' ? 'be' : 'ad';
-    if (typeof field?.timeShowHour !== 'undefined')
-      result.timeShowHour = Boolean(field.timeShowHour);
-    if (typeof field?.timeShowMinute !== 'undefined')
-      result.timeShowMinute = Boolean(field.timeShowMinute);
-    if (typeof field?.dateSeparator !== 'undefined')
-      result.dateSeparator = String(field.dateSeparator ?? '');
-    if (typeof field?.timeSeparator !== 'undefined')
-      result.timeSeparator = String(field.timeSeparator ?? '');
-    if (Number.isFinite(field?.dateSeparatorSpacing))
-      result.dateSeparatorSpacing = Number(field.dateSeparatorSpacing);
-    if (Number.isFinite(field?.timeSeparatorSpacing))
-      result.timeSeparatorSpacing = Number(field.timeSeparatorSpacing);
+    const dateConfig = field?.dateFormatConfig ?? field?.date_format_config;
+    const resolveDateConfigValue = (key: string) => {
+      if (typeof field?.[key] !== 'undefined') {
+        return field[key];
+      }
+      if (dateConfig && typeof dateConfig === 'object' && typeof dateConfig[key] !== 'undefined') {
+        return dateConfig[key];
+      }
+      return undefined;
+    };
+
+    const dateShowDay = resolveDateConfigValue('dateShowDay');
+    if (typeof dateShowDay !== 'undefined')
+      result.dateShowDay = Boolean(dateShowDay);
+    const dateShowMonth = resolveDateConfigValue('dateShowMonth');
+    if (typeof dateShowMonth !== 'undefined')
+      result.dateShowMonth = Boolean(dateShowMonth);
+    const dateShowYear = resolveDateConfigValue('dateShowYear');
+    if (typeof dateShowYear !== 'undefined')
+      result.dateShowYear = Boolean(dateShowYear);
+    const dateShowDayOfWeek = resolveDateConfigValue('dateShowDayOfWeek');
+    if (typeof dateShowDayOfWeek !== 'undefined')
+      result.dateShowDayOfWeek = Boolean(dateShowDayOfWeek);
+    const dateDayOfWeekStyle = resolveDateConfigValue('dateDayOfWeekStyle');
+    if (typeof dateDayOfWeekStyle !== 'undefined')
+      result.dateDayOfWeekStyle = dateDayOfWeekStyle === 'short' ? 'short' : 'long';
+    const dateDayOfWeekGap = resolveDateConfigValue('dateDayOfWeekGap');
+    if (Number.isFinite(Number(dateDayOfWeekGap)))
+      result.dateDayOfWeekGap = Number(dateDayOfWeekGap);
+    const dateMonthStyle = resolveDateConfigValue('dateMonthStyle');
+    if (typeof dateMonthStyle !== 'undefined')
+      result.dateMonthStyle = (dateMonthStyle === 'short' || dateMonthStyle === 'long') ? dateMonthStyle : 'numeric';
+    const dateCalendar = resolveDateConfigValue('dateCalendar');
+    if (typeof dateCalendar !== 'undefined')
+      result.dateCalendar = dateCalendar === 'be' ? 'be' : 'ad';
+    const timeShowHour = resolveDateConfigValue('timeShowHour');
+    if (typeof timeShowHour !== 'undefined')
+      result.timeShowHour = Boolean(timeShowHour);
+    const timeShowMinute = resolveDateConfigValue('timeShowMinute');
+    if (typeof timeShowMinute !== 'undefined')
+      result.timeShowMinute = Boolean(timeShowMinute);
+    const dateSeparator = resolveDateConfigValue('dateSeparator');
+    if (typeof dateSeparator !== 'undefined')
+      result.dateSeparator = String(dateSeparator ?? '');
+    const timeSeparator = resolveDateConfigValue('timeSeparator');
+    if (typeof timeSeparator !== 'undefined')
+      result.timeSeparator = String(timeSeparator ?? '');
+    const dateSeparatorSpacing = resolveDateConfigValue('dateSeparatorSpacing');
+    if (Number.isFinite(Number(dateSeparatorSpacing)))
+      result.dateSeparatorSpacing = Number(dateSeparatorSpacing);
+    const timeSeparatorSpacing = resolveDateConfigValue('timeSeparatorSpacing');
+    if (Number.isFinite(Number(timeSeparatorSpacing)))
+      result.timeSeparatorSpacing = Number(timeSeparatorSpacing);
   }
 
   if (type === 'signature') {

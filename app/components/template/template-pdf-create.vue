@@ -1639,7 +1639,7 @@ defineExpose<{
               </div>
               <!-- Signer role tag (visible in read-only mode with signing steps) -->
               <div
-                v-if="props.signingSteps.length > 0 && getFieldSignerRole(field)"
+                v-if="props.signingSteps.length > 0 && getFieldSignerRole(field) && !hasFieldTextOverride(field) && !props.fillMode"
                 class="signer-tag"
                 :style="{ backgroundColor: getFieldSignerColor(field) || '#6B7280' }"
               >

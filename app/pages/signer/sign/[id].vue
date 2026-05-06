@@ -77,6 +77,7 @@ type VisibilityRule = {
 type RejectMode = 'status_only' | 'with_signature_and_field';
 
 const route = useRoute();
+const router = useRouter();
 const requestId = Number(route.params.id);
 const { t, locale } = useI18n();
 
@@ -1012,6 +1013,9 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
           : t('signerSignDetail.toast.rejectDescription'),
         color: isLocalReject ? 'warning' : 'error',
       });
+
+      router.push('/signer/to-sign');
+
       signatureDataUrl.value = null;
       signatureSource.value = 'none';
       selectedSavedSignatureId.value = null;
@@ -1056,6 +1060,8 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
       : t('signerSignDetail.success.forwardedWithSignature', { role: data?.nextRole ?? t('signerSignDetail.success.nextStepFallback') });
   }
 
+  await router.push('/signer/to-sign');
+
   signatureDataUrl.value = null;
   signatureSource.value = 'none';
   selectedSavedSignatureId.value = null;
@@ -1065,8 +1071,6 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
   if (newStatus !== 'in_progress') {
     await fetchStatus();
   }
-
-  await navigateTo('/signer/to-sign');
 }
 
 async function submitSignature() {
