@@ -15,6 +15,7 @@
       "studentName": "Student Name",
       "document": "Request",
       "step": "Step",
+      "acknowledgeOnly": "Acknowledge",
       "submittedDate": "Submitted Date"
     },
     "emptyState": {
@@ -46,6 +47,10 @@
     "signFlow": {
       "title": "Signing Flow"
     },
+    "stepType": {
+      "approver": "Approver",
+      "acknowledger": "Acknowledger"
+    },
     "fieldsToFill": {
       "title": "Required Information"
     },
@@ -59,6 +64,10 @@
         "openNew": "Open in new tab",
         "download": "Download file"
       }
+    },
+    "acknowledge": {
+      "alertTitle": "Acknowledge this request",
+      "alertDescription": "Step {step} ({roles}). Sign a signature and click acknowledge to confirm you have reviewed this document."
     },
     "signature": {
       "alertTitle": "Signature is required for this step",
@@ -83,7 +92,8 @@
       "reject": "Reject",
       "rejectWithSignature": "Sign Rejection",
       "signAndContinue": "Sign and Continue",
-      "confirmAndContinue": "Confirm and Continue"
+      "confirmAndContinue": "Confirm and Continue",
+      "acknowledge": "Acknowledge"
     },
     "rejectDialog": {
       "title": "Reject Signing",
@@ -116,12 +126,14 @@
       "completedWithSignature": "Signed successfully! The document is complete.",
       "forwardedWithoutSignature": "Processed successfully! Forwarded to {role}.",
       "forwardedWithSignature": "Signed successfully! Forwarded to {role}.",
-      "nextStepFallback": "the next step"
+      "nextStepFallback": "the next step",
+      "acknowledged": "Acknowledged successfully. The request continues."
     },
     "status": {
       "waiting": "Waiting",
       "pending": "Awaiting Signature",
       "signed": "Signed",
+      "acknowledged": "Acknowledged",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
     },

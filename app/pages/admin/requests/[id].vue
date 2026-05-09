@@ -53,6 +53,7 @@ type FlowStep = {
   signedByName: string | null;
   signedByNameTh: string | null;
   signedAt: string | null;
+  acknowledgeOnly?: boolean;
 };
 
 type SigningStatus = {
@@ -61,13 +62,14 @@ type SigningStatus = {
   flowSteps: FlowStep[];
 };
 
-type WorkflowDisplayStatus = 'completed' | 'in-progress' | 'pending' | 'rejected';
+type WorkflowDisplayStatus = 'completed' | 'in-progress' | 'pending' | 'rejected' | 'acknowledged';
 type WorkflowStep = {
   id: number;
   title: string;
   status: WorkflowDisplayStatus;
   icon: string;
   subtitle?: string;
+  acknowledgeOnly?: boolean;
 };
 
 // --- State ---
@@ -137,6 +139,9 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
     if (step.status === 'signed') {
       status = 'completed';
     }
+    else if (step.status === 'acknowledged') {
+      status = 'acknowledged';
+    }
     else if (step.status === 'rejected') {
       status = 'rejected';
     }
@@ -152,6 +157,7 @@ const workflowSteps = computed<WorkflowStep[]>(() => {
       subtitle: locale.value === 'th'
         ? step.signedByNameTh || step.assignedUserNameTh || undefined
         : step.signedByName || step.assignedUserName || undefined,
+      acknowledgeOnly: Boolean(step.acknowledgeOnly),
     };
   });
 });
@@ -577,6 +583,7 @@ onMounted(loadAll);
                     class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center border"
                     :class="{
                       'bg-green-50 border-green-200': step.status === 'completed',
+                      'bg-purple-50 border-purple-200': step.status === 'acknowledged',
                       'bg-blue-50 border-blue-200': step.status === 'in-progress',
                       'bg-red-50 border-red-200': step.status === 'rejected',
                       'bg-gray-50 border-gray-200': step.status === 'pending',
@@ -586,6 +593,7 @@ onMounted(loadAll);
                       :name="step.icon"
                       :class="{
                         'text-green-600': step.status === 'completed',
+                        'text-purple-600': step.status === 'acknowledged',
                         'text-blue-600': step.status === 'in-progress',
                         'text-red-600': step.status === 'rejected',
                         'text-gray-400': step.status === 'pending',
@@ -594,15 +602,24 @@ onMounted(loadAll);
                     />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p
-                      class="text-sm font-medium"
-                      :class="{
-                        'text-gray-900': step.status !== 'pending',
-                        'text-gray-500': step.status === 'pending',
-                      }"
-                    >
-                      {{ step.title }}
-                    </p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <p
+                        class="text-sm font-medium"
+                        :class="{
+                          'text-gray-900': step.status !== 'pending',
+                          'text-gray-500': step.status === 'pending',
+                        }"
+                      >
+                        {{ step.title }}
+                      </p>
+                      <UBadge
+                        v-if="step.acknowledgeOnly"
+                        :label="t('acknowledger')"
+                        color="primary"
+                        variant="subtle"
+                        size="xs"
+                      />
+                    </div>
                     <p v-if="step.subtitle" class="text-xs text-gray-400 mt-0.5 truncate">
                       {{ t('bySigner', { name: step.subtitle }) }}
                     </p>
@@ -614,6 +631,15 @@ onMounted(loadAll);
                       class="mt-1.5"
                     >
                       {{ t('signed') }}
+                    </UBadge>
+                    <UBadge
+                      v-else-if="step.status === 'acknowledged'"
+                      color="primary"
+                      variant="subtle"
+                      size="xs"
+                      class="mt-1.5"
+                    >
+                      {{ t('acknowledged') }}
                     </UBadge>
                     <UBadge
                       v-else-if="step.status === 'in-progress'"

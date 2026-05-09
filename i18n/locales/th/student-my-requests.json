@@ -45,8 +45,13 @@
       "rolePrefix": "บทบาท",
       "rejectPrefix": "ปฏิเสธ",
       "localRejectedWarning": "มีบางขั้นตอนถูกปฏิเสธ แต่คำร้องยังดำเนินการต่อ",
+      "stepType": {
+        "approver": "ผู้อนุมัติ",
+        "acknowledger": "ผู้รับทราบ"
+      },
       "timelineStatus": {
         "signed": "ลงนามแล้ว",
+        "acknowledged": "รับทราบแล้ว",
         "inProgress": "กำลังดำเนินการ",
         "rejected": "ปฏิเสธ",
         "pending": "รอดำเนินการ"

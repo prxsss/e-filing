@@ -3,13 +3,14 @@
     "title": "Signed History",
     "header": {
       "title": "Signing History",
-      "description": "Requests you have signed or rejected"
+      "description": "Requests you have signed, acknowledged, or rejected"
     },
     "actions": {
       "refresh": "Refresh",
       "viewPdf": "View PDF",
       "status": {
         "signed": "Signed",
+        "acknowledged": "Acknowledged",
         "rejected": "Rejected"
       }
     },
@@ -36,7 +37,7 @@
     },
     "emptyState": {
       "title": "No signing history yet",
-      "description": "Signed or rejected requests will appear here"
+      "description": "Signed, acknowledged, or rejected requests will appear here"
     }
   },
   "signerSignedHistoryDetail": {
@@ -47,10 +48,15 @@
     "signFlow": {
       "title": "Signing Flow"
     },
+    "stepType": {
+      "approver": "Approver",
+      "acknowledger": "Acknowledger"
+    },
     "status": {
       "waiting": "Waiting",
       "pending": "Awaiting Signature",
       "signed": "Signed",
+      "acknowledged": "Acknowledged",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
     },

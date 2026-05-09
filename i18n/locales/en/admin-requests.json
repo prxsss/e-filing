@@ -29,6 +29,8 @@
   "rejectedWithNote": "Rejected: {note}",
   "bySigner": "By: {name}",
   "signed": "Signed",
+  "acknowledged": "Acknowledged",
+  "acknowledger": "Acknowledger",
   "attachments": "Attachments",
   "downloadAll": "Download All",
   "attachment": "Attachment",

@@ -82,6 +82,7 @@ export default defineEventHandler(async (event) => {
         roleDescriptionEn: flow.roles?.descriptionEn,
         roleDescriptionTh: flow.roles?.descriptionTh,
         assignedFieldInstanceIds: flow.signature_flow.assignedFieldInstanceIds as string[],
+        acknowledgeOnly: flow.signature_flow.acknowledgeOnly,
         createdAt: flow.signature_flow.createdAt,
         studentNameEn: req?.requesterNameEn ?? '-',
         studentNameTh: req?.requesterNameTh ?? '-',

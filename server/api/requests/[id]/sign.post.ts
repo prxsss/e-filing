@@ -62,15 +62,17 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    const { signatureDataUrl, regenerateFilledPdf, userSignatureId, signatureEntries } = body as {
+    const { signatureDataUrl, regenerateFilledPdf, userSignatureId, signatureEntries, action } = body as {
       signatureDataUrl?: string;
       signatureEntries?: Array<{ fieldInstanceId?: string; signatureDataUrl?: string }>;
       /** When true, rebuild filled PDF from DB in memory (avoids extra HTTP round-trip + re-download after generate-filled-pdf). */
       regenerateFilledPdf?: boolean;
       /** Optional saved signature id owned by current signer. */
       userSignatureId?: number;
+      action?: 'acknowledge' | 'sign';
     };
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
+    const resolvedAction = action === 'acknowledge' ? 'acknowledge' : 'sign';
 
     const normalizedSignatureEntries = normalizeSignatureEntries(signatureEntries);
     let finalSignatureDataUrl = normalizeSignatureDataUrl(signatureDataUrl);
@@ -121,50 +123,84 @@ export default defineEventHandler(async (event) => {
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
-    // Find all pending flow entries for this request
-    // (with parallel signing there can be multiple pending steps at the same order)
-    const pendingFlows = await db
-      .select()
-      .from(signatureFlow)
-      .where(and(
-        eq(signatureFlow.requestId, requestId),
-        eq(signatureFlow.status, 'pending'),
-      ))
-      .orderBy(asc(signatureFlow.stepOrder));
+    let flowEntry: typeof signatureFlow.$inferSelect | null = null;
+    let flowEntriesForUserAtActiveStep: typeof signatureFlow.$inferSelect[] = [];
+    let activeStepOrder: number | null = null;
 
-    // Find the pending step this user is authorized to sign
-    const flowEntry = pendingFlows.find(f =>
-      f.assignedUserId === userId
-      || (f.assignedUserId === null && userRoleIds.includes(f.roleId)),
-    );
+    if (resolvedAction === 'acknowledge') {
+      const acknowledgeFlows = await db
+        .select()
+        .from(signatureFlow)
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.acknowledgeOnly, true),
+          inArray(signatureFlow.status, ['pending', 'waiting']),
+        ))
+        .orderBy(asc(signatureFlow.stepOrder));
 
-    if (!flowEntry) {
-      return { success: false, error: 'No pending signing step found for this request' };
-    }
+      flowEntriesForUserAtActiveStep = acknowledgeFlows.filter(flow =>
+        flow.assignedUserId === userId
+        || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId)),
+      );
 
-    const activeStepOrder = flowEntry.stepOrder;
-    const flowEntriesForUserAtActiveStep = pendingFlows.filter((flow) => {
-      if (flow.stepOrder !== activeStepOrder) {
-        return false;
+      flowEntry = flowEntriesForUserAtActiveStep[0] ?? null;
+      if (!flowEntry) {
+        return { success: false, error: 'No acknowledge step found for this request' };
       }
-      return flow.assignedUserId === userId
-        || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId));
-    });
 
-    // Authorization: mirrors the same dual-pattern routing used in for-signing.get.ts
-    //   Pattern A — direct assignment: assignedUserId === me (role not required)
-    //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
-    const isAuthorized
-      = flowEntry.assignedUserId === userId
-        || (flowEntry.assignedUserId === null && userRoleIds.includes(flowEntry.roleId));
+      activeStepOrder = flowEntry.stepOrder;
+    }
+    else {
+      // Find all pending flow entries for this request
+      // (with parallel signing there can be multiple pending steps at the same order)
+      const pendingFlows = await db
+        .select()
+        .from(signatureFlow)
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.status, 'pending'),
+        ))
+        .orderBy(asc(signatureFlow.stepOrder));
 
-    if (!isAuthorized) {
-      return { success: false, error: 'You are not authorized to sign this step' };
+      // Find the pending step this user is authorized to sign
+      flowEntry = pendingFlows.find(f =>
+        f.assignedUserId === userId
+        || (f.assignedUserId === null && userRoleIds.includes(f.roleId)),
+      ) ?? null;
+
+      if (!flowEntry) {
+        return { success: false, error: 'No pending signing step found for this request' };
+      }
+
+      if (flowEntry.acknowledgeOnly) {
+        return { success: false, error: 'This step requires acknowledgement' };
+      }
+
+      activeStepOrder = flowEntry.stepOrder;
+      flowEntriesForUserAtActiveStep = pendingFlows.filter((flow) => {
+        if (flow.stepOrder !== activeStepOrder) {
+          return false;
+        }
+        return flow.assignedUserId === userId
+          || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId));
+      });
+
+      // Authorization: mirrors the same dual-pattern routing used in for-signing.get.ts
+      //   Pattern A — direct assignment: assignedUserId === me (role not required)
+      //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
+      const isAuthorized
+        = flowEntry.assignedUserId === userId
+          || (flowEntry.assignedUserId === null && userRoleIds.includes(flowEntry.roleId));
+
+      if (!isAuthorized) {
+        return { success: false, error: 'You are not authorized to sign this step' };
+      }
     }
 
     const [requestMeta] = await db
       .select({
         templateId: request.templateId,
+        status: request.status,
       })
       .from(request)
       .where(eq(request.id, requestId))
@@ -446,10 +482,11 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Mark all current user's pending entries at this active stage as signed
+    // Mark all current user's entries at this stage as signed/acknowledged
+    const nextFlowStatus = resolvedAction === 'acknowledge' ? 'acknowledged' : 'signed';
     await db
       .update(signatureFlow)
-      .set({ status: 'signed', signedBy: userId, signedAt: new Date().toISOString() })
+      .set({ status: nextFlowStatus, signedBy: userId, signedAt: new Date().toISOString() })
       .where(inArray(signatureFlow.id, flowEntriesForUserAtActiveStep.map(flow => flow.id)));
 
     const buildSignRequestMessages = (context: {
@@ -486,6 +523,51 @@ export default defineEventHandler(async (event) => {
     // Get context for notification
     const context = await getSignRequestContext(requestId);
 
+    if (resolvedAction === 'acknowledge') {
+      const context = await getSignRequestContext(requestId);
+      const nitroApp = useNitroApp() as any;
+
+      const [{ signerName }] = await db.select({
+        signerName: sql<string>`
+          concat(${users.titleTh}, ${users.firstNameTh}, ' ', ${users.lastNameTh})
+        `,
+      }).from(users).where(eq(users.id, userId));
+
+      if (context.studentId) {
+        const documentTitle = trimTemplateTitle(context.documentTitle);
+        const titleTh = documentTitle || 'คำร้อง';
+        const titleEng = documentTitle || 'request';
+        const [createdStudentNotification] = await db
+          .insert(notifications)
+          .values({
+            userId: String(context.studentId),
+            messageEng: `${titleEng} acknowledged by ${signerName}`,
+            messageTh: `${titleTh} ได้รับการรับทราบโดย ${signerName}`,
+            type: 'acknowledged',
+            link: '/student/my-requests',
+            isRead: false,
+          })
+          .returning();
+
+        if (createdStudentNotification) {
+          try {
+            nitroApp.io.to(createdStudentNotification.userId).emit('notification', createdStudentNotification);
+          }
+          catch (socketErr) {
+            console.error('[acknowledge notification socket emit error]', socketErr);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          status: requestMeta?.status ?? 'in_progress',
+          filledDocumentUrl: signedPdfUrl,
+        },
+      };
+    }
+
     // ── Advance workflow ─────────────────────────────────────────────────────
     // With parallel signing: advance to the next stage when all steps at the
     // current order level are resolved (signed or rejected).
@@ -498,7 +580,7 @@ export default defineEventHandler(async (event) => {
       ));
 
     const allResolvedAtCurrentOrder = siblingsAtSameOrder.every(
-      s => s.status === 'signed' || s.status === 'rejected',
+      s => s.acknowledgeOnly || s.status === 'signed' || s.status === 'rejected' || s.status === 'acknowledged',
     );
 
     if (!allResolvedAtCurrentOrder) {
@@ -520,6 +602,7 @@ export default defineEventHandler(async (event) => {
       .where(and(
         eq(signatureFlow.requestId, requestId),
         eq(signatureFlow.status, 'waiting'),
+        eq(signatureFlow.acknowledgeOnly, false),
       ))
       .orderBy(asc(signatureFlow.stepOrder))
       .limit(1);
@@ -654,6 +737,15 @@ export default defineEventHandler(async (event) => {
       };
     }
     else {
+      await db
+        .update(signatureFlow)
+        .set({ status: 'pending', pendingAt: new Date().toISOString() })
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.status, 'waiting'),
+          eq(signatureFlow.acknowledgeOnly, true),
+        ));
+
       await db
         .update(request)
         .set({ status: 'completed', completedAt: new Date().toISOString() })

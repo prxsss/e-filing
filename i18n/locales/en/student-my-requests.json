@@ -45,8 +45,13 @@
       "rolePrefix": "Role",
       "rejectPrefix": "Rejected",
       "localRejectedWarning": "Some steps were rejected, but the request is still in progress",
+      "stepType": {
+        "approver": "Approver",
+        "acknowledger": "Acknowledger"
+      },
       "timelineStatus": {
         "signed": "Signed",
+        "acknowledged": "Acknowledged",
         "inProgress": "In Progress",
         "rejected": "Rejected",
         "pending": "Pending"

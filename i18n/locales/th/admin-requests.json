@@ -29,6 +29,8 @@
   "rejectedWithNote": "ปฏิเสธ: {note}",
   "bySigner": "โดย: {name}",
   "signed": "ลงนามแล้ว",
+  "acknowledged": "รับทราบแล้ว",
+  "acknowledger": "ผู้รับทราบ",
   "attachments": "ไฟล์แนบ",
   "downloadAll": "ดาวน์โหลดทั้งหมด",
   "attachment": "ไฟล์แนบ",

@@ -42,6 +42,7 @@ export default defineEventHandler(async (event) => {
         .where(and(
           eq(signatureFlow.requestId, requestId),
           eq(signatureFlow.status, 'pending'),
+          eq(signatureFlow.acknowledgeOnly, false),
         ))
         .orderBy(asc(signatureFlow.stepOrder))
         .limit(1);

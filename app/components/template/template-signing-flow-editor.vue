@@ -105,6 +105,30 @@ const selectedStepRejectsRequestImmediately = computed<boolean>({
   },
 });
 
+const selectedStepAcknowledgeOnly = computed<boolean>({
+  get() {
+    return Boolean(selectedStep.value?.acknowledgeOnly);
+  },
+  set(value: boolean) {
+    if (!selectedStep.value) {
+      return;
+    }
+
+    const updatedSteps = props.signingSteps.map((step) => {
+      if (step.id !== selectedStep.value!.id) {
+        return step;
+      }
+
+      return {
+        ...step,
+        acknowledgeOnly: Boolean(value),
+      };
+    });
+
+    emit('update:signingSteps', updatedSteps);
+  },
+});
+
 function getFieldType(field: FieldInstance): string {
   return String((field as any)?.type || field?.fieldType || '').toLowerCase();
 }
@@ -235,6 +259,7 @@ function addStep(): void {
     roleName: role.name,
     description: getRoleDescription(role) || undefined,
     isRequired: newStepIsRequired.value,
+    acknowledgeOnly: false,
     rejectsRequestImmediately: false,
     assignedFieldInstanceIds: [],
     color: getNextColor(),
@@ -262,6 +287,21 @@ function toggleStepRejectsImmediately(stepId: string): void {
     return {
       ...step,
       rejectsRequestImmediately: !step.rejectsRequestImmediately,
+    };
+  });
+
+  emit('update:signingSteps', updatedSteps);
+}
+
+function toggleStepAcknowledgeOnly(stepId: string): void {
+  const updatedSteps = props.signingSteps.map((step) => {
+    if (step.id !== stepId) {
+      return step;
+    }
+
+    return {
+      ...step,
+      acknowledgeOnly: !step.acknowledgeOnly,
     };
   });
 
@@ -504,6 +544,14 @@ watch(() => props.signingSteps.length, (newLen) => {
                 >
                   {{ tr('rejectImmediatelyBadge') }}
                 </UBadge>
+                <UBadge
+                  v-if="step.acknowledgeOnly"
+                  color="primary"
+                  variant="subtle"
+                  size="xs"
+                >
+                  {{ tr('acknowledgeOnlyBadge') }}
+                </UBadge>
               </div>
               <div class="mt-2">
                 <UButton
@@ -514,6 +562,16 @@ watch(() => props.signingSteps.length, (newLen) => {
                   @click.stop="toggleStepRejectsImmediately(step.id)"
                 >
                   {{ tr('rejectImmediatelyOptionShort') }}
+                </UButton>
+                <UButton
+                  size="xs"
+                  class="ml-1.5"
+                  :color="step.acknowledgeOnly ? 'primary' : 'neutral'"
+                  :variant="step.acknowledgeOnly ? 'soft' : 'outline'"
+                  :icon="step.acknowledgeOnly ? 'i-heroicons-hand-thumb-up-solid' : 'i-heroicons-hand-thumb-up'"
+                  @click.stop="toggleStepAcknowledgeOnly(step.id)"
+                >
+                  {{ tr('acknowledgeOnlyOptionShort') }}
                 </UButton>
               </div>
             </div>
@@ -685,6 +743,16 @@ watch(() => props.signingSteps.length, (newLen) => {
               :label="tr('rejectImmediatelyOption')"
               :description="tr('rejectImmediatelyHelp')"
             />
+            <UButton
+              size="xs"
+              class="mt-2"
+              :color="selectedStepAcknowledgeOnly ? 'primary' : 'neutral'"
+              :variant="selectedStepAcknowledgeOnly ? 'soft' : 'outline'"
+              :icon="selectedStepAcknowledgeOnly ? 'i-heroicons-hand-thumb-up-solid' : 'i-heroicons-hand-thumb-up'"
+              @click="selectedStepAcknowledgeOnly = !selectedStepAcknowledgeOnly"
+            >
+              {{ selectedStepAcknowledgeOnly ? tr('acknowledgeOnlyEnabled') : tr('acknowledgeOnlyOption') }}
+            </UButton>
           </div>
         </div>
 

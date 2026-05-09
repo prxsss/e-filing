@@ -19,6 +19,7 @@ type FlowStep = {
   status: string;
   signedBy: string | null;
   signedAt: string | null;
+  acknowledgeOnly?: boolean;
 };
 
 type SignatureField = {
@@ -273,6 +274,7 @@ const statusColor: Record<string, string> = {
   waiting: 'neutral',
   pending: 'warning',
   signed: 'success',
+  acknowledged: 'primary',
   rejected: 'error',
   cancelled: 'neutral',
 };
@@ -281,6 +283,7 @@ const statusLabel = computed<Record<string, string>>(() => ({
   waiting: t('signerSignedHistoryDetail.status.waiting'),
   pending: t('signerSignedHistoryDetail.status.pending'),
   signed: t('signerSignedHistoryDetail.status.signed'),
+  acknowledged: t('signerSignedHistoryDetail.status.acknowledged'),
   rejected: t('signerSignedHistoryDetail.status.rejected'),
   cancelled: t('signerSignedHistoryDetail.status.cancelled'),
 }));
@@ -382,22 +385,33 @@ onMounted(() => {
                 class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                 :class="{
                   'bg-green-500': step.status === 'signed',
+                  'bg-purple-500': step.status === 'acknowledged',
                   'bg-amber-500': step.status === 'pending',
                   'bg-slate-300': step.status === 'waiting' || step.status === 'cancelled',
                   'bg-red-500': step.status === 'rejected',
                 }"
               >
                 <UIcon v-if="step.status === 'signed'" name="i-lucide-check" class="w-4 h-4" />
+                <UIcon v-else-if="step.status === 'acknowledged'" name="i-lucide-hand-thumb-up" class="w-4 h-4" />
                 <UIcon v-else-if="step.status === 'rejected'" name="i-lucide-x" class="w-4 h-4" />
                 <template v-else>{{ step.stepOrder }}</template>
               </span>
-              <span class="font-medium text-sm">{{ locale === 'th' ? step.roleNameTh : step.roleName }}</span>
+              <div class="flex-1 min-w-0 flex items-center gap-2">
+                <span class="font-medium text-sm">{{ locale === 'th' ? step.roleNameTh : step.roleName }}</span>
+                <UBadge
+                  v-if="step.acknowledgeOnly"
+                  :label="$t('signerSignedHistoryDetail.stepType.acknowledger')"
+                  color="primary"
+                  variant="subtle"
+                  size="xs"
+                />
+              </div>
               <UBadge
                 :color="(statusColor[step.status] ?? 'neutral') as any"
                 :label="statusLabel[step.status] ?? step.status"
                 variant="soft"
                 size="sm"
-                class="ml-auto"
+                class="shrink-0"
               />
             </div>
           </div>

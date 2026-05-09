@@ -301,6 +301,7 @@ export default defineEventHandler(async (event) => {
         assignedUserId: string | null;
         requiresSignature: boolean;
         autoSigned: boolean;
+        acknowledgeOnly: boolean;
       };
 
       const draftEntries: Draft[] = sorted.map((step: any, index: number) => {
@@ -351,6 +352,7 @@ export default defineEventHandler(async (event) => {
           assignedUserId: resolvedAssignedUserId,
           requiresSignature,
           autoSigned,
+          acknowledgeOnly: Boolean(step.acknowledgeOnly),
         };
       });
 
@@ -363,17 +365,18 @@ export default defineEventHandler(async (event) => {
       // Find the order number of the first stage that requires real signing action.
       // All steps at this order level become 'pending' simultaneously (parallel).
       const firstPendingOrder = draftEntries
-        .filter(e => !e.autoSigned)
+        .filter(e => !e.autoSigned && !e.acknowledgeOnly)
         .sort((a, b) => a.stepOrder - b.stepOrder)[0]
         ?.stepOrder ?? null;
 
-      const flowEntries = draftEntries.map(({ autoSigned, requiresSignature: _requiresSignature, ...entry }) => {
+      const flowEntries = draftEntries.map(({ autoSigned, requiresSignature: _requiresSignature, acknowledgeOnly, ...entry }) => {
         if (autoSigned) {
-          return { ...entry, status: 'signed', signedBy: submitterId, signedAt: now };
+          return { ...entry, acknowledgeOnly, status: 'signed', signedBy: submitterId, signedAt: now };
         }
-        if (firstPendingOrder !== null && entry.stepOrder === firstPendingOrder) {
+        if (!acknowledgeOnly && firstPendingOrder !== null && entry.stepOrder === firstPendingOrder) {
           return {
             ...entry,
+            acknowledgeOnly,
             status: 'pending',
 
             // roleId 1 = student (submitter) → skip pendingAt
@@ -383,7 +386,15 @@ export default defineEventHandler(async (event) => {
             pendingAt: entry.roleId === 1 ? null : now,
           };
         }
-        return { ...entry, status: 'waiting' };
+        if (acknowledgeOnly) {
+          if (firstPendingOrder === null) {
+            return { ...entry, acknowledgeOnly, status: 'pending', pendingAt: now };
+          }
+          if (entry.stepOrder === firstPendingOrder) {
+            return { ...entry, acknowledgeOnly, status: 'pending', pendingAt: now };
+          }
+        }
+        return { ...entry, acknowledgeOnly, status: 'waiting' };
       });
 
       const insertedFlowEntries = await db.insert(signatureFlow).values(flowEntries).returning();
@@ -462,15 +473,16 @@ export default defineEventHandler(async (event) => {
       //   all auto-signed  → completed (no further signing needed)
       //   some auto-signed → in_progress (first real signer is now pending)
       //   none auto-signed → pending_signature (waiting for first signer)
-      const allAutoSigned = draftEntries.every(e => e.autoSigned);
-      const anyAutoSigned = draftEntries.some(e => e.autoSigned);
+      const nonAckEntries = draftEntries.filter(e => !e.acknowledgeOnly);
+      const allAutoSigned = nonAckEntries.length === 0 || nonAckEntries.every(e => e.autoSigned);
+      const anyAutoSigned = nonAckEntries.some(e => e.autoSigned);
       const newStatus = allAutoSigned
         ? 'completed'
         : anyAutoSigned
           ? 'in_progress'
           : 'pending_signature';
 
-      const requiresSubmitterSignature = draftEntries.some(entry =>
+      const requiresSubmitterSignature = nonAckEntries.some(entry =>
         !entry.autoSigned
         && entry.requiresSignature
         && entry.assignedUserId === submitterId,

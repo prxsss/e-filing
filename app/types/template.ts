@@ -182,6 +182,7 @@ export type SigningStep = {
   assignedUserId?: string;
   assignedUserName?: string;
   isRequired: boolean;
+  acknowledgeOnly?: boolean;
   rejectsRequestImmediately?: boolean;
   assignedFieldInstanceIds: string[];
   color: string;

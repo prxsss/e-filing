@@ -3,13 +3,14 @@
     "title": "ประวัติการเซ็น",
     "header": {
       "title": "ประวัติการเซ็น",
-      "description": "เอกสารที่คุณเคยเซ็นหรือปฏิเสธ"
+      "description": "เอกสารที่คุณเคยเซ็น รับทราบ หรือปฏิเสธ"
     },
     "actions": {
       "refresh": "รีเฟรช",
       "viewPdf": "ดู PDF",
       "status": {
         "signed": "เซ็นแล้ว",
+        "acknowledged": "รับทราบแล้ว",
         "rejected": "ปฏิเสธ"
       }
     },
@@ -36,7 +37,7 @@
     },
     "emptyState": {
       "title": "ยังไม่มีประวัติการลงนาม",
-      "description": "เมื่อคุณลงนามหรือปฏิเสธเอกสาร จะปรากฏที่นี่"
+      "description": "เมื่อคุณลงนาม รับทราบ หรือปฏิเสธเอกสาร จะปรากฏที่นี่"
     }
   },
   "signerSignedHistoryDetail": {
@@ -47,10 +48,15 @@
     "signFlow": {
       "title": "ลำดับการลงนาม"
     },
+    "stepType": {
+      "approver": "ผู้อนุมัติ",
+      "acknowledger": "ผู้รับทราบ"
+    },
     "status": {
       "waiting": "รอดำเนินการ",
       "pending": "รอลงนาม",
       "signed": "เซ็นแล้ว",
+      "acknowledged": "รับทราบแล้ว",
       "rejected": "ปฏิเสธ",
       "cancelled": "ยกเลิก"
     },

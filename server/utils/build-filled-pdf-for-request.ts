@@ -54,6 +54,7 @@ export async function buildFilledPdfBytesForRequest(
       .where(and(
         eq(signatureFlow.requestId, requestId),
         eq(signatureFlow.status, 'pending'),
+        eq(signatureFlow.acknowledgeOnly, false),
       ))
       .orderBy(asc(signatureFlow.stepOrder));
 

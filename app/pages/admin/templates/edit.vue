@@ -1569,6 +1569,7 @@ async function performSave(): Promise<void> {
       roleName: step.roleName,
       description: step.description || null,
       isRequired: step.isRequired,
+      acknowledgeOnly: Boolean(step.acknowledgeOnly),
       rejectsRequestImmediately: Boolean(step.rejectsRequestImmediately),
       assignedFieldInstanceIds: step.assignedFieldInstanceIds,
       color: step.color,

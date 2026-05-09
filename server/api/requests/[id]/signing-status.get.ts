@@ -164,6 +164,7 @@ export default defineEventHandler(async (event) => {
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
     const pendingStep = flowStepsWithNames.find(s =>
       s.status === 'pending'
+      && !s.acknowledgeOnly
       && (
         s.assignedUserId === userId
         || (s.assignedUserId === null && userRoleIds.includes(s.roleId))
@@ -175,6 +176,7 @@ export default defineEventHandler(async (event) => {
       ? []
       : flowStepsWithNames.filter(step =>
           step.status === 'pending'
+          && !step.acknowledgeOnly
           && step.stepOrder === activeStageOrder
           && (
             step.assignedUserId === userId
@@ -182,11 +184,20 @@ export default defineEventHandler(async (event) => {
           ),
         );
 
+    const acknowledgeStepsForCurrentUser = flowStepsWithNames.filter(step =>
+      step.acknowledgeOnly
+      && (step.status === 'pending' || step.status === 'waiting')
+      && (
+        step.assignedUserId === userId
+        || (step.assignedUserId === null && userRoleIds.includes(step.roleId))
+      ),
+    );
+
     // Build the list of signature field positions for the pending step so the
     // client can render a live preview of the signature on the actual document.
     const allFields = (template?.placedFieldsData as any[]) ?? [];
     const assignedIds = Array.from(new Set(
-      pendingStepsForCurrentUser.flatMap((step) => {
+      [...pendingStepsForCurrentUser, ...acknowledgeStepsForCurrentUser].flatMap((step) => {
         const ids = (step.assignedFieldInstanceIds as string[]) ?? [];
         return ids.map(id => String(id ?? '').trim()).filter(id => id.length > 0);
       }),
@@ -261,6 +272,7 @@ export default defineEventHandler(async (event) => {
         flowSteps: flowStepsWithNames,
         pendingStep,
         pendingStepsForCurrentUser,
+        acknowledgeStepsForCurrentUser,
         activeStageOrder,
         signatureFields,
         confirmedSignatureFields,

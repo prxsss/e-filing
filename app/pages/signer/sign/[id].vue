@@ -22,6 +22,7 @@ type FlowStep = {
   status: string;
   signedBy: string | null;
   signedAt: string | null;
+  acknowledgeOnly?: boolean;
 };
 
 type SignatureField = {
@@ -61,6 +62,7 @@ type SigningStatus = {
   flowSteps: FlowStep[];
   pendingStep: FlowStep | null;
   pendingStepsForCurrentUser?: FlowStep[];
+  acknowledgeStepsForCurrentUser?: FlowStep[];
   activeStageOrder?: number | null;
   signatureFields: SignatureField[];
   documentWidth?: number;
@@ -204,9 +206,27 @@ function isFieldVisible(field: any): boolean {
   return rule.operator === 'isUnchecked' ? !isChecked : isChecked;
 }
 
-const signerFillableFields = computed(() => {
-  const pendingSteps = signingStatus.value?.pendingStepsForCurrentUser
+const approvalStepsForCurrentUser = computed<FlowStep[]>(() => {
+  return signingStatus.value?.pendingStepsForCurrentUser
     ?? (signingStatus.value?.pendingStep ? [signingStatus.value.pendingStep] : []);
+});
+
+const acknowledgeStepsForCurrentUser = computed<FlowStep[]>(() =>
+  signingStatus.value?.acknowledgeStepsForCurrentUser ?? [],
+);
+
+const isAcknowledgeMode = computed(() =>
+  approvalStepsForCurrentUser.value.length === 0 && acknowledgeStepsForCurrentUser.value.length > 0,
+);
+
+const currentPendingSteps = computed<FlowStep[]>(() =>
+  isAcknowledgeMode.value ? acknowledgeStepsForCurrentUser.value : approvalStepsForCurrentUser.value,
+);
+
+const hasCurrentPendingSteps = computed(() => currentPendingSteps.value.length > 0);
+
+const signerFillableFields = computed(() => {
+  const pendingSteps = currentPendingSteps.value;
   if (!pendingSteps.length || !templatePlacedFields.value.length)
     return [];
 
@@ -538,8 +558,7 @@ async function saveSignerFieldValues(): Promise<boolean> {
 // matches the actual field box defined in the PDF template.
 const pendingSignatureField = computed<SignatureField | undefined>(() => {
   const status = signingStatus.value;
-  const pendingSteps = status?.pendingStepsForCurrentUser
-    ?? (status?.pendingStep ? [status.pendingStep] : []);
+  const pendingSteps = currentPendingSteps.value;
   if (!pendingSteps.length)
     return undefined;
   const assignedIds = pendingSteps.flatMap(step => step.assignedFieldInstanceIds ?? []);
@@ -750,15 +769,7 @@ const signatureFieldsForDisplay = computed(() => {
   }));
 });
 
-const currentPendingSteps = computed<FlowStep[]>(() => {
-  return signingStatus.value?.pendingStepsForCurrentUser
-    ?? (signingStatus.value?.pendingStep ? [signingStatus.value.pendingStep] : []);
-});
-
-const hasCurrentPendingSteps = computed(() => currentPendingSteps.value.length > 0);
-
 const currentPendingStep = computed<FlowStep | null>(() => currentPendingSteps.value[0] ?? null);
-
 const hasSignatureField = computed(() => {
   if (!currentPendingSteps.value.length)
     return false;
@@ -789,8 +800,7 @@ async function fetchStatus() {
         await fetchTemplateData(Number(reqResult.data.request.templateId));
       }
 
-      const pendingSteps = result.data.pendingStepsForCurrentUser
-        ?? (result.data.pendingStep ? [result.data.pendingStep] : []);
+      const pendingSteps = currentPendingSteps.value;
       if (pendingSteps.length > 0 && hasSignerProcessableFields.value) {
         schedulePreviewRefresh();
       }
@@ -1073,7 +1083,7 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
   }
 }
 
-async function submitSignature() {
+async function submitSignature(action: 'sign' | 'acknowledge' = 'sign') {
   error.value = null;
   showSignatureSubmitError.value = false;
   showRequiredFieldErrors.value = true;
@@ -1102,7 +1112,7 @@ async function submitSignature() {
       }
     }
 
-    const signBody: { signatureDataUrl?: string; userSignatureId?: number; regenerateFilledPdf?: boolean } = {};
+    const signBody: { signatureDataUrl?: string; userSignatureId?: number; regenerateFilledPdf?: boolean; action?: 'sign' | 'acknowledge' } = {};
 
     if (hasSignatureField.value) {
       if (signatureSource.value === 'saved' && selectedSavedSignatureId.value) {
@@ -1120,16 +1130,32 @@ async function submitSignature() {
       signBody.regenerateFilledPdf = true;
     }
 
+    if (action === 'acknowledge') {
+      signBody.action = 'acknowledge';
+    }
+
     const result = await $fetch<{ success: boolean; data: any; error?: string }>(
       `/api/requests/${requestId}/sign`,
       { method: 'POST', body: signBody },
     );
 
     if (result.success) {
-      await applySignSuccessResponse(
-        result.data ?? {},
-        { noSignatureField: !(hasSignatureField.value && signatureDataUrl.value) },
-      );
+      if (action === 'acknowledge') {
+        successMessage.value = t('signerSignDetail.success.acknowledged');
+        await router.push('/signer/to-sign');
+        signatureDataUrl.value = null;
+        signatureSource.value = 'none';
+        selectedSavedSignatureId.value = null;
+        showSignaturePopup.value = false;
+        showSignatureSubmitError.value = false;
+        await fetchStatus();
+      }
+      else {
+        await applySignSuccessResponse(
+          result.data ?? {},
+          { noSignatureField: !(hasSignatureField.value && signatureDataUrl.value) },
+        );
+      }
     }
     else {
       error.value = result.error
@@ -1156,6 +1182,7 @@ const statusColor: Record<string, 'success' | 'error' | 'warning' | 'info' | 'ne
   waiting: 'neutral',
   pending: 'warning',
   signed: 'success',
+  acknowledged: 'primary',
   rejected: 'error',
   cancelled: 'neutral',
 };
@@ -1164,6 +1191,7 @@ const statusLabel = computed<Record<string, string>>(() => ({
   waiting: t('signerSignDetail.status.waiting'),
   pending: t('signerSignDetail.status.pending'),
   signed: t('signerSignDetail.status.signed'),
+  acknowledged: t('signerSignDetail.status.acknowledged'),
   rejected: t('signerSignDetail.status.rejected'),
   cancelled: t('signerSignDetail.status.cancelled'),
 }));
@@ -1357,22 +1385,33 @@ onUnmounted(() => {
                     class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     :class="{
                       'bg-green-500': step.status === 'signed',
+                      'bg-blue-600': step.status === 'acknowledged',
                       'bg-amber-500': step.status === 'pending',
                       'bg-slate-300': step.status === 'waiting' || step.status === 'cancelled',
                       'bg-red-500': step.status === 'rejected',
                     }"
                   >
                     <UIcon v-if="step.status === 'signed'" name="i-heroicons-check" class="w-4 h-4" />
+                    <UIcon v-else-if="step.status === 'acknowledged'" name="i-heroicons-hand-thumb-up" class="w-4 h-4" />
                     <UIcon v-else-if="step.status === 'rejected'" name="i-heroicons-x-mark" class="w-4 h-4" />
                     <template v-else>{{ step.stepOrder }}</template>
                   </span>
-                  <span class="font-medium text-sm text-gray-900">{{ locale === 'th' ? step.roleNameTh : step.roleName }}</span>
+                  <div class="flex-1 min-w-0 flex items-center gap-2">
+                    <span class="font-medium text-sm text-gray-900">{{ locale === 'th' ? step.roleNameTh : step.roleName }}</span>
+                    <UBadge
+                      v-if="step.acknowledgeOnly"
+                      :label="$t('signerSignDetail.stepType.acknowledger')"
+                      color="primary"
+                      variant="subtle"
+                      size="xs"
+                    />
+                  </div>
                   <UBadge
                     :color="(statusColor[step.status] ?? 'neutral')"
                     :label="statusLabel[step.status] ?? step.status"
                     variant="soft"
                     size="sm"
-                    class="ml-auto"
+                    class="shrink-0"
                   />
                 </div>
               </div>
@@ -1472,7 +1511,7 @@ onUnmounted(() => {
             </UCard>
 
             <UAlert
-              v-if="hasCurrentPendingSteps && hasSignatureField"
+              v-if="hasCurrentPendingSteps && hasSignatureField && !isAcknowledgeMode"
               color="info"
               variant="soft"
               icon="i-heroicons-pencil-square"
@@ -1480,8 +1519,17 @@ onUnmounted(() => {
               :description="$t('signerSignDetail.signature.alertDescription', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => locale === 'th' ? step.roleNameTh : step.roleName))).join(', ') || '-' })"
             />
 
+            <UAlert
+              v-else-if="isAcknowledgeMode && hasCurrentPendingSteps"
+              color="primary"
+              variant="soft"
+              icon="i-heroicons-hand-thumb-up"
+              :title="$t('signerSignDetail.acknowledge.alertTitle')"
+              :description="$t('signerSignDetail.acknowledge.alertDescription', { step: currentPendingStep?.stepOrder ?? '-', roles: Array.from(new Set(currentPendingSteps.map(step => locale === 'th' ? step.roleNameTh : step.roleName))).join(', ') || '-' })"
+            />
+
             <UCard
-              v-if="hasCurrentPendingSteps && hasSignatureField"
+              v-if="hasCurrentPendingSteps && hasSignatureField && !isAcknowledgeMode"
               id="signer-signature-section"
               class="rounded-lg transition-colors"
               :class="showSignatureSubmitError ? 'border border-red-400 bg-white' : ''"
@@ -1586,7 +1634,7 @@ onUnmounted(() => {
             </UCard>
 
             <div v-if="hasCurrentPendingSteps" class="flex flex-col gap-3">
-              <template v-if="!canShowRejectWithFieldButton">
+              <template v-if="!isAcknowledgeMode && !canShowRejectWithFieldButton">
                 <UButton
                   color="error"
                   variant="soft"
@@ -1600,7 +1648,7 @@ onUnmounted(() => {
                   {{ $t('signerSignDetail.actions.reject') }}
                 </UButton>
               </template>
-              <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div v-else-if="!isAcknowledgeMode" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <UButton
                   color="error"
                   variant="soft"
@@ -1627,15 +1675,17 @@ onUnmounted(() => {
                 </UButton>
               </div>
               <UButton
-                color="success"
+                :color="isAcknowledgeMode ? 'primary' : 'success'"
                 size="lg"
                 block
-                icon="i-heroicons-paper-airplane"
+                :icon="isAcknowledgeMode ? 'i-heroicons-hand-thumb-up' : 'i-heroicons-paper-airplane'"
                 :loading="isSigning"
                 :disabled="!canSubmit"
-                @click="submitSignature"
+                @click="submitSignature(isAcknowledgeMode ? 'acknowledge' : 'sign')"
               >
-                {{ hasSignatureField ? $t('signerSignDetail.actions.signAndContinue') : $t('signerSignDetail.actions.confirmAndContinue') }}
+                {{ isAcknowledgeMode
+                  ? $t('signerSignDetail.actions.acknowledge')
+                  : (hasSignatureField ? $t('signerSignDetail.actions.signAndContinue') : $t('signerSignDetail.actions.confirmAndContinue')) }}
               </UButton>
             </div>
 

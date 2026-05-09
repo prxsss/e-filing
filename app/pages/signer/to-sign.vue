@@ -14,6 +14,7 @@ type SigningTask = {
   roleDescriptionEn: string | null;
   roleDescriptionTh: string | null;
   createdAt: string;
+  acknowledgeOnly: boolean;
   studentNameEn: string;
   studentNameTh: string;
   request: {
@@ -58,6 +59,7 @@ const tableData = computed(() =>
       ? (task.roleDescriptionTh ?? task.roleDescriptionEn ?? '-')
       : (task.roleDescriptionEn ?? task.roleDescriptionTh ?? '-'),
     studentId: task.request?.userId ?? '-',
+    acknowledgeOnly: Boolean(task.acknowledgeOnly),
   })),
 );
 
@@ -209,13 +211,23 @@ function onRowSelect(_e: Event, row: TableRow<any>) {
           {{ formatDate(row.original.submittedAt) }}
         </template>
         <template #stepInfo-cell="{ row }">
-          <UBadge
-            color="warning"
-            variant="soft"
-            size="sm"
-          >
-            {{ row.original.stepInfo }}
-          </UBadge>
+          <div class="flex items-center gap-2">
+            <UBadge
+              :color="row.original.acknowledgeOnly ? 'primary' : 'warning'"
+              variant="soft"
+              size="sm"
+            >
+              {{ row.original.stepInfo }}
+            </UBadge>
+            <UBadge
+              v-if="row.original.acknowledgeOnly"
+              color="primary"
+              variant="subtle"
+              size="xs"
+            >
+              {{ $t('signerToSign.table.acknowledgeOnly') }}
+            </UBadge>
+          </div>
         </template>
         <template #templateName-cell="{ row }">
           <div class="w-70 truncate" :title="row.original.templateName">

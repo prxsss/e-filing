@@ -169,6 +169,10 @@ export default defineEventHandler(async (event) => {
       return { success: false, error: 'ไม่พบขั้นตอนที่รอดำเนินการสำหรับคำร้องนี้' };
     }
 
+    if (flowEntry.acknowledgeOnly) {
+      return { success: false, error: 'ขั้นตอนนี้เป็นแบบรับทราบเท่านั้น ไม่สามารถปฏิเสธได้' };
+    }
+
     // Authorization: same dual-pattern as sign.post.ts
     const isAuthorized
       = flowEntry.assignedUserId === userId
