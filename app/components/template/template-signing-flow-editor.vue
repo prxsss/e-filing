@@ -98,6 +98,8 @@ const selectedStepRejectsRequestImmediately = computed<boolean>({
       return {
         ...step,
         rejectsRequestImmediately: Boolean(value),
+        // Turning this on clears acknowledgeOnly — they are mutually exclusive
+        ...(value ? { acknowledgeOnly: false } : {}),
       };
     });
 
@@ -122,6 +124,8 @@ const selectedStepAcknowledgeOnly = computed<boolean>({
       return {
         ...step,
         acknowledgeOnly: Boolean(value),
+        // Turning this on clears rejectsRequestImmediately — they are mutually exclusive
+        ...(value ? { rejectsRequestImmediately: false } : {}),
       };
     });
 
@@ -283,10 +287,12 @@ function toggleStepRejectsImmediately(stepId: string): void {
     if (step.id !== stepId) {
       return step;
     }
-
+    const next = !step.rejectsRequestImmediately;
     return {
       ...step,
-      rejectsRequestImmediately: !step.rejectsRequestImmediately,
+      rejectsRequestImmediately: next,
+      // Turning this on clears acknowledgeOnly — they are mutually exclusive
+      ...(next ? { acknowledgeOnly: false } : {}),
     };
   });
 
@@ -298,10 +304,12 @@ function toggleStepAcknowledgeOnly(stepId: string): void {
     if (step.id !== stepId) {
       return step;
     }
-
+    const next = !step.acknowledgeOnly;
     return {
       ...step,
-      acknowledgeOnly: !step.acknowledgeOnly,
+      acknowledgeOnly: next,
+      // Turning this on clears rejectsRequestImmediately — they are mutually exclusive
+      ...(next ? { rejectsRequestImmediately: false } : {}),
     };
   });
 
