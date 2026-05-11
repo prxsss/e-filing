@@ -476,7 +476,7 @@
         "acknowledgeOnlyOption": "กำหนดให้บทบาทนี้เป็นผู้รับทราบเท่านั้น",
         "acknowledgeOnlyEnabled": "เปิดโหมดรับทราบเท่านั้นแล้ว",
         "acknowledgeOnlyOptionShort": "รับทราบเท่านั้น",
-        "addParallelSigner": "เพิ่มผู้กรอกแบบขนาน",
+        "addParallelSigner": "เพิ่มผู้กรอก",
         "selectRole": "เลือกบทบาท",
         "cancel": "ยกเลิก",
         "add": "เพิ่ม",

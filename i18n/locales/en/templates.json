@@ -476,7 +476,7 @@
         "acknowledgeOnlyOption": "Mark this role as acknowledge-only",
         "acknowledgeOnlyEnabled": "Acknowledge-only enabled",
         "acknowledgeOnlyOptionShort": "Acknowledge Only",
-        "addParallelSigner": "Add Parallel Signer",
+        "addParallelSigner": "Add a Signer",
         "selectRole": "Select role",
         "cancel": "Cancel",
         "add": "Add",

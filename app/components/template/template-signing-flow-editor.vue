@@ -553,9 +553,10 @@ watch(() => props.signingSteps.length, (newLen) => {
                   {{ tr('acknowledgeOnlyBadge') }}
                 </UBadge>
               </div>
-              <div class="mt-2">
+              <div v-if="stage.steps.length >= 2" class="mt-2 flex flex-col gap-1">
                 <UButton
                   size="xs"
+                  block
                   :color="step.rejectsRequestImmediately ? 'error' : 'neutral'"
                   :variant="step.rejectsRequestImmediately ? 'soft' : 'outline'"
                   :icon="step.rejectsRequestImmediately ? 'i-heroicons-bolt-solid' : 'i-heroicons-bolt'"
@@ -565,7 +566,7 @@ watch(() => props.signingSteps.length, (newLen) => {
                 </UButton>
                 <UButton
                   size="xs"
-                  class="ml-1.5"
+                  block
                   :color="step.acknowledgeOnly ? 'primary' : 'neutral'"
                   :variant="step.acknowledgeOnly ? 'soft' : 'outline'"
                   :icon="step.acknowledgeOnly ? 'i-heroicons-hand-thumb-up-solid' : 'i-heroicons-hand-thumb-up'"
@@ -737,7 +738,7 @@ watch(() => props.signingSteps.length, (newLen) => {
               {{ tr('parallel') }}
             </UBadge>
           </div>
-          <div class="pt-1">
+          <div v-if="(stages.find(s => s.order === selectedStep?.order)?.steps.length ?? 0) >= 2" class="pt-1">
             <UCheckbox
               v-model="selectedStepRejectsRequestImmediately"
               :label="tr('rejectImmediatelyOption')"
