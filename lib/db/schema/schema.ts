@@ -381,3 +381,27 @@ export const rolePermissions = pgTable("role_permissions", {
 		}),
 	primaryKey({ columns: [table.roleId, table.permissionId], name: "role_permissions_role_id_permission_id_pk"}),
 ]);
+
+export const deanSigningDelegations = pgTable("dean_signing_delegations", {
+	id: serial().primaryKey().notNull(),
+	facultyId: integer("faculty_id").notNull(),
+	delegateUserId: text("delegate_user_id").notNull(),
+	allowedTemplateIds: jsonb("allowed_template_ids").default([]).notNull(),
+	startDate: timestamp("start_date", { withTimezone: true, mode: 'string' }),
+	endDate: timestamp("end_date", { withTimezone: true, mode: 'string' }),
+	active: boolean().default(true).notNull(),
+	note: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.facultyId],
+			foreignColumns: [faculties.id],
+			name: "dean_signing_delegations_faculty_id_fkey"
+		}),
+	foreignKey({
+			columns: [table.delegateUserId],
+			foreignColumns: [users.id],
+			name: "dean_signing_delegations_delegate_user_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+]);

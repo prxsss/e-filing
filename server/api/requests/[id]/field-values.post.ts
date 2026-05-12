@@ -1,6 +1,7 @@
 import db from '~~/lib/db';
-import { request, requestTemplate, requestTemplateValues, signatureFlow, userRoles } from '~~/lib/db/schema';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { isActiveDelegateForRequest } from '~~/lib/db/queries/dean-delegation';
+import { request, requestTemplate, requestTemplateValues, roles, signatureFlow, userRoles } from '~~/lib/db/schema';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
 export default defineEventHandler(async (event) => {
   // await requirePermission(event, '<permission>', '<permission>', ...);
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
     // Ownership check — only the request owner may write field values
     const [requestRecord] = await db
-      .select({ userId: request.userId, status: request.status, templateId: request.templateId })
+      .select({ userId: request.userId, status: request.status, templateId: request.templateId, facultyId: request.facultyId })
       .from(request)
       .where(eq(request.id, requestId))
       .limit(1);
@@ -36,6 +37,17 @@ export default defineEventHandler(async (event) => {
         .where(eq(userRoles.userId, userId));
       const userRoleIds = userRoleRows.map(r => r.roleId);
 
+      let deanRoleId: number | null = null;
+      let userIsDeanDelegate = false;
+      if (requestRecord.facultyId && requestRecord.templateId) {
+        const [deanRoleRow, delegateCheck] = await Promise.all([
+          db.select({ id: roles.id }).from(roles).where(sql`lower(${roles.name}) = 'dean'`).limit(1),
+          isActiveDelegateForRequest(userId, Number(requestRecord.facultyId), Number(requestRecord.templateId)),
+        ]);
+        deanRoleId = deanRoleRow[0]?.id ?? null;
+        userIsDeanDelegate = delegateCheck;
+      }
+
       const [pendingFlow] = await db
         .select()
         .from(signatureFlow)
@@ -50,7 +62,8 @@ export default defineEventHandler(async (event) => {
       if (pendingFlow) {
         pendingFlowForSigner = pendingFlow;
         isAuthorizedSigner = pendingFlow.assignedUserId === userId
-          || (pendingFlow.assignedUserId === null && userRoleIds.includes(pendingFlow.roleId));
+          || (pendingFlow.assignedUserId === null && userRoleIds.includes(pendingFlow.roleId))
+          || (userIsDeanDelegate && deanRoleId !== null && pendingFlow.roleId === deanRoleId);
       }
     }
 

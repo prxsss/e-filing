@@ -9,6 +9,11 @@ const route = useRoute();
 const { locale, locales, t, setLocale } = useI18n();
 const localePath = useLocalePath();
 
+const { data: deanDelegationAccess } = await useFetch<{ success: boolean; canAccess: boolean }>(
+  '/api/requests/dean-delegation-access',
+);
+const canSeeDeanDelegationMenu = computed(() => deanDelegationAccess.value?.canAccess === true);
+
 const open = ref(false);
 
 type NavigationMenuItemWithVisibility = {
@@ -79,6 +84,15 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
     },
     visible: computed(() => authStore.can('request.sign_history.view')),
   },
+  {
+    label: t('deanDelegatedToSign'),
+    icon: 'i-lucide-user-check',
+    to: localePath('/signer/dean-to-sign'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('request.to_sign.view') && canSeeDeanDelegationMenu.value),
+  },
   // {
   //   label: t('profile.menu'),
   //   icon: 'i-lucide-user-pen',
@@ -141,6 +155,15 @@ const sidebarItems = computed<NavigationMenuItemWithVisibility[]>(() => ([
       open.value = false;
     },
     visible: computed(() => authStore.can('department.view')),
+  },
+  {
+    label: t('adminDelegations.title'),
+    icon: 'i-lucide-user-check',
+    to: localePath('/admin/delegations'),
+    onSelect: () => {
+      open.value = false;
+    },
+    visible: computed(() => authStore.can('faculty.view')),
   },
 ] as NavigationMenuItemWithVisibility[]).filter(item => item.visible.value));
 

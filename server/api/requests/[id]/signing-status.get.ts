@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { isActiveDelegateForRequest } from '~~/lib/db/queries/dean-delegation';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
 import { auditLogs, request, requestTemplate, roles, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
@@ -61,6 +62,19 @@ export default defineEventHandler(async (event) => {
 
     if (!requestData) {
       return { success: false, error: 'Request not found' };
+    }
+
+    // Pattern C: dean delegation authorization for signing detail page
+    // so delegated users can see and act when the pending step is dean.
+    let userIsDeanDelegate = false;
+    let deanRoleId: number | null = null;
+    if (requestData.facultyId && requestData.templateId) {
+      const [deanRoleRow, delegateCheck] = await Promise.all([
+        db.select({ id: roles.id }).from(roles).where(sql`lower(${roles.name}) = 'dean'`).limit(1),
+        isActiveDelegateForRequest(userId, Number(requestData.facultyId), Number(requestData.templateId)),
+      ]);
+      deanRoleId = deanRoleRow[0]?.id ?? null;
+      userIsDeanDelegate = delegateCheck;
     }
 
     const [template] = await db
@@ -162,13 +176,15 @@ export default defineEventHandler(async (event) => {
     // Mirrors the same dual-pattern routing used in for-signing.get.ts:
     //   Pattern A — direct assignment: assignedUserId === me (role not required)
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
+    const isAuthorizedForPendingFlow = (s: typeof flowStepsWithNames[number]) =>
+      s.assignedUserId === userId
+      || (s.assignedUserId === null && userRoleIds.includes(s.roleId))
+      || (userIsDeanDelegate && deanRoleId !== null && s.roleId === deanRoleId);
+
     const pendingStep = flowStepsWithNames.find(s =>
       s.status === 'pending'
       && !s.acknowledgeOnly
-      && (
-        s.assignedUserId === userId
-        || (s.assignedUserId === null && userRoleIds.includes(s.roleId))
-      ),
+      && isAuthorizedForPendingFlow(s),
     ) ?? null;
 
     const activeStageOrder = pendingStep?.stepOrder ?? null;
@@ -178,10 +194,7 @@ export default defineEventHandler(async (event) => {
           step.status === 'pending'
           && !step.acknowledgeOnly
           && step.stepOrder === activeStageOrder
-          && (
-            step.assignedUserId === userId
-            || (step.assignedUserId === null && userRoleIds.includes(step.roleId))
-          ),
+          && isAuthorizedForPendingFlow(step),
         );
 
     const acknowledgeStepsForCurrentUser = flowStepsWithNames.filter(step =>

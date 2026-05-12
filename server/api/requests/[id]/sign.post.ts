@@ -1,5 +1,6 @@
 import db from '~~/lib/db';
-import { notifications, request, requestTemplate, signatureFlow, signatures, userRoles, users, userSignatures } from '~~/lib/db/schema';
+import { isActiveDelegateForRequest } from '~~/lib/db/queries/dean-delegation';
+import { notifications, request, requestTemplate, roles, signatureFlow, signatures, userRoles, users, userSignatures } from '~~/lib/db/schema';
 import { supabaseAdmin } from '~~/lib/supabase/client';
 import { signNotificationService } from '~~/server/services/sign-notification.service';
 import { buildFilledPdfBytesForRequest } from '~~/server/utils/build-filled-pdf-for-request';
@@ -123,6 +124,36 @@ export default defineEventHandler(async (event) => {
 
     const userRoleIds = userRoleRows.map(r => r.roleId);
 
+    // Fetch request meta early — needed for delegate authorization (Pattern C)
+    const [requestMetaEarly] = await db
+      .select({
+        facultyId: request.facultyId,
+        templateId: request.templateId,
+        status: request.status,
+      })
+      .from(request)
+      .where(eq(request.id, requestId))
+      .limit(1);
+
+    if (!requestMetaEarly) {
+      return { success: false, error: 'Request not found' };
+    }
+
+    // Pattern C: Dean-signing delegation
+    // Determine if this user is an active delegate for this request's faculty+template.
+    // If so, they can sign any pending dean-role step for this request.
+    let userIsDeanDelegate = false;
+    let deanRoleId: number | null = null;
+
+    if (requestMetaEarly.facultyId && requestMetaEarly.templateId) {
+      const [deanRoleRow, delegateCheck] = await Promise.all([
+        db.select({ id: roles.id }).from(roles).where(sql`lower(${roles.name}) = 'dean'`).limit(1),
+        isActiveDelegateForRequest(userId, requestMetaEarly.facultyId, Number(requestMetaEarly.templateId)),
+      ]);
+      deanRoleId = deanRoleRow[0]?.id ?? null;
+      userIsDeanDelegate = delegateCheck;
+    }
+
     let flowEntry: typeof signatureFlow.$inferSelect | null = null;
     let flowEntriesForUserAtActiveStep: typeof signatureFlow.$inferSelect[] = [];
     let activeStepOrder: number | null = null;
@@ -162,11 +193,17 @@ export default defineEventHandler(async (event) => {
         ))
         .orderBy(asc(signatureFlow.stepOrder));
 
-      // Find the pending step this user is authorized to sign
-      flowEntry = pendingFlows.find(f =>
+      // Authorization helper — Pattern A + B + C
+      //   Pattern A — direct assignment: assignedUserId === me
+      //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
+      //   Pattern C — delegation:        roleId is dean AND user is active delegate for this request
+      const isAuthorizedForFlow = (f: typeof signatureFlow.$inferSelect) =>
         f.assignedUserId === userId
-        || (f.assignedUserId === null && userRoleIds.includes(f.roleId)),
-      ) ?? null;
+        || (f.assignedUserId === null && userRoleIds.includes(f.roleId))
+        || (userIsDeanDelegate && deanRoleId !== null && f.roleId === deanRoleId);
+
+      // Find the pending step this user is authorized to sign
+      flowEntry = pendingFlows.find(isAuthorizedForFlow) ?? null;
 
       if (!flowEntry) {
         return { success: false, error: 'No pending signing step found for this request' };
@@ -181,34 +218,17 @@ export default defineEventHandler(async (event) => {
         if (flow.stepOrder !== activeStepOrder) {
           return false;
         }
-        return flow.assignedUserId === userId
-          || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId));
+        return isAuthorizedForFlow(flow);
       });
 
-      // Authorization: mirrors the same dual-pattern routing used in for-signing.get.ts
-      //   Pattern A — direct assignment: assignedUserId === me (role not required)
-      //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
-      const isAuthorized
-        = flowEntry.assignedUserId === userId
-          || (flowEntry.assignedUserId === null && userRoleIds.includes(flowEntry.roleId));
-
-      if (!isAuthorized) {
+      // Final authorization check
+      if (!isAuthorizedForFlow(flowEntry)) {
         return { success: false, error: 'You are not authorized to sign this step' };
       }
     }
 
-    const [requestMeta] = await db
-      .select({
-        templateId: request.templateId,
-        status: request.status,
-      })
-      .from(request)
-      .where(eq(request.id, requestId))
-      .limit(1);
-
-    if (!requestMeta) {
-      return { success: false, error: 'Request not found' };
-    }
+    // Re-use the requestMeta fetched earlier (already validated above)
+    const requestMeta = requestMetaEarly;
 
     const [template] = await db
       .select()

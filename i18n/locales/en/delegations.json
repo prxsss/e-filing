@@ -1,0 +1,42 @@
+{
+  "adminDelegations": {
+    "title": "Dean Signing Delegations",
+    "description": "Configure authorized delegates who can sign documents on behalf of the dean.",
+    "addButton": "Add Delegation",
+    "createTitle": "Add Delegation",
+    "editTitle": "Edit Delegation",
+    "allTemplates": "All Templates",
+    "indefinite": "No time limit",
+    "active": "Active",
+    "inactive": "Inactive",
+    "deleteConfirm": "Remove delegation for {delegate} in {faculty}? This action cannot be undone.",
+    "columns": {
+      "delegate": "Delegate",
+      "allowedTemplates": "Allowed Templates",
+      "period": "Active Period"
+    },
+    "form": {
+      "delegate": "Delegate User",
+      "delegatePlaceholder": "Select delegate user",
+      "facultyPlaceholder": "Select faculty",
+      "allowedTemplates": "Allowed Templates",
+      "allTemplatesPlaceholder": "All templates (leave empty for all)",
+      "allTemplatesHint": "Leave empty to allow signing all templates in this faculty.",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "note": "Note",
+      "notePlaceholder": "e.g. Acting dean while dean is abroad"
+    },
+    "success": {
+      "created": "Delegation created successfully.",
+      "updated": "Delegation updated successfully.",
+      "deleted": "Delegation deleted successfully."
+    },
+    "error": {
+      "required": "Faculty and delegate are required.",
+      "createError": "Failed to create delegation",
+      "updateError": "Failed to update delegation",
+      "deleteError": "Failed to delete delegation"
+    }
+  }
+}

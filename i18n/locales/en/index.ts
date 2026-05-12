@@ -3,6 +3,7 @@ import adminRequests from './admin-requests.json';
 import auth from './auth.json';
 import common from './common.json';
 import dashboard from './dashboard.json';
+import delegations from './delegations.json';
 import departments from './departments.json';
 import en from './en.json';
 import errors from './errors.json';
@@ -27,6 +28,7 @@ export default {
   ...faculties,
   ...templates,
   ...departments,
+  ...delegations,
   ...errors,
   ...users,
   ...en,
