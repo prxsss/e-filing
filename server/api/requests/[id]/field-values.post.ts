@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     const isOwner = requestRecord.userId === userId;
 
     let isAuthorizedSigner = false;
-    let pendingFlowForSigner: typeof signatureFlow.$inferSelect | null = null;
+    let signerFlowEntries: typeof signatureFlow.$inferSelect[] = [];
     if (!isOwner) {
       const userRoleRows = await db
         .select({ roleId: userRoles.roleId })
@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
         userIsDeanDelegate = delegateCheck;
       }
 
-      const [pendingFlow] = await db
+      const pendingFlows = await db
         .select()
         .from(signatureFlow)
         .where(and(
@@ -56,15 +56,31 @@ export default defineEventHandler(async (event) => {
           eq(signatureFlow.status, 'pending'),
           eq(signatureFlow.acknowledgeOnly, false),
         ))
-        .orderBy(asc(signatureFlow.stepOrder))
-        .limit(1);
+        .orderBy(asc(signatureFlow.stepOrder));
 
-      if (pendingFlow) {
-        pendingFlowForSigner = pendingFlow;
-        isAuthorizedSigner = pendingFlow.assignedUserId === userId
-          || (pendingFlow.assignedUserId === null && userRoleIds.includes(pendingFlow.roleId))
-          || (userIsDeanDelegate && deanRoleId !== null && pendingFlow.roleId === deanRoleId);
-      }
+      const activeStepOrder = pendingFlows[0]?.stepOrder ?? null;
+      const activeStageFlows = activeStepOrder === null
+        ? []
+        : pendingFlows.filter(flow => flow.stepOrder === activeStepOrder);
+
+      const acknowledgeFlows = await db
+        .select()
+        .from(signatureFlow)
+        .where(and(
+          eq(signatureFlow.requestId, requestId),
+          eq(signatureFlow.acknowledgeOnly, true),
+          sql`(${signatureFlow.status} = 'pending' OR ${signatureFlow.status} = 'waiting')`,
+        ))
+        .orderBy(asc(signatureFlow.stepOrder));
+
+      const candidateFlows = [...activeStageFlows, ...acknowledgeFlows];
+      signerFlowEntries = candidateFlows.filter((flow) => {
+        return flow.assignedUserId === userId
+          || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId))
+          || (userIsDeanDelegate && deanRoleId !== null && flow.roleId === deanRoleId);
+      });
+
+      isAuthorizedSigner = signerFlowEntries.length > 0;
     }
 
     if (!isOwner && !isAuthorizedSigner) {
@@ -120,11 +136,13 @@ export default defineEventHandler(async (event) => {
     }
 
     const signerAllowedInstanceIds = new Set<string>();
-    if (isAuthorizedSigner && pendingFlowForSigner?.assignedFieldInstanceIds) {
-      for (const id of pendingFlowForSigner.assignedFieldInstanceIds as string[]) {
-        const normalized = String(id ?? '').trim();
-        if (normalized.length > 0) {
-          signerAllowedInstanceIds.add(normalized);
+    if (isAuthorizedSigner && signerFlowEntries.length > 0) {
+      for (const flow of signerFlowEntries) {
+        for (const id of (flow.assignedFieldInstanceIds as string[]) ?? []) {
+          const normalized = String(id ?? '').trim();
+          if (normalized.length > 0) {
+            signerAllowedInstanceIds.add(normalized);
+          }
         }
       }
     }

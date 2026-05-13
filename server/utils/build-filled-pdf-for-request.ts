@@ -70,11 +70,24 @@ export async function buildFilledPdfBytesForRequest(
       ))
       .orderBy(asc(signatureFlow.stepOrder));
 
-    if (pendingFlows.length > 0) {
-      const activeStepOrder = pendingFlows[0].stepOrder;
-      const activeStageFlows = pendingFlows.filter(flow => flow.stepOrder === activeStepOrder);
+    const activeStepOrder = pendingFlows[0]?.stepOrder ?? null;
+    const activeStageFlows = activeStepOrder === null
+      ? []
+      : pendingFlows.filter(flow => flow.stepOrder === activeStepOrder);
 
-      isAuthorizedSigner = activeStageFlows.some((flow) => {
+    const acknowledgeFlows = await db
+      .select()
+      .from(signatureFlow)
+      .where(and(
+        eq(signatureFlow.requestId, requestId),
+        eq(signatureFlow.acknowledgeOnly, true),
+        sql`(${signatureFlow.status} = 'pending' OR ${signatureFlow.status} = 'waiting')`,
+      ))
+      .orderBy(asc(signatureFlow.stepOrder));
+
+    const candidateFlows = [...activeStageFlows, ...acknowledgeFlows];
+    if (candidateFlows.length > 0) {
+      isAuthorizedSigner = candidateFlows.some((flow) => {
         return flow.assignedUserId === userId
           || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId))
           || (userIsDeanDelegate && deanRoleId !== null && flow.roleId === deanRoleId);

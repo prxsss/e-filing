@@ -68,14 +68,12 @@ const requestStatusColor: Record<string, string> = {
   in_progress: 'warning',
   rejected: 'error',
   submitted: 'info',
-  draft: 'neutral',
 };
 const requestStatusLabel = computed<Record<string, string>>(() => ({
   completed: t('signerSignedHistory.requestStatus.completed'),
   in_progress: t('signerSignedHistory.requestStatus.inProgress'),
   rejected: t('signerSignedHistory.requestStatus.rejected'),
   submitted: t('signerSignedHistory.requestStatus.submitted'),
-  draft: t('signerSignedHistory.requestStatus.draft'),
 }));
 
 const UBadge = resolveComponent('UBadge');

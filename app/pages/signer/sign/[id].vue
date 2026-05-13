@@ -1511,7 +1511,7 @@ onUnmounted(() => {
             </UCard>
 
             <UAlert
-              v-if="hasCurrentPendingSteps && hasSignatureField && !isAcknowledgeMode"
+              v-if="hasCurrentPendingSteps && hasSignatureField"
               color="info"
               variant="soft"
               icon="i-heroicons-pencil-square"
@@ -1529,7 +1529,7 @@ onUnmounted(() => {
             />
 
             <UCard
-              v-if="hasCurrentPendingSteps && hasSignatureField && !isAcknowledgeMode"
+              v-if="hasCurrentPendingSteps && hasSignatureField"
               id="signer-signature-section"
               class="rounded-lg transition-colors"
               :class="showSignatureSubmitError ? 'border border-red-400 bg-white' : ''"
