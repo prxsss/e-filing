@@ -155,7 +155,13 @@ const columns = computed<any[]>(() => [
 ]);
 
 function onRowSelect(_e: Event, row: TableRow<any>) {
-  router.push(`/signer/sign/${row.original.requestId}`);
+  router.push({
+    path: `/signer/sign/${row.original.requestId}`,
+    query: {
+      flowId: String(row.original.flowId),
+      source: 'dean-to-sign',
+    },
+  });
 }
 </script>
 

@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event);
-    const { signatureDataUrl, regenerateFilledPdf, userSignatureId, signatureEntries, action } = body as {
+    const { signatureDataUrl, regenerateFilledPdf, userSignatureId, signatureEntries, action, flowId } = body as {
       signatureDataUrl?: string;
       signatureEntries?: Array<{ fieldInstanceId?: string; signatureDataUrl?: string }>;
       /** When true, rebuild filled PDF from DB in memory (avoids extra HTTP round-trip + re-download after generate-filled-pdf). */
@@ -71,9 +71,14 @@ export default defineEventHandler(async (event) => {
       /** Optional saved signature id owned by current signer. */
       userSignatureId?: number;
       action?: 'acknowledge' | 'sign';
+      flowId?: number;
     };
     const userId = event.context.user!.id; // We can assert this because of the require-auth middleware
     const resolvedAction = action === 'acknowledge' ? 'acknowledge' : 'sign';
+    const requestedFlowIdRaw = Number.parseInt(String(flowId ?? ''), 10);
+    const requestedFlowId = Number.isFinite(requestedFlowIdRaw) && requestedFlowIdRaw > 0
+      ? requestedFlowIdRaw
+      : null;
 
     const normalizedSignatureEntries = normalizeSignatureEntries(signatureEntries);
     let finalSignatureDataUrl = normalizeSignatureDataUrl(signatureDataUrl);
@@ -169,10 +174,24 @@ export default defineEventHandler(async (event) => {
         ))
         .orderBy(asc(signatureFlow.stepOrder));
 
-      flowEntriesForUserAtActiveStep = acknowledgeFlows.filter(flow =>
+      const isAuthorizedAcknowledgeFlow = (flow: typeof signatureFlow.$inferSelect) =>
         flow.assignedUserId === userId
-        || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId)),
-      );
+        || (flow.assignedUserId === null && userRoleIds.includes(flow.roleId));
+
+      let authorizedAcknowledgeFlows = acknowledgeFlows.filter(isAuthorizedAcknowledgeFlow);
+
+      if (requestedFlowId !== null) {
+        const requestedAcknowledgeFlow = authorizedAcknowledgeFlows.find(flow => flow.id === requestedFlowId) ?? null;
+        if (!requestedAcknowledgeFlow) {
+          return { success: false, error: 'Selected acknowledge step is not available' };
+        }
+
+        authorizedAcknowledgeFlows = authorizedAcknowledgeFlows.filter(
+          flow => flow.stepOrder === requestedAcknowledgeFlow.stepOrder,
+        );
+      }
+
+      flowEntriesForUserAtActiveStep = authorizedAcknowledgeFlows;
 
       flowEntry = flowEntriesForUserAtActiveStep[0] ?? null;
       if (!flowEntry) {
@@ -202,8 +221,17 @@ export default defineEventHandler(async (event) => {
         || (f.assignedUserId === null && userRoleIds.includes(f.roleId))
         || (userIsDeanDelegate && deanRoleId !== null && f.roleId === deanRoleId);
 
-      // Find the pending step this user is authorized to sign
-      flowEntry = pendingFlows.find(isAuthorizedForFlow) ?? null;
+      if (requestedFlowId !== null) {
+        const requestedPendingFlow = pendingFlows.find(flow => flow.id === requestedFlowId) ?? null;
+        if (!requestedPendingFlow || !isAuthorizedForFlow(requestedPendingFlow)) {
+          return { success: false, error: 'Selected signing step is not available' };
+        }
+        flowEntry = requestedPendingFlow;
+      }
+      else {
+        // Find the pending step this user is authorized to sign
+        flowEntry = pendingFlows.find(isAuthorizedForFlow) ?? null;
+      }
 
       if (!flowEntry) {
         return { success: false, error: 'No pending signing step found for this request' };
@@ -218,7 +246,7 @@ export default defineEventHandler(async (event) => {
         if (flow.stepOrder !== activeStepOrder) {
           return false;
         }
-        return isAuthorizedForFlow(flow);
+        return !flow.acknowledgeOnly && isAuthorizedForFlow(flow);
       });
 
       // Final authorization check

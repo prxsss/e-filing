@@ -170,22 +170,50 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Determine whether the current user may act on a pending step.
-    // With parallel signing there can be multiple pending steps at the same order;
-    // find the one specifically assigned to (or accessible by) the current user.
-    // Mirrors the same dual-pattern routing used in for-signing.get.ts:
-    //   Pattern A — direct assignment: assignedUserId === me (role not required)
+    const requestedFlowIdRaw = Number.parseInt(String(getQuery(event).flowId ?? ''), 10);
+    const requestedFlowId = Number.isFinite(requestedFlowIdRaw) && requestedFlowIdRaw > 0
+      ? requestedFlowIdRaw
+      : null;
+
+    const isAuthorizedForAcknowledgeFlow = (s: typeof flowStepsWithNames[number]) =>
+      s.assignedUserId === userId
+      || (s.assignedUserId === null && userRoleIds.includes(s.roleId));
+
+    // Determine whether the current user may act on a pending sign step.
+    // Mirrors the same routing used in for-signing endpoints:
+    //   Pattern A — direct assignment: assignedUserId === me
     //   Pattern B — role queue:        assignedUserId is null AND roleId ∈ userRoles
+    //   Pattern C — delegation:        active delegate may sign dean role
     const isAuthorizedForPendingFlow = (s: typeof flowStepsWithNames[number]) =>
       s.assignedUserId === userId
       || (s.assignedUserId === null && userRoleIds.includes(s.roleId))
       || (userIsDeanDelegate && deanRoleId !== null && s.roleId === deanRoleId);
 
-    const pendingStep = flowStepsWithNames.find(s =>
-      s.status === 'pending'
-      && !s.acknowledgeOnly
-      && isAuthorizedForPendingFlow(s),
-    ) ?? null;
+    const requestedFlow = requestedFlowId === null
+      ? null
+      : (flowStepsWithNames.find(s => s.id === requestedFlowId) ?? null);
+
+    const requestedPendingStep = requestedFlow
+      && requestedFlow.status === 'pending'
+      && !requestedFlow.acknowledgeOnly
+      && isAuthorizedForPendingFlow(requestedFlow)
+      ? requestedFlow
+      : null;
+
+    const requestedAcknowledgeStep = requestedFlow
+      && requestedFlow.acknowledgeOnly
+      && (requestedFlow.status === 'pending' || requestedFlow.status === 'waiting')
+      && isAuthorizedForAcknowledgeFlow(requestedFlow)
+      ? requestedFlow
+      : null;
+
+    const pendingStep = requestedAcknowledgeStep
+      ? null
+      : (requestedPendingStep ?? flowStepsWithNames.find(s =>
+          s.status === 'pending'
+          && !s.acknowledgeOnly
+          && isAuthorizedForPendingFlow(s),
+        ) ?? null);
 
     const activeStageOrder = pendingStep?.stepOrder ?? null;
     const pendingStepsForCurrentUser = activeStageOrder === null
@@ -197,20 +225,27 @@ export default defineEventHandler(async (event) => {
           && isAuthorizedForPendingFlow(step),
         );
 
-    const acknowledgeStepsForCurrentUser = flowStepsWithNames.filter(step =>
-      step.acknowledgeOnly
-      && (step.status === 'pending' || step.status === 'waiting')
-      && (
-        step.assignedUserId === userId
-        || (step.assignedUserId === null && userRoleIds.includes(step.roleId))
-      ),
-    );
+    const acknowledgeStepsForCurrentUser = requestedAcknowledgeStep
+      ? flowStepsWithNames.filter(step =>
+          step.acknowledgeOnly
+          && (step.status === 'pending' || step.status === 'waiting')
+          && step.stepOrder === requestedAcknowledgeStep.stepOrder
+          && isAuthorizedForAcknowledgeFlow(step),
+        )
+      : flowStepsWithNames.filter(step =>
+          step.acknowledgeOnly
+          && (step.status === 'pending' || step.status === 'waiting')
+          && isAuthorizedForAcknowledgeFlow(step),
+        );
 
-    // Build the list of signature field positions for the pending step so the
-    // client can render a live preview of the signature on the actual document.
+    // Build signature field positions only for the currently actionable context.
+    // This prevents showing signature targets from another step at the same time.
     const allFields = (template?.placedFieldsData as any[]) ?? [];
+    const actionableSteps = pendingStepsForCurrentUser.length > 0
+      ? pendingStepsForCurrentUser
+      : acknowledgeStepsForCurrentUser;
     const assignedIds = Array.from(new Set(
-      [...pendingStepsForCurrentUser, ...acknowledgeStepsForCurrentUser].flatMap((step) => {
+      actionableSteps.flatMap((step) => {
         const ids = (step.assignedFieldInstanceIds as string[]) ?? [];
         return ids.map(id => String(id ?? '').trim()).filter(id => id.length > 0);
       }),

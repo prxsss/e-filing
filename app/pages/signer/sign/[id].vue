@@ -83,6 +83,21 @@ const router = useRouter();
 const requestId = Number(route.params.id);
 const { t, locale } = useI18n();
 
+const selectedFlowId = computed<number | null>(() => {
+  const raw = Array.isArray(route.query.flowId) ? route.query.flowId[0] : route.query.flowId;
+  const parsed = Number.parseInt(String(raw ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+});
+
+const entrySource = computed<'to-sign' | 'dean-to-sign'>(() => {
+  const raw = Array.isArray(route.query.source) ? route.query.source[0] : route.query.source;
+  return raw === 'dean-to-sign' ? 'dean-to-sign' : 'to-sign';
+});
+
+const returnListPath = computed(() =>
+  entrySource.value === 'dean-to-sign' ? '/signer/dean-to-sign' : '/signer/to-sign',
+);
+
 const overlay = useOverlay();
 const toast = useToast();
 const confirmDialogWithReason = overlay.create(LazyBaseConfirmDialogWithReason);
@@ -785,8 +800,12 @@ async function fetchStatus() {
   isLoading.value = true;
   error.value = null;
   try {
+    const statusPath = selectedFlowId.value
+      ? `/api/requests/${requestId}/signing-status?flowId=${selectedFlowId.value}`
+      : `/api/requests/${requestId}/signing-status`;
+
     const result = await $fetch<{ success: boolean; data: SigningStatus; error?: string }>(
-      `/api/requests/${requestId}/signing-status`,
+      statusPath,
     );
     if (result.success) {
       signingStatus.value = result.data;
@@ -1024,7 +1043,7 @@ async function rejectRequest(mode: RejectMode = 'status_only') {
         color: isLocalReject ? 'warning' : 'error',
       });
 
-      router.push('/signer/to-sign');
+      router.push(returnListPath.value);
 
       signatureDataUrl.value = null;
       signatureSource.value = 'none';
@@ -1070,7 +1089,7 @@ async function applySignSuccessResponse(data: any, opts: { noSignatureField: boo
       : t('signerSignDetail.success.forwardedWithSignature', { role: data?.nextRole ?? t('signerSignDetail.success.nextStepFallback') });
   }
 
-  await router.push('/signer/to-sign');
+  await router.push(returnListPath.value);
 
   signatureDataUrl.value = null;
   signatureSource.value = 'none';
@@ -1112,7 +1131,11 @@ async function submitSignature(action: 'sign' | 'acknowledge' = 'sign') {
       }
     }
 
-    const signBody: { signatureDataUrl?: string; userSignatureId?: number; regenerateFilledPdf?: boolean; action?: 'sign' | 'acknowledge' } = {};
+    const signBody: { signatureDataUrl?: string; userSignatureId?: number; regenerateFilledPdf?: boolean; action?: 'sign' | 'acknowledge'; flowId?: number } = {};
+
+    if (selectedFlowId.value) {
+      signBody.flowId = selectedFlowId.value;
+    }
 
     if (hasSignatureField.value) {
       if (signatureSource.value === 'saved' && selectedSavedSignatureId.value) {
@@ -1142,7 +1165,7 @@ async function submitSignature(action: 'sign' | 'acknowledge' = 'sign') {
     if (result.success) {
       if (action === 'acknowledge') {
         successMessage.value = t('signerSignDetail.success.acknowledged');
-        await router.push('/signer/to-sign');
+        await router.push(returnListPath.value);
         signatureDataUrl.value = null;
         signatureSource.value = 'none';
         selectedSavedSignatureId.value = null;
@@ -1229,7 +1252,7 @@ function getFileIcon(fileName: string | null): string {
 }
 
 const breadcrumbLinks = computed(() => [
-  { label: t('signerSignDetail.breadcrumb.list'), to: '/signer/to-sign' },
+  { label: t('signerSignDetail.breadcrumb.list'), to: returnListPath.value },
   { label: signingStatus.value?.templateName ?? t('signerSignDetail.breadcrumb.requestNumber', { id: requestId }) },
 ]);
 
@@ -1315,7 +1338,7 @@ onUnmounted(() => {
           <p class="text-red-600 mb-4">
             {{ error ?? $t('signerSignDetail.errors.loadData') }}
           </p>
-          <UButton to="/signer/to-sign">
+          <UButton :to="returnListPath">
             {{ $t('signerSignDetail.actions.backToList') }}
           </UButton>
         </div>
