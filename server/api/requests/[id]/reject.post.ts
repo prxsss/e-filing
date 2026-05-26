@@ -6,9 +6,35 @@ import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
 import db from '../../../../lib/db';
-import { auditLogs, notifications, request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
+import { notifications, request, requestTemplate, requestTemplateValues, signatureFlow, signatures, userRoles, users, userSignatures } from '../../../../lib/db/schema';
 
 type RejectMode = 'status_only' | 'with_signature_and_field';
+type RejectionMode = 'full_request' | 'local_step';
+
+function buildRejectionReasonsUpdate(
+  signatureFlowId: number,
+  stepOrder: number,
+  rejectionMode: RejectionMode,
+  rejectDataMode: RejectMode,
+  reason: string,
+  rejectedByUserId: string,
+  rejectedAt: string,
+) {
+  const payload = JSON.stringify({
+    signatureFlowId,
+    stepOrder,
+    rejectionMode,
+    rejectDataMode,
+    reason,
+    rejectedByUserId,
+    rejectedAt,
+  });
+
+  const signatureFlowKey = sql`${String(signatureFlowId)}::text`;
+  const rejectionPayload = sql`${payload}::jsonb`;
+
+  return sql`coalesce(${request.rejectionReasons}, '{}'::jsonb) || jsonb_build_object(${signatureFlowKey}, ${rejectionPayload})`;
+}
 
 function normalizeSignatureDataUrl(raw: unknown): string {
   const value = String(raw ?? '').trim();
@@ -35,11 +61,6 @@ function parsePositiveInteger(value: unknown): number | null {
     return null;
   }
   return parsed;
-}
-
-function parseNullableInteger(value: unknown): number | null {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeCheckboxValue(value: unknown): string {
@@ -516,22 +537,20 @@ export default defineEventHandler(async (event) => {
 
       await db
         .update(request)
-        .set({ status: 'rejected', note: reason })
+        .set({
+          status: 'rejected',
+          note: reason,
+          rejectionReasons: buildRejectionReasonsUpdate(
+            flowEntry.id,
+            activeStepOrder,
+            'full_request',
+            rejectMode,
+            reason,
+            userId,
+            nowIso,
+          ),
+        })
         .where(eq(request.id, requestId));
-
-      await db.insert(auditLogs).values({
-        requestId,
-        performedBy: parseNullableInteger(userId),
-        action: JSON.stringify({
-          type: 'signature_flow_rejected',
-          signatureFlowId: flowEntry.id,
-          stepOrder: activeStepOrder,
-          rejectionMode: 'full_request',
-          rejectDataMode: rejectMode,
-          reason,
-          at: nowIso,
-        }),
-      });
 
       const [context, [signer], [template]] = await Promise.all([
         getSignRequestContext(requestId),
@@ -592,19 +611,20 @@ export default defineEventHandler(async (event) => {
       .set({ status: 'rejected', signedBy: userId, signedAt: nowIso })
       .where(eq(signatureFlow.id, flowEntry.id));
 
-    await db.insert(auditLogs).values({
-      requestId,
-      performedBy: parseNullableInteger(userId),
-      action: JSON.stringify({
-        type: 'signature_flow_rejected',
-        signatureFlowId: flowEntry.id,
-        stepOrder: activeStepOrder,
-        rejectionMode: 'local_step',
-        rejectDataMode: rejectMode,
-        reason,
-        at: nowIso,
-      }),
-    });
+    await db
+      .update(request)
+      .set({
+        rejectionReasons: buildRejectionReasonsUpdate(
+          flowEntry.id,
+          activeStepOrder,
+          'local_step',
+          rejectMode,
+          reason,
+          userId,
+          nowIso,
+        ),
+      })
+      .where(eq(request.id, requestId));
 
     const updatedStageEntries = await db
       .select()

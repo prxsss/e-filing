@@ -213,6 +213,7 @@ export const request = pgTable("request", {
 	filledDocumentUrl: text("filled_document_url"),
 	userId: text("user_id"),
 	note: text(),
+	rejectionReasons: jsonb("rejection_reasons").default(sql`'{}'::jsonb`).notNull(),
 	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
 	facultyId: integer("faculty_id"),
 	departmentId: integer("department_id"),

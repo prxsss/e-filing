@@ -1,37 +1,39 @@
 import { isActiveDelegateForRequest } from '~~/lib/db/queries/dean-delegation';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import db from '../../../../lib/db';
-import { auditLogs, request, requestTemplate, roles, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
+import { request, requestTemplate, roles, signatureFlow, signatures, userRoles, users } from '../../../../lib/db/schema';
 
-type RejectAuditPayload = {
-  type?: string;
+type StoredRejectionReasonPayload = {
   signatureFlowId?: unknown;
   reason?: unknown;
 };
 
-function parseRejectAuditPayload(action: string | null): { signatureFlowId: number; reason: string } | null {
-  if (!action) {
-    return null;
-  }
+function normalizeStoredRejectionReasons(raw: unknown): Array<{ signatureFlowId: number; reason: string }> {
+  const entries = Array.isArray(raw)
+    ? raw.map((value, index) => [String(index), value] as const)
+    : raw && typeof raw === 'object'
+      ? Object.entries(raw as Record<string, unknown>)
+      : [];
 
-  try {
-    const payload = JSON.parse(action) as RejectAuditPayload;
-    if (payload?.type !== 'signature_flow_rejected') {
-      return null;
+  const normalized: Array<{ signatureFlowId: number; reason: string }> = [];
+
+  for (const [key, value] of entries) {
+    if (!value || typeof value !== 'object') {
+      continue;
     }
 
-    const signatureFlowId = Number.parseInt(String(payload.signatureFlowId ?? ''), 10);
+    const payload = value as StoredRejectionReasonPayload;
+    const signatureFlowId = Number.parseInt(String(payload.signatureFlowId ?? key), 10);
     const reason = String(payload.reason ?? '').trim();
     if (!Number.isFinite(signatureFlowId) || signatureFlowId <= 0 || reason.length === 0) {
-      return null;
+      continue;
     }
 
-    return { signatureFlowId, reason };
+    normalized.push({ signatureFlowId, reason });
   }
-  catch {
-    return null;
-  }
+
+  return normalized;
 }
 
 export default defineEventHandler(async (event) => {
@@ -142,22 +144,10 @@ export default defineEventHandler(async (event) => {
       rejectedReason: null as string | null,
     }));
 
-    const rejectAuditRows = await db
-      .select({
-        action: auditLogs.action,
-      })
-      .from(auditLogs)
-      .where(eq(auditLogs.requestId, requestId))
-      .orderBy(desc(auditLogs.createdAt));
-
-    const rejectedReasonByFlowId = new Map<number, string>();
-    for (const row of rejectAuditRows) {
-      const parsed = parseRejectAuditPayload(row.action);
-      if (!parsed || rejectedReasonByFlowId.has(parsed.signatureFlowId)) {
-        continue;
-      }
-      rejectedReasonByFlowId.set(parsed.signatureFlowId, parsed.reason);
-    }
+    const rejectedReasonByFlowId = new Map<number, string>(
+      normalizeStoredRejectionReasons(requestData.rejectionReasons)
+        .map(entry => [entry.signatureFlowId, entry.reason] as const),
+    );
 
     for (const step of flowStepsWithNames) {
       if (step.status !== 'rejected') {

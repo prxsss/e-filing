@@ -8,6 +8,13 @@
       "when": 1773305780697,
       "tag": "0000_high_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779859200000,
+      "tag": "0019_add_request_rejection_reasons",
+      "breakpoints": true
     }
   ]
 }
