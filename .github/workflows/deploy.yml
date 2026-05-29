@@ -54,7 +54,7 @@ jobs:
         # 3. Copy new code to IIS folder and Restart PM2
       - name: Deploy to IIS Folder
         run: |
-          $targetPath = "C:\inetpub\wwwroot\e-filing"
+          $targetPath = "C:\inetpub\wwwroot\e-filing\.output"
 
           # Copy new code to IIS folder
           Copy-Item -Path ".\.output\*" -Destination $targetPath -Recurse -Force
