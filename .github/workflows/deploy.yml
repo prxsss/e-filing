@@ -1,0 +1,39 @@
+name: Auto Deploy Nuxt to Windows IIS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # 1. Install Node.js in the Runner Environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm # Cache npm dependencies to speed up subsequent builds
+
+      # 2. Install Dependencies and Build Nuxt
+      - name: Install and Build Nuxt
+        run: |
+          npm i
+          npm run build
+        shell: powershell
+
+        # 3. Copy new code to IIS folder and Restart PM2
+      - name: Deploy to IIS Folder
+        run: |
+          $targetPath = "C:\inetpub\wwwroot\e-filing"
+
+          # Copy new code to IIS folder
+          Copy-Item -Path ".\.output\*" -Destination $targetPath -Recurse -Force
+
+          pm2 restart nuxt-app
+        shell: powershell
