@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: [self-hosted, windows]
+    environment: Build
 
     steps:
       - name: Checkout Source Code
