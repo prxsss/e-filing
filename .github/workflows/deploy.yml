@@ -9,6 +9,29 @@ jobs:
   deploy:
     runs-on: [self-hosted, windows]
     environment: Build
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NUXT_SESSION_PASSWORD: ${{ secrets.NUXT_SESSION_PASSWORD}}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      IMPORT_USER_PASSWORD: ${{ secrets.IMPORT_USER_PASSWORD }}
+      EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      SCOPE: ${{ secrets.SCOPE }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      REDIRECT_URI: ${{ secrets.REDIRECT_URI }}
+      LOGOUT_REDIRECT_URI: ${{ secrets.LOGOUT_REDIRECT_URI }}
+      USER_INFO_ENDPOINT: ${{ secrets.USER_INFO_ENDPOINT }}
+      AUTHORIZATION_ENDPOINT: ${{ secrets.AUTHORIZATION_ENDPOINT }}
+      TOKEN_ENDPOINT: ${{ secrets.TOKEN_ENDPOINT }}
+      END_SESSION_ENDPOINT: ${{ secrets.END_SESSION_ENDPOINT }}
 
     steps:
       - name: Checkout Source Code
