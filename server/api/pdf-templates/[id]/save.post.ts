@@ -36,6 +36,7 @@ export default defineEventHandler(async (event: H3Event) => {
       .update(requestTemplate)
       .set({
         name: body.name.trim(),
+        description: body.description?.trim() || null,
         documentUrl: compositeImageUrl || undefined,
         documentWidth: body.documentWidth || null,
         documentHeight: body.documentHeight || null,
