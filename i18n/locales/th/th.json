@@ -118,7 +118,7 @@
   "noNotifications": "ไม่มีการแจ้งเตือน",
   "notifications": "การแจ้งเตือน",
   "signRequest": "รอลงนาม",
-  "justNow": "เมื่อกี้",
+  "justNow": "เมื่อสักครู่นี้",
   "minutesAgo": "{count} นาทีที่แล้ว",
   "hoursAgo": "{count} ชั่วโมงที่แล้ว",
   "daysAgo": "{count} วันที่แล้ว"
