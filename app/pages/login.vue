@@ -51,6 +51,8 @@ const fields: AuthFormField[] = [{
   size: 'xl',
 }];
 
+const showEmailPassword = ref(false);
+
 const providers: AuthFormProvider[] = [{
   label: 'KU ALL-Login',
   color: 'primary',
@@ -69,6 +71,10 @@ type Schema = z.output<typeof schema>;
 const formState = reactive({
   email: '',
   password: '',
+});
+
+const displayFields = computed(() => {
+  return showEmailPassword.value ? fields : [];
 });
 
 const authForm = useTemplateRef('authForm');
@@ -112,7 +118,7 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
         ref="authForm"
         v-model="formState"
         :schema="schema"
-        :fields="fields"
+        :fields="displayFields"
         :submit="{ label: $t('auth.login.submit'), loading: authStore.loading, loadingIcon: 'i-lucide-loader', variant: 'subtle', size: 'xl' }"
         :providers
         :separator="t('auth.login.orContinueWith')"
@@ -130,9 +136,20 @@ watch(() => [authForm.value?.state.email, authForm.value?.state.password], () =>
           <UAlert v-if="authStore.errorMessage" color="error" variant="subtle" icon="i-lucide-info" :title="authStore.errorMessage" />
         </template>
         <template #footer>
-          {{ $t('auth.login.firstTime') }} <ULink :to="localePath('/auth/activate')" class="text-primary font-medium">
-            {{ $t('auth.login.activateLink') }}
-          </ULink>.
+          <div class="space-y-3">
+            <div v-if="showEmailPassword" class="text-sm">
+              {{ $t('auth.login.firstTime') }} <ULink :to="localePath('/auth/activate')" class="text-primary font-medium">
+                {{ $t('auth.login.activateLink') }}
+              </ULink>.
+            </div>
+            <button
+              type="button"
+              class="text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+              @click="() => { showEmailPassword = !showEmailPassword; if (!showEmailPassword) { formState.email = ''; formState.password = ''; } }"
+            >
+              {{ showEmailPassword ? $t('auth.login.hideEmailPassword') || '← Back' : $t('auth.login.otherLoginOptions') || 'Other login options' }}
+            </button>
+          </div>
         </template>
       </UAuthForm>
     </UPageCard>
