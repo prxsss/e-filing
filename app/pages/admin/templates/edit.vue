@@ -2060,7 +2060,19 @@ watch(
               size="sm"
               class="mb-3 w-full"
               :disabled="isLoadingFields"
-            />
+              :ui="{ trailing: 'pe-1' }"
+            >
+              <template v-if="searchQuery?.length" #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  icon="i-lucide-circle-x"
+                  aria-label="Clear search"
+                  @click="searchQuery = ''"
+                />
+              </template>
+            </UInput>
 
             <!-- Loading skeleton -->
             <div v-if="isLoadingFields" class="space-y-2">
