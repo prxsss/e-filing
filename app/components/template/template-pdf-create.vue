@@ -1066,61 +1066,6 @@ function stopResize(): void {
   }
 }
 
-// async function saveImagesToStorage(templateName, _compositePdfBytes) {
-//   // Temporarily disabled - return mock URLs
-//   console.warn('Storage upload disabled - using mock URLs');
-
-//   const timestamp = Date.now();
-//   const fileExtension = props.pdfFile.name.split('.').pop();
-//   const originalFileName = `${templateName}_${timestamp}.${fileExtension}`;
-//   const compositeFileName = `${templateName}_${timestamp}_composite.pdf`;
-
-//   return {
-//     originalImageUrl: `https://example.com/templates/${originalFileName}`,
-//     compositeImageUrl: `https://example.com/composites/${compositeFileName}`,
-//   };
-
-//   /*
-//   const originalFilePath = `templates/${originalFileName}`;
-
-// //   const { error: uploadError1 } = await supabase.storage
-// //     .from("contract")
-// //     .upload(originalFilePath, props.pdfFile, {
-// //       cacheControl: "3600",
-// //       upsert: false,
-// //     });
-// //   if (uploadError1)
-// //     throw new Error("Error uploading original PDF: " + uploadError1.message);
-
-// //   const { data: publicUrlData1 } = supabase.storage
-// //     .from("contract")
-// //     .getPublicUrl(originalFilePath);
-
-// //   const compositeFilePath = `composites/${compositeFileName}`;
-// //   const compositeBlob = new Blob([compositePdfBytes], {
-// //     type: "application/pdf",
-// //   });
-
-// //   const { error: uploadError2 } = await supabase.storage
-// //     .from("contract")
-// //     .upload(compositeFilePath, compositeBlob, {
-// //       cacheControl: "3600",
-// //       upsert: false,
-// //     });
-// //   if (uploadError2)
-// //     throw new Error("Error uploading composite PDF: " + uploadError2.message);
-
-// //   const { data: publicUrlData2 } = supabase.storage
-// //     .from("contract")
-// //     .getPublicUrl(compositeFilePath);
-
-// //   return {
-// //     originalImageUrl: publicUrlData1.publicUrl,
-// //     compositeImageUrl: publicUrlData2.publicUrl,
-// //   };
-// //   */
-// }
-
 async function saveTemplate() {
   try {
     // Validate prerequisites
