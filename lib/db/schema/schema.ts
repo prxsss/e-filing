@@ -1,12 +1,12 @@
 import { pgTable, unique, text, boolean, timestamp, varchar, serial, foreignKey, bigint, integer, jsonb, uniqueIndex, doublePrecision, primaryKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
+import { nanoid } from "nanoid"
 
 export const notificationType = pgEnum("notification_type", ['sign_request', 'signed', 'completed', 'rejected', 'acknowledged'])
 export const userStatus = pgEnum("user_status", ['active', 'inactive', 'banned'])
 
-
 export const users = pgTable("users", {
-	id: text().primaryKey().notNull(),
+	id: text().primaryKey().notNull().$defaultFn(() => nanoid(12)),
 	firstNameEn: text("first_name_en").notNull(),
 	lastNameEn: text("last_name_en").notNull(),
 	firstNameTh: text("first_name_th").notNull(),
@@ -200,41 +200,6 @@ export const auditLogs = pgTable("audit_logs", {
 	authPerformedBy: text("auth_performed_by"),
 });
 
-export const request = pgTable("request", {
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	templateId: bigint("template_id", { mode: "number" }),
-	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
-	createdBy: bigint("created_by", { mode: "number" }),
-	status: text(),
-	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	filledDocumentUrl: text("filled_document_url"),
-	userId: text("user_id"),
-	note: text(),
-	rejectionReasons: jsonb("rejection_reasons").default(sql`'{}'::jsonb`).notNull(),
-	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
-	facultyId: integer("faculty_id"),
-	departmentId: integer("department_id"),
-}, (table) => [
-	foreignKey({
-			columns: [table.departmentId],
-			foreignColumns: [departments.id],
-			name: "request_department_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
-	foreignKey({
-			columns: [table.facultyId],
-			foreignColumns: [faculties.id],
-			name: "request_faculty_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
-	foreignKey({
-			columns: [table.userId],
-			foreignColumns: [users.id],
-			name: "request_user_id_fkey"
-		}),
-]);
-
 export const requestTemplateValues = pgTable("request_template_values", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_template_values_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
@@ -323,7 +288,66 @@ export const notifications = pgTable("notifications", {
 			columns: [table.userId],
 			foreignColumns: [users.id],
 			name: "notifications_user_id_fkey"
+		}).onUpdate("cascade"),
+]);
+
+export const deanSigningDelegations = pgTable("dean_signing_delegations", {
+	id: serial().primaryKey().notNull(),
+	facultyId: integer("faculty_id").notNull(),
+	delegateUserId: text("delegate_user_id").notNull(),
+	allowedTemplateIds: jsonb("allowed_template_ids").default([]).notNull(),
+	startDate: timestamp("start_date", { withTimezone: true, mode: 'string' }),
+	endDate: timestamp("end_date", { withTimezone: true, mode: 'string' }),
+	active: boolean().default(true).notNull(),
+	note: text(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.delegateUserId],
+			foreignColumns: [users.id],
+			name: "dean_signing_delegations_delegate_user_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.facultyId],
+			foreignColumns: [faculties.id],
+			name: "dean_signing_delegations_faculty_id_fkey"
 		}),
+]);
+
+export const request = pgTable("request", {
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity({ name: "request_id_seq", startWith: 1, increment: 1, minValue: 1, maxValue: 9223372036854775807, cache: 1 }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	templateId: bigint("template_id", { mode: "number" }),
+	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
+	createdBy: bigint("created_by", { mode: "number" }),
+	status: text(),
+	submittedAt: timestamp("submitted_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	filledDocumentUrl: text("filled_document_url"),
+	userId: text("user_id"),
+	note: text(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+	facultyId: integer("faculty_id"),
+	departmentId: integer("department_id"),
+	rejectionReasons: jsonb("rejection_reasons").default({}).notNull(),
+}, (table) => [
+	foreignKey({
+			columns: [table.departmentId],
+			foreignColumns: [departments.id],
+			name: "request_department_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.facultyId],
+			foreignColumns: [faculties.id],
+			name: "request_faculty_id_fkey"
+		}).onUpdate("cascade").onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+			name: "request_user_id_fkey"
+		}).onUpdate("cascade"),
 ]);
 
 export const signatureFlow = pgTable("signature_flow", {
@@ -348,7 +372,7 @@ export const signatureFlow = pgTable("signature_flow", {
 			columns: [table.assignedUserId],
 			foreignColumns: [users.id],
 			name: "signature_flow_assigned_user_id_fkey"
-		}),
+		}).onUpdate("cascade"),
 	foreignKey({
 			columns: [table.requestId],
 			foreignColumns: [request.id],
@@ -363,7 +387,20 @@ export const signatureFlow = pgTable("signature_flow", {
 			columns: [table.signedBy],
 			foreignColumns: [users.id],
 			name: "signature_flow_signed_by_fkey"
-		}),
+		}).onUpdate("cascade"),
+]);
+
+export const permissionPresets = pgTable("permission_presets", {
+	id: serial().primaryKey().notNull(),
+	name: varchar({ length: 100 }).notNull(),
+	nameTh: varchar("name_th", { length: 100 }).notNull(),
+	descriptionEn: text("description_en"),
+	descriptionTh: text("description_th"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("permission_presets_name_th_unique_ci").using("btree", sql`lower((name_th)::text)`),
+	uniqueIndex("permission_presets_name_unique_ci").using("btree", sql`lower((name)::text)`),
 ]);
 
 export const rolePermissions = pgTable("role_permissions", {
@@ -383,26 +420,19 @@ export const rolePermissions = pgTable("role_permissions", {
 	primaryKey({ columns: [table.roleId, table.permissionId], name: "role_permissions_role_id_permission_id_pk"}),
 ]);
 
-export const deanSigningDelegations = pgTable("dean_signing_delegations", {
-	id: serial().primaryKey().notNull(),
-	facultyId: integer("faculty_id").notNull(),
-	delegateUserId: text("delegate_user_id").notNull(),
-	allowedTemplateIds: jsonb("allowed_template_ids").default([]).notNull(),
-	startDate: timestamp("start_date", { withTimezone: true, mode: 'string' }),
-	endDate: timestamp("end_date", { withTimezone: true, mode: 'string' }),
-	active: boolean().default(true).notNull(),
-	note: text(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+export const permissionPresetPermissions = pgTable("permission_preset_permissions", {
+	presetId: integer("preset_id").notNull(),
+	permissionId: integer("permission_id").notNull(),
 }, (table) => [
 	foreignKey({
-			columns: [table.facultyId],
-			foreignColumns: [faculties.id],
-			name: "dean_signing_delegations_faculty_id_fkey"
-		}),
+			columns: [table.permissionId],
+			foreignColumns: [permissions.id],
+			name: "permission_preset_permissions_permission_id_fkey"
+		}).onDelete("cascade"),
 	foreignKey({
-			columns: [table.delegateUserId],
-			foreignColumns: [users.id],
-			name: "dean_signing_delegations_delegate_user_id_fkey"
-		}).onUpdate("cascade").onDelete("cascade"),
+			columns: [table.presetId],
+			foreignColumns: [permissionPresets.id],
+			name: "permission_preset_permissions_preset_id_fkey"
+		}).onDelete("cascade"),
+	primaryKey({ columns: [table.presetId, table.permissionId], name: "permission_preset_permissions_preset_id_permission_id_pk"}),
 ]);

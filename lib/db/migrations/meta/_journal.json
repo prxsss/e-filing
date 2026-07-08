@@ -15,6 +15,13 @@
       "when": 1779859200000,
       "tag": "0019_add_request_rejection_reasons",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783468800000,
+      "tag": "0020_add_permission_presets",
+      "breakpoints": true
     }
   ]
 }

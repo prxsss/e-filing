@@ -1,8 +1,7 @@
 import {
-  getAssignedRoleScopedPermissionIds,
+  assertAdminCriticalPermissionsUnchanged,
+  getMissingPermissionIds,
   getRoleById,
-  getRoleScopedPermissionIds,
-
   hasExactlyOneDashboardPermission,
   updateRolePermissions,
 } from '~~/lib/db/queries/permission';
@@ -22,7 +21,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'permissionIds must be an array' });
   }
 
-  const hasExactlyOneDashboard = await hasExactlyOneDashboardPermission(body.permissionIds);
+  const uniquePermissionIds = [...new Set(body.permissionIds)];
+  if (uniquePermissionIds.length !== body.permissionIds.length) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'permissionIds must not contain duplicates',
+      data: { code: 'DUPLICATE_PERMISSION_IDS' },
+    });
+  }
+
+  const missingPermissionIds = await getMissingPermissionIds(uniquePermissionIds);
+  if (missingPermissionIds.length > 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'One or more permissions do not exist',
+      data: { code: 'INVALID_PERMISSION_IDS', permissionIds: missingPermissionIds },
+    });
+  }
+
+  const hasExactlyOneDashboard = await hasExactlyOneDashboardPermission(uniquePermissionIds);
   if (!hasExactlyOneDashboard) {
     throw createError({
       statusCode: 400,
@@ -36,37 +53,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Role not found' });
   }
 
-  // Protect Admin role from losing or changing any role.* / permission.* permissions.
-  if (role.name.toLowerCase() === 'admin') {
-    const [protectedPermissionIds, currentProtectedAssignments] = await Promise.all([
-      getRoleScopedPermissionIds(),
-      getAssignedRoleScopedPermissionIds(id),
-    ]);
+  await assertAdminCriticalPermissionsUnchanged(id, uniquePermissionIds);
 
-    const nextProtectedAssignments = new Set(
-      body.permissionIds.filter(permissionId => protectedPermissionIds.has(permissionId)),
-    );
-
-    if (currentProtectedAssignments.size !== nextProtectedAssignments.size) {
-      throw createError({
-        statusCode: 409,
-        statusMessage: 'Admin role.* and permission.* permissions are locked',
-        data: { code: 'ADMIN_CRITICAL_PERMISSIONS_LOCKED' },
-      });
-    }
-
-    for (const permissionId of currentProtectedAssignments) {
-      if (!nextProtectedAssignments.has(permissionId)) {
-        throw createError({
-          statusCode: 409,
-          statusMessage: 'Admin role.* and permission.* permissions are locked',
-          data: { code: 'ADMIN_CRITICAL_PERMISSIONS_LOCKED' },
-        });
-      }
-    }
-  }
-
-  await updateRolePermissions(id, body.permissionIds);
+  await updateRolePermissions(id, uniquePermissionIds);
 
   return { success: true };
 });

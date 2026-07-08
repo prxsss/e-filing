@@ -55,6 +55,40 @@ export async function getAssignedRoleScopedPermissionIds(roleId: number) {
   return new Set(result.map(r => r.permissionId));
 }
 
+export async function assertAdminCriticalPermissionsUnchanged(roleId: number, permissionIds: number[]) {
+  const role = await getRoleById(roleId);
+  if (!role || role.name.toLowerCase() !== 'admin') {
+    return;
+  }
+
+  const [protectedPermissionIds, currentProtectedAssignments] = await Promise.all([
+    getRoleScopedPermissionIds(),
+    getAssignedRoleScopedPermissionIds(roleId),
+  ]);
+
+  const nextProtectedAssignments = new Set(
+    permissionIds.filter(permissionId => protectedPermissionIds.has(permissionId)),
+  );
+
+  if (currentProtectedAssignments.size !== nextProtectedAssignments.size) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Admin role.* and permission.* permissions are locked',
+      data: { code: 'ADMIN_CRITICAL_PERMISSIONS_LOCKED' },
+    });
+  }
+
+  for (const permissionId of currentProtectedAssignments) {
+    if (!nextProtectedAssignments.has(permissionId)) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Admin role.* and permission.* permissions are locked',
+        data: { code: 'ADMIN_CRITICAL_PERMISSIONS_LOCKED' },
+      });
+    }
+  }
+}
+
 export async function updateRolePermissions(roleId: number, permissionIds: number[]) {
   await db.transaction(async (tx) => {
     await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
@@ -65,6 +99,20 @@ export async function updateRolePermissions(roleId: number, permissionIds: numbe
       );
     }
   });
+}
+
+export async function getMissingPermissionIds(permissionIds: number[]) {
+  if (permissionIds.length === 0) {
+    return [];
+  }
+
+  const rows = await db
+    .select({ id: permissions.id })
+    .from(permissions)
+    .where(inArray(permissions.id, permissionIds));
+
+  const existingPermissionIds = new Set(rows.map(row => row.id));
+  return permissionIds.filter(permissionId => !existingPermissionIds.has(permissionId));
 }
 
 export async function hasExactlyOneDashboardPermission(permissionIds: number[]) {

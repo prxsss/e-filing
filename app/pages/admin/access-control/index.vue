@@ -43,6 +43,18 @@ const { data: permissions } = await useFetch<{
   descriptionTh: string | null;
 }[]>('/api/permissions');
 
+const { data: permissionPresets } = await useFetch<{
+  id: number;
+  name: string;
+  nameTh: string;
+  descriptionEn: string | null;
+  descriptionTh: string | null;
+  permissionIds: number[];
+}[]>('/api/admin/permission-presets', {
+  default: () => [],
+  immediate: authStore.can('permission_preset.view'),
+});
+
 // ── Fetch role permissions (reactive to selected role) ──
 const { data: rolePermissionIds, refresh: refreshRolePermissions } = useFetch<number[]>(
   () => `/api/roles/${selectedRoleId.value}/permissions`,
@@ -150,6 +162,20 @@ const selectedRole = computed(() =>
 );
 
 const isAdminRoleSelected = computed(() => selectedRole.value?.name.toLowerCase() === 'admin');
+
+const selectedPresetId = ref<number | null>(null);
+
+const permissionPresetItems = computed(() =>
+  (permissionPresets.value ?? []).map(preset => ({
+    label: preset.name,
+    labelTh: preset.nameTh,
+    value: preset.id,
+  })),
+);
+
+const selectedPreset = computed(() =>
+  permissionPresets.value?.find(preset => preset.id === selectedPresetId.value) ?? null,
+);
 
 function isAdminRolePermissionLocked(permissionCode: string) {
   return isAdminRoleSelected.value
@@ -280,6 +306,7 @@ function resetChanges() {
 
 // ── Save ──
 const saving = ref(false);
+const applyingPreset = ref(false);
 
 async function saveChanges() {
   if (!selectedRoleId.value)
@@ -334,9 +361,67 @@ async function saveChanges() {
   }
 }
 
+async function applySelectedPreset() {
+  if (!selectedRoleId.value || !selectedPreset.value)
+    return;
+
+  const roleName = selectedRole.value ? locale.value === 'th' ? selectedRole.value.nameTh : selectedRole.value.name : '';
+  const presetName = locale.value === 'th' ? selectedPreset.value.nameTh : selectedPreset.value.name;
+
+  const instance = confirmDialog.open({
+    title: t('adminAccessControl.presets.applyConfirmTitle'),
+    description: t('adminAccessControl.presets.applyConfirmDescription', { preset: presetName, role: roleName }),
+    cancelButton: { label: t('cancel') },
+    confirmButton: { label: t('adminAccessControl.presets.applyPreset'), color: 'primary' },
+  });
+
+  const confirmed = await instance.result;
+  if (!confirmed)
+    return;
+
+  applyingPreset.value = true;
+  try {
+    await $fetch(`/api/roles/${selectedRoleId.value}/apply-permission-preset`, {
+      method: 'POST',
+      body: { presetId: selectedPreset.value.id },
+    });
+    await refreshRolePermissions();
+    toast.add({ title: t('adminAccessControl.messages.success.presetApplied'), color: 'success' });
+  }
+  catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number })?.statusCode;
+    const errorData = (error as { data?: { code?: string; statusMessage?: string } })?.data;
+
+    if (statusCode === 409 && errorData?.code === 'ADMIN_CRITICAL_PERMISSIONS_LOCKED') {
+      toast.add({
+        title: t('adminAccessControl.messages.error.presetApplyFailed'),
+        description: t('adminAccessControl.messages.locked.adminPermission'),
+        color: 'error',
+      });
+      await refreshRolePermissions();
+      return;
+    }
+
+    if (statusCode === 400 && errorData?.code === 'INVALID_DASHBOARD_PERMISSION_COUNT') {
+      toast.add({
+        title: t('adminAccessControl.messages.error.presetApplyFailed'),
+        description: t('adminAccessControl.messages.error.presetDashboardPermissionRequired'),
+        color: 'error',
+      });
+      return;
+    }
+
+    toast.add({ title: t('adminAccessControl.messages.error.presetApplyFailed'), color: 'error' });
+  }
+  finally {
+    applyingPreset.value = false;
+  }
+}
+
 function selectRole(roleId: number) {
   selectedRoleId.value = roleId;
   searchQuery.value = '';
+  selectedPresetId.value = null;
 }
 </script>
 
@@ -354,9 +439,14 @@ function selectRole(roleId: number) {
           </p>
         </div>
       </div>
-      <UButton v-if="authStore.can('role.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/access-control/create')">
-        {{ t('adminAccessControl.addRole') }}
-      </UButton>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <UButton v-if="authStore.can('permission_preset.view')" icon="i-lucide-package-check" color="neutral" variant="subtle" size="md" :to="localPath('/admin/access-control/presets')">
+          {{ t('adminAccessControl.presets.title') }}
+        </UButton>
+        <UButton v-if="authStore.can('role.create')" icon="i-lucide-plus" size="md" :to="localPath('/admin/access-control/create')">
+          {{ t('adminAccessControl.addRole') }}
+        </UButton>
+      </div>
     </div>
 
     <!-- Main Content -->
@@ -445,6 +535,30 @@ function selectRole(roleId: number) {
                 class="w-full"
               />
             </div>
+          </div>
+          <div
+            v-if="selectedRole && authStore.can('role.assign_permission') && authStore.can('permission_preset.apply')"
+            class="flex flex-col md:flex-row md:items-end gap-3"
+          >
+            <UFormField :label="t('adminAccessControl.presets.applyPreset')" class="flex-1">
+              <USelectMenu
+                v-model="selectedPresetId"
+                :items="permissionPresetItems"
+                :label-key="locale === 'th' ? 'labelTh' : 'label'"
+                value-key="value"
+                :placeholder="t('adminAccessControl.presets.selectPreset')"
+                :clear="true"
+                class="w-full"
+              />
+            </UFormField>
+            <UButton
+              icon="i-lucide-copy-check"
+              :loading="applyingPreset"
+              :disabled="!selectedPresetId"
+              @click="applySelectedPreset"
+            >
+              {{ t('adminAccessControl.presets.applyPreset') }}
+            </UButton>
           </div>
         </div>
 
