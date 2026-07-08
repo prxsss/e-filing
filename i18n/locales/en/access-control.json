@@ -3,11 +3,23 @@
     "title": "Access Control",
     "description": "Manage system roles and security permissions",
     "addRole": "Add Role",
+    "presets": {
+      "title": "Permission Presets",
+      "description": "Create reusable permission sets and apply them to roles.",
+      "addPreset": "Add Preset",
+      "editPreset": "Edit Preset",
+      "empty": "No permission presets have been created yet.",
+      "selectPreset": "Select a permission preset",
+      "applyPreset": "Apply Preset",
+      "applyConfirmTitle": "Apply permission preset?",
+      "applyConfirmDescription": "This will replace all permissions on the {role} role with permissions from \"{preset}\"."
+    },
     "sections": {
       "systemRoles": "System Roles",
       "permissionSettings": "Permission Settings",
       "permissionSettingsDescription": "Define what users assigned to the {role} role can see and do.",
       "roleInformation": "Role Information",
+      "presetInformation": "Preset Information",
       "assignPermissions": "Assign Permissions"
     },
     "roleForm": {
@@ -19,6 +31,16 @@
       "descTh": "Description (TH)",
       "descEnPlaceholder": "Brief description of this role in English",
       "descThPlaceholder": "Brief description of this role in Thai"
+    },
+    "presetForm": {
+      "nameEn": "Preset Name (EN)",
+      "nameTh": "Preset Name (TH)",
+      "namePlaceholder": "e.g. Department Approver",
+      "nameThPlaceholder": "e.g. ผู้อนุมัติระดับภาควิชา",
+      "descEn": "Description (EN)",
+      "descTh": "Description (TH)",
+      "descEnPlaceholder": "Brief description of this preset in English",
+      "descThPlaceholder": "Brief description of this preset in Thai"
     },
     "state": {
       "selectRolePrompt": "Select a role from the left to manage its permissions.",
@@ -33,7 +55,11 @@
         "created": "Role created successfully.",
         "updated": "Role updated successfully.",
         "deleted": "Role deleted successfully.",
-        "permissionSaved": "Permission changes were saved successfully."
+        "permissionSaved": "Permission changes were saved successfully.",
+        "presetCreated": "Permission preset created successfully.",
+        "presetUpdated": "Permission preset updated successfully.",
+        "presetDeleted": "Permission preset deleted successfully.",
+        "presetApplied": "Permission preset applied successfully."
       },
       "error": {
         "createFailed": "Failed to create role.",
@@ -42,7 +68,13 @@
         "deleteFailed": "Failed to delete role.",
         "permissionFailed": "Failed to save permission changes.",
         "deleteInUse": "This role is currently assigned to {count} user(s) and cannot be deleted.",
-        "dashboardPermissionRequired": "Role must include one dashboard permission"
+        "dashboardPermissionRequired": "Role must include one dashboard permission",
+        "presetSaveFailed": "Failed to save permission preset.",
+        "presetDeleteFailed": "Failed to delete permission preset.",
+        "presetApplyFailed": "Failed to apply permission preset.",
+        "duplicatePresetName": "A permission preset with this name already exists.",
+        "presetDashboardPermissionRequired": "Preset must include one dashboard permission.",
+        "invalidPermissionIds": "One or more selected permissions no longer exist."
       },
       "locked": {
         "adminDelete": "The Admin role is protected and cannot be deleted.",

@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { users, userSignatures, departments, userRoles, faculties, roles, request, signatures, signatureFlow, attachments, requestTemplateValues, activationOtps, notifications, permissions, rolePermissions } from "./schema";
+import { users, userSignatures, departments, userRoles, faculties, roles, request, signatures, signatureFlow, attachments, requestTemplateValues, activationOtps, notifications, deanSigningDelegations, permissions, rolePermissions, permissionPresetPermissions, permissionPresets } from "./schema";
 
 export const userSignaturesRelations = relations(userSignatures, ({one, many}) => ({
 	user: one(users, {
@@ -13,15 +13,16 @@ export const usersRelations = relations(users, ({many}) => ({
 	userSignatures: many(userSignatures),
 	userRoles: many(userRoles),
 	signatures: many(signatures),
+	activationOtps: many(activationOtps),
+	notifications: many(notifications),
+	deanSigningDelegations: many(deanSigningDelegations),
+	requests: many(request),
 	signatureFlows_assignedUserId: many(signatureFlow, {
 		relationName: "signatureFlow_assignedUserId_users_id"
 	}),
 	signatureFlows_signedBy: many(signatureFlow, {
 		relationName: "signatureFlow_signedBy_users_id"
 	}),
-	requests: many(request),
-	activationOtps: many(activationOtps),
-	notifications: many(notifications),
 }));
 
 export const userRolesRelations = relations(userRoles, ({one}) => ({
@@ -55,6 +56,7 @@ export const departmentsRelations = relations(departments, ({one, many}) => ({
 export const facultiesRelations = relations(faculties, ({many}) => ({
 	userRoles: many(userRoles),
 	departments: many(departments),
+	deanSigningDelegations: many(deanSigningDelegations),
 	requests: many(request),
 }));
 
@@ -85,8 +87,8 @@ export const signaturesRelations = relations(signatures, ({one}) => ({
 
 export const requestRelations = relations(request, ({one, many}) => ({
 	signatures: many(signatures),
-	signatureFlows: many(signatureFlow),
 	attachments: many(attachments),
+	requestTemplateValues: many(requestTemplateValues),
 	department: one(departments, {
 		fields: [request.departmentId],
 		references: [departments.id]
@@ -99,7 +101,7 @@ export const requestRelations = relations(request, ({one, many}) => ({
 		fields: [request.userId],
 		references: [users.id]
 	}),
-	requestTemplateValues: many(requestTemplateValues),
+	signatureFlows: many(signatureFlow),
 }));
 
 export const signatureFlowRelations = relations(signatureFlow, ({one, many}) => ({
@@ -152,6 +154,17 @@ export const notificationsRelations = relations(notifications, ({one}) => ({
 	}),
 }));
 
+export const deanSigningDelegationsRelations = relations(deanSigningDelegations, ({one}) => ({
+	user: one(users, {
+		fields: [deanSigningDelegations.delegateUserId],
+		references: [users.id]
+	}),
+	faculty: one(faculties, {
+		fields: [deanSigningDelegations.facultyId],
+		references: [faculties.id]
+	}),
+}));
+
 export const rolePermissionsRelations = relations(rolePermissions, ({one}) => ({
 	permission: one(permissions, {
 		fields: [rolePermissions.permissionId],
@@ -165,4 +178,20 @@ export const rolePermissionsRelations = relations(rolePermissions, ({one}) => ({
 
 export const permissionsRelations = relations(permissions, ({many}) => ({
 	rolePermissions: many(rolePermissions),
+	permissionPresetPermissions: many(permissionPresetPermissions),
+}));
+
+export const permissionPresetPermissionsRelations = relations(permissionPresetPermissions, ({one}) => ({
+	permission: one(permissions, {
+		fields: [permissionPresetPermissions.permissionId],
+		references: [permissions.id]
+	}),
+	permissionPreset: one(permissionPresets, {
+		fields: [permissionPresetPermissions.presetId],
+		references: [permissionPresets.id]
+	}),
+}));
+
+export const permissionPresetsRelations = relations(permissionPresets, ({many}) => ({
+	permissionPresetPermissions: many(permissionPresetPermissions),
 }));
